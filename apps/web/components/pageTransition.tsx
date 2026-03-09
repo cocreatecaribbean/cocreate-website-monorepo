@@ -1,0 +1,14 @@
+"use client";
+import { usePathname } from "next/navigation";
+
+const PageTransition: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const pathname = usePathname();
+
+    return (
+        <div key={pathname} className="animate-fadein">
+            {children}
+        </div>
+    );
+};
+
+export default PageTransition;
