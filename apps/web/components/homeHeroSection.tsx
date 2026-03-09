@@ -238,7 +238,7 @@ export default function HomeHeroSection() {
           ref={vid_container}
           className="w-screen h-full col-span-1 col-start-1 row-span-1 row-start-1 self-start scale-0 overflow-hidden will-change-transform"
         >
-          <BackgroundVideo src="/videos/cocreate-2026-reel-v1.webm" />
+          <BackgroundVideo src="/videos/cocreate-2026-reel-web-v1.mp4" />
         </div>
       </section>
 
