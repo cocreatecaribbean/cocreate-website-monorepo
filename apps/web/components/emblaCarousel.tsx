@@ -13,7 +13,6 @@ import {
 import { DotButton, useDotButton } from './emblaCarouselDotButton'
 import EmblaSlide from './emblaSlide'
 import { cn } from '@/utils/tailwind-helpers'
-import { philosophies } from '@/site-info/home-page-data'
 import { Philosophy } from '@/types/global-types'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -37,13 +36,14 @@ type PropType = {
   className_embla?: string
   className_emblaView?: string
   slides: Philosophy[]
+  onInit?: (api: EmblaCarouselType) => void 
 }
 
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const EmblaCarousel = (props: PropType) => {
-  const { slides, options, className_embla, className_emblaView } = props
+  const { slides, options, className_embla, className_emblaView, onInit } = props
 
   // emblaRef  → attached to the viewport DOM node so Embla can observe scrolling.
   // emblaApi  → the Embla instance exposing scrollSnapList(), on(), off(), etc.
@@ -68,18 +68,21 @@ const EmblaCarousel = (props: PropType) => {
   // The middle wrapper elements (.embla__slide__margin) — margin compensation applied here.
   // This is intentionally a SEPARATE layer from both:
   //   1. The outer .embla__slide — which Embla controls via translateX for looping.
-  //      If we put margins here, they conflict with Embla's loop teleportation and cause glitches.
   //   2. The inner .embla__slide__number — which we're already using for scale transforms.
-  //      Mixing margin and scale transforms on the same element gets messy.
-  // By using a dedicated middle wrapper, each layer has one responsibility.
   const marginNodes = useRef<HTMLElement[]>([])
 
   // Cached slide widths measured once after init/reInit.
   // Replaces calling getBoundingClientRect() inside the scroll loop.
-  // getBoundingClientRect() forces a browser reflow (layout recalculation) every call.
-  // Calling it inside a loop on every scroll frame causes significant jank.
-  // Since slide width doesn't change during scrolling, we measure once and reuse.
   const slideWidths = useRef<number[]>([])
+
+  // ─── GSAP Layer Refs ───────────────────────────────────────────────────────
+  //
+  // Layer ownership summary:
+  //   .embla__slide          → Embla    (translateX for loop teleportation)
+  //   .embla__slide__margin  → tweenScale (margin compensation)
+  //   .embla__slide__number  → tweenScale (scale transform)
+  //   .embla__slide__gsap    → GSAP     (opacity, y, x, or any entrance animation)
+  const gsapSlideRefs = useRef<(HTMLDivElement | null)[]>([])
 
 
   // ─── Dot & Arrow Buttons ───────────────────────────────────────────────────
@@ -93,17 +96,29 @@ const EmblaCarousel = (props: PropType) => {
   } = usePrevNextButtons(emblaApi)
 
 
+  // ─── Click to Select Logic ─────────────────────────────────────────────────
+
+  const onSlideClick = useCallback(
+    (index: number) => {
+      if (!emblaApi) return
+
+      // To prevent jumping when a user finishes a drag/swipe, we check velocity.
+      // If the carousel is stationary (or nearly so), we treat it as a selection click.
+      const engine = emblaApi.internalEngine()
+      const isStationary = Math.abs(engine.scrollBody.velocity()) < 0.1
+
+      if (isStationary) {
+        emblaApi.scrollTo(index)
+      }
+    },
+    [emblaApi]
+  )
+
+
   // ─── Tween Setup ──────────────────────────────────────────────────────────
 
   // Collects and caches all the DOM node references we need for animation.
-  // Called on mount and on reInit (slide count changes, window resize, etc.)
-  // because the DOM nodes may have changed.
-  //
-  // useCallback with empty deps gives a stable function reference.
-  // This is required because we pass this directly to emblaApi.on() and .off().
-  // For .off() to successfully unregister, it must receive the exact same
-  // function reference that was passed to .on(). Without useCallback, a new
-  // function is created every render and .off() can never find it to remove it.
+  // Called on mount and on reInit because the DOM nodes may have changed.
   const setTweenNodes = useCallback((emblaApi: EmblaCarouselType): void => {
     const nodes = emblaApi.slideNodes()
 
@@ -113,23 +128,15 @@ const EmblaCarousel = (props: PropType) => {
     })
 
     // Middle wrapper: receives the margin compensation.
-    // Sits between Embla's outer positioning element and our scale element,
-    // so neither interferes with the other.
     marginNodes.current = nodes.map((slideNode) => {
       return slideNode.querySelector('.embla__slide__margin') as HTMLElement
     })
 
     // Cache slide widths here — measured once, reused on every scroll frame.
-    // We measure the outer slide node (not the inner scaled one) because:
-    //   - The outer node is never scaled, so getBoundingClientRect() returns
-    //     the true layout width, not a scaled-down visual width.
-    //   - This is the width we need for the margin compensation math.
     slideWidths.current = nodes.map((node) => node.getBoundingClientRect().width)
   }, [])
 
   // Computes the final tween multiplier.
-  // Multiplying by snap count means the scale effect intensity stays visually
-  // consistent whether there are 3 slides or 10 slides.
   const setTweenFactor = useCallback((emblaApi: EmblaCarouselType) => {
     tweenFactor.current = TWEEN_FACTOR_BASE * emblaApi.scrollSnapList().length
   }, [])
@@ -137,13 +144,6 @@ const EmblaCarousel = (props: PropType) => {
 
   // ─── Scale + Margin Tween ─────────────────────────────────────────────────
 
-  // The core animation function. Runs on every scroll frame plus on init,
-  // reInit, and slideFocus. For each slide it:
-  //   1. Calculates how far the slide is from the current scroll position.
-  //   2. Converts that distance into a scale value.
-  //   3. Applies the scale transform to the inner element.
-  //   4. Applies negative margin compensation to the middle wrapper so the
-  //      visual gap between slides stays consistent despite the scaling.
   const tweenScale = useCallback(
     (emblaApi: EmblaCarouselType, eventName?: EmblaEventType) => {
 
@@ -151,28 +151,14 @@ const EmblaCarousel = (props: PropType) => {
       // Used here because slideRegistry and slideLooper.loopPoints are not
       // exposed via the public API, but are necessary for this implementation.
       const engine = emblaApi.internalEngine()
-
-      // Normalized scroll position across the full scroll range (0 → 1).
       const scrollProgress = emblaApi.scrollProgress()
-
-      // Indices of slides currently visible in the viewport.
-      // Used below to skip off-screen slides during scroll events.
       const slidesInView = emblaApi.slidesInView()
-
-      // During scroll events only, we skip off-screen slides for performance.
-      // On other events (init, reInit, slideFocus) we update all slides.
       const isScrollEvent = eventName === 'scroll'
 
       emblaApi.scrollSnapList().forEach((scrollSnap, snapIndex) => {
 
         // How far is this snap point from the current scroll position?
-        // 0 = carousel is exactly on this snap (slide is centered/active).
-        // Growing away from 0 = slide is further away = should shrink more.
         let diffToTarget = scrollSnap - scrollProgress
-
-        // slideRegistry is a 2D array: slideRegistry[snapIndex] = [slideIndex, ...]
-        // Maps each snap stop to the slide(s) that belong to it.
-        // Usually one slide per snap, but can be multiple with slidesToScroll > 1.
         const slidesInSnap = engine.slideRegistry[snapIndex]
 
         slidesInSnap.forEach((slideIndex: number) => {
@@ -182,22 +168,8 @@ const EmblaCarousel = (props: PropType) => {
           if (isScrollEvent && !slidesInView.includes(slideIndex)) return
 
           // ── Loop Correction ──────────────────────────────────────────────
-          //
-          // In loop mode, Embla repositions slides by applying CSS translateX
-          // offsets of +1 or -1 in scroll-progress space (not pixels).
-          // loopPoints tracks which slides have been repositioned and by how much.
-          //
-          // The problem: scrollSnap values are stored in their original (0→1)
-          // positions. When a slide is teleported, its scrollSnap value doesn't
-          // update — so diffToTarget becomes wildly wrong for that slide.
-          //
-          // Example: slide 0 has scrollSnap 0.0. It gets teleported to just
-          // after slide 4 (loopPoint target = +1). If scrollProgress is 0.95,
-          // diffToTarget = 0.0 - 0.95 = -0.95 → slide appears nearly invisible.
-          // But visually it's right there on screen and should be scaling UP.
-          //
-          // The correction recalculates diffToTarget in the teleported slide's
-          // actual coordinate space so the scale looks correct during wrap-around.
+          // Corrects diffToTarget in the teleported slide's actual coordinate 
+          // space so the scale looks correct during wrap-around.
           if (engine.options.loop) {
             engine.slideLooper.loopPoints.forEach((loopItem) => {
               const target = loopItem.target()
@@ -205,14 +177,10 @@ const EmblaCarousel = (props: PropType) => {
               if (slideIndex === loopItem.index && target !== 0) {
                 const sign = Math.sign(target)
 
-                // target = -1: slide teleported BEFORE the start of the track.
-                // Correct by shifting the reference frame back by 1 full loop length.
                 if (sign === -1) {
                   diffToTarget = scrollSnap - (1 + scrollProgress)
                 }
 
-                // target = +1: slide teleported AFTER the end of the track.
-                // Correct by shifting the reference frame forward by 1 full loop length.
                 if (sign === 1) {
                   diffToTarget = scrollSnap + (1 - scrollProgress)
                 }
@@ -221,10 +189,6 @@ const EmblaCarousel = (props: PropType) => {
           }
 
           // ── Scale Calculation ────────────────────────────────────────────
-          //
-          // tweenValue = 1 when diffToTarget is 0 (slide is centered → full size).
-          // tweenValue shrinks as diffToTarget grows (slide moves away → shrinks).
-          // Clamped to [0, 1] so scale is always a valid CSS value.
           const tweenValue = 1 - Math.abs(diffToTarget * tweenFactor.current)
           const scaleNum = numberWithinRange(tweenValue, 0, 1)
 
@@ -235,36 +199,12 @@ const EmblaCarousel = (props: PropType) => {
           }
 
           // ── Apply Margin Compensation ────────────────────────────────────
-          //
           // Scaling an element shrinks its visual size but NOT its layout size.
-          // The slide still occupies its full width in the flex row, creating
-          // "phantom space" around the shrunken content that makes gaps uneven.
-          //
           // Fix: apply negative margins equal to the phantom space on each side.
-          //
-          // Math:
-          //   total phantom space = (1 - scale) * slideWidth
-          //   phantom space per side = total / 2  (scale is centered, so equal on both sides)
-          //   negative margin = phantom space per side * -1  (pull neighbors IN, not push out)
-          //
-          //   simplified: ((1 - scaleNum) / 2) * slideWidth * -1
-          //
-          // We use the cached width (measured once in setTweenNodes) rather than
-          // calling getBoundingClientRect() here, because getBoundingClientRect()
-          // forces a browser reflow on every call. Inside a scroll loop that
-          // runs every frame, this causes significant jank.
-          //
-          // Applied to the MIDDLE wrapper (.embla__slide__margin), not the outer
-          // slide, because Embla controls the outer slide's transform for loop
-          // teleportation. Putting margins on the same element Embla is moving
-          // causes position conflicts and loop glitches.
-          
           const marginNode = marginNodes.current[slideIndex]
           if (marginNode) {
             const slideWidth = slideWidths.current[slideIndex]
             // Full compensation on one side only.
-            // The gap between slides A and B is now solely determined by A's marginRight,
-            // not a combination of A's marginRight AND B's marginLeft.
             const compensation = ((1 - scaleNum) * slideWidth + BASE_GAP) * -1
             marginNode.style.marginRight = `${compensation}px`
             marginNode.style.marginLeft = '0px'
@@ -272,8 +212,6 @@ const EmblaCarousel = (props: PropType) => {
         })
       })
     },
-    // No dependencies — only reads from refs (not state/props), so this function
-    // never needs to be recreated. Stable reference required for .on()/.off().
     []
   )
 
@@ -282,32 +220,29 @@ const EmblaCarousel = (props: PropType) => {
 
   useEffect(() => {
     if (!emblaApi) return
+    onInit?.(emblaApi)
+  }, [emblaApi, onInit])
+
+  useEffect(() => {
+    if (!emblaApi) return
 
     const REINIT: EmblaEventType = 'reInit'
     const SCROLL: EmblaEventType = 'scroll'
     const SLIDE_FOCUS: EmblaEventType = 'slideFocus'
 
-    // Run setup immediately on mount so the initial render is correct
-    // before any user interaction occurs.
+    // Run setup immediately on mount
     setTweenNodes(emblaApi)
     setTweenFactor(emblaApi)
     tweenScale(emblaApi)
 
     emblaApi
-      // reInit: fires when Embla reinitializes (slide count changes, resize, etc.)
-      // Re-run all three setup functions because DOM nodes, widths, and snap
-      // count may all have changed.
       .on(REINIT, setTweenNodes)
       .on(REINIT, setTweenFactor)
       .on(REINIT, tweenScale)
-      // scroll: fires on every scroll frame. Update transforms to match position.
       .on(SCROLL, tweenScale)
-      // slideFocus: fires on keyboard focus. Update transforms so the focused
-      // slide scales up correctly even without any scroll happening.
       .on(SLIDE_FOCUS, tweenScale)
 
-    // Cleanup on unmount or when emblaApi changes.
-    // Removes all listeners to prevent memory leaks and stale callbacks.
+    // Cleanup on unmount.
     return () => {
       emblaApi
         .off(REINIT, setTweenNodes)
@@ -326,43 +261,49 @@ const EmblaCarousel = (props: PropType) => {
 
       <div className={cn(`embla__viewport overflow-hidden w-[95%] 2xl:w-full self-end `, className_emblaView)} ref={emblaRef}>
 
-        {/* gap-x-10 for consistent spacing between slides.
-            Replaces the old pl-10 on each slide, which was asymmetric and
-            caused Embla to miscalculate snap centers, making stops feel uneven. */}
         <div className="embla__container h-full flex flex-row ">
           {slides.map((slide, index) => (
 
-            // Outer slide: owned by Embla. Do NOT apply margins or transforms here.
-            // Embla uses translateX on this element for loop teleportation.
-            // Any margins we add here conflict with Embla's positioning and cause glitches.
-            <div className="embla__slide translate-x-72 @container rounded-2xl aspect-4/5 sm:aspect-2.5/3 flex-[0_0_80%] sm:flex-[0_0_50%] lg:flex-[0_0_50%] xl:flex-[0_0_43%] min-w-0" key={index}>
+            // Outer slide: owned by Embla.
+            // Added onClick and cursor-pointer for the select-on-click feature.
+            <div
+              className="embla__slide @container rounded-2xl aspect-4/5 sm:aspect-2.5/3 flex-[0_0_80%] sm:flex-[0_0_50%] lg:flex-[0_0_50%] xl:flex-[0_0_43%] min-w-0 cursor-pointer"
+              key={index}
+              onClick={() => onSlideClick(index)}
+            >
 
               {/* Middle wrapper: receives margin compensation from tweenScale.
-                  Sits between Embla's positioning layer and our scale layer so
-                  neither interferes with the other. One job: handle margins. */}
-              <div className="embla__slide__margin w-full h-full ">
+                  Sits between Embla's positioning layer and our scale layer. */}
+              <div className="embla__slide__margin w-full h-full">
 
-                {/* Inner element: receives the scale transform from tweenScale.
-                    Kept innermost so scaling never affects Embla's layout math.
-                    One job: handle scale. */}
-                <div className=" embla__slide__number w-full h-full ">
-                  <EmblaSlide 
-                    name={slide.name}
-                    info={slide.info}
-                    bgImage={slide.bgImage}
-                    icon={slide.icon}
-                    position={slide.position}
-                    isActive={index===selectedIndex}
+                {/* Scale layer: receives the scale transform from tweenScale.
+                    Kept innermost so scaling never affects Embla's layout math. */}
+                <div className="embla__slide__number w-full h-full">
+
+                  {/* ── GSAP layer ─────────────────────────────────────────────
+                      This is the ONLY element GSAP should animate.
+                      Keeping layers isolated prevents transform/opacity collisions. */}
+                  <div
+                    className="embla__slide__gsap w-full h-full"
+                    ref={(el) => { gsapSlideRefs.current[index] = el }}
+                  >
+                    <EmblaSlide
+                      name={slide.name}
+                      info={slide.info}
+                      bgImage={slide.bgImage}
+                      icon={slide.icon}
+                      position={slide.position}
+                      isActive={index === selectedIndex}
                     />
-                </div>
+                  </div>
 
+                </div>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      
 
       <div className="embla__controls self-center flex flex-col items-center gap-y-8 ">
         <div className="embla__buttons flex flex-row gap-x-10">
@@ -375,7 +316,10 @@ const EmblaCarousel = (props: PropType) => {
             <DotButton
               key={index}
               onClick={() => onDotButtonClick(index)}
-              className={`embla__dot ${index === selectedIndex ? 'embla__dot--selected bg-casablanca' : 'bg-sanmarino'} w-3 h-3 rounded-full ring-2 ring-sanmarino ring-offset-2 hover:cursor-pointer transition-colors duration-200 `}
+              className={cn(
+                "embla__dot w-3 rounded-full hover:cursor-pointer transition-all duration-200",
+                index === selectedIndex ? "bg-casablanca h-6" : "bg-sanmarino h-3"
+              )}
             />
           ))}
         </div>
