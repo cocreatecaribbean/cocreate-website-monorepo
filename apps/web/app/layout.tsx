@@ -40,8 +40,10 @@ export default function RootLayout({
       <body
         
       >
+        <script dangerouslySetInnerHTML={{
+    __html: `history.scrollRestoration = "manual";`
+  }} />
         <LandscapeWarning/>
-        {/* <ScrollToTop/> */}
         <nav className="hidden md:block relative w-full h-0 z-100">
           <NavDesktop/>
         </nav>
@@ -52,6 +54,7 @@ export default function RootLayout({
           <PageTransition>
             {children}
           </PageTransition>
+          <ScrollToTop/>
           <Footer/>
         </ScrollSmoothWrapper>
         

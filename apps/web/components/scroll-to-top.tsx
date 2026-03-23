@@ -1,30 +1,29 @@
 'use client'
 
-import { useLayoutEffect } from 'react'
 import { usePathname } from 'next/navigation'
+import { useEffect, useRef } from 'react'
 import { ScrollSmoother } from 'gsap/ScrollSmoother'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 export default function ScrollToTop() {
   const pathname = usePathname()
+  const lastPathname = useRef(pathname)
 
-  useLayoutEffect(() => {
-    // 1. Get the active smoother instance
-    const smoother = ScrollSmoother.get()
-    
-    if (smoother) {
-      // 2. Force it to 0 immediately (no animation)
-      smoother.scrollTop(0)
-    } else {
-      // Fallback for pages where smoother might not be init yet
-      window.scrollTo(0, 0)
+  useEffect(() => {
+    // If the path has changed, we are on a NEW page
+    if (lastPathname.current !== pathname) {
+      lastPathname.current = pathname
+
+      // Small timeout ensures the DOM has rendered and Smoother is ready
+      setTimeout(() => {
+        const smoother = ScrollSmoother.get()
+        if (smoother) {
+          smoother.scrollTop(0)
+          smoother.paused(false) // Just in case it was paused during transition
+        } else {
+          window.scrollTo(0, 0)
+        }
+      }, 50) 
     }
-
-    // 3. IMPORTANT: Kill any old ScrollTriggers from the previous page
-    // This prevents "ghost" triggers from firing at the wrong scroll position
-    ScrollTrigger.getAll().forEach(t => t.kill())
-    ScrollTrigger.refresh()
-
   }, [pathname])
 
   return null

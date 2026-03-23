@@ -1,9 +1,10 @@
 'use client'
 
-import { useRef, useEffect } from "react";
-import Image from "next/image";
+import { useRef, useEffect, useState } from "react";
+import { EmblaCarouselType } from "embla-carousel";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { ScrollSmoother } from "gsap/ScrollSmoother";
 import { SplitText } from "gsap/SplitText";
 import { useGSAP } from "@gsap/react";
 import { CustomEase } from "gsap/CustomEase";
@@ -14,6 +15,7 @@ import AccordionMobile from "@/components/accordion-mobile";
 import EmblaCarousel from "@/components/emblaCarousel";
 import { philosophies } from "@/site-info/home-page-data";
 import { EmblaOptionsType } from "embla-carousel";
+import { splitTextGradient } from "@/utils/util-funcs";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText);
 
@@ -33,12 +35,11 @@ export default function HomeHeroSection() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imagesRef = useRef<HTMLImageElement[]>([]);
 
+  const [emblaApi, setEmblaApi] = useState<EmblaCarouselType | null>(null)
+
   // 1. Image Preloading Logic
   useEffect(() => {
-    // FIX: This stops the vertical jump when the mobile address bar appears/disappears
     ScrollTrigger.config({ ignoreMobileResize: true });
-    ScrollTrigger.clearScrollMemory();
-    window.history.scrollRestoration = "manual";
 
     const preloadImages = () => {
       for (let i = 1; i <= FRAME_COUNT; i++) {
@@ -67,6 +68,8 @@ export default function HomeHeroSection() {
     }
   };
 
+  // ─── Main Animations ─────────────────────────────────────────────────────────
+
   useGSAP(
     () => {
       const mm = gsap.matchMedia();
@@ -78,38 +81,28 @@ export default function HomeHeroSection() {
         ScrollTrigger.normalizeScroll(true);
       }
 
-      // Split Text Logic
+      // ─── Split Text ─────────────────────────────────────────────────────────
+
       const h1_text_split = new SplitText(".headline-text", { type: "words" });
       const about_text_split = new SplitText(".about-text", {
         type: "words",
         linesClass: "overflow-hidden",
       });
 
-      // Apply gradient styles
-      const totalWords = h1_text_split.words.length;
-      h1_text_split.words.forEach((word, i) => {
-        const progress = (i / totalWords) * 100;
-        (word as HTMLElement).style.cssText = `
-        display: inline-block;
-        background-image: linear-gradient(to right, #39419a, #406eb5 40%, #f6b03f 75%);
-        background-size: ${totalWords * 100}% 100%;
-        background-position: ${progress}% 0;
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-      `;
-      });
+      splitTextGradient(h1_text_split);
 
-      // Intro Animation
+      // ─── Intro Animation ────────────────────────────────────────────────────
+
       gsap.from(h1_text_split.words, {
-        y: -50,
+        y: -100,
         opacity: 0,
         duration: 1.5,
         ease: "back.out",
         stagger: 0.07,
       });
 
-      // About Text Scrub
+      // ─── About Text Scrub ───────────────────────────────────────────────────
+
       gsap.from(about_text_split.words, {
         y: 40,
         opacity: 0,
@@ -124,7 +117,8 @@ export default function HomeHeroSection() {
         },
       });
 
-      // Timelines
+      // ─── Timelines ──────────────────────────────────────────────────────────
+
       const mainTimeline = gsap.timeline();
       mainTimeline
         .to(brand_elem.current, { translateY: 0, duration: 3 })
@@ -137,14 +131,16 @@ export default function HomeHeroSection() {
         .to(".what-we-do", { scale: 1 })
         .from(
           ".accordion-item",
-          { xPercent: -30, opacity: 0, stagger: 0.05, ease: CustomEase.create('custom', "M0,0 C0,0 0.061,-0.021 0.18,0.055 0.388,0.189 0.645,0.87 0.847,0.976 0.892,1 1,1 1,1") },
+          {
+            xPercent: -30,
+            opacity: 0,
+            stagger: 0.05,
+            ease: CustomEase.create('custom', "M0,0 C0,0 0.061,-0.021 0.18,0.055 0.388,0.189 0.645,0.87 0.847,0.976 0.892,1 1,1 1,1")
+          },
           "<0.3",
         );
 
-      const carousel_tl = gsap.timeline()
-      carousel_tl.
-      from('.embla__slide', {opacity:0, duration: 300}).
-      to('.embla__slide', {translateX:0, duration: 300, stagger:0.5, ease: CustomEase.create('custom', "M0,0 C0,0 0.061,-0.021 0.18,0.055 0.388,0.189 0.645,0.87 0.847,0.976 0.892,1 1,1 1,1")}, '<')
+      // ─── ScrollTriggers ─────────────────────────────────────────────────────
 
       mm.add(
         {
@@ -166,7 +162,6 @@ export default function HomeHeroSection() {
             animation: mainTimeline,
             scrub: true,
             pin: true,
-            // FIX: Forces 'fixed' on mobile to stop layout vibration
             pinType: isMobile ? "fixed" : "transform",
             anticipatePin: 1,
             invalidateOnRefresh: true,
@@ -185,21 +180,63 @@ export default function HomeHeroSection() {
             end: isMobile ? "top 70%" : "top 40%",
             scrub: true,
           });
-         
-         
-          ScrollTrigger.create({
-            animation: carousel_tl,
-            trigger: ".embla",
-            start: isMobile ? "top 100%" : "top 100%",
-            end: isMobile ? "top 50%" : "top 20%",
-            scrub: true,
-            // markers: true
-          });
         },
       );
+
+      // cleanup on unmount — kill triggers always
+      // only reset scroll on navigation, not reload
+      // reload guard prevents scroll being wiped before browser restores position
+      return () => {
+        ScrollTrigger.getAll().forEach(t => t.kill())
+        const isReload = window.performance.navigation.type === 1
+        if (!isReload) {
+          const smoother = ScrollSmoother.get()
+          if (smoother) smoother.scrollTop(0)
+        }
+      }
     },
-    { scope: mainRef },
+    { scope: mainRef }
   );
+
+  // ─── Carousel Animation ───────────────────────────────────────────────────────
+
+  useGSAP(
+    () => {
+      if (!emblaApi) return
+
+      const slides = gsap.utils.toArray<HTMLElement>('.embla__slide__gsap')
+
+      gsap.set(slides, { opacity: 0 })
+
+      ScrollTrigger.create({
+        trigger: '.embla',
+        start: 'top 90%',
+        onEnter: () => {
+          const selectedIndex = emblaApi.selectedScrollSnap()
+          const count = slides.length
+          const orderedIndices = Array.from({ length: count }, (_, i) => (selectedIndex + i) % count)
+
+          gsap.to(
+            orderedIndices.map((i) => slides[i]),
+            {
+              opacity: 1,
+              duration: 0.8,
+              stagger: 0.08,
+              ease: CustomEase.create('custom', 'M0,0 C0,0 0.061,-0.021 0.18,0.055 0.388,0.189 0.645,0.87 0.847,0.976 0.892,1 1,1 1,1'),
+            }
+          )
+        },
+        onLeaveBack: () => {
+          gsap.to(slides, {
+            opacity: 0,
+            duration: 0.3,
+            stagger: 0.05,
+          })
+        }
+      })
+    },
+    { scope: mainRef, dependencies: [emblaApi] }
+  )
 
   return (
     <div ref={mainRef} className="opacity-0">
@@ -218,7 +255,7 @@ export default function HomeHeroSection() {
           `}
         >
           <div ref={hero_text} className="headline-text">
-            Transforming Caribbean Creativity into Global Impact.
+            Transforming Caribbean <span className={`${fonts.alkatra600.className}`}>Creativity</span> into Global Impact.
           </div>
         </h1>
 
@@ -281,10 +318,10 @@ export default function HomeHeroSection() {
       <section className="@container w-svw flex gap-20 flex-col lg:flex-row mb-40 xl:mb-60">
         <div className={`@container tracking-normal w-[60%] lg:w-[45%] mx-auto flex-1 2xl:translate-y-20 3xl:translate-y-40 ${fonts.bricolage_grot500.className}`}>
           <div className="flex flex-col gap-y-10 w-[80cqw] lg:w-[75cqw] xl:w-[70cqw] 3xl:w-[55cqw] mx-auto">
-            <h2 className="philosophy-header h-fit leading-none text-center lg:text-left text-[clamp(2rem,5vw,6rem)] ">
+            <h2 className="philosophy-header h-fit leading-none text-center lg:text-left text-[clamp(2rem,3vw,4rem)] ">
               Our<br />Philosophy
             </h2>
-            <p className="philosophy-text text-center lg:text-left text-[clamp(0.9rem,1vw,1.5rem)] ">
+            <p className="philosophy-text text-center lg:text-left text-[clamp(1rem,1vw,1.5rem)] ">
             We focus on four(4) key pillars to consistently deliver superior results for our clients. Having a proven framework gives us the freedom to inject new creative breadth with fresh perspectives into every project.
             </p>
           </div>
@@ -292,6 +329,7 @@ export default function HomeHeroSection() {
         <EmblaCarousel
           slides={philosophies}
           options={OPTIONS}
+          onInit={setEmblaApi}
           className_embla={`flex flex-col flex-[1.5] 2xl:flex-1 justify-end gap-y-8`}
         />
       </section>

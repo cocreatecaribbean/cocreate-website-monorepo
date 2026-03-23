@@ -57,6 +57,11 @@ body.menu-open > *:not(nav) {
   filter: blur(30px);
 }
 
+.gsap-reveal {
+  visibility: hidden;
+  opacity: 0;
+}
+
 
 
 
