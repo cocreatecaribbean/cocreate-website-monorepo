@@ -1,5 +1,5 @@
 // styles/fonts.ts
-import { Bricolage_Grotesque, Ysabeau_Infant } from "next/font/google";
+import { Bricolage_Grotesque, Ysabeau_Infant, Alkatra } from "next/font/google";
 
 // You MUST include subsets: ['latin'] for Google Fonts to work
 const bricolage_grot300 = Bricolage_Grotesque({ 
@@ -37,11 +37,21 @@ const bricolage_grot800 = Bricolage_Grotesque({
   weight: '800', 
   variable: '--font-brico-800' 
 });
-const ysabeau_infant900 = Ysabeau_Infant({ 
+
+
+const alkatra400 = Alkatra({ 
   subsets: ['latin'], 
-  weight: '900', 
-  variable: '--font-ysabeau-900' 
+  weight: '400', 
+  variable: '--font-alkatra-400' 
 });
+
+const alkatra600 = Alkatra({ 
+  subsets: ['latin'], 
+  weight: '600', 
+  variable: '--font-alkatra-600' 
+});
+
+
 
 export { 
   bricolage_grot300, 
@@ -50,5 +60,6 @@ export {
   bricolage_grot600, 
   bricolage_grot700, 
   bricolage_grot800,
-  ysabeau_infant900
+  alkatra400,
+  alkatra600
 };
