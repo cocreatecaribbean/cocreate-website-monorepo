@@ -38,10 +38,14 @@ const ScrollSmoothWrapper: React.FC<ScrollSmoothProps> = ({ children }) => {
         if (isReload && savedY) {
             // Restore position BEFORE showing the content
             smoother.scrollTop(parseFloat(savedY))
-            
-            // Wait one tick for the jump to finish, then fade in
+            ScrollTrigger.refresh()
+
+            // Refresh pin/scrub state, then reveal (prevents hero canvas flash)
             requestAnimationFrame(() => {
-                gsap.to('#smooth-content', { autoAlpha: 1, duration: 0.2 })
+                ScrollTrigger.refresh()
+                requestAnimationFrame(() => {
+                    gsap.to('#smooth-content', { autoAlpha: 1, duration: 0.2 })
+                })
             })
         } else {
             // New page or no saved data: just show it immediately

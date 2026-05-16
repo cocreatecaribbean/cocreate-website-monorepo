@@ -7,18 +7,36 @@ import {
   } from "@base-ui/react/accordion";
 import { services } from "@/site-info/global-site-info";
 import * as fonts from "@/styles/fonts";
+import { useEffect, useState } from "react";
 import {
   useWhatWeDoHoverVideo,
   WhatWeDoHoverVideoPreview,
 } from "@/components/what-we-do-hover-video";
 
+/** Hover preview only for mouse/trackpad — not touch tablets or phones */
+function useHoverVideoEnabled() {
+  const [enabled, setEnabled] = useState(false);
 
-const AccordionDesktop:React.FC = ()=>{
-    const hoverVideo = useWhatWeDoHoverVideo();
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const update = () => setEnabled(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
-    return(
-        <>
-            <WhatWeDoHoverVideoPreview preview={hoverVideo.preview} />
+  return enabled;
+}
+
+const AccordionDesktop: React.FC = () => {
+  const hoverVideoEnabled = useHoverVideoEnabled();
+  const hoverVideo = useWhatWeDoHoverVideo();
+
+  return (
+    <>
+      {hoverVideoEnabled ? (
+        <WhatWeDoHoverVideoPreview preview={hoverVideo.preview} />
+      ) : null}
             <Accordion.Root
             className="flex flex-col gap-0 relative w-full"
             data-accordion-root
@@ -45,6 +63,7 @@ const AccordionDesktop:React.FC = ()=>{
                   className="accordion-item transition-opacity duration-300 hover:cursor-pointer relative z-10 peer hover:opacity-100! peer-hover:opacity-50"
                   data-accordion-item
                   onMouseEnter={(e) => {
+                    if (!hoverVideoEnabled) return;
                     hoverVideo.show(e.clientX, e.clientY, service.previewVideo);
                     const item = e.currentTarget;
                     const root = item.closest(
@@ -98,9 +117,11 @@ const AccordionDesktop:React.FC = ()=>{
                     updatePosition();
                   }}
                   onMouseMove={(e) => {
+                    if (!hoverVideoEnabled) return;
                     hoverVideo.move(e.clientX, e.clientY);
                   }}
                   onMouseLeave={(e) => {
+                    if (!hoverVideoEnabled) return;
                     const item = e.currentTarget;
                     const root = item.closest(
                       "[data-accordion-root]"
@@ -128,7 +149,7 @@ const AccordionDesktop:React.FC = ()=>{
                     const isOverAnotherItem = root?.querySelector(
                       "[data-accordion-item]:hover"
                     );
-                    if (!isOverAnotherItem) {
+                    if (!isOverAnotherItem && hoverVideoEnabled) {
                       hoverVideo.hide();
                       root?.style.setProperty("--item-opacity", "0");
 

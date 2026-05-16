@@ -85,7 +85,7 @@ export default function ArcGallery({
           ref={stageRef}
           className="
             relative mx-auto w-full min-w-0 overflow-hidden
-            h-[min(38svh,264px)] md:h-[480px] lg:h-[540px] xl:h-[600px]
+            h-[min(38svh,264px)] min-[640px]:h-[min(44svh,400px)] md:h-[480px] lg:h-[540px] xl:h-[600px]
           "
         >
           <div className="absolute inset-0">
@@ -115,7 +115,7 @@ export default function ArcGallery({
           />
 
           {/* Desktop / tablet: arrows flanking the arc */}
-          <div className="pointer-events-none absolute inset-x-0 top-[40%] z-40 hidden -translate-y-1/2 justify-between px-2 md:flex lg:px-4">
+          <div className="pointer-events-none absolute inset-x-0 top-[40%] z-40 hidden -translate-y-1/2 justify-between px-2 min-[640px]:flex lg:px-4">
             <ArcNavButton label="Previous" onClick={() => step(-1)} />
             <ArcNavButton
               label="Next"
@@ -123,10 +123,35 @@ export default function ArcGallery({
               direction="right"
             />
           </div>
+
+          <div className="absolute inset-x-0 bottom-[9%] z-40 hidden justify-center gap-2.5 min-[640px]:flex md:bottom-[10%]">
+            {items.map((item, i) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-label={`Show ${item.projectName}`}
+                aria-current={i === activeIndex ? 'true' : undefined}
+                onClick={() => goTo(i)}
+                className={`
+                  pointer-events-auto flex h-11 w-11 items-center justify-center p-0
+                  min-[640px]:h-2 min-[640px]:w-2 min-[640px]:min-w-0
+                  ${i === activeIndex ? 'min-[640px]:w-8' : ''}
+                `}
+              >
+                <span
+                  className={`block rounded-full transition-all duration-300 ${
+                    i === activeIndex
+                      ? 'h-2 w-8 bg-casablanca'
+                      : 'h-2 w-2 bg-chambray/25'
+                  }`}
+                />
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Mobile only — desktop arrows stay inside the stage */}
-        <div className="mt-1 flex items-center justify-center gap-5 max-md:-mt-1 md:hidden">
+        {/* Mobile only — arrows below the stage */}
+        <div className="mt-1 flex items-center justify-center gap-5 max-[639px]:-mt-1 min-[640px]:hidden">
           <ArcNavButton label="Previous" onClick={() => step(-1)} />
           <ArcNavButton
             label="Next"
@@ -135,7 +160,7 @@ export default function ArcGallery({
           />
         </div>
 
-        <div className="relative z-40 mt-2 flex justify-center gap-2.5 md:mt-6">
+        <div className="relative z-40 mt-2 flex justify-center gap-2.5 min-[640px]:hidden">
           {items.map((item, i) => (
             <button
               key={item.id}
@@ -213,7 +238,7 @@ function ArcTile({
           src={item.coverImageSrc}
           alt=""
           fill
-          sizes={`(max-width: 768px) ${Math.round(layout.tileWidth)}px, (max-width: 1024px) 248px, 300px`}
+          sizes={`(max-width: 639px) ${Math.round(layout.tileWidth)}px, (max-width: 1023px) 220px, 300px`}
           className="object-cover"
           draggable={false}
         />

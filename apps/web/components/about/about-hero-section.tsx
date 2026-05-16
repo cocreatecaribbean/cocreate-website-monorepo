@@ -11,39 +11,77 @@ export default function AboutHeroSection() {
   const { sectionRef, mediaRef, refreshScroll } = useAboutHeroAnimation({ scope: rootRef })
 
   return (
-    <section ref={rootRef} aria-label="About CoCreate">
-      <div
+    <section ref={rootRef} aria-label="About CoCreate hero" className="pb-10 min-[1500px]:pb-0">
+      <section
         ref={sectionRef}
-        className="about-hero-section w-[90svw] 2xl:w-[85svw] mx-auto grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8 lg:gap-12 items-center mb-24 md:mb-48 opacity-0"
+        data-about-hero
+        className="
+          about-hero-section invisible
+          w-[92svw] max-w-[1320px] min-[1500px]:max-w-[1480px] mx-auto
+          grid grid-cols-1
+          min-[1500px]:grid-cols-[1.15fr_1fr] min-[1500px]:items-center
+          gap-10 sm:gap-12 min-[1024px]:max-[1499px]:gap-12 min-[1500px]:gap-14
+          mb-16 min-[1024px]:mb-24 min-[1500px]:mb-48
+        "
       >
         <div
           ref={mediaRef}
-          className="z-10 w-full min-h-[42svh] sm:min-h-[50svh] max-h-[55svh] relative rounded-4xl 2xl:rounded-[4rem] overflow-hidden"
+          className="
+            about-hero-media relative z-20 w-full max-w-[720px] min-[1500px]:max-w-none mx-auto
+            min-[1500px]:mx-0 relative overflow-hidden rounded-3xl
+            min-[1024px]:rounded-4xl min-[1500px]:rounded-[3.5rem]
+            aspect-4/3             max-h-[42svh]
+            min-[1024px]:max-h-[46svh] min-[1500px]:min-h-[46svh] min-[1500px]:max-h-[54svh]
+          "
         >
           <Image
             src={aboutHero.imageSrc}
             alt={aboutHero.imageAlt}
             fill
             priority
-            sizes="(max-width: 1024px) 90vw, 55vw"
+            sizes="(max-width: 1023px) 92vw, (max-width: 1499px) 720px, 55vw"
             style={{ objectFit: 'cover' }}
             onLoad={refreshScroll}
           />
         </div>
 
-        <div className="about-hero-text px-2 sm:px-4 lg:pl-24 lg:pr-10">
+        <div
+          className="
+            about-hero-text relative z-0
+            px-1 sm:px-4
+            min-[1024px]:max-w-[640px] min-[1024px]:mx-auto
+            min-[1500px]:max-w-none min-[1500px]:mx-0
+            min-[1500px]:pl-16 min-[1500px]:pr-8
+          "
+        >
           <h2
-            className={`philosophy-header h-fit leading-none text-center lg:text-left text-[clamp(2rem,3vw,4rem)] ${fonts.bricolage_grot500.className} mb-6`}
+            className={`
+              about-hero-heading philosophy-header h-fit leading-none
+              text-center min-[1500px]:text-left
+              text-[clamp(1.85rem,4.5vw,3.25rem)] min-[1500px]:text-[clamp(2rem,3vw,4rem)]
+              ${fonts.bricolage_grot500.className} mb-5 min-[1500px]:mb-6
+            `}
           >
             {aboutHero.heading}
           </h2>
           <p
-            className={`${fonts.bricolage_grot400.className} text-[clamp(1rem,2.5vw,1.5rem)] leading-relaxed`}
+            className={`
+              about-hero-body
+              ${fonts.bricolage_grot400.className}
+              text-[clamp(1rem,2.2vw,1.35rem)] min-[1500px]:text-[clamp(1rem,2.5vw,1.5rem)]
+              leading-relaxed text-center min-[1500px]:text-left
+            `}
           >
             {aboutHero.body}
           </p>
         </div>
-      </div>
+
+        {/* Scroll runway for mobile scrub — below copy, not between image and heading */}
+        <div
+          className="hidden max-[1499px]:block h-[28svh] min-h-48 shrink-0"
+          aria-hidden
+        />
+      </section>
     </section>
   )
 }

@@ -18,6 +18,14 @@ export const ARC_GALLERY_LAYOUTS = {
     maxRotate: 10,
     maxVisibleOffset: 1,
   },
+  /** iPad Mini / tablet content width (~640–767px) — between mobile fluid and md */
+  tablet: {
+    tileWidth: 212,
+    spacing: 172,
+    arcLift: 32,
+    maxRotate: 14,
+    maxVisibleOffset: 2,
+  },
   md: {
     tileWidth: 188,
     spacing: 152,
@@ -39,7 +47,7 @@ export const ARC_GALLERY_LAYOUTS = {
     maxRotate: 17,
     maxVisibleOffset: 2,
   },
-} satisfies Record<'sm' | 'md' | 'lg' | 'xl', ArcGalleryLayout>
+} satisfies Record<'sm' | 'tablet' | 'md' | 'lg' | 'xl', ArcGalleryLayout>
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -55,6 +63,9 @@ export function computeArcLayout(containerWidth: number): ArcGalleryLayout {
   }
   if (containerWidth >= 768) {
     return { ...ARC_GALLERY_LAYOUTS.md }
+  }
+  if (containerWidth >= 640) {
+    return { ...ARC_GALLERY_LAYOUTS.tablet }
   }
 
   const tileWidth = Math.round(clamp(containerWidth * 0.46, 112, 172))

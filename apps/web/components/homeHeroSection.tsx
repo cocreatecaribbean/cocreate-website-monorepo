@@ -26,6 +26,16 @@ const IMG_HEIGHT = 1080;
 const FILE_PATH = (index: number) =>
   `/cocreate-graphic-anim/cocreate-home-graphic_${index}.webp`;
 
+/** Scroll position saved on reload by ScrollSmoothWrapper */
+function getReloadScrollY(): number | null {
+  if (typeof window === "undefined") return null;
+  if (sessionStorage.getItem("lastPath") !== window.location.pathname) return null;
+  const savedY = sessionStorage.getItem("lastScrollY");
+  if (!savedY) return null;
+  const y = parseFloat(savedY);
+  return Number.isFinite(y) ? y : null;
+}
+
 export default function HomeHeroSection() {
   const mainRef = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
@@ -46,7 +56,9 @@ export default function HomeHeroSection() {
         const img = new window.Image();
         img.src = FILE_PATH(i);
         if (i === 1) {
-          img.onload = () => renderFrame(1);
+          img.onload = () => {
+            if (getReloadScrollY() == null) renderFrame(1);
+          };
         }
         imagesRef.current[i] = img;
       }
@@ -74,8 +86,6 @@ export default function HomeHeroSection() {
     () => {
       const mm = gsap.matchMedia();
       const breakpoint = 768;
-
-      gsap.to(mainRef.current, { autoAlpha: 1, duration: 0.2 });
 
       if (!ScrollTrigger.isTouch) {
         ScrollTrigger.normalizeScroll(true);
@@ -156,6 +166,7 @@ export default function HomeHeroSection() {
           if (!element) return;
 
           ScrollTrigger.create({
+            id: "home-hero-pin",
             trigger: element,
             start: "top top",
             end: isDesktop ? "+=400%" : "+=200%",
@@ -182,6 +193,33 @@ export default function HomeHeroSection() {
           });
         },
       );
+
+      const revealMain = () => {
+        gsap.to(mainRef.current, { autoAlpha: 1, duration: 0.2 });
+      };
+
+      const syncHeroFrameFromScroll = () => {
+        const st = ScrollTrigger.getById("home-hero-pin");
+        if (!st) return;
+        const frame = st.progress * 1.75;
+        const val = Math.round(frame * (FRAME_COUNT - 1)) + 1;
+        const safeIndex = Math.min(Math.max(val, 1), FRAME_COUNT);
+        renderFrame(safeIndex);
+      };
+
+      if (getReloadScrollY() != null) {
+        gsap.set(container.current, { visibility: "hidden" });
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            ScrollTrigger.refresh();
+            syncHeroFrameFromScroll();
+            gsap.set(container.current, { visibility: "visible" });
+            revealMain();
+          });
+        });
+      } else {
+        revealMain();
+      }
 
       // cleanup on unmount — kill triggers always
       // only reset scroll on navigation, not reload
