@@ -6,13 +6,19 @@ import {
     AccordionTrigger,
   } from "@base-ui/react/accordion";
 import { services } from "@/site-info/global-site-info";
-import { Service } from "@/types/global-types";
 import * as fonts from "@/styles/fonts";
+import {
+  useWhatWeDoHoverVideo,
+  WhatWeDoHoverVideoPreview,
+} from "@/components/what-we-do-hover-video";
 
 
 const AccordionDesktop:React.FC = ()=>{
+    const hoverVideo = useWhatWeDoHoverVideo();
+
     return(
         <>
+            <WhatWeDoHoverVideoPreview preview={hoverVideo.preview} />
             <Accordion.Root
             className="flex flex-col gap-0 relative w-full"
             data-accordion-root
@@ -39,6 +45,7 @@ const AccordionDesktop:React.FC = ()=>{
                   className="accordion-item transition-opacity duration-300 hover:cursor-pointer relative z-10 peer hover:opacity-100! peer-hover:opacity-50"
                   data-accordion-item
                   onMouseEnter={(e) => {
+                    hoverVideo.show(e.clientX, e.clientY, service.previewVideo);
                     const item = e.currentTarget;
                     const root = item.closest(
                       "[data-accordion-root]"
@@ -90,6 +97,9 @@ const AccordionDesktop:React.FC = ()=>{
 
                     updatePosition();
                   }}
+                  onMouseMove={(e) => {
+                    hoverVideo.move(e.clientX, e.clientY);
+                  }}
                   onMouseLeave={(e) => {
                     const item = e.currentTarget;
                     const root = item.closest(
@@ -119,6 +129,7 @@ const AccordionDesktop:React.FC = ()=>{
                       "[data-accordion-item]:hover"
                     );
                     if (!isOverAnotherItem) {
+                      hoverVideo.hide();
                       root?.style.setProperty("--item-opacity", "0");
 
                       // Reset all items to full opacity

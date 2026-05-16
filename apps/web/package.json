@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@cocreate/types": "workspace:*",
     "@base-ui/react": "^1.1.0",
     "@cosmicjs/sdk": "^1.5.2",
     "@gsap/react": "^2.1.2",
