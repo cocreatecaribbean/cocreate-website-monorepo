@@ -10,6 +10,7 @@ import ScrollToTop from "@/components/scroll-to-top";
 import LandscapeWarning from '@/components/landscapeWarning'
 import NavMobile from "@/components/nav-mobile";
 import PageTransition from "@/components/pageTransition";
+import { QueryProvider } from "@/components/query-provider";
 
 
 
@@ -43,6 +44,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{
     __html: `history.scrollRestoration = "manual";`
   }} />
+        <QueryProvider>
         <LandscapeWarning/>
         <nav className="hidden md:block relative w-full h-0 z-100">
           <NavDesktop/>
@@ -57,6 +59,7 @@ export default function RootLayout({
           <ScrollToTop/>
           <Footer/>
         </ScrollSmoothWrapper>
+        </QueryProvider>
         
       </body>
     </html> 
