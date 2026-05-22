@@ -1,0 +1,36 @@
+/* Pagination — fixed-width slots so the active pill never bleeds into neighbors */
+.arc-gallery-pagination {
+  overflow: visible;
+}
+
+.arc-gallery-pagination__btn {
+  display: flex;
+  height: 2.75rem;
+  width: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.arc-gallery-pagination__pill {
+  display: block;
+  height: 0.5rem;
+  width: 0.5rem;
+  border-radius: 9999px;
+  background-color: rgba(57, 65, 154, 0.25);
+  transition:
+    width 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.arc-gallery-pagination__pill.is-active {
+  width: 2rem;
+  background-color: #f6b03f;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arc-gallery-pagination__pill {
+    transition: none;
+  }
+}

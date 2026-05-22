@@ -42,6 +42,21 @@ function getReloadScrollY(): number | null {
   return Number.isFinite(y) ? y : null;
 }
 
+/** px — must match Tailwind translate-y on brand_elem; mobile uses a higher (smaller y) start */
+function getBrandStartY(): number {
+  if (typeof window === "undefined") return 160;
+  if (window.matchMedia("(max-width: 767px) and (orientation: landscape)").matches) {
+    return 40;
+  }
+  if (window.matchMedia("(max-width: 767px)").matches) {
+    return 64;
+  }
+  if (window.matchMedia("(min-width: 1536px)").matches) {
+    return 288;
+  }
+  return 160;
+}
+
 export default function HomeHeroSection() {
   const mainRef = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
@@ -166,7 +181,11 @@ export default function HomeHeroSection() {
 
       const mainTimeline = gsap.timeline();
       mainTimeline
-        .to(brand_elem.current, { translateY: 0, duration: 3 })
+        .fromTo(
+          brand_elem.current,
+          { y: getBrandStartY() },
+          { y: 0, duration: 3 },
+        )
         .to(hero_text.current, { opacity: 0, duration: 1 }, "-=0.5")
         .to(vid_container.current, { scale: 1, duration: 1 })
         .to({}, { duration: 1 });
@@ -232,20 +251,27 @@ export default function HomeHeroSection() {
             scrub: true,
           });
 
-          if (enteredViaSpa) {
+          const resetHeroToScrollStart = () => {
             gsap.set(vid_container.current, { scale: 0 });
             gsap.set(hero_text.current, { opacity: 1 });
-            gsap.set(brand_elem.current, { clearProps: "transform" });
+            gsap.set(brand_elem.current, { y: getBrandStartY() });
+            mainTimeline.progress(0);
 
             const st = ScrollTrigger.getById("home-hero-pin");
-            if (st?.animation) {
-              st.animation.progress(0);
+            if (st) {
+              st.scroll(0);
+              st.animation?.progress(0);
             }
 
+            renderFrame(1);
+            setBrandFloatActive(true);
+          };
+
+          if (enteredViaSpa) {
+            resetHeroToScrollStart();
             requestAnimationFrame(() => {
               ScrollTrigger.refresh();
-              renderFrame(1);
-              setBrandFloatActive(true);
+              resetHeroToScrollStart();
             });
           }
         },
@@ -353,7 +379,7 @@ export default function HomeHeroSection() {
 
         <div
           ref={brand_elem}
-          className="w-screen h-screen mx-auto z-10 col-span-1 col-start-1 row-span-1 row-start-1 translate-y-40 2xl:translate-y-72"
+          className="w-screen h-screen mx-auto z-10 col-span-1 col-start-1 row-span-1 row-start-1"
         >
           <canvas
             ref={canvasRef}

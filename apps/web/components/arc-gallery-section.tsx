@@ -31,7 +31,7 @@ export default function ArcGallerySection({
         '(prefers-reduced-motion: reduce)',
       ).matches
 
-      const header = section.querySelector('[data-arc-gallery-header]')
+      const header = section.querySelector<HTMLElement>('[data-arc-gallery-header]')
 
       if (prefersReducedMotion) {
         gsap.set([header, stage].filter(Boolean), { y: 0 })
@@ -58,17 +58,15 @@ export default function ArcGallerySection({
   return (
     <section
       ref={sectionRef}
-      className="
-        mx-auto w-[95svw] max-w-8xl
-        mt-16 mb-40 px-2
-        md:mt-24 md:mb-48
-        lg:mt-28
-      "
+      className="mt-16 mb-40 w-full min-w-0 md:mt-24 md:mb-48 lg:mt-28"
       aria-labelledby="arc-gallery-heading"
     >
       <header
         data-arc-gallery-header
-        className="mb-8 flex flex-col gap-3 md:mb-10 md:flex-row md:items-end md:justify-between"
+        className="
+          mx-auto mb-8 flex w-[95svw] max-w-8xl flex-col gap-3 px-2
+          min-w-0 md:mb-10 md:flex-row md:items-end md:justify-between
+        "
       >
         <div>
           <p
@@ -90,7 +88,7 @@ export default function ArcGallerySection({
         </p>
       </header>
 
-      <div ref={stageRef} className="min-w-0">
+      <div ref={stageRef} className="w-full min-w-0 contain-[layout]">
         <ArcGallery items={items} />
       </div>
     </section>

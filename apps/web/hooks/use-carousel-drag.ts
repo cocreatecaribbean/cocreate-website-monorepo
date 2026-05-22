@@ -52,8 +52,12 @@ export function useCarouselDrag({
       // Finger right (+px) moves tiles right → lower visual index
       const progress = dragPxRef.current / spacing
       const flick = (velocityRef.current * 100) / spacing
+      const touch =
+        typeof window !== 'undefined' &&
+        window.matchMedia('(pointer: coarse)').matches
+      const flickBoost = touch ? 0.08 : 0.3
       const visualPosition =
-        activeIndexRef.current - progress - flick * 0.35
+        activeIndexRef.current - progress - flick * flickBoost
       const target = normalizeIndex(Math.round(visualPosition), itemCount)
       onCommitRef.current(target)
     } else if (!cancelledRef.current && stageRectRef.current) {

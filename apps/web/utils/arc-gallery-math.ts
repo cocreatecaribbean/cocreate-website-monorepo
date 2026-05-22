@@ -11,10 +11,11 @@ export type ArcGalleryLayout = {
 }
 
 export const ARC_GALLERY_LAYOUTS = {
+  /** Mobile fallback before stage measure (≈390px wide track) */
   sm: {
-    tileWidth: 132,
-    spacing: 72,
-    arcLift: 14,
+    tileWidth: 242,
+    spacing: 60,
+    arcLift: 8,
     maxRotate: 10,
     maxVisibleOffset: 1,
   },
@@ -68,11 +69,15 @@ export function computeArcLayout(containerWidth: number): ArcGalleryLayout {
     return { ...ARC_GALLERY_LAYOUTS.tablet }
   }
 
-  const tileWidth = Math.round(clamp(containerWidth * 0.46, 112, 172))
-  const spacing = Math.round(clamp(containerWidth * 0.23, 56, 84))
-  const arcLift = Math.round(clamp(containerWidth * 0.04, 10, 18))
+  /**
+   * Sized to fit 3-up arc inside full-width track (no 95svw inset / no 100vw bleed).
+   * ~62% center tile + neighbors without horizontal overflow → no layout shift.
+   */
+  const tileWidth = Math.round(clamp(containerWidth * 0.62, 200, 268))
+  const spacing = Math.round(clamp(containerWidth * 0.155, 46, 72))
+  const arcLift = Math.round(clamp(containerWidth * 0.018, 4, 10))
   const maxRotate = containerWidth < 360 ? 8 : 10
-  const maxVisibleOffset = containerWidth < 420 ? 1 : 2
+  const maxVisibleOffset = 1
 
   return {
     tileWidth,
@@ -95,6 +100,7 @@ export { getWrappedOffset }
 export function getArcTileStyle(
   offset: number,
   layout: ArcGalleryLayout,
+  isMobile = false,
 ): ArcTileStyle {
   const abs = Math.abs(offset)
   const hideBeyond = layout.maxVisibleOffset + 0.35
@@ -111,9 +117,11 @@ export function getArcTileStyle(
   const x = offset * layout.spacing
   const y = layout.arcLift * offset * offset
   const rotate = -offset * layout.maxRotate
-  const scale = Math.max(0.62, 1 - abs * 0.12)
-  const opacity = Math.max(0.45, 1 - abs * 0.16)
-  const brightness = Math.max(0.75, 1 - abs * 0.1)
+  const scaleFalloff = isMobile ? 0.09 : 0.12
+  const opacityFalloff = isMobile ? 0.12 : 0.16
+  const scale = Math.max(0.68, 1 - abs * scaleFalloff)
+  const opacity = Math.max(0.5, 1 - abs * opacityFalloff)
+  const brightness = Math.max(0.78, 1 - abs * 0.08)
   const zIndex = Math.round(50 - abs * 9)
 
   return {

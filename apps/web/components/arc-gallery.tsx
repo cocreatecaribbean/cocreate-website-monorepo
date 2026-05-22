@@ -2,15 +2,24 @@
 
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useArcGalleryLayout } from '@/hooks/use-arc-gallery-layout'
 import { useCarouselDrag } from '@/hooks/use-carousel-drag'
 import { galleryProjectPreviews } from '@/site-info/gallery-data'
 import type { ProjectPreview } from '@cocreate/types'
 import { getArcTileStyle, getWrappedOffset } from '@/utils/arc-gallery-math'
 import * as fonts from '@/styles/fonts'
+import './arc-gallery.css'
 
-const TRANSITION_MS = 550
+const PREMIUM_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)'
+const TRANSITION_MS_DESKTOP = 620
+const TRANSITION_MS_MOBILE = 1150
+
+function getArcTileTransition(isDragging: boolean, isMobile: boolean): string {
+  if (isDragging) return 'none'
+  const ms = isMobile ? TRANSITION_MS_MOBILE : TRANSITION_MS_DESKTOP
+  return `transform ${ms}ms ${PREMIUM_EASE}, opacity ${ms}ms ${PREMIUM_EASE}, filter ${ms}ms ${PREMIUM_EASE}`
+}
 
 type ArcGalleryProps = {
   items?: ProjectPreview[]
@@ -22,7 +31,16 @@ export default function ArcGallery({
   const stageRef = useRef<HTMLDivElement>(null)
   const layout = useArcGalleryLayout(stageRef)
   const router = useRouter()
+  const [isMobile, setIsMobile] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
+
+  useLayoutEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    const sync = () => setIsMobile(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
   const activeIndexRef = useRef(0)
   activeIndexRef.current = activeIndex
 
@@ -71,24 +89,26 @@ export default function ArcGallery({
   return (
     <div className="relative w-full min-w-0">
       <div
-        className="relative w-full min-w-0 py-2 md:py-6 lg:py-8"
+        className="relative w-full min-w-0 py-4 max-md:py-6 md:py-6 lg:py-8"
         role="region"
         aria-roledescription="carousel"
         aria-label="Arc gallery preview"
       >
         <div
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_42%,rgba(246,176,63,0.08),transparent_70%)]"
-          aria-hidden
-        />
-
-        <div
           ref={stageRef}
           className="
-            relative mx-auto w-full min-w-0 overflow-hidden
-            h-[min(38svh,264px)] min-[640px]:h-[min(44svh,400px)] md:h-[480px] lg:h-[540px] xl:h-[600px]
+            relative mx-auto w-full min-w-0
+            h-[min(50svh,400px)] min-[640px]:h-[min(44svh,400px)]
+            max-md:overflow-visible
+            py-6 max-md:py-6 md:h-[480px] md:overflow-hidden md:py-0
+            lg:h-[540px] xl:h-[600px]
           "
         >
-          <div className="absolute inset-0">
+          <div
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_42%,rgba(246,176,63,0.08),transparent_70%)]"
+            aria-hidden
+          />
+          <div className="absolute inset-0 overflow-x-clip overflow-y-visible max-md:overflow-x-clip md:overflow-visible">
             {items.map((item, index) => {
               const offset = getWrappedOffset(
                 index,
@@ -103,6 +123,7 @@ export default function ArcGallery({
                   offset={offset}
                   isActiveItem={index === activeIndex && !isDragging}
                   isDragging={isDragging}
+                  isMobile={isMobile}
                 />
               )
             })}
@@ -124,30 +145,12 @@ export default function ArcGallery({
             />
           </div>
 
-          <div className="absolute inset-x-0 bottom-[9%] z-40 hidden justify-center gap-2.5 min-[640px]:flex md:bottom-[10%]">
-            {items.map((item, i) => (
-              <button
-                key={item.id}
-                type="button"
-                aria-label={`Show ${item.projectName}`}
-                aria-current={i === activeIndex ? 'true' : undefined}
-                onClick={() => goTo(i)}
-                className={`
-                  pointer-events-auto flex h-11 w-11 items-center justify-center p-0
-                  min-[640px]:h-2 min-[640px]:w-2 min-[640px]:min-w-0
-                  ${i === activeIndex ? 'min-[640px]:w-8' : ''}
-                `}
-              >
-                <span
-                  className={`block rounded-full transition-all duration-300 ${
-                    i === activeIndex
-                      ? 'h-2 w-8 bg-casablanca'
-                      : 'h-2 w-2 bg-chambray/25'
-                  }`}
-                />
-              </button>
-            ))}
-          </div>
+          <ArcGalleryPagination
+            items={items}
+            activeIndex={activeIndex}
+            onSelect={goTo}
+            className="absolute inset-x-0 bottom-[9%] z-40 hidden min-[640px]:flex md:bottom-[10%]"
+          />
         </div>
 
         {/* Mobile only — arrows below the stage */}
@@ -160,34 +163,47 @@ export default function ArcGallery({
           />
         </div>
 
-        <div className="relative z-40 mt-2 flex justify-center gap-2.5 min-[640px]:hidden">
-          {items.map((item, i) => (
-            <button
-              key={item.id}
-              type="button"
-              aria-label={`Show ${item.projectName}`}
-              aria-current={i === activeIndex ? 'true' : undefined}
-              onClick={() => goTo(i)}
-              className={`
-                flex h-11 w-11 items-center justify-center p-0
-                md:h-2 md:w-2 md:min-w-0
-                ${i === activeIndex
-                  ? 'md:w-8'
-                  : ''
-                }
-              `}
-            >
-              <span
-                className={`block rounded-full transition-all duration-300 ${
-                  i === activeIndex
-                    ? 'h-2 w-8 bg-casablanca'
-                    : 'h-2 w-2 bg-chambray/25'
-                }`}
-              />
-            </button>
-          ))}
-        </div>
+        <ArcGalleryPagination
+          items={items}
+          activeIndex={activeIndex}
+          onSelect={goTo}
+          className="arc-gallery-pagination relative z-40 mt-3 py-2 min-[640px]:hidden"
+        />
       </div>
+    </div>
+  )
+}
+
+function ArcGalleryPagination({
+  items,
+  activeIndex,
+  onSelect,
+  className = '',
+}: {
+  items: ProjectPreview[]
+  activeIndex: number
+  onSelect: (index: number) => void
+  className?: string
+}) {
+  return (
+    <div className={`flex items-center justify-center gap-2 ${className}`}>
+      {items.map((item, i) => {
+        const isActive = i === activeIndex
+        return (
+          <button
+            key={item.id}
+            type="button"
+            aria-label={`Show ${item.projectName}`}
+            aria-current={isActive ? 'true' : undefined}
+            onClick={() => onSelect(i)}
+            className="arc-gallery-pagination__btn pointer-events-auto"
+          >
+            <span
+              className={`arc-gallery-pagination__pill ${isActive ? 'is-active' : ''}`}
+            />
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -198,27 +214,28 @@ function ArcTile({
   offset,
   isActiveItem,
   isDragging,
+  isMobile,
 }: {
   item: ProjectPreview
   layout: ReturnType<typeof useArcGalleryLayout>
   offset: number
   isActiveItem: boolean
   isDragging: boolean
+  isMobile: boolean
 }) {
-  const style = getArcTileStyle(offset, layout)
+  const style = getArcTileStyle(offset, layout, isMobile)
   const isVisualCenter = Math.abs(offset) < 0.5
 
-  const transition = isDragging
-    ? 'none'
-    : `transform ${TRANSITION_MS}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${TRANSITION_MS}ms ease, filter ${TRANSITION_MS}ms ease`
+  const transition = getArcTileTransition(isDragging, isMobile)
 
   return (
     <article
       className={`
-        pointer-events-none absolute left-1/2 aspect-square overflow-hidden
-        rounded-2xl md:rounded-3xl
+        pointer-events-none absolute left-1/2 overflow-hidden
+        aspect-4/5 md:aspect-square
+        rounded-4xl
         ring-1 ring-chambray/10
-        top-[40%] max-md:top-[38%]
+        top-1/2 max-md:top-1/2
         md:top-[38%]
         ${isVisualCenter ? 'shadow-[0_24px_48px_rgba(57,65,154,0.22)]' : 'shadow-md'}
       `}
@@ -238,19 +255,25 @@ function ArcTile({
           src={item.coverImageSrc}
           alt=""
           fill
-          sizes={`(max-width: 639px) ${Math.round(layout.tileWidth)}px, (max-width: 1023px) 220px, 300px`}
+          sizes={`(max-width: 639px) ${Math.round(layout.tileWidth)}px, (max-width: 1023px) 240px, 300px`}
           className="object-cover"
           draggable={false}
         />
-        <div className="absolute inset-0 bg-linear-to-t from-chambray/90 via-chambray/25 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 p-2.5 max-md:p-3 md:p-5">
+        <div className="absolute inset-0 bg-linear-to-t from-chambray/90 via-chambray/30 to-transparent" />
+        <div
+          className="
+            absolute right-3 bottom-9 z-10 max-w-[90%] text-right
+            max-md:right-4 max-md:bottom-11
+            md:right-5 md:bottom-8 md:max-w-[82%]
+          "
+        >
           <p
-            className={`text-[9px] uppercase tracking-[0.12em] text-casablanca md:text-xs ${fonts.bricolage_grot400.className}`}
+            className={`text-xs uppercase tracking-[0.14em] text-casablanca md:text-sm ${fonts.bricolage_grot400.className}`}
           >
             {item.clientName}
           </p>
           <h3
-            className={`mt-0.5 text-[11px] leading-tight text-white max-md:line-clamp-2 md:text-base ${fonts.bricolage_grot600.className}`}
+            className={`mt-1 text-base leading-snug text-white max-md:line-clamp-2 md:mt-1.5 md:text-xl md:leading-tight ${fonts.bricolage_grot600.className}`}
           >
             {item.projectName}
           </h3>

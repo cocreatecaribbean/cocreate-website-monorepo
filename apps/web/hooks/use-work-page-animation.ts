@@ -17,13 +17,18 @@ const EASE_IN = 'power2.in'
 const EASE_OUT = 'power2.out'
 
 const HIDDEN_HEADING = { autoAlpha: 0, y: 24 }
-const HIDDEN_TILE = { autoAlpha: 0, y: 28 }
+/** Wrapper fade only — never on the rounded card; skipped on touch (iOS radius + parent opacity) */
+const HIDDEN_TILE = { autoAlpha: 0 }
 
 type UseWorkPageAnimationOptions = {
   scope: RefObject<HTMLElement | null>
 }
 
 type RevealPhase = 'hidden' | 'shown' | 'animating'
+
+function showTilesImmediately(tiles: HTMLElement[]) {
+  gsap.set(tiles, { clearProps: 'opacity,visibility', autoAlpha: 1 })
+}
 
 export function useWorkPageAnimation({ scope }: UseWorkPageAnimationOptions) {
   const activeTimelineRef = useRef<gsap.core.Timeline | null>(null)
@@ -39,11 +44,16 @@ export function useWorkPageAnimation({ scope }: UseWorkPageAnimationOptions) {
 
       if (!heading || tiles.length === 0) return
 
-      const targets = [heading, ...tiles]
+      const animateTiles = !ScrollTrigger.isTouch
+      const targets = animateTiles ? [heading, ...tiles] : [heading]
 
       const applyHiddenState = () => {
         gsap.set(heading, HIDDEN_HEADING)
-        gsap.set(tiles, HIDDEN_TILE)
+        if (animateTiles) {
+          gsap.set(tiles, HIDDEN_TILE)
+        } else {
+          showTilesImmediately(tiles)
+        }
       }
 
       const playReveal = () => {
@@ -58,7 +68,7 @@ export function useWorkPageAnimation({ scope }: UseWorkPageAnimationOptions) {
           onComplete: () => {
             activeTimelineRef.current = null
             phaseRef.current = 'shown'
-            gsap.set(tiles, { clearProps: 'transform' })
+            if (!animateTiles) showTilesImmediately(tiles)
           },
           onInterrupt: () => {
             if (phaseRef.current === 'animating') phaseRef.current = 'hidden'
@@ -71,19 +81,24 @@ export function useWorkPageAnimation({ scope }: UseWorkPageAnimationOptions) {
           autoAlpha: 1,
           y: 0,
           duration: 0.55,
-        }).to(
-          tiles,
-          {
-            autoAlpha: 1,
-            y: 0,
-            duration: 0.5,
-            stagger: {
-              each: TILE_STAGGER,
-              from: 'start',
+        })
+
+        if (animateTiles) {
+          tl.to(
+            tiles,
+            {
+              autoAlpha: 1,
+              duration: 0.55,
+              stagger: {
+                each: TILE_STAGGER,
+                from: 'start',
+              },
             },
-          },
-          '-=0.32',
-        )
+            '-=0.32',
+          )
+        } else {
+          showTilesImmediately(tiles)
+        }
       }
 
       const playHide = () => {
@@ -106,23 +121,31 @@ export function useWorkPageAnimation({ scope }: UseWorkPageAnimationOptions) {
 
         activeTimelineRef.current = tl
 
-        tl.to(tiles, {
-          autoAlpha: 0,
-          y: -16,
-          duration: 0.38,
-          stagger: {
-            each: TILE_HIDE_STAGGER,
-            from: 'end',
-          },
-        }).to(
-          heading,
-          {
+        if (animateTiles) {
+          tl.to(tiles, {
+            autoAlpha: 0,
+            duration: 0.38,
+            stagger: {
+              each: TILE_HIDE_STAGGER,
+              from: 'end',
+            },
+          }).to(
+            heading,
+            {
+              autoAlpha: 0,
+              y: -14,
+              duration: 0.34,
+            },
+            '-=0.2',
+          )
+        } else {
+          showTilesImmediately(tiles)
+          tl.to(heading, {
             autoAlpha: 0,
             y: -14,
             duration: 0.34,
-          },
-          '-=0.2',
-        )
+          })
+        }
       }
 
       const prefersReducedMotion = window.matchMedia(
@@ -130,14 +153,18 @@ export function useWorkPageAnimation({ scope }: UseWorkPageAnimationOptions) {
       ).matches
 
       if (prefersReducedMotion) {
-        gsap.set(targets, { clearProps: 'all', autoAlpha: 1, y: 0 })
-        gsap.set(tiles, { clearProps: 'transform' })
+        gsap.set(heading, { clearProps: 'all', autoAlpha: 1, y: 0 })
+        showTilesImmediately(tiles)
         phaseRef.current = 'shown'
         return
       }
 
       primeScrollRevealTargets(heading, HIDDEN_HEADING)
-      primeScrollRevealTargets(tiles, HIDDEN_TILE)
+      if (animateTiles) {
+        primeScrollRevealTargets(tiles, HIDDEN_TILE)
+      } else {
+        showTilesImmediately(tiles)
+      }
 
       const trigger = bindSectionScrollReveal({
         trigger: section,
