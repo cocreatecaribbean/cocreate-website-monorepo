@@ -62,6 +62,12 @@ body.menu-open > *:not(nav) {
   opacity: 0;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .animate-float {
+    animation: none !important;
+  }
+}
+
 
 
 

@@ -16,17 +16,12 @@ export default function AboutScrollTune() {
 
     const mm = gsap.matchMedia()
 
-    mm.add('(max-width: 1499px)', () => {
+    mm.add('(max-width: 1499px) and (pointer: coarse)', () => {
       const previousSmooth = smoother.smooth()
-      smoother.smooth(0.15)
-
-      if (!ScrollTrigger.isTouch) {
-        ScrollTrigger.normalizeScroll(true)
-      }
+      smoother.smooth(0.55)
 
       return () => {
-        smoother.smooth(previousSmooth)
-        ScrollTrigger.normalizeScroll(false)
+        smoother.smooth(previousSmooth > 0 ? previousSmooth : 0.85)
       }
     })
 

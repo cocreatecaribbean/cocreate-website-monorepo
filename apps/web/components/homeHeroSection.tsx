@@ -4,18 +4,17 @@ import { useRef, useEffect, useState } from "react";
 import { EmblaCarouselType } from "embla-carousel";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { ScrollSmoother } from "gsap/ScrollSmoother";
 import { SplitText } from "gsap/SplitText";
 import { useGSAP } from "@gsap/react";
 import { CustomEase } from "gsap/CustomEase";
 import * as fonts from "@/styles/fonts";
 import BackgroundVideo from "@/components/background_video";
-import AccordionDesktop from "@/components/accordion-desktop";
-import AccordionMobile from "@/components/accordion-mobile";
+import WhatWeDoAccordions from "@/components/what-we-do-accordions";
 import EmblaCarousel from "@/components/emblaCarousel";
 import { philosophies } from "@/site-info/home-page-data";
 import { EmblaOptionsType } from "embla-carousel";
 import { splitTextGradient } from "@/utils/util-funcs";
+import { consumeSpaNavigation } from "@/lib/scroll/navigation";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText);
 
@@ -25,6 +24,13 @@ const IMG_WIDTH = 1920;
 const IMG_HEIGHT = 1080;
 const FILE_PATH = (index: number) =>
   `/cocreate-graphic-anim/cocreate-home-graphic_${index}.webp`;
+
+function prefersReducedMotion() {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
 
 /** Scroll position saved on reload by ScrollSmoothWrapper */
 function getReloadScrollY(): number | null {
@@ -84,12 +90,41 @@ export default function HomeHeroSection() {
 
   useGSAP(
     () => {
+      const enteredViaSpa = consumeSpaNavigation();
+
+      const ctx = gsap.context(() => {
+      if (prefersReducedMotion()) {
+        const canvas = canvasRef.current;
+        if (canvas) canvas.classList.remove("animate-float");
+
+        gsap.set(mainRef.current, { autoAlpha: 1 });
+        gsap.set(container.current, { visibility: "visible" });
+        gsap.set(brand_elem.current, { translateY: 0 });
+        gsap.set(hero_text.current, { opacity: 1 });
+        gsap.set(vid_container.current, { scale: 0 });
+        gsap.set(".headline-text", { opacity: 1 });
+        gsap.set(".about-text", { opacity: 1 });
+        gsap.set(".what-we-do", { scale: 1 });
+        gsap.set(".accordion-item", { opacity: 1, xPercent: 0 });
+
+        const first = imagesRef.current[1];
+        if (first?.complete) renderFrame(1);
+        else if (first) first.onload = () => renderFrame(1);
+
+        return;
+      }
+
       const mm = gsap.matchMedia();
       const breakpoint = 768;
 
-      if (!ScrollTrigger.isTouch) {
-        ScrollTrigger.normalizeScroll(true);
-      }
+      /** Bounce lives on the canvas — only disable once pin scrub actually starts */
+      const setBrandFloatActive = (active: boolean) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        canvas.classList.toggle("animate-float", active);
+      };
+
+      setBrandFloatActive(true);
 
       // ─── Split Text ─────────────────────────────────────────────────────────
 
@@ -171,12 +206,16 @@ export default function HomeHeroSection() {
             start: "top top",
             end: isDesktop ? "+=400%" : "+=200%",
             animation: mainTimeline,
-            scrub: true,
+            scrub: isMobile ? 0.4 : true,
             pin: true,
-            pinType: isMobile ? "fixed" : "transform",
+            pinSpacing: true,
+            pinType: "transform",
             anticipatePin: 1,
-            invalidateOnRefresh: true,
+            fastScrollEnd: true,
+            invalidateOnRefresh: !isMobile,
+            onLeaveBack: () => setBrandFloatActive(true),
             onUpdate: (self) => {
+              setBrandFloatActive(self.progress < 0.02);
               const frame = self.progress * 1.75;
               const val = Math.round(frame * (FRAME_COUNT - 1)) + 1;
               const safeIndex = Math.min(Math.max(val, 1), FRAME_COUNT);
@@ -185,12 +224,30 @@ export default function HomeHeroSection() {
           });
 
           ScrollTrigger.create({
+            id: "home-what-we-do",
             animation: whatWeDoTimeline,
             trigger: ".what-we-do",
             start: isMobile ? "top 170%" : "top 150%",
             end: isMobile ? "top 70%" : "top 40%",
             scrub: true,
           });
+
+          if (enteredViaSpa) {
+            gsap.set(vid_container.current, { scale: 0 });
+            gsap.set(hero_text.current, { opacity: 1 });
+            gsap.set(brand_elem.current, { clearProps: "transform" });
+
+            const st = ScrollTrigger.getById("home-hero-pin");
+            if (st?.animation) {
+              st.animation.progress(0);
+            }
+
+            requestAnimationFrame(() => {
+              ScrollTrigger.refresh();
+              renderFrame(1);
+              setBrandFloatActive(true);
+            });
+          }
         },
       );
 
@@ -221,17 +278,9 @@ export default function HomeHeroSection() {
         revealMain();
       }
 
-      // cleanup on unmount — kill triggers always
-      // only reset scroll on navigation, not reload
-      // reload guard prevents scroll being wiped before browser restores position
-      return () => {
-        ScrollTrigger.getAll().forEach(t => t.kill())
-        const isReload = window.performance.navigation.type === 1
-        if (!isReload) {
-          const smoother = ScrollSmoother.get()
-          if (smoother) smoother.scrollTop(0)
-        }
-      }
+      }, mainRef);
+
+      return () => ctx.revert();
     },
     { scope: mainRef }
   );
@@ -243,6 +292,11 @@ export default function HomeHeroSection() {
       if (!emblaApi) return
 
       const slides = gsap.utils.toArray<HTMLElement>('.embla__slide__gsap')
+
+      if (prefersReducedMotion()) {
+        gsap.set(slides, { opacity: 1 })
+        return
+      }
 
       gsap.set(slides, { opacity: 0 })
 
@@ -344,12 +398,7 @@ export default function HomeHeroSection() {
           <h2 className={`${fonts.bricolage_grot500.className} text-casablanca text-[clamp(2rem,2vw,3rem)] mb-4 xl:mb-12 w-fit mx-auto lg:mx-0`}>
             What We Do
           </h2>
-          <div className="hidden lg:block">
-            <AccordionDesktop />
-          </div>
-          <div className="block lg:hidden">
-            <AccordionMobile />
-          </div>
+          <WhatWeDoAccordions />
         </div>
       </section>
 

@@ -14,46 +14,60 @@ interface ScrollSmoothProps {
 const ScrollSmoothWrapper: React.FC<ScrollSmoothProps> = ({ children }) => {
 
     useGSAP(() => {
+        ScrollTrigger.config({
+            limitCallbacks: true,
+            ignoreMobileResize: true,
+        })
+
+        const touchScroll = Boolean(ScrollTrigger.isTouch)
+        const reducedMotion = window.matchMedia(
+            '(prefers-reduced-motion: reduce)',
+        ).matches
+
         const smoother = ScrollSmoother.create({
             wrapper: '#smooth-wrapper',
             content: '#smooth-content',
-            smooth: 1,
-            effects: true,
-            smoothTouch: false,
+            smooth: reducedMotion || touchScroll ? 0 : 0.85,
+            effects: false,
+            smoothTouch: 0,
             normalizeScroll: false,
+            ignoreMobileResize: true,
         })
 
-        // 1. Capture scroll on reload/exit
-        const handleUnload = () => {
+        const saveScroll = () => {
             sessionStorage.setItem('lastScrollY', smoother.scrollTop().toString())
             sessionStorage.setItem('lastPath', window.location.pathname)
         }
-        window.addEventListener('beforeunload', handleUnload)
+        window.addEventListener('beforeunload', saveScroll)
+        window.addEventListener('pagehide', saveScroll)
 
         // 2. Restoration Logic
         const savedPath = sessionStorage.getItem('lastPath')
         const savedY = sessionStorage.getItem('lastScrollY')
         const isReload = savedPath === window.location.pathname
 
-        if (isReload && savedY) {
-            // Restore position BEFORE showing the content
-            smoother.scrollTop(parseFloat(savedY))
-            ScrollTrigger.refresh()
+        const revealContent = () => {
+            gsap.set('#smooth-content', { visibility: 'visible' })
+            gsap.to('#smooth-content', {
+                autoAlpha: 1,
+                duration: 0.2,
+                onComplete: () => ScrollTrigger.refresh(),
+            })
+        }
 
-            // Refresh pin/scrub state, then reveal (prevents hero canvas flash)
+        if (isReload && savedY) {
+            smoother.scrollTop(parseFloat(savedY))
             requestAnimationFrame(() => {
                 ScrollTrigger.refresh()
-                requestAnimationFrame(() => {
-                    gsap.to('#smooth-content', { autoAlpha: 1, duration: 0.2 })
-                })
+                requestAnimationFrame(revealContent)
             })
         } else {
-            // New page or no saved data: just show it immediately
-            gsap.to('#smooth-content', { autoAlpha: 1, duration: 0.2 })
+            revealContent()
         }
 
         return () => {
-            window.removeEventListener('beforeunload', handleUnload)
+            window.removeEventListener('beforeunload', saveScroll)
+            window.removeEventListener('pagehide', saveScroll)
         }
     })
 

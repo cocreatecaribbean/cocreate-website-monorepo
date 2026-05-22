@@ -9,8 +9,6 @@ gsap.registerPlugin(ScrollTrigger, useGSAP)
 
 /** Left-to-right, top-to-bottom — matches DOM order in the grid */
 const ITEM_STAGGER = 0.1
-const ITEM_HIDE_STAGGER = 0.06
-const EASE_IN = 'power2.in'
 const EASE_OUT = 'power2.out'
 const DECOR_EASE_IN = 'sine.out'
 
@@ -134,66 +132,6 @@ export function useAboutServicesAnimation({ scope }: UseAboutServicesAnimationOp
           )
       }
 
-      const playHide = () => {
-        if (isAnimatingRef.current || !isRevealedRef.current) return
-
-        isAnimatingRef.current = true
-        isRevealedRef.current = false
-        activeTimelineRef.current?.kill()
-        killFloat()
-
-        const tl = gsap.timeline({
-          defaults: { ease: EASE_IN, overwrite: 'auto' },
-          onComplete: () => {
-            activeTimelineRef.current = null
-            isAnimatingRef.current = false
-            applyHiddenState()
-          },
-          onInterrupt: () => {
-            isAnimatingRef.current = false
-          },
-        })
-
-        activeTimelineRef.current = tl
-
-        tl.to(items, {
-          autoAlpha: 0,
-          y: -14,
-          duration: 0.4,
-          stagger: {
-            each: ITEM_HIDE_STAGGER,
-            from: 'end',
-          },
-        })
-          .to(
-            heading,
-            {
-              autoAlpha: 0,
-              y: -12,
-              duration: 0.32,
-            },
-            '-=0.18',
-          )
-          .to(
-            decor,
-            {
-              autoAlpha: 0,
-              duration: 0.34,
-              stagger: 0.05,
-            },
-            '-=0.22',
-          )
-          .to(
-            panel,
-            {
-              autoAlpha: 0,
-              y: 24,
-              duration: 0.44,
-            },
-            '-=0.26',
-          )
-      }
-
       const prefersReducedMotion = window.matchMedia(
         '(prefers-reduced-motion: reduce)',
       ).matches
@@ -212,11 +150,13 @@ export function useAboutServicesAnimation({ scope }: UseAboutServicesAnimationOp
       const trigger = ScrollTrigger.create({
         trigger: section,
         start: 'top 82%',
-        end: 'bottom top',
+        once: true,
         onEnter: playReveal,
-        onEnterBack: playReveal,
-        onLeaveBack: playHide,
       })
+
+      if (trigger.isActive) {
+        playReveal()
+      }
 
       return () => {
         activeTimelineRef.current?.kill()

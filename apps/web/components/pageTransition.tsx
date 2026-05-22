@@ -1,14 +1,20 @@
-"use client";
-import { usePathname } from "next/navigation";
+'use client'
 
+import { usePathname } from 'next/navigation'
+
+/** Fade inner routes only — home hero pin must measure layout without a fade wrapper. */
 const PageTransition: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const pathname = usePathname();
+  const pathname = usePathname()
 
-    return (
-        <div key={pathname} className="animate-fadein">
-            {children}
-        </div>
-    );
-};
+  if (pathname === '/') {
+    return <>{children}</>
+  }
 
-export default PageTransition;
+  return (
+    <div key={pathname} className="animate-fadein">
+      {children}
+    </div>
+  )
+}
+
+export default PageTransition

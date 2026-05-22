@@ -1,29 +1,49 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { useEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { ScrollSmoother } from 'gsap/ScrollSmoother'
+import { markSpaNavigation } from '@/lib/scroll/navigation'
 
+const SMOOTH_DURATION = 0.85
+
+/**
+ * SPA route changes: scroll to top and refresh ScrollTrigger once.
+ * Does not run on first paint (reload uses ScrollSmootherWrapper restore).
+ */
 export default function ScrollToTop() {
   const pathname = usePathname()
-  const lastPathname = useRef(pathname)
+  const previousPath = useRef(pathname)
 
-  useEffect(() => {
-    // If the path has changed, we are on a NEW page
-    if (lastPathname.current !== pathname) {
-      lastPathname.current = pathname
+  if (previousPath.current !== pathname) {
+    markSpaNavigation()
+  }
 
-      // Small timeout ensures the DOM has rendered and Smoother is ready
-      setTimeout(() => {
-        const smoother = ScrollSmoother.get()
-        if (smoother) {
-          smoother.scrollTop(0)
-          smoother.paused(false) // Just in case it was paused during transition
-        } else {
-          window.scrollTo(0, 0)
-        }
-      }, 50) 
+  useLayoutEffect(() => {
+    if (previousPath.current === pathname) return
+
+    previousPath.current = pathname
+
+    sessionStorage.removeItem('lastScrollY')
+    sessionStorage.removeItem('lastPath')
+
+    const syncScroll = () => {
+      const smoother = ScrollSmoother.get()
+      if (smoother) {
+        smoother.paused(false)
+        const prev = smoother.smooth()
+        smoother.smooth(0)
+        smoother.scrollTop(0)
+        smoother.smooth(prev > 0 ? prev : SMOOTH_DURATION)
+        smoother.scrollTrigger?.refresh()
+      } else {
+        window.scrollTo(0, 0)
+      }
+      ScrollTrigger.refresh()
     }
+
+    requestAnimationFrame(syncScroll)
   }, [pathname])
 
   return null
