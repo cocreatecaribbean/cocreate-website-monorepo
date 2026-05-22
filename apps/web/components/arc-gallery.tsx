@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useArcGalleryLayout } from '@/hooks/use-arc-gallery-layout'
 import { useCarouselDrag } from '@/hooks/use-carousel-drag'
-import { galleryProjectPreviews } from '@/site-info/gallery-data'
+import { homeGalleryProjectPreviews } from '@/site-info/gallery-data'
 import type { ProjectPreview } from '@cocreate/types'
 import { getArcTileStyle, getWrappedOffset } from '@/utils/arc-gallery-math'
 import * as fonts from '@/styles/fonts'
@@ -26,7 +26,7 @@ type ArcGalleryProps = {
 }
 
 export default function ArcGallery({
-  items = galleryProjectPreviews,
+  items = homeGalleryProjectPreviews,
 }: ArcGalleryProps) {
   const stageRef = useRef<HTMLDivElement>(null)
   const layout = useArcGalleryLayout(stageRef)

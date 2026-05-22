@@ -1,7 +1,12 @@
+'use client'
+
+import { useRef } from 'react'
 import Image from 'next/image'
 import { galleryProjectPreviews } from '@/site-info/gallery-data'
 import type { ProjectPreview } from '@cocreate/types'
 import * as fonts from '@/styles/fonts'
+import { useWorkMasonryPagination } from '@/hooks/use-work-masonry-pagination'
+import { useWorkTileBatchReveal } from '@/hooks/use-work-tile-batch-reveal'
 import WorkTileShell from '@/components/work/work-tile-shell'
 import './work-tiles.css'
 
@@ -81,13 +86,23 @@ function WorkMasonryTile({
 export default function WorkMasonryGrid({
   items = galleryProjectPreviews,
 }: WorkMasonryGridProps) {
+  const gridRef = useRef<HTMLElement>(null)
+  const { sentinelRef, visibleItems, visibleCount, totalCount, hasMore } =
+    useWorkMasonryPagination({ items })
+
+  useWorkTileBatchReveal({ scope: gridRef, visibleCount })
+
   return (
     <section
+      ref={gridRef}
       className="work-masonry mx-auto w-[88svw] max-w-[1320px] pb-8"
       aria-label="Project gallery"
     >
+      <p className="sr-only" aria-live="polite">
+        Showing {visibleItems.length} of {totalCount} projects
+      </p>
       <div className="work-masonry-columns columns-1 min-[640px]:columns-2 min-[1024px]:columns-3">
-        {items.map((item, index) => (
+        {visibleItems.map((item, index) => (
           <div key={item.id} data-work-tile className="work-tile-reveal">
             <WorkMasonryTile
               item={item}
@@ -96,6 +111,13 @@ export default function WorkMasonryGrid({
           </div>
         ))}
       </div>
+      {hasMore ? (
+        <div
+          ref={sentinelRef}
+          className="work-masonry-sentinel h-px w-full shrink-0"
+          aria-hidden
+        />
+      ) : null}
     </section>
   )
 }
