@@ -29,7 +29,20 @@ export function bindSectionScrollReveal({
   })
 
   const syncIfInView = () => {
-    if (st.isActive) onReveal()
+    if (!st.isActive) return
+
+    const content = document.getElementById('smooth-content')
+    const contentOpacity = content
+      ? (gsap.getProperty(content, 'opacity') as number)
+      : 1
+
+    // Wait for ScrollSmoother app reveal so section GSAP does not stack on the same beat (mobile /work)
+    if (contentOpacity < 0.99) {
+      gsap.delayedCall(0.2, syncIfInView)
+      return
+    }
+
+    onReveal()
   }
 
   requestAnimationFrame(() => {

@@ -57,11 +57,11 @@ export function useWorkPageAnimation({ scope }: UseWorkPageAnimationOptions) {
       }
 
       const playReveal = () => {
-        if (phaseRef.current === 'shown') return
+        // onEnter + syncIfInView both run after refresh — ignore duplicate calls
+        if (phaseRef.current !== 'hidden') return
 
         phaseRef.current = 'animating'
         activeTimelineRef.current?.kill()
-        applyHiddenState()
 
         const tl = gsap.timeline({
           defaults: { ease: EASE_OUT, overwrite: 'auto' },
@@ -77,14 +77,14 @@ export function useWorkPageAnimation({ scope }: UseWorkPageAnimationOptions) {
 
         activeTimelineRef.current = tl
 
-        tl.to(heading, {
-          autoAlpha: 1,
-          y: 0,
-          duration: 0.55,
-        })
-
         if (animateTiles) {
-          tl.to(
+          applyHiddenState()
+          tl.to(heading, {
+            autoAlpha: 1,
+            y: 0,
+            duration: 0.55,
+            onStart: () => heading.classList.remove('opacity-0'),
+          }).to(
             tiles,
             {
               autoAlpha: 1,
@@ -97,7 +97,14 @@ export function useWorkPageAnimation({ scope }: UseWorkPageAnimationOptions) {
             '-=0.32',
           )
         } else {
+          // Touch: tiles stay visible; heading is already primed hidden — never re-hide (that caused the double-load flash)
           showTilesImmediately(tiles)
+          tl.to(heading, {
+            autoAlpha: 1,
+            y: 0,
+            duration: 0.55,
+            onStart: () => heading.classList.remove('opacity-0'),
+          })
         }
       }
 
@@ -153,7 +160,8 @@ export function useWorkPageAnimation({ scope }: UseWorkPageAnimationOptions) {
       ).matches
 
       if (prefersReducedMotion) {
-        gsap.set(heading, { clearProps: 'all', autoAlpha: 1, y: 0 })
+        gsap.set(heading, { autoAlpha: 1, y: 0 })
+        heading.classList.remove('opacity-0')
         showTilesImmediately(tiles)
         phaseRef.current = 'shown'
         return
