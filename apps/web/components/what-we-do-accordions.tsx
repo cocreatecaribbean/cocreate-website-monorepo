@@ -18,8 +18,8 @@ export default function WhatWeDoAccordions() {
   if (!mounted) {
     return (
       <>
-        <div className="hidden lg:block min-h-[28rem]" aria-hidden />
-        <div className="block lg:hidden min-h-[28rem]" aria-hidden />
+        <div className="hidden lg:block min-h-112" aria-hidden />
+        <div className="block lg:hidden min-h-112" aria-hidden />
       </>
     )
   }

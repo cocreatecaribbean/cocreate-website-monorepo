@@ -78,7 +78,7 @@ export default function AboutHeroSection() {
 
         {/* Scroll runway for mobile scrub — below copy, not between image and heading */}
         <div
-          className="hidden max-[1499px]:block max-[767px]:h-[11svh] max-[767px]:min-h-20 min-[768px]:max-[1499px]:h-[9svh] min-[768px]:max-[1499px]:min-h-[4.25rem] shrink-0"
+          className="hidden max-[1499px]:block max-[767px]:h-[11svh] max-[767px]:min-h-20 min-[768px]:max-[1499px]:h-[9svh] min-[768px]:max-[1499px]:min-h-17 shrink-0"
           aria-hidden
         />
       </section>

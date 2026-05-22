@@ -4,11 +4,16 @@ import { useRef, type RefObject } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useGSAP } from '@gsap/react'
+import {
+  bindSectionScrollReveal,
+  primeScrollRevealTargets,
+} from '@/lib/scroll/section-scroll-reveal'
 
 gsap.registerPlugin(ScrollTrigger, useGSAP)
 
-/** Left-to-right, top-to-bottom — matches DOM order in the grid */
 const ITEM_STAGGER = 0.1
+const ITEM_HIDE_STAGGER = 0.06
+const EASE_IN = 'power2.in'
 const EASE_OUT = 'power2.out'
 const DECOR_EASE_IN = 'sine.out'
 
@@ -21,11 +26,12 @@ type UseAboutServicesAnimationOptions = {
   scope: RefObject<HTMLElement | null>
 }
 
+type RevealPhase = 'hidden' | 'shown' | 'animating'
+
 export function useAboutServicesAnimation({ scope }: UseAboutServicesAnimationOptions) {
   const activeTimelineRef = useRef<gsap.core.Timeline | null>(null)
   const floatTweensRef = useRef<gsap.core.Tween[]>([])
-  const isRevealedRef = useRef(false)
-  const isAnimatingRef = useRef(false)
+  const phaseRef = useRef<RevealPhase>('hidden')
 
   useGSAP(
     () => {
@@ -74,25 +80,22 @@ export function useAboutServicesAnimation({ scope }: UseAboutServicesAnimationOp
       }
 
       const playReveal = () => {
-        if (isAnimatingRef.current || isRevealedRef.current) return
+        if (phaseRef.current === 'shown') return
 
-        isAnimatingRef.current = true
+        phaseRef.current = 'animating'
         activeTimelineRef.current?.kill()
         killFloat()
-
-        // Snap to hidden start without a separate hide flash when re-entering
         applyHiddenState()
 
         const tl = gsap.timeline({
           defaults: { ease: EASE_OUT, overwrite: 'auto' },
           onComplete: () => {
             activeTimelineRef.current = null
-            isAnimatingRef.current = false
-            isRevealedRef.current = true
+            phaseRef.current = 'shown'
             startDecorFloat()
           },
           onInterrupt: () => {
-            isAnimatingRef.current = false
+            if (phaseRef.current === 'animating') phaseRef.current = 'hidden'
           },
         })
 
@@ -102,11 +105,16 @@ export function useAboutServicesAnimation({ scope }: UseAboutServicesAnimationOp
           autoAlpha: 1,
           y: 0,
           duration: 0.52,
-        }).to(panel, {
-          autoAlpha: 1,
-          y: 0,
-          duration: 0.58,
-        }, '<0.08')
+        })
+          .to(
+            panel,
+            {
+              autoAlpha: 1,
+              y: 0,
+              duration: 0.58,
+            },
+            '<0.08',
+          )
           .to(
             items,
             {
@@ -132,39 +140,92 @@ export function useAboutServicesAnimation({ scope }: UseAboutServicesAnimationOp
           )
       }
 
+      const playHide = () => {
+        if (phaseRef.current === 'hidden') return
+
+        phaseRef.current = 'animating'
+        activeTimelineRef.current?.kill()
+        killFloat()
+
+        const tl = gsap.timeline({
+          defaults: { ease: EASE_IN, overwrite: 'auto' },
+          onComplete: () => {
+            activeTimelineRef.current = null
+            phaseRef.current = 'hidden'
+            applyHiddenState()
+          },
+          onInterrupt: () => {
+            if (phaseRef.current === 'animating') phaseRef.current = 'shown'
+          },
+        })
+
+        activeTimelineRef.current = tl
+
+        tl.to(items, {
+          autoAlpha: 0,
+          y: -14,
+          duration: 0.4,
+          stagger: {
+            each: ITEM_HIDE_STAGGER,
+            from: 'end',
+          },
+        })
+          .to(
+            heading,
+            {
+              autoAlpha: 0,
+              y: -12,
+              duration: 0.32,
+            },
+            '-=0.18',
+          )
+          .to(
+            decor,
+            {
+              autoAlpha: 0,
+              duration: 0.34,
+              stagger: 0.05,
+            },
+            '-=0.22',
+          )
+          .to(
+            panel,
+            {
+              autoAlpha: 0,
+              y: 24,
+              duration: 0.44,
+            },
+            '-=0.26',
+          )
+      }
+
       const prefersReducedMotion = window.matchMedia(
         '(prefers-reduced-motion: reduce)',
       ).matches
 
       if (prefersReducedMotion) {
         gsap.set(targets, { clearProps: 'all', autoAlpha: 1, y: 0 })
-        panel.style.visibility = 'visible'
-        isRevealedRef.current = true
+        phaseRef.current = 'shown'
         return
       }
 
-      applyHiddenState()
-      heading.style.visibility = 'visible'
-      panel.style.visibility = 'visible'
+      primeScrollRevealTargets(heading, HIDDEN_HEADING)
+      primeScrollRevealTargets(panel, HIDDEN_PANEL)
+      primeScrollRevealTargets(decor, HIDDEN_DECOR)
+      primeScrollRevealTargets(items, HIDDEN_ITEM)
 
-      const trigger = ScrollTrigger.create({
+      const trigger = bindSectionScrollReveal({
         trigger: section,
-        start: 'top 82%',
-        once: true,
-        onEnter: playReveal,
+        onReveal: playReveal,
+        onHide: playHide,
       })
-
-      if (trigger.isActive) {
-        playReveal()
-      }
 
       return () => {
         activeTimelineRef.current?.kill()
         killFloat()
         trigger.kill()
         gsap.killTweensOf(targets)
-        isRevealedRef.current = false
-        isAnimatingRef.current = false
+        phaseRef.current = 'hidden'
       }
     },
     { scope },

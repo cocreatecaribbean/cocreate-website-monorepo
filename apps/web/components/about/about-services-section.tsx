@@ -34,7 +34,7 @@ function BrandDecor({ corner }: { corner: 'top-right' | 'bottom-left' }) {
     >
       <div
         data-about-services-decor-float
-        className={isTopRight ? 'rotate-[-110deg]' : 'rotate-[228deg]'}
+        className={isTopRight ? 'rotate-[-110deg]' : 'rotate-228'}
       >
         <Image
           src={BRAND_ELEM_SRC}
@@ -44,7 +44,7 @@ function BrandDecor({ corner }: { corner: 'top-right' | 'bottom-left' }) {
           className="
             h-auto w-[min(58vw,20rem)]
             min-[768px]:max-[1023px]:w-[24rem]
-            min-[1024px]:w-[28rem] min-[1500px]:w-[32rem]
+            min-[1024px]:w-md min-[1500px]:w-lg
             opacity-[0.68] min-[1024px]:opacity-[0.72]
           "
           aria-hidden
@@ -74,7 +74,7 @@ export default function AboutServicesSection() {
         id="about-services-heading"
         data-about-services-heading
         className={`
-          invisible
+          opacity-0
           ${fonts.bricolage_grot600.className}
           mb-8 min-[1024px]:mb-10
           text-center leading-none text-neutral-800
@@ -87,14 +87,14 @@ export default function AboutServicesSection() {
       <div
         data-about-services-panel
         className="
-          invisible relative overflow-hidden
+          opacity-0 relative overflow-hidden
           rounded-[2.25rem] sm:rounded-[2.75rem] min-[1024px]:rounded-[5rem] min-[1500px]:rounded-[6rem]
           bg-[#f2f2f2]
           px-6 py-12
           sm:px-8
           min-[768px]:max-[1023px]:px-10 min-[768px]:max-[1023px]:py-16
-          min-[1024px]:px-12 min-[1024px]:py-[7rem]
-          min-[1500px]:px-16 min-[1500px]:py-[8.5rem]
+          min-[1024px]:px-12 min-[1024px]:py-28
+          min-[1500px]:px-16 min-[1500px]:py-34
         "
       >
         <BrandDecor corner="top-right" />
@@ -112,7 +112,7 @@ export default function AboutServicesSection() {
             <li
               key={service.title}
               data-about-services-item
-              className="flex flex-col items-center text-center"
+              className="flex flex-col items-center text-center opacity-0"
             >
               <div data-about-services-icon className="mb-2.5 min-[1024px]:mb-3">
                 <Image
@@ -120,7 +120,7 @@ export default function AboutServicesSection() {
                   alt=""
                   width={140}
                   height={140}
-                  className="h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem] min-[1024px]:h-20 min-[1024px]:w-20"
+                  className="h-16 w-16 sm:h-18 sm:w-18 min-[1024px]:h-20 min-[1024px]:w-20"
                   aria-hidden
                 />
               </div>
@@ -137,9 +137,9 @@ export default function AboutServicesSection() {
                 className={`
                   ${fonts.bricolage_grot400.className}
                   max-w-[16rem] text-sm leading-relaxed text-neutral-600
-                  sm:max-w-[17.5rem] sm:text-[0.95rem]
-                  min-[768px]:max-w-[14.5rem]
-                  min-[1024px]:max-w-[15rem] min-[1024px]:text-base min-[1024px]:leading-relaxed
+                  sm:max-w-70 sm:text-[0.95rem]
+                  min-[768px]:max-w-58
+                  min-[1024px]:max-w-60 min-[1024px]:text-base min-[1024px]:leading-relaxed
                 `}
               >
                 {service.description}
