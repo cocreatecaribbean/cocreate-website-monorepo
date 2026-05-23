@@ -94,7 +94,7 @@ const NavMobile: React.FC = () => {
                     className="uppercase text-white transition-opacity hover:opacity-80"
                     onClick={() => handleNavClick(menu)}
                   >
-                    {menu}
+                    {menu.charAt(0).toUpperCase() + menu.slice(1)}
                   </button>
                 </li>
               )

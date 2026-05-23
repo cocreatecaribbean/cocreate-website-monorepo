@@ -78,7 +78,7 @@ export default function ArcGallerySection({
             id="arc-gallery-heading"
             className={`mt-2 text-[clamp(1.75rem,3.5vw,2.75rem)] leading-none text-chambray ${fonts.bricolage_grot600.className}`}
           >
-            Browse the Catalogue.
+            Projects at a Glance.
           </h2>
         </div>
         <p

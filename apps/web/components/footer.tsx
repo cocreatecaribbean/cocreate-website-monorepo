@@ -57,6 +57,7 @@ const Footer:React.FC = ()=>{
                         <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/'}>Home</Link></li>
                         <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/about'}>About</Link></li>
                         <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/work'}>Work</Link></li>
+                        <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/originals'}>Originals</Link></li>
                         <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/contact'}>Contact</Link></li>
                     </ul>
                     <ul className={`w-fit flex flex-col text-[clamp(1rem,1.2vw,3rem)] ${fonts.bricolage_grot400.className} text-center md:text-left mx-auto`}>

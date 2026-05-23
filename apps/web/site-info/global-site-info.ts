@@ -1,6 +1,6 @@
 import { Service } from "@/types/global-types"
 
-export const menu_names:Array<string> = ['about', 'work', 'contact']
+export const menu_names: Array<string> = ['about', 'work', 'originals', 'contact']
 
 const whatWeDoVideo = (filename: string) =>
   `/videos/what-we-do/${filename}`
