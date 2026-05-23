@@ -24,6 +24,7 @@
     "embla-carousel": "catalog:web",
     "embla-carousel-react": "catalog:web",
     "gsap": "catalog:animation",
+    "lucide-react": "catalog:web",
     "next": "catalog:web",
     "next-sanity": "catalog:web",
     "next-video": "catalog:web",

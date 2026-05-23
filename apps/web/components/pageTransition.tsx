@@ -4,14 +4,16 @@ import { usePathname } from 'next/navigation'
 
 /**
  * Fade inner routes only.
- * Skip `/` (hero pin measurements) and `/work` (GSAP section reveal — stacking fades looks like a double load).
+ * Skip `/` and all `/work` routes (GSAP headings + ScrollSmoother — stacked fades cause invisible titles).
  */
-const ROUTES_WITHOUT_PAGE_FADE = new Set(['/', '/work'])
+function shouldSkipPageFade(pathname: string) {
+  return pathname === '/' || pathname === '/work' || pathname.startsWith('/work/')
+}
 
 const PageTransition: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname()
 
-  if (ROUTES_WITHOUT_PAGE_FADE.has(pathname)) {
+  if (shouldSkipPageFade(pathname)) {
     return <>{children}</>
   }
 

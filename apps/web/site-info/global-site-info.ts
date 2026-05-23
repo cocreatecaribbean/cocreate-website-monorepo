@@ -2,6 +2,14 @@ import { Service } from "@/types/global-types"
 
 export const menu_names: Array<string> = ['about', 'work', 'originals', 'contact']
 
+const menuLabels: Record<string, string> = {
+  contact: 'Ask CoCreate',
+}
+
+export function getMenuLabel(slug: string): string {
+  return menuLabels[slug] ?? slug.charAt(0).toUpperCase() + slug.slice(1)
+}
+
 const whatWeDoVideo = (filename: string) =>
   `/videos/what-we-do/${filename}`
 

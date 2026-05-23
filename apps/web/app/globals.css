@@ -57,6 +57,12 @@ body.menu-open > *:not(nav) {
   filter: blur(30px);
 }
 
+/* ScrollSmoother sits above the menu panel in the stack; disable taps while menu/search are open. */
+body.menu-open #smooth-wrapper,
+body.search-open #smooth-wrapper {
+  pointer-events: none;
+}
+
 .gsap-reveal {
   visibility: hidden;
   opacity: 0;
