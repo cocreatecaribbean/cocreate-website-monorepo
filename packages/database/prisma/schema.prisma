@@ -1,0 +1,30 @@
+// Prisma schema — PostgreSQL (local: Docker, prod: Vercel Postgres / Neon, etc.)
+// https://www.prisma.io/docs
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Contact-page chat threads (Vercel AI SDK on web; Nest can persist via API later)
+model ContactConversation {
+  id        String           @id @default(cuid())
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  messages  ContactMessage[]
+}
+
+model ContactMessage {
+  id             String              @id @default(cuid())
+  conversationId String
+  conversation   ContactConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String
+  content        String              @db.Text
+  createdAt      DateTime            @default(now())
+
+  @@index([conversationId])
+}

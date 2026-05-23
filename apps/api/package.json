@@ -1,0 +1,29 @@
+{
+  "name": "@cocreate/api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "dev": "nest start --watch",
+    "start": "nest start",
+    "start:prod": "node dist/main.js",
+    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cocreate/database": "workspace:*",
+    "@nestjs/common": "catalog:api",
+    "@nestjs/config": "catalog:api",
+    "@nestjs/core": "catalog:api",
+    "@nestjs/platform-express": "catalog:api",
+    "reflect-metadata": "catalog:api",
+    "rxjs": "catalog:api"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "catalog:api",
+    "@nestjs/schematics": "catalog:api",
+    "@types/express": "^5.0.6",
+    "@types/node": "catalog:tooling",
+    "typescript": "catalog:tooling"
+  }
+}

@@ -14,7 +14,7 @@ export default function Home() {
       {/* This server component reads the file system 
           and passes the data into the ticker.
       */}
-      <section className="border-t-[1.5] border-b-[1.5] border-black/10 pb-4 md:pb-6">
+      <section className="pb-4 md:pb-6">
         <LogoTickerWrapper />
       </section>
 

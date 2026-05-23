@@ -32,19 +32,19 @@ const LogoTicker: React.FC<Props> = ({ logos }) => {
         - w-fit is CRITICAL. It ensures the '50%' is exactly the width of one set of logos.
         - flex-nowrap prevents logos from dropping to a second line.
       */}
-      <div className="ticker-track flex w-fit flex-nowrap gap-x-0 pr-0 md:gap-x-10 md:pr-10">
+      <div className="ticker-track flex w-fit flex-nowrap gap-x-0 pr-0 opacity-60 md:gap-x-10 md:pr-10">
         {/* We render the list twice */}
         {[...logos, ...logos].map((logo, index) => (
           <div 
             key={index} 
-            className="flex-none w-[300px] h-[200px] md:w-[300px] md:h-[200px] relative before:content-[''] before:w-[1] before:h-[50%] before:block before:bg-black/10 before:absolute before:top-[25%] before:left-0"
+            className="relative flex-none h-[120px] w-[180px] before:absolute before:top-[25%] before:left-0 before:block before:h-[50%] before:w-px before:bg-black/10 before:content-[''] md:h-[200px] md:w-[300px]"
           >
             <Image 
               src={logo.src} 
               alt={logo.alt} 
               fill
               className="object-contain grayscale"
-              sizes="300px"
+              sizes="(max-width: 767px) 180px, 300px"
               unoptimized
             />
           </div>

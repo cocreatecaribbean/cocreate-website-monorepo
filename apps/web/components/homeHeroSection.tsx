@@ -428,7 +428,7 @@ export default function HomeHeroSection() {
         </div>
       </section>
 
-      <section className="@container w-svw flex gap-20 flex-col lg:flex-row mb-40 xl:mb-60">
+      <section className="@container mb-20 flex w-svw flex-col gap-20 md:mb-20 lg:flex-row lg:mb-28 xl:mb-36">
         <div className={`@container tracking-normal w-[60%] lg:w-[45%] mx-auto flex-1 2xl:translate-y-20 3xl:translate-y-40 ${fonts.bricolage_grot500.className}`}>
           <div className="flex flex-col gap-y-10 w-[80cqw] lg:w-[75cqw] xl:w-[70cqw] 3xl:w-[55cqw] mx-auto">
             <h2 className="philosophy-header h-fit leading-none text-center lg:text-left text-[clamp(2rem,3vw,4rem)] ">

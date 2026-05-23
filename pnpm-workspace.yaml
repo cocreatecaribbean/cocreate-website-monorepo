@@ -63,6 +63,25 @@ catalogs:
     "@gsap/react": "^2.1.2"
     gsap: "^3.14.2"
 
+  # NestJS API (@cocreate/api)
+  api:
+    "@nestjs/common": "11.1.23"
+    "@nestjs/config": "4.0.3"
+    "@nestjs/core": "11.1.23"
+    "@nestjs/platform-express": "11.1.23"
+    "@nestjs/cli": "11.0.21"
+    "@nestjs/schematics": "11.0.9"
+    "@prisma/client": "7.8.0"
+    prisma: "7.8.0"
+    reflect-metadata: "^0.2.2"
+    rxjs: "^7.8.2"
+
+  # Vercel AI SDK — contact chatbot (@cocreate/web)
+  ai:
+    ai: "^6.0.191"
+    "@ai-sdk/react": "^3.0.193"
+    "@ai-sdk/openai": "^3.0.65"
+
   # Monorepo + lint/test toolchain (root + app devDeps)
   tooling:
     "@eslint/eslintrc": "^3.3.1"

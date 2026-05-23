@@ -35,7 +35,10 @@
     "server-only": "^0.0.1",
     "tailwind-merge": "catalog:web",
     "three": "catalog:graphics",
-    "zod": "catalog:web"
+    "zod": "catalog:web",
+    "ai": "catalog:ai",
+    "@ai-sdk/react": "catalog:ai",
+    "@ai-sdk/openai": "catalog:ai"
   },
   "devDependencies": {
     "@eslint/eslintrc": "catalog:tooling",
