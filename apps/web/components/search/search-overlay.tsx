@@ -15,9 +15,14 @@ export default function SearchOverlay() {
   const inputRef = useRef<HTMLInputElement>(null)
   const dialogId = useId()
   const labelId = `${dialogId}-label`
+  const [mounted, setMounted] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (!isOpen) return
@@ -93,9 +98,9 @@ export default function SearchOverlay() {
     closeSearch()
   }
 
-  if (typeof document === 'undefined') return null
-
   const showResults = query.trim().length >= 2
+
+  if (!mounted) return null
 
   return createPortal(
     <div

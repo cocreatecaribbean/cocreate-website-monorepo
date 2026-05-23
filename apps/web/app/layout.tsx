@@ -48,12 +48,6 @@ export default function RootLayout({
         <QueryProvider>
         <SearchProvider>
         <LandscapeWarning/>
-        <nav className="hidden md:block relative w-full h-0 z-100">
-          <NavDesktop/>
-        </nav>
-        <nav className="block md:hidden relative w-full h-0 z-100">
-          <NavMobile/>
-        </nav>
         <ScrollSmoothWrapper>
           <PageTransition>
             {children}
@@ -61,6 +55,12 @@ export default function RootLayout({
           <ScrollToTop/>
           <Footer/>
         </ScrollSmoothWrapper>
+        <nav className="pointer-events-none relative z-[250] hidden h-0 w-full md:block">
+          <NavDesktop />
+        </nav>
+        <nav className="pointer-events-none relative z-[250] block h-0 w-full md:hidden">
+          <NavMobile />
+        </nav>
         </SearchProvider>
         </QueryProvider>
         

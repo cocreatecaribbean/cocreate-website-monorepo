@@ -16,7 +16,7 @@ const NavDesktop: React.FC = () => {
     
     <div
       id="desktop-nav"
-      className=" fixed top-10 inset-0 py-5 px-10 w-fit h-fit mx-auto bg-white/70 rounded-full backdrop-blur-lg flex flex-row gap-10 justify-center items-center border border-white/20"
+      className="pointer-events-auto fixed top-10 left-1/2 z-[250] flex h-fit w-fit -translate-x-1/2 flex-row items-center justify-center gap-10 rounded-full border border-white/20 bg-white/70 px-10 py-5 backdrop-blur-lg"
     >
       <div>
         <Link href={"/"}>

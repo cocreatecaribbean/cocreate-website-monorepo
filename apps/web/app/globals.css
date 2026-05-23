@@ -49,18 +49,15 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-body > *:not(nav) {
-  transition: filter 0.5s ease-in-out;
+#smooth-wrapper {
+  z-index: 1;
 }
 
-body.menu-open > *:not(nav) {
-  filter: blur(30px);
-}
-
-/* ScrollSmoother sits above the menu panel in the stack; disable taps while menu/search are open. */
 body.menu-open #smooth-wrapper,
 body.search-open #smooth-wrapper {
   pointer-events: none;
+  filter: blur(30px);
+  transition: filter 0.5s ease-in-out;
 }
 
 .gsap-reveal {
