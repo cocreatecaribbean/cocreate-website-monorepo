@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useArcGalleryLayout } from '@/hooks/use-arc-gallery-layout'
 import { useCarouselDrag } from '@/hooks/use-carousel-drag'
@@ -30,7 +30,6 @@ export default function ArcGallery({
 }: ArcGalleryProps) {
   const stageRef = useRef<HTMLDivElement>(null)
   const layout = useArcGalleryLayout(stageRef)
-  const router = useRouter()
   const [isMobile, setIsMobile] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
 
@@ -44,15 +43,13 @@ export default function ArcGallery({
   const activeIndexRef = useRef(0)
   activeIndexRef.current = activeIndex
 
-  const centerHref = items[activeIndex]?.href
-
-  const { dragProgress, isDragging, onPointerDown } = useCarouselDrag({
+  const { dragProgress, isDragging, onPointerDown, didDragRef } = useCarouselDrag({
     activeIndexRef,
     itemCount: items.length,
     spacing: layout.spacing,
     tileWidth: layout.tileWidth,
+    stageRef,
     onCommitIndex: setActiveIndex,
-    onTapCenter: centerHref ? () => router.push(centerHref) : undefined,
   })
 
   const step = useCallback(
@@ -96,8 +93,9 @@ export default function ArcGallery({
       >
         <div
           ref={stageRef}
+          onPointerDown={onPointerDown}
           className="
-            relative mx-auto w-full min-w-0
+            relative mx-auto w-full min-w-0 touch-pan-y
             h-[min(50svh,400px)] min-[640px]:h-[min(44svh,400px)]
             max-md:overflow-visible
             py-6 max-md:py-6 md:h-[480px] md:overflow-hidden md:py-0
@@ -124,16 +122,12 @@ export default function ArcGallery({
                   isActiveItem={index === activeIndex && !isDragging}
                   isDragging={isDragging}
                   isMobile={isMobile}
+                  onPointerDown={onPointerDown}
+                  didDragRef={didDragRef}
                 />
               )
             })}
           </div>
-
-          <div
-            className="absolute inset-0 z-30 touch-pan-y cursor-grab select-none active:cursor-grabbing"
-            aria-hidden
-            onPointerDown={onPointerDown}
-          />
 
           {/* Desktop / tablet: arrows flanking the arc */}
           <div className="pointer-events-none absolute inset-x-0 top-[40%] z-40 hidden -translate-y-1/2 justify-between px-2 min-[640px]:flex lg:px-4">
@@ -215,6 +209,8 @@ function ArcTile({
   isActiveItem,
   isDragging,
   isMobile,
+  onPointerDown,
+  didDragRef,
 }: {
   item: ProjectPreview
   layout: ReturnType<typeof useArcGalleryLayout>
@@ -222,35 +218,44 @@ function ArcTile({
   isActiveItem: boolean
   isDragging: boolean
   isMobile: boolean
+  onPointerDown: (e: React.PointerEvent<HTMLElement>) => void
+  didDragRef: React.RefObject<boolean>
 }) {
   const style = getArcTileStyle(offset, layout, isMobile)
   const isVisualCenter = Math.abs(offset) < 0.5
 
   const transition = getArcTileTransition(isDragging, isMobile)
 
-  return (
-    <article
-      className={`
-        pointer-events-none absolute left-1/2 overflow-hidden
-        aspect-4/5 md:aspect-square
-        rounded-4xl
-        ring-1 ring-chambray/10
-        top-1/2 max-md:top-1/2
-        md:top-[38%]
-        ${isVisualCenter ? 'shadow-[0_24px_48px_rgba(57,65,154,0.22)]' : 'shadow-md'}
-      `}
-      style={{
-        width: layout.tileWidth,
-        transform: style.transform,
-        opacity: style.opacity,
-        zIndex: style.zIndex,
-        filter: style.filter,
-        transition,
-        willChange: isDragging ? 'transform, opacity' : 'auto',
-      }}
-      aria-hidden={!isActiveItem}
-    >
-      <div className="relative h-full w-full">
+  const shellClass = `
+    arc-tile-card group absolute left-1/2 cursor-pointer select-none overflow-hidden
+    aspect-4/5 md:aspect-square
+    rounded-4xl
+    ring-1 ring-chambray/10
+    top-1/2 max-md:top-1/2
+    md:top-[38%]
+    ${isVisualCenter ? 'shadow-[0_24px_48px_rgba(57,65,154,0.22)]' : 'shadow-md'}
+  `
+
+  const shellStyle = {
+    width: layout.tileWidth,
+    transform: style.transform,
+    opacity: style.opacity,
+    zIndex: style.zIndex,
+    filter: style.filter,
+    transition,
+    willChange: isDragging ? ('transform, opacity' as const) : ('auto' as const),
+  }
+
+  const suppressClickAfterDrag = (e: React.MouseEvent<HTMLElement>) => {
+    if (didDragRef.current) {
+      e.preventDefault()
+      didDragRef.current = false
+    }
+  }
+
+  const content = (
+    <div className="arc-tile-card__inner relative h-full w-full">
+      <div className="arc-tile-card__media relative h-full w-full overflow-hidden">
         <Image
           src={item.coverImageSrc}
           alt=""
@@ -259,29 +264,60 @@ function ArcTile({
           className="object-cover"
           draggable={false}
         />
-        <div className="absolute inset-0 bg-linear-to-t from-chambray/90 via-chambray/30 to-transparent" />
-        <div
-          className="
-            absolute right-3 bottom-9 z-10 max-w-[90%] text-right
-            max-md:right-4 max-md:bottom-11
-            md:right-5 md:bottom-8 md:max-w-[82%]
-          "
-        >
-          <p
-            className={`text-xs uppercase tracking-[0.14em] text-casablanca md:text-sm ${fonts.bricolage_grot400.className}`}
-          >
-            {item.clientName}
-          </p>
-          <h3
-            className={`mt-1 text-base leading-snug text-white max-md:line-clamp-2 md:mt-1.5 md:text-xl md:leading-tight ${fonts.bricolage_grot600.className}`}
-          >
-            {item.projectName}
-          </h3>
-        </div>
-        {isActiveItem && item.href ? (
-          <span className="sr-only">Open {item.projectName}</span>
-        ) : null}
       </div>
+      <div
+        className="arc-tile-card__shade pointer-events-none absolute inset-0 bg-linear-to-t from-chambray/90 via-chambray/30 to-transparent"
+        aria-hidden
+      />
+      <div
+        className="arc-tile-card__veil pointer-events-none absolute inset-0 bg-chambray/20"
+        aria-hidden
+      />
+      <div
+        className="
+          arc-tile-card__caption pointer-events-none absolute right-3 bottom-9 z-10 max-w-[90%] text-right
+          max-md:right-4 max-md:bottom-11
+          md:right-5 md:bottom-8 md:max-w-[82%]
+        "
+      >
+        <p
+          className={`text-xs uppercase tracking-[0.14em] text-casablanca md:text-sm ${fonts.bricolage_grot400.className}`}
+        >
+          {item.clientName}
+        </p>
+        <h3
+          className={`mt-1 text-base leading-snug text-white max-md:line-clamp-2 md:mt-1.5 md:text-xl md:leading-tight ${fonts.bricolage_grot600.className}`}
+        >
+          {item.projectName}
+        </h3>
+      </div>
+    </div>
+  )
+
+  if (item.href) {
+    return (
+      <Link
+        href={item.href}
+        aria-label={`View ${item.projectName}`}
+        aria-current={isActiveItem ? 'true' : undefined}
+        className={shellClass}
+        style={shellStyle}
+        onPointerDown={onPointerDown}
+        onClick={suppressClickAfterDrag}
+      >
+        {content}
+      </Link>
+    )
+  }
+
+  return (
+    <article
+      className={shellClass}
+      style={shellStyle}
+      aria-hidden={!isActiveItem}
+      onPointerDown={onPointerDown}
+    >
+      {content}
     </article>
   )
 }

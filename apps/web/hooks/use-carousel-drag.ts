@@ -7,7 +7,9 @@ type UseCarouselDragOptions = {
   itemCount: number
   spacing: number
   tileWidth: number
+  stageRef?: React.RefObject<HTMLElement | null>
   onCommitIndex: (index: number) => void
+  /** @deprecated Prefer link tiles; used by bento carousel only */
   onTapCenter?: () => void
 }
 
@@ -22,12 +24,14 @@ export function useCarouselDrag({
   itemCount,
   spacing,
   tileWidth,
+  stageRef,
   onCommitIndex,
   onTapCenter,
 }: UseCarouselDragOptions) {
   const [dragPx, setDragPx] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
 
+  const didDragRef = useRef(false)
   const dragPxRef = useRef(0)
   const draggingRef = useRef(false)
   const pointerIdRef = useRef<number | null>(null)
@@ -60,11 +64,11 @@ export function useCarouselDrag({
         activeIndexRef.current - progress - flick * flickBoost
       const target = normalizeIndex(Math.round(visualPosition), itemCount)
       onCommitRef.current(target)
-    } else if (!cancelledRef.current && stageRectRef.current) {
+    } else if (!cancelledRef.current && stageRectRef.current && onTapCenterRef.current) {
       const rect = stageRectRef.current
       const relX = startRef.current.x - rect.left - rect.width / 2
       if (Math.abs(relX) <= tileWidth * 0.38) {
-        onTapCenterRef.current?.()
+        onTapCenterRef.current()
       }
     }
 
@@ -83,8 +87,10 @@ export function useCarouselDrag({
     (e: React.PointerEvent<HTMLElement>) => {
       if (e.button !== 0) return
 
-      stageRectRef.current = e.currentTarget.getBoundingClientRect()
+      const stage = stageRef?.current ?? e.currentTarget
+      stageRectRef.current = stage.getBoundingClientRect()
       pointerIdRef.current = e.pointerId
+      didDragRef.current = false
       draggingRef.current = false
       cancelledRef.current = false
       startRef.current = { x: e.clientX, y: e.clientY }
@@ -108,6 +114,7 @@ export function useCarouselDrag({
             return
           }
           draggingRef.current = true
+          didDragRef.current = true
           setIsDragging(true)
         }
 
@@ -142,11 +149,11 @@ export function useCarouselDrag({
         window.removeEventListener('pointercancel', onUp)
       }
     },
-    [finishGesture, spacing],
+    [finishGesture, spacing, stageRef],
   )
 
   /** Subtract from activeIndex so tiles follow the finger */
   const dragProgress = dragPx / spacing
 
-  return { dragProgress, isDragging, onPointerDown }
+  return { dragProgress, isDragging, onPointerDown, didDragRef }
 }

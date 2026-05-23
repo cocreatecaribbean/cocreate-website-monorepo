@@ -34,3 +34,60 @@
     transition: none;
   }
 }
+
+/* Home arc gallery tiles — clickable cards (match work masonry hover) */
+.arc-tile-card {
+  --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
+  transition:
+    box-shadow 0.55s var(--ease-premium),
+    filter 0.55s var(--ease-premium);
+}
+
+.arc-tile-card__media img {
+  transition: transform 0.85s var(--ease-premium);
+  transform: scale(1);
+}
+
+.arc-tile-card__veil {
+  transition: opacity 0.55s var(--ease-premium);
+  opacity: 0;
+}
+
+.arc-tile-card__caption {
+  transition: transform 0.55s var(--ease-premium);
+  transform: translateY(0);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .arc-tile-card:hover,
+  .arc-tile-card:focus-visible {
+    box-shadow: 0 22px 48px rgba(57, 65, 154, 0.24);
+  }
+
+  .arc-tile-card:hover .arc-tile-card__media img,
+  .arc-tile-card:focus-visible .arc-tile-card__media img {
+    transform: scale(1.04);
+  }
+
+  .arc-tile-card:hover .arc-tile-card__veil,
+  .arc-tile-card:focus-visible .arc-tile-card__veil {
+    opacity: 1;
+  }
+
+  .arc-tile-card:hover .arc-tile-card__caption,
+  .arc-tile-card:focus-visible .arc-tile-card__caption {
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arc-tile-card,
+  .arc-tile-card__media img,
+  .arc-tile-card__veil,
+  .arc-tile-card__caption {
+    transition: none !important;
+  }
+}
