@@ -6,6 +6,8 @@
     "dev": "turbo dev",
     "dev:web": "turbo dev --filter=@cocreate/web",
     "dev:api": "turbo dev --filter=@cocreate/api",
+    "dev:admin": "turbo dev --filter=@cocreate/admin-center",
+    "dev:portal": "turbo dev --filter=@cocreate/client-portal",
     "build": "turbo build",
     "lint": "turbo lint",
     "db:generate": "pnpm --filter @cocreate/database db:generate",

@@ -1,0 +1,26 @@
+{
+  "name": "@cocreate/admin-center",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack --port 3002",
+    "build": "next build",
+    "start": "next start --port 3002",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "catalog:web",
+    "react": "catalog:react",
+    "react-dom": "catalog:react"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "catalog:web",
+    "@types/node": "catalog:tooling",
+    "@types/react": "catalog:react",
+    "@types/react-dom": "catalog:react",
+    "eslint": "catalog:tooling",
+    "eslint-config-next": "catalog:web",
+    "tailwindcss": "catalog:web",
+    "typescript": "catalog:tooling"
+  }
+}

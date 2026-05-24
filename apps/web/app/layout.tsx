@@ -12,6 +12,7 @@ import NavMobile from "@/components/nav-mobile";
 import PageTransition from "@/components/pageTransition";
 import { QueryProvider } from "@/components/query-provider";
 import { SearchProvider } from "@/components/search/search-provider";
+import { ClientPortalProvider } from "@/components/client-portal/client-portal-provider";
 
 
 
@@ -47,6 +48,7 @@ export default function RootLayout({
   }} />
         <QueryProvider>
         <SearchProvider>
+        <ClientPortalProvider>
         <LandscapeWarning/>
         <ScrollSmoothWrapper>
           <PageTransition>
@@ -61,6 +63,7 @@ export default function RootLayout({
         <nav className="pointer-events-none relative z-[250] block h-0 w-full md:hidden">
           <NavMobile />
         </nav>
+        </ClientPortalProvider>
         </SearchProvider>
         </QueryProvider>
         

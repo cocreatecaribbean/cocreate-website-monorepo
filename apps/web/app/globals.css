@@ -54,7 +54,8 @@ body {
 }
 
 body.menu-open #smooth-wrapper,
-body.search-open #smooth-wrapper {
+body.search-open #smooth-wrapper,
+body.client-portal-open #smooth-wrapper {
   pointer-events: none;
   filter: blur(30px);
   transition: filter 0.5s ease-in-out;

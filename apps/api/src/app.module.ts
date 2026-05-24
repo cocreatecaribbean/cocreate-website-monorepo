@@ -4,12 +4,14 @@ import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { PrismaModule } from './prisma/prisma.module'
 import { HealthModule } from './health/health.module'
+import { ClientPortalModule } from './client-portal/client-portal.module'
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     HealthModule,
+    ClientPortalModule,
   ],
   controllers: [AppController],
   providers: [AppService],

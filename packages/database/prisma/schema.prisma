@@ -28,3 +28,12 @@ model ContactMessage {
 
   @@index([conversationId])
 }
+
+/// Client portal access — assigned from admin-center
+model ClientPortalUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

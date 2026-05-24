@@ -6,6 +6,7 @@ import Image from 'next/image'
 import Link from "next/link";
 import SocialLinks from './social-icons';
 import ButtonWithRef from './button';
+import { getMenuLabel } from '@/site-info/global-site-info';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 
@@ -58,12 +59,11 @@ const Footer:React.FC = ()=>{
                         <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/about'}>About</Link></li>
                         <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/work'}>Work</Link></li>
                         <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/originals'}>Originals</Link></li>
-                        <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/contact'}>Contact</Link></li>
+                        <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/contact'}>{getMenuLabel('contact')}</Link></li>
                     </ul>
                     <ul className={`w-fit flex flex-col text-[clamp(1rem,1.2vw,3rem)] ${fonts.bricolage_grot400.className} text-center md:text-left mx-auto`}>
                         <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/media-updates/press'}>Press</Link></li>
                         <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/media-updates/awards'}>Awards</Link></li>
-                        <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/media-updates/passion-projects'}>Passion Projects</Link></li> 
                     </ul>
                 </section>
             </div>

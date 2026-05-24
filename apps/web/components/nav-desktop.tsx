@@ -1,5 +1,5 @@
 "use client";
-import { menu_names, getMenuLabel } from "@/site-info/global-site-info";
+import { menu_names, getMenuLabel, clientPortalNav } from "@/site-info/global-site-info";
 import logo from "@/public/co_create_logo_hor_blue.svg";
 import Image from "next/image";
 import Link from "next/link";
@@ -7,10 +7,12 @@ import * as fonts from "@/styles/fonts";
 import { usePathname } from "next/navigation";
 import { Search } from "lucide-react";
 import { useSearch } from "@/components/search/search-provider";
+import { useClientPortalLogin } from "@/components/client-portal/client-portal-provider";
 
 const NavDesktop: React.FC = () => {
   const pathname = usePathname();
-  const { openSearch } = useSearch();
+  const { openSearch, closeSearch } = useSearch();
+  const { openClientPortalLogin, closeClientPortalLogin } = useClientPortalLogin();
 
   return (
     
@@ -58,10 +60,36 @@ const NavDesktop: React.FC = () => {
               </li>
             );
           })}
+          <li>
+            <button
+              type="button"
+              onClick={() => {
+                closeSearch()
+                openClientPortalLogin()
+              }}
+              className={`
+                    relative inline-block cursor-pointer
+                    transition-all duration-300 hover:-translate-y-2
+                    before:content-[''] before:absolute before:left-1/2 before:top-0 before:z-0
+                    before:h-[2.75rem] before:w-[calc(100%+0.75rem)] before:-translate-x-1/2
+                    text-slate-900
+                    after:pointer-events-none
+                    after:content-[''] after:absolute after:left-1/2 after:-translate-x-1/2 after:top-[110%]
+                    after:rounded-full after:w-3 after:h-3 after:bg-sanmarino
+                    after:transition-opacity after:duration-300
+                    after:opacity-0 hover:after:opacity-100
+                  `}
+            >
+              <span className="relative z-[1]">{clientPortalNav.label}</span>
+            </button>
+          </li>
           <button
             type="button"
             aria-label="Open search"
-            onClick={openSearch}
+            onClick={() => {
+              closeClientPortalLogin()
+              openSearch()
+            }}
             className="relative inline-block cursor-pointer text-slate-900 transition-all duration-300 hover:-translate-y-2 hover:text-sanmarino"
           >
             <span className="relative z-[1] inline-flex translate-y-[3px] items-center">

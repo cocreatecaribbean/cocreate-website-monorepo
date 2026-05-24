@@ -1,0 +1,26 @@
+{
+  "name": "@cocreate/client-portal",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack --port 3003",
+    "build": "next build",
+    "start": "next start --port 3003",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "catalog:web",
+    "react": "catalog:react",
+    "react-dom": "catalog:react"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "catalog:web",
+    "@types/node": "catalog:tooling",
+    "@types/react": "catalog:react",
+    "@types/react-dom": "catalog:react",
+    "eslint": "catalog:tooling",
+    "eslint-config-next": "catalog:web",
+    "tailwindcss": "catalog:web",
+    "typescript": "catalog:tooling"
+  }
+}

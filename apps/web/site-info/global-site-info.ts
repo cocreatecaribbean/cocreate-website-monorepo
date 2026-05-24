@@ -2,6 +2,10 @@ import { Service } from "@/types/global-types"
 
 export const menu_names: Array<string> = ['about', 'work', 'originals', 'contact']
 
+export const clientPortalNav = {
+  label: 'Client Portal',
+} as const
+
 const menuLabels: Record<string, string> = {
   contact: 'Ask CoCreate',
 }

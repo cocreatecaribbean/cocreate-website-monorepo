@@ -1,6 +1,6 @@
 'use client'
 
-import { menu_names, getMenuLabel } from '@/site-info/global-site-info'
+import { menu_names, getMenuLabel, clientPortalNav } from '@/site-info/global-site-info'
 import logo from '@/public/co_create_logo_hor_blue.svg'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -10,6 +10,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom'
 import { Search } from 'lucide-react'
 import { useSearch } from '@/components/search/search-provider'
+import { useClientPortalLogin } from '@/components/client-portal/client-portal-provider'
 import gsap from 'gsap'
 
 const PANEL_OPEN_DURATION = 0.72
@@ -24,7 +25,8 @@ const NavMobile: React.FC = () => {
   const [menuTop, setMenuTop] = useState(0)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const pathname = usePathname()
-  const { openSearch } = useSearch()
+  const { openSearch, closeSearch } = useSearch()
+  const { openClientPortalLogin, closeClientPortalLogin } = useClientPortalLogin()
   const headerRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
@@ -40,7 +42,14 @@ const NavMobile: React.FC = () => {
 
   const handleOpenSearch = () => {
     setIsOpen(false)
+    closeClientPortalLogin()
     openSearch()
+  }
+
+  const handleOpenClientPortal = () => {
+    setIsOpen(false)
+    closeSearch()
+    openClientPortalLogin()
   }
 
   const handleToggleMenu = () => {
@@ -222,6 +231,22 @@ const NavMobile: React.FC = () => {
               </div>
             </li>
           ))}
+          <li key="client-portal" className="w-full uppercase">
+            <div
+              ref={(el) => {
+                itemsRef.current[menu_names.length] = el
+              }}
+              className="will-change-[transform,opacity,filter]"
+            >
+              <button
+                type="button"
+                onClick={handleOpenClientPortal}
+                className="relative z-10 flex min-h-14 w-full items-center uppercase text-white transition-opacity hover:opacity-80 touch-manipulation [-webkit-tap-highlight-color:transparent]"
+              >
+                {clientPortalNav.label}
+              </button>
+            </div>
+          </li>
         </ul>
       </nav>
     ) : null
