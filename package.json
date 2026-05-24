@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@10.31.0",
   "scripts": {
-    "dev": "turbo dev",
+    "dev": "turbo dev --continue --filter=@cocreate/web --filter=@cocreate/api --filter=@cocreate/admin-center --filter=@cocreate/client-portal",
     "dev:web": "turbo dev --filter=@cocreate/web",
     "dev:api": "turbo dev --filter=@cocreate/api",
     "dev:admin": "turbo dev --filter=@cocreate/admin-center",

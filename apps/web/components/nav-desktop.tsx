@@ -12,7 +12,8 @@ import { useClientPortalLogin } from "@/components/client-portal/client-portal-p
 const NavDesktop: React.FC = () => {
   const pathname = usePathname();
   const { openSearch, closeSearch } = useSearch();
-  const { openClientPortalLogin, closeClientPortalLogin } = useClientPortalLogin();
+  const { isOpen: isClientPortalOpen, openClientPortalLogin, closeClientPortalLogin } =
+    useClientPortalLogin();
 
   return (
     
@@ -30,7 +31,7 @@ const NavDesktop: React.FC = () => {
       >
         <div className="flex flex-row items-center gap-10">
           {menu_names.map((item, id) => {
-            const isActive = pathname === `/${item}`;
+            const isActive = !isClientPortalOpen && pathname === `/${item}`;
             const label = getMenuLabel(item);
 
             return (
@@ -63,21 +64,28 @@ const NavDesktop: React.FC = () => {
           <li>
             <button
               type="button"
+              aria-current={isClientPortalOpen ? "page" : undefined}
               onClick={() => {
                 closeSearch()
-                openClientPortalLogin()
+                if (isClientPortalOpen) closeClientPortalLogin()
+                else openClientPortalLogin()
               }}
               className={`
                     relative inline-block cursor-pointer
                     transition-all duration-300 hover:-translate-y-2
                     before:content-[''] before:absolute before:left-1/2 before:top-0 before:z-0
                     before:h-[2.75rem] before:w-[calc(100%+0.75rem)] before:-translate-x-1/2
-                    text-slate-900
+                    ${isClientPortalOpen ? "text-sanmarino" : "text-slate-900"}
                     after:pointer-events-none
                     after:content-[''] after:absolute after:left-1/2 after:-translate-x-1/2 after:top-[110%]
-                    after:rounded-full after:w-3 after:h-3 after:bg-sanmarino
+                    after:rounded-full after:w-3 after:h-3
+                    ${isClientPortalOpen ? "after:bg-casablanca" : "after:bg-sanmarino"}
                     after:transition-opacity after:duration-300
-                    after:opacity-0 hover:after:opacity-100
+                    ${
+                      isClientPortalOpen
+                        ? "after:opacity-100"
+                        : "after:opacity-0 hover:after:opacity-100"
+                    }
                   `}
             >
               <span className="relative z-[1]">{clientPortalNav.label}</span>
@@ -86,10 +94,7 @@ const NavDesktop: React.FC = () => {
           <button
             type="button"
             aria-label="Open search"
-            onClick={() => {
-              closeClientPortalLogin()
-              openSearch()
-            }}
+            onClick={openSearch}
             className="relative inline-block cursor-pointer text-slate-900 transition-all duration-300 hover:-translate-y-2 hover:text-sanmarino"
           >
             <span className="relative z-[1] inline-flex translate-y-[3px] items-center">

@@ -6,6 +6,9 @@ export const clientPortalNav = {
   label: 'Client Portal',
 } as const
 
+/** URL flag while the client portal login overlay is open (e.g. /about?client-portal) */
+export const clientPortalQueryParam = 'client-portal'
+
 const menuLabels: Record<string, string> = {
   contact: 'Ask CoCreate',
 }

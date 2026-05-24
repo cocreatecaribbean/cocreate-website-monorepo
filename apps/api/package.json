@@ -16,6 +16,8 @@
     "@nestjs/config": "catalog:api",
     "@nestjs/core": "catalog:api",
     "@nestjs/platform-express": "catalog:api",
+    "@prisma/adapter-pg": "catalog:api",
+    "pg": "catalog:api",
     "reflect-metadata": "catalog:api",
     "rxjs": "catalog:api"
   },
@@ -24,6 +26,7 @@
     "@nestjs/schematics": "catalog:api",
     "@types/express": "^5.0.6",
     "@types/node": "catalog:tooling",
+    "@types/pg": "catalog:api",
     "typescript": "catalog:tooling"
   }
 }

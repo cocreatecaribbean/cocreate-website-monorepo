@@ -112,7 +112,7 @@ export default function SearchOverlay() {
         aria-label="Close search"
         tabIndex={isOpen ? 0 : -1}
         onClick={closeSearch}
-        className="absolute inset-0 bg-black/25 backdrop-blur-xl transition-opacity duration-500 ease-out"
+        className={`absolute inset-0 bg-black/25 backdrop-blur-xl transition-opacity duration-500 ease-out ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
         style={{
           opacity: isOpen ? 1 : 0,
           transitionTimingFunction: EASE,
@@ -126,7 +126,7 @@ export default function SearchOverlay() {
         className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-y-auto px-6 py-16"
       >
         <div
-          className="pointer-events-auto flex w-full max-w-[min(92vw,42rem)] flex-col items-center gap-3"
+          className={`flex w-full max-w-[min(92vw,42rem)] flex-col items-center gap-3 ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
           style={{
             opacity: isOpen ? 1 : 0,
             transform: isOpen ? 'scale(1) translateY(0)' : 'scale(0.94) translateY(12px)',

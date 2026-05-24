@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "lucide-react": "catalog:web",
     "next": "catalog:web",
     "react": "catalog:react",
     "react-dom": "catalog:react"

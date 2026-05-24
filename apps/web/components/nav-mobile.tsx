@@ -26,7 +26,8 @@ const NavMobile: React.FC = () => {
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const pathname = usePathname()
   const { openSearch, closeSearch } = useSearch()
-  const { openClientPortalLogin, closeClientPortalLogin } = useClientPortalLogin()
+  const { isOpen: isClientPortalOpen, openClientPortalLogin, closeClientPortalLogin } =
+    useClientPortalLogin()
   const headerRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
@@ -42,7 +43,6 @@ const NavMobile: React.FC = () => {
 
   const handleOpenSearch = () => {
     setIsOpen(false)
-    closeClientPortalLogin()
     openSearch()
   }
 
@@ -240,8 +240,9 @@ const NavMobile: React.FC = () => {
             >
               <button
                 type="button"
+                aria-current={isClientPortalOpen ? 'page' : undefined}
                 onClick={handleOpenClientPortal}
-                className="relative z-10 flex min-h-14 w-full items-center uppercase text-white transition-opacity hover:opacity-80 touch-manipulation [-webkit-tap-highlight-color:transparent]"
+                className={`relative z-10 flex min-h-14 w-full items-center uppercase transition-opacity hover:opacity-80 touch-manipulation [-webkit-tap-highlight-color:transparent] ${isClientPortalOpen ? 'text-casablanca opacity-100' : 'text-white opacity-90'}`}
               >
                 {clientPortalNav.label}
               </button>

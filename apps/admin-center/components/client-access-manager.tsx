@@ -72,10 +72,10 @@ export default function ClientAccessManager() {
   }
 
   return (
-    <div className="mt-8 space-y-8">
+    <div className="space-y-5 sm:space-y-8">
       <form
         onSubmit={onSubmit}
-        className="flex flex-col gap-3 rounded-3xl border border-chambray/10 bg-white p-6 shadow-sm sm:flex-row"
+        className="flex flex-col gap-3 rounded-2xl border border-chambray/10 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6 md:flex-row md:items-stretch"
       >
         <input
           type="email"
@@ -83,12 +83,12 @@ export default function ClientAccessManager() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="client@company.com"
-          className="min-w-0 flex-1 rounded-full border border-chambray/15 px-5 py-3 text-base outline-none focus:border-sanmarino"
+          className="min-h-11 min-w-0 flex-1 rounded-full border border-chambray/15 px-4 py-3 text-base outline-none focus:border-sanmarino sm:px-5"
         />
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-full bg-chambray px-6 py-3 text-sm font-semibold text-white transition hover:bg-sanmarino disabled:opacity-60"
+          className="min-h-11 w-full shrink-0 rounded-full bg-chambray px-6 py-3 text-sm font-semibold text-white transition hover:bg-sanmarino disabled:opacity-60 md:w-auto"
         >
           {submitting ? 'Assigning…' : 'Assign access'}
         </button>
@@ -98,8 +98,8 @@ export default function ClientAccessManager() {
         <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
       ) : null}
 
-      <section className="rounded-3xl border border-chambray/10 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-chambray">Assigned emails</h2>
+      <section className="rounded-2xl border border-chambray/10 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6">
+        <h2 className="text-base font-semibold text-chambray sm:text-lg">Assigned emails</h2>
         {loading ? (
           <p className="mt-4 text-sm text-slate-500">Loading…</p>
         ) : users.length === 0 ? (
@@ -111,8 +111,8 @@ export default function ClientAccessManager() {
                 key={user.id}
                 className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
               >
-                <div>
-                  <p className="font-medium text-slate-900">{user.email}</p>
+                <div className="min-w-0">
+                  <p className="font-medium wrap-break-word text-slate-900">{user.email}</p>
                   <p className="text-xs text-slate-500">
                     {user.isActive ? 'Active' : 'Inactive'}
                   </p>
@@ -121,7 +121,7 @@ export default function ClientAccessManager() {
                   <button
                     type="button"
                     onClick={() => void deactivate(user.id)}
-                    className="rounded-full border border-chambray/15 px-4 py-2 text-sm text-chambray transition hover:bg-chambray/5"
+                    className="min-h-10 w-full rounded-full border border-chambray/15 px-4 py-2 text-sm text-chambray transition hover:bg-chambray/5 sm:w-auto"
                   >
                     Revoke
                   </button>

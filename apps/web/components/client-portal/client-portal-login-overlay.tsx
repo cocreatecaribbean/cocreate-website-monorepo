@@ -5,11 +5,14 @@ import { createPortal } from 'react-dom'
 import { ArrowRight } from 'lucide-react'
 import * as fonts from '@/styles/fonts'
 import { useClientPortalLogin } from '@/components/client-portal/client-portal-provider'
+import { useSearch } from '@/components/search/search-provider'
 
 const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'
 
 export default function ClientPortalLoginOverlay() {
-  const { isOpen, closeClientPortalLogin } = useClientPortalLogin()
+  const { isOpen: isClientPortalActive, closeClientPortalLogin } = useClientPortalLogin()
+  const { isOpen: isSearchOpen } = useSearch()
+  const isOverlayVisible = isClientPortalActive && !isSearchOpen
   const inputRef = useRef<HTMLInputElement>(null)
   const dialogId = useId()
   const labelId = `${dialogId}-label`
@@ -23,7 +26,7 @@ export default function ClientPortalLoginOverlay() {
   }, [])
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOverlayVisible) return
 
     const previousOverflow = document.documentElement.style.overflow
     document.documentElement.style.overflow = 'hidden'
@@ -43,15 +46,15 @@ export default function ClientPortalLoginOverlay() {
       document.body.classList.remove('client-portal-open')
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [isOpen, closeClientPortalLogin])
+  }, [isOverlayVisible, closeClientPortalLogin])
 
   useEffect(() => {
-    if (!isOpen) {
+    if (!isOverlayVisible) {
       setEmail('')
       setError(null)
       setSubmitting(false)
     }
-  }, [isOpen])
+  }, [isOverlayVisible])
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -90,17 +93,17 @@ export default function ClientPortalLoginOverlay() {
 
   return createPortal(
     <div
-      aria-hidden={!isOpen}
-      className={`fixed inset-0 z-[210] ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
+      aria-hidden={!isOverlayVisible}
+      className={`fixed inset-0 z-[210] ${isOverlayVisible ? 'pointer-events-auto' : 'pointer-events-none'}`}
     >
       <button
         type="button"
         aria-label="Close client portal sign in"
-        tabIndex={isOpen ? 0 : -1}
+        tabIndex={isOverlayVisible ? 0 : -1}
         onClick={closeClientPortalLogin}
-        className="absolute inset-0 bg-black/25 backdrop-blur-xl transition-opacity duration-500 ease-out"
+        className={`absolute inset-0 bg-black/25 backdrop-blur-xl transition-opacity duration-500 ease-out ${isOverlayVisible ? 'pointer-events-auto' : 'pointer-events-none'}`}
         style={{
-          opacity: isOpen ? 1 : 0,
+          opacity: isOverlayVisible ? 1 : 0,
           transitionTimingFunction: EASE,
         }}
       />
@@ -112,10 +115,10 @@ export default function ClientPortalLoginOverlay() {
         className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-y-auto px-6 py-16"
       >
         <div
-          className="pointer-events-auto flex w-full max-w-[min(92vw,42rem)] flex-col items-center gap-3"
+          className={`flex w-full max-w-[min(92vw,42rem)] flex-col items-center gap-3 ${isOverlayVisible ? 'pointer-events-auto' : 'pointer-events-none'}`}
           style={{
-            opacity: isOpen ? 1 : 0,
-            transform: isOpen ? 'scale(1) translateY(0)' : 'scale(0.94) translateY(12px)',
+            opacity: isOverlayVisible ? 1 : 0,
+            transform: isOverlayVisible ? 'scale(1) translateY(0)' : 'scale(0.94) translateY(12px)',
             transition: `opacity 520ms ${EASE}, transform 520ms ${EASE}`,
           }}
         >
@@ -153,7 +156,7 @@ export default function ClientPortalLoginOverlay() {
                 placeholder="Enter your assigned email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                tabIndex={isOpen ? 0 : -1}
+                tabIndex={isOverlayVisible ? 0 : -1}
                 disabled={submitting}
                 className="
                   w-full border-0 bg-transparent text-base text-black
@@ -165,7 +168,7 @@ export default function ClientPortalLoginOverlay() {
             <button
               type="submit"
               aria-label="Continue to client portal"
-              tabIndex={isOpen ? 0 : -1}
+              tabIndex={isOverlayVisible ? 0 : -1}
               disabled={submitting}
               className="inline-flex shrink-0 items-center justify-center gap-2 self-end rounded-full bg-chambray px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-sanmarino disabled:opacity-60 sm:self-auto"
             >
