@@ -223,7 +223,10 @@ const NavMobile: React.FC = () => {
               >
                 <Link
                   href={`/${menu}`}
-                  onClick={() => setIsOpen(false)}
+                  onClick={() => {
+                    setIsOpen(false)
+                    closeSearch()
+                  }}
                   className="relative z-10 flex min-h-14 w-full items-center uppercase text-white transition-opacity hover:opacity-80 touch-manipulation [-webkit-tap-highlight-color:transparent]"
                 >
                   {getMenuLabel(menu)}
@@ -260,7 +263,13 @@ const NavMobile: React.FC = () => {
           className="pointer-events-auto relative z-10 flex h-[10svh] min-h-14 w-full flex-row items-center justify-between rounded-full bg-white/70 backdrop-blur-lg pl-4 pr-6"
         >
           <div className="h-auto w-40">
-            <Link href="/" onClick={() => isOpen && setIsOpen(false)}>
+            <Link
+              href="/"
+              onClick={() => {
+                if (isOpen) setIsOpen(false)
+                closeSearch()
+              }}
+            >
               <Image src={logo} alt="CoCreate Caribbean logo" priority />
             </Link>
           </div>

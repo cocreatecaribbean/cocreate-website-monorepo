@@ -17,7 +17,12 @@
     "@nestjs/core": "catalog:api",
     "@nestjs/platform-express": "catalog:api",
     "@prisma/adapter-pg": "catalog:api",
+    "@supabase/supabase-js": "^2.49.8",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "dotenv": "^16.4.7",
     "pg": "catalog:api",
+    "resend": "^6.12.3",
     "reflect-metadata": "catalog:api",
     "rxjs": "catalog:api"
   },

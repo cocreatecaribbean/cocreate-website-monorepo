@@ -1,0 +1,90 @@
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+import type { EmailOtpType } from '@supabase/supabase-js'
+import { getSupabasePublicEnv } from '@/lib/supabase/env'
+
+function normalizeOtpType(type: string): EmailOtpType {
+  if (type === 'magiclink') return 'email'
+  return type as EmailOtpType
+}
+
+function safeNextPath(next: string | null) {
+  const path = next ?? '/'
+  if (!path.startsWith('/') || path.startsWith('//')) return '/'
+  return path
+}
+
+export function createSupabaseRouteHandlerClient(
+  request: NextRequest,
+  redirectTo: URL,
+) {
+  const env = getSupabasePublicEnv()
+  if (!env) {
+    throw new Error('Supabase Auth env is not configured')
+  }
+
+  let response = NextResponse.redirect(redirectTo)
+
+  const supabase = createServerClient(env.url, env.anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
+      },
+      setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options),
+        )
+      },
+    },
+  })
+
+  return { supabase, response }
+}
+
+export async function completeAuthCallback(request: NextRequest) {
+  const { searchParams, origin } = new URL(request.url)
+  const code = searchParams.get('code')
+  const tokenHash = searchParams.get('token_hash') ?? searchParams.get('token')
+  const rawType = searchParams.get('type')
+  const otpType = rawType ? normalizeOtpType(rawType) : null
+  const next = safeNextPath(searchParams.get('next'))
+
+  const successUrl = new URL(next, origin)
+  const failUrl = new URL('/login?error=auth', origin)
+
+  const { supabase, response } = createSupabaseRouteHandlerClient(
+    request,
+    successUrl,
+  )
+
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    if (!error) {
+      return response
+    }
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[auth/callback] exchangeCodeForSession failed', error?.message)
+    }
+  } else if (tokenHash && otpType) {
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: otpType,
+    })
+    if (!error) {
+      return response
+    }
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[auth/callback] verifyOtp failed', error?.message, { type: otpType })
+    }
+  } else if (process.env.NODE_ENV === 'development') {
+    console.error('[auth/callback] missing code or token_hash/type', {
+      query: searchParams.toString(),
+    })
+  }
+
+  const { response: failResponse } = createSupabaseRouteHandlerClient(
+    request,
+    failUrl,
+  )
+  return failResponse
+}

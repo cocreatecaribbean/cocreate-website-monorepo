@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await fetch(`${apiBase()}/client-portal/login`, {
+    const response = await fetch(`${apiBase()}/client-portal/magic-link`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: body.email ?? '' }),

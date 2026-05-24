@@ -4,10 +4,13 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
+import { usePathname } from 'next/navigation'
 import SearchOverlay from '@/components/search/search-overlay'
 
 type SearchContextValue = {
@@ -18,6 +21,20 @@ type SearchContextValue = {
 }
 
 const SearchContext = createContext<SearchContextValue | null>(null)
+
+function CloseSearchOnNavigate() {
+  const pathname = usePathname()
+  const { closeSearch } = useSearch()
+  const previousPathname = useRef(pathname)
+
+  useEffect(() => {
+    if (previousPathname.current === pathname) return
+    previousPathname.current = pathname
+    closeSearch()
+  }, [pathname, closeSearch])
+
+  return null
+}
 
 export function SearchProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -34,6 +51,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   return (
     <SearchContext.Provider value={value}>
       {children}
+      <CloseSearchOnNavigate />
       <SearchOverlay />
     </SearchContext.Provider>
   )

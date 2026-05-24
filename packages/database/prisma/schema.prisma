@@ -1,4 +1,4 @@
-// Prisma schema — PostgreSQL (local: Docker, prod: Vercel Postgres / Neon, etc.)
+// Prisma schema — PostgreSQL (local Docker, Supabase prod)
 // https://www.prisma.io/docs
 
 generator client {
@@ -9,6 +9,58 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// ─── Multi-tenant client portal ─────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  CLIENT
+}
+
+enum UserStatus {
+  /// Account provisioned by agency; magic link / invite pending
+  INVITED
+  /// Client authenticated and session is live
+  ACTIVE
+  /// Access revoked by agency
+  SUSPENDED
+}
+
+/// Client company (tenant boundary for portal + premium features)
+model Organization {
+  id                          String   @id @default(cuid())
+  name                        String
+  /// Unique subdomain / routing key (e.g. acme-corp)
+  slug                        String   @unique
+  /// Public URL to client logo (CDN, Supabase Storage, etc.)
+  logoUrl                     String?
+  isSocialListeningSubscriber Boolean  @default(false)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+  users                       User[]
+
+  @@index([slug])
+}
+
+/// Portal account — agency admins (ADMIN) or client contacts (CLIENT)
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  /// Supabase Auth user id (linked after invite or first sign-in)
+  supabaseAuthId String?       @unique
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           UserRole      @default(CLIENT)
+  status         UserStatus    @default(INVITED)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizationId])
+  @@index([email])
+  @@index([status])
+}
+
+// ─── Contact chat (marketing site) ──────────────────────────────────────────
 
 /// Contact-page chat threads (Vercel AI SDK on web; Nest can persist via API later)
 model ContactConversation {
@@ -27,13 +79,4 @@ model ContactMessage {
   createdAt      DateTime            @default(now())
 
   @@index([conversationId])
-}
-
-/// Client portal access — assigned from admin-center
-model ClientPortalUser {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }

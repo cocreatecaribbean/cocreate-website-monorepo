@@ -1,21 +1,31 @@
 import { Injectable } from '@nestjs/common'
+import { UserRole, UserStatus } from '@cocreate/database'
+import { AuthService } from '../auth/auth.service'
 import { PrismaService } from '../prisma/prisma.service'
+import { SupabaseAuthService } from '../clients/supabase-auth.service'
 
 @Injectable()
 export class ClientPortalService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly supabaseAuth: SupabaseAuthService,
+    private readonly authService: AuthService,
+  ) {}
 
   private normalizeEmail(email: string) {
     return email.trim().toLowerCase()
   }
 
+  private portalCallbackUrl() {
+    const portalBase =
+      process.env.CLIENT_PORTAL_URL ?? 'http://localhost:3003'
+    return `${portalBase}/auth/callback`
+  }
+
   async validateLogin(email: string) {
     const normalized = this.normalizeEmail(email)
-    const user = await this.prisma.clientPortalUser.findUnique({
-      where: { email: normalized },
-    })
-
-    if (!user || !user.isActive) {
+    const allowed = await this.isClientAllowed(normalized)
+    if (!allowed) {
       return {
         ok: false as const,
         message:
@@ -23,53 +33,65 @@ export class ClientPortalService {
       }
     }
 
-    const portalBase =
-      process.env.CLIENT_PORTAL_URL ?? 'http://localhost:3003'
-    const redirectUrl = `${portalBase}/login?email=${encodeURIComponent(normalized)}`
-
-    return { ok: true as const, redirectUrl }
+    return this.requestMagicLink(email)
   }
 
-  async listUsers() {
-    return this.prisma.clientPortalUser.findMany({
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        email: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    })
-  }
-
-  async assignUser(email: string) {
+  async requestMagicLink(email: string) {
     const normalized = this.normalizeEmail(email)
-    return this.prisma.clientPortalUser.upsert({
-      where: { email: normalized },
-      create: { email: normalized, isActive: true },
-      update: { isActive: true },
-      select: {
-        id: true,
-        email: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    })
+    const allowed = await this.isClientAllowed(normalized)
+    if (!allowed) {
+      return {
+        ok: false as const,
+        message:
+          'This email does not have client portal access. Contact CoCreate if you need help.',
+      }
+    }
+
+    const result = await this.supabaseAuth.sendAllowlistedMagicLink(
+      normalized,
+      this.portalCallbackUrl(),
+      { role: 'CLIENT' },
+    )
+
+    if (result.status === 'dev_link' && result.devSignInUrl) {
+      return {
+        ok: true as const,
+        message:
+          'Development mode: open the sign-in link below (no email sent).',
+        devSignInUrl: result.devSignInUrl,
+      }
+    }
+
+    return {
+      ok: true as const,
+      message: 'Check your email for a sign-in link.',
+    }
   }
 
-  async deactivateUser(id: string) {
-    return this.prisma.clientPortalUser.update({
-      where: { id },
-      data: { isActive: false },
-      select: {
-        id: true,
-        email: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
+  async syncSession(accessToken: string) {
+    const payload = await this.authService.syncClientSession(accessToken)
+    return { ok: true as const, ...payload }
+  }
+
+  getSessionProfile(client: Awaited<ReturnType<AuthService['requireClient']>>) {
+    return {
+      ok: true as const,
+      user: {
+        id: client.id,
+        email: client.email,
+        status: client.status,
+        role: client.role,
       },
-    })
+      organization: client.organization,
+    }
+  }
+
+  private async isClientAllowed(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } })
+    return (
+      Boolean(user) &&
+      user!.role === UserRole.CLIENT &&
+      user!.status !== UserStatus.SUSPENDED
+    )
   }
 }

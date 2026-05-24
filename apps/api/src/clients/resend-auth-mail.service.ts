@@ -1,0 +1,106 @@
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  OnModuleInit,
+} from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
+import { Resend } from 'resend'
+
+export type AuthEmailKind = 'invite' | 'magiclink'
+
+@Injectable()
+export class ResendAuthMailService implements OnModuleInit {
+  private readonly logger = new Logger(ResendAuthMailService.name)
+  private client: Resend | null = null
+
+  constructor(private readonly config: ConfigService) {}
+
+  onModuleInit() {
+    const key = this.getApiKey()
+    this.client = key ? new Resend(key) : null
+    if (this.isConfigured()) {
+      this.logger.log(`Auth emails via Resend from ${this.getFromAddress()}`)
+    } else if (key) {
+      this.logger.warn(
+        'RESEND_API_KEY is set but AUTH_EMAIL_FROM is missing — Resend auth emails disabled',
+      )
+    }
+  }
+
+  private env(key: string): string | undefined {
+    return (
+      this.config.get<string>(key)?.trim() || process.env[key]?.trim() || undefined
+    )
+  }
+
+  private getApiKey(): string | undefined {
+    return this.env('RESEND_API_KEY')
+  }
+
+  isConfigured(): boolean {
+    return Boolean(this.getApiKey() && this.getFromEmail())
+  }
+
+  getFromEmail(): string | null {
+    return this.env('AUTH_EMAIL_FROM') ?? this.env('RESEND_FROM_EMAIL') ?? null
+  }
+
+  /** Resend format: `CoCreate Caribbean <no-reply@mail.cocreatecaribbean.com>` */
+  getFromAddress(): string {
+    const email = this.getFromEmail()
+    if (!email) {
+      throw new BadRequestException(
+        'AUTH_EMAIL_FROM (or RESEND_FROM_EMAIL) is not configured',
+      )
+    }
+    const name = this.env('AUTH_EMAIL_FROM_NAME') || 'CoCreate Caribbean'
+    return `${name} <${email}>`
+  }
+
+  async sendSignInEmail(params: {
+    to: string
+    actionLink: string
+    kind: AuthEmailKind
+  }): Promise<void> {
+    const key = this.getApiKey()
+    if (!key) {
+      throw new BadRequestException('RESEND_API_KEY is not configured')
+    }
+    if (!this.client) {
+      this.client = new Resend(key)
+    }
+
+    const from = this.getFromAddress()
+    const subject =
+      params.kind === 'invite'
+        ? 'You’re invited to the CoCreate client portal'
+        : 'Your CoCreate sign-in link'
+
+    const intro =
+      params.kind === 'invite'
+        ? 'You’ve been invited to access your CoCreate client portal.'
+        : 'Use the link below to sign in to your CoCreate client portal.'
+
+    const { error } = await this.client.emails.send({
+      from,
+      to: [params.to],
+      subject,
+      html: `
+        <p>${intro}</p>
+        <p><a href="${params.actionLink}">Sign in to CoCreate</a></p>
+        <p style="color:#64748b;font-size:12px;">This link expires soon and can only be used once. If you didn’t request this, you can ignore this email.</p>
+      `.trim(),
+      text: `${intro}\n\nSign in: ${params.actionLink}\n\nThis link expires soon and can only be used once.`,
+    })
+
+    if (error) {
+      this.logger.error(`Resend send failed: ${error.message}`)
+      throw new BadRequestException(`Resend: ${error.message}`)
+    }
+
+    this.logger.log(
+      `[invite] Sent ${params.kind} email via Resend from ${from} to ${params.to}`,
+    )
+  }
+}

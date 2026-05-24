@@ -22,7 +22,7 @@ const NavDesktop: React.FC = () => {
       className="pointer-events-auto fixed top-10 left-1/2 z-[250] flex h-fit w-fit -translate-x-1/2 flex-row items-center justify-center gap-10 rounded-full border border-white/20 bg-white/70 px-10 py-5 backdrop-blur-lg"
     >
       <div>
-        <Link href={"/"}>
+        <Link href={"/"} onClick={closeSearch}>
           <Image className="w-30" src={logo} alt="logo" />
         </Link>
       </div>
@@ -38,6 +38,7 @@ const NavDesktop: React.FC = () => {
               <li key={id}>
                 <Link
                   href={`/${item}`}
+                  onClick={closeSearch}
                   className={`
                     relative inline-block
                     transition-all duration-300 hover:-translate-y-2

@@ -16,12 +16,17 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "seed:admin": "node scripts/seed-admin.mts"
   },
   "dependencies": {
-    "@prisma/client": "catalog:api"
+    "@prisma/adapter-pg": "catalog:api",
+    "@prisma/client": "catalog:api",
+    "@prisma/client-runtime-utils": "7.8.0",
+    "pg": "catalog:api"
   },
   "devDependencies": {
+    "dotenv": "^16.4.7",
     "prisma": "catalog:api",
     "typescript": "catalog:tooling"
   }

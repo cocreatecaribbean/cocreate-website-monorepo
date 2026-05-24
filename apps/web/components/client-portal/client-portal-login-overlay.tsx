@@ -20,6 +20,7 @@ export default function ClientPortalLoginOverlay() {
   const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -52,6 +53,7 @@ export default function ClientPortalLoginOverlay() {
     if (!isOverlayVisible) {
       setEmail('')
       setError(null)
+      setSuccess(null)
       setSubmitting(false)
     }
   }, [isOverlayVisible])
@@ -60,6 +62,7 @@ export default function ClientPortalLoginOverlay() {
     event.preventDefault()
     setSubmitting(true)
     setError(null)
+    setSuccess(null)
 
     try {
       const response = await fetch('/api/client-portal/login', {
@@ -69,11 +72,10 @@ export default function ClientPortalLoginOverlay() {
       })
       const data = (await response.json()) as {
         ok?: boolean
-        redirectUrl?: string
         message?: string
       }
 
-      if (!response.ok || !data.ok || !data.redirectUrl) {
+      if (!response.ok || !data.ok) {
         setError(
           data.message ??
             'This email does not have client portal access. Contact CoCreate if you need help.',
@@ -81,7 +83,7 @@ export default function ClientPortalLoginOverlay() {
         return
       }
 
-      window.location.href = data.redirectUrl
+      setSuccess(data.message ?? 'Check your email for a sign-in link.')
     } catch {
       setError('Something went wrong. Please try again.')
     } finally {
@@ -172,7 +174,7 @@ export default function ClientPortalLoginOverlay() {
               disabled={submitting}
               className="inline-flex shrink-0 items-center justify-center gap-2 self-end rounded-full bg-chambray px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-sanmarino disabled:opacity-60 sm:self-auto"
             >
-              {submitting ? 'Checking…' : 'Continue'}
+              {submitting ? 'Sending…' : 'Send sign-in link'}
               <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
             </button>
           </form>
@@ -182,6 +184,15 @@ export default function ClientPortalLoginOverlay() {
           >
             Client portal access is invite-only.
           </p>
+
+          {success ? (
+            <p
+              className={`max-w-md rounded-2xl bg-white/95 px-4 py-3 text-center text-sm text-emerald-800 ${fonts.bricolage_grot400.className}`}
+              role="status"
+            >
+              {success}
+            </p>
+          ) : null}
 
           {error ? (
             <p

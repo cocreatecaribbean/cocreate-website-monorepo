@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   FolderKanban,
   LayoutDashboard,
@@ -11,6 +11,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 type NavItem = {
   label: string
@@ -56,6 +57,14 @@ export default function AdminSidebar({
   onClose,
 }: AdminSidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
+
+  const logout = async () => {
+    const supabase = createSupabaseBrowserClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
 
   return (
     <div className="flex h-full flex-col px-4 py-6 text-white sm:px-6 sm:py-8">
@@ -118,6 +127,7 @@ export default function AdminSidebar({
 
       <button
         type="button"
+        onClick={() => void logout()}
         className="mt-6 flex min-h-11 items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
       >
         <LogOut className="h-5 w-5 shrink-0 text-white/70" strokeWidth={1.75} />

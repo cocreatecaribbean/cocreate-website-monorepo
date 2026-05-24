@@ -1,16 +1,27 @@
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { PrismaModule } from './prisma/prisma.module'
 import { HealthModule } from './health/health.module'
+import { AuthModule } from './auth/auth.module'
+import { ClientsModule } from './clients/clients.module'
 import { ClientPortalModule } from './client-portal/client-portal.module'
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: existsSync(join(__dirname, '..', '.env'))
+        ? join(__dirname, '..', '.env')
+        : undefined,
+    }),
     PrismaModule,
     HealthModule,
+    AuthModule,
+    ClientsModule,
     ClientPortalModule,
   ],
   controllers: [AppController],

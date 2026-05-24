@@ -8,6 +8,18 @@ import { Menu } from 'lucide-react'
 import AdminSidebar from '@/components/admin-sidebar'
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+  const isAuthRoute =
+    pathname.startsWith('/login') || pathname.startsWith('/auth')
+
+  if (isAuthRoute) {
+    return <>{children}</>
+  }
+
+  return <AdminShellChrome>{children}</AdminShellChrome>
+}
+
+function AdminShellChrome({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const pathname = usePathname()
 

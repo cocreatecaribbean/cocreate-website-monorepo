@@ -7,11 +7,11 @@ import {
   Post,
   UnauthorizedException,
 } from '@nestjs/common'
-import { ClientPortalService } from './client-portal.service'
+import { ClientsService } from '../clients/clients.service'
 
 @Controller('admin/client-portal-users')
 export class AdminClientPortalController {
-  constructor(private readonly clientPortalService: ClientPortalService) {}
+  constructor(private readonly clientsService: ClientsService) {}
 
   private assertAdminKey(header?: string) {
     const expected = process.env.ADMIN_API_KEY
@@ -23,7 +23,7 @@ export class AdminClientPortalController {
   @Get()
   list(@Headers('x-admin-key') adminKey?: string) {
     this.assertAdminKey(adminKey)
-    return this.clientPortalService.listUsers()
+    return this.clientsService.listPortalUsersLegacy()
   }
 
   @Post()
@@ -36,7 +36,7 @@ export class AdminClientPortalController {
     if (!email.trim()) {
       return { error: 'Email is required' }
     }
-    return this.clientPortalService.assignUser(email)
+    return this.clientsService.assignPortalUser(email)
   }
 
   @Post(':id/deactivate')
@@ -45,6 +45,6 @@ export class AdminClientPortalController {
     @Param('id') id: string,
   ) {
     this.assertAdminKey(adminKey)
-    return this.clientPortalService.deactivateUser(id)
+    return this.clientsService.deactivatePortalUserLegacy(id)
   }
 }
