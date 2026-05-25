@@ -8,7 +8,7 @@ import SocialLinks from './social-icons';
 import ButtonWithRef from './button';
 import { getMenuLabel } from '@/site-info/global-site-info';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 
 
 
@@ -16,10 +16,47 @@ import { useEffect, useState } from 'react';
 const Footer:React.FC = ()=>{
 
     const [year, setYear] = useState<number | null > (null)
+    const [email, setEmail] = useState('')
+    const [website, setWebsite] = useState('')
+    const [submitting, setSubmitting] = useState(false)
+    const [newsletterMessage, setNewsletterMessage] = useState<string | null>(null)
+    const [newsletterError, setNewsletterError] = useState<string | null>(null)
 
     useEffect(()=>{
         setYear(dayjs().year())
-    })
+    }, [])
+
+    const onNewsletterSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault()
+        setSubmitting(true)
+        setNewsletterMessage(null)
+        setNewsletterError(null)
+
+        try {
+            const response = await fetch('/api/newsletter/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, website }),
+            })
+            const data = (await response.json()) as { ok?: boolean; message?: string }
+
+            if (!response.ok || !data.ok) {
+                throw new Error(data.message ?? 'Unable to subscribe right now.')
+            }
+
+            setNewsletterMessage(
+                data.message ??
+                    'Thanks! Check your inbox to confirm your subscription.',
+            )
+            setEmail('')
+        } catch (err) {
+            setNewsletterError(
+                err instanceof Error ? err.message : 'Unable to subscribe right now.',
+            )
+        } finally {
+            setSubmitting(false)
+        }
+    }
 
 
 
@@ -40,17 +77,58 @@ const Footer:React.FC = ()=>{
 
                     </section>
                     <section className='justify-self-start lg:justify-self-center mx-auto lg:mx-0'>
-                        <div className='flex flex-col items-center w-fit'>
+                        <form
+                            onSubmit={onNewsletterSubmit}
+                            className='relative flex flex-col items-center w-fit'
+                            noValidate
+                        >
                             <div>
                                 <h3 className='text-[0.4em] lg:text-[0.25em] w-fit leading-none mb-4'>Join our mailing list to stay Inspired!</h3>
                             </div>
-                        
-                            <input suppressHydrationWarning className='w-full h-12 text-white bg-transparent mx-auto border-2 border-casablanca rounded-md text-[16px] md:text-[clamp(0.7rem,0.8vw,2rem)] px-4 mb-4' id='footer-email' name='email' type="email" placeholder='email' autoComplete='email' />
-                            <ButtonWithRef variant='primary' className='bg-casablanca text-chambray py-3 px-8 hover:bg-amber-200 hover:text-blue-900'>
-                                Subscribe
+
+                            <input
+                                type="text"
+                                name="website"
+                                value={website}
+                                onChange={(e) => setWebsite(e.target.value)}
+                                tabIndex={-1}
+                                autoComplete="off"
+                                aria-hidden
+                                className="pointer-events-none absolute h-0 w-0 opacity-0"
+                            />
+
+                            <input
+                                suppressHydrationWarning
+                                className='w-full h-12 text-white bg-transparent mx-auto border-2 border-casablanca rounded-md text-[16px] md:text-[clamp(0.7rem,0.8vw,2rem)] px-4 mb-4'
+                                id='footer-email'
+                                name='email'
+                                type="email"
+                                required
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder='email'
+                                autoComplete='email'
+                                disabled={submitting}
+                            />
+                            <ButtonWithRef
+                                type="submit"
+                                variant='primary'
+                                disabled={submitting}
+                                className='bg-casablanca text-chambray py-3 px-8 hover:bg-amber-200 hover:text-blue-900 disabled:opacity-60'
+                            >
+                                {submitting ? 'Sending…' : 'Subscribe'}
                             </ButtonWithRef>
-                            
-                        </div>
+                            {newsletterMessage ? (
+                                <p className='mt-3 max-w-sm text-center text-[clamp(0.45rem,0.55vw,0.9rem)] leading-snug text-casablanca'>
+                                    {newsletterMessage}
+                                </p>
+                            ) : null}
+                            {newsletterError ? (
+                                <p className='mt-3 max-w-sm text-center text-[clamp(0.45rem,0.55vw,0.9rem)] leading-snug text-red-200'>
+                                    {newsletterError}
+                                </p>
+                            ) : null}
+                        </form>
                     </section>
                 </section>
                 <section className='flex flex-col md:flex-row shrink-0 gap-x-0 md:gap-x-10 lg:gap-x-20 gap-y-10 md:gap-y-0 self-center lg:self-start pt-0 lg:pt-[0.3em]'>

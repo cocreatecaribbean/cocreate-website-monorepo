@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useState } from 'react'
+import AdminToast from '@/components/admin-toast'
 import DevSignInLink from '@/components/dev-sign-in-link'
 import { getApiErrorMessage } from '@/lib/api-error'
 import {
@@ -33,9 +34,11 @@ export default function AgencyAdminsManager() {
   const [success, setSuccess] = useState<string | null>(null)
   const [devSignInUrl, setDevSignInUrl] = useState<string | null>(null)
 
-  const loadAdmins = async () => {
-    setLoading(true)
-    setError(null)
+  const loadAdmins = async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true)
+      setError(null)
+    }
     try {
       const data = await fetchAdminBff<AdminRosterItem[]>('/api/admins')
       setAdmins(data)
@@ -48,7 +51,9 @@ export default function AgencyAdminsManager() {
             : 'Could not load agency admins.'
       setError(message)
     } finally {
-      setLoading(false)
+      if (!options?.silent) {
+        setLoading(false)
+      }
     }
   }
 
@@ -79,7 +84,7 @@ export default function AgencyAdminsManager() {
       if (data.devSignInUrl) {
         setDevSignInUrl(data.devSignInUrl)
       }
-      await loadAdmins()
+      await loadAdmins({ silent: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invite failed')
     } finally {
@@ -89,10 +94,11 @@ export default function AgencyAdminsManager() {
 
   const suspend = async (userId: string) => {
     setError(null)
+    setSuccess(null)
     try {
       await fetchAdminBff(`/api/admins/${userId}/suspend`, { method: 'POST' })
       setSuccess('Admin access suspended.')
-      await loadAdmins()
+      await loadAdmins({ silent: true })
     } catch (err) {
       setError(
         err instanceof AdminApiFetchError
@@ -106,9 +112,15 @@ export default function AgencyAdminsManager() {
 
   return (
     <div className="space-y-5 sm:space-y-8">
+      {success ? (
+        <AdminToast message={success} variant="success" onDismiss={() => setSuccess(null)} />
+      ) : null}
+      {error ? (
+        <AdminToast message={error} variant="error" onDismiss={() => setError(null)} />
+      ) : null}
       <form
         onSubmit={onSubmit}
-        className="admin-glass-card admin-animate-in flex flex-col gap-4 p-5 sm:p-6"
+        className="admin-glass-card flex flex-col gap-4 p-5 sm:p-6"
       >
         <div>
           <p className="admin-eyebrow">Access</p>
@@ -134,11 +146,9 @@ export default function AgencyAdminsManager() {
         </button>
       </form>
 
-      {success ? <p className="admin-alert-success">{success}</p> : null}
       {devSignInUrl ? <DevSignInLink url={devSignInUrl} label="Open admin sign-in link" /> : null}
-      {error ? <p className="admin-alert-error">{error}</p> : null}
 
-      <section className="admin-glass-card admin-animate-in admin-animate-in-delay-1 p-5 sm:p-6">
+      <section className="admin-glass-card p-5 sm:p-6">
         <p className="admin-eyebrow">Roster</p>
         <h2 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
           Agency admins

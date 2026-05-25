@@ -92,6 +92,24 @@ The premium **Social Listening** tab loads data from **`GET /client-portal/socia
 - **`Organization.brand24ProjectId`** — optional; set per client in Admin → Clients (for when Brand24 subscription is live).
 - **Until live API:** `BRAND24_USE_LIVE_API` is unset/false → **org-scoped mock** analytics (each client sees different sample numbers). Set `BRAND24_API_KEY` and `BRAND24_USE_LIVE_API=true` when the subscription is ready.
 
+## Newsletter (marketing site footer)
+
+Double opt-in mailing list: footer → `POST /newsletter/subscribe` (via `apps/web/app/api/newsletter/subscribe`) → Prisma `NewsletterSubscriber` (`PENDING`) → Resend confirmation email → user clicks link → `GET /newsletter/confirm` → `CONFIRMED` + Resend contact in segment.
+
+**API (`apps/api/.env`):**
+
+```env
+RESEND_API_KEY=re_…
+RESEND_SEGMENT_ID=…           # Resend Dashboard → Segments
+# RESEND_AUDIENCE_ID=…        # deprecated; legacy Audiences API only
+WEB_URL=http://localhost:3000
+AUTH_EMAIL_FROM=no-reply@mail.cocreatecaribbean.com   # or NEWSLETTER_FROM_EMAIL
+```
+
+**Web (`apps/web/.env.local`):** `API_URL=http://localhost:3001` (BFF to Nest).
+
+**Pages:** `/newsletter/confirmed`, `/newsletter/confirm-error`. Confirm link in email: `{WEB_URL}/newsletter/confirm?token=…` (web route proxies to API redirect).
+
 ## Versions (catalog: `api` / `ai`)
 
 - NestJS 11.1.x

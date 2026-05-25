@@ -82,3 +82,27 @@ model ContactMessage {
 
   @@index([conversationId])
 }
+
+// ─── Marketing newsletter (double opt-in) ───────────────────────────────────
+
+enum NewsletterStatus {
+  PENDING
+  CONFIRMED
+  UNSUBSCRIBED
+}
+
+model NewsletterSubscriber {
+  id                    String           @id @default(cuid())
+  email                 String           @unique
+  status                NewsletterStatus @default(PENDING)
+  confirmTokenHash      String?
+  confirmTokenExpiresAt DateTime?
+  resendContactId       String?
+  confirmedAt           DateTime?
+  source                String           @default("footer")
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  @@index([status])
+  @@index([confirmTokenHash])
+}

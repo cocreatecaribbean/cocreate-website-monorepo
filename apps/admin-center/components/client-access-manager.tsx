@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useState } from 'react'
+import AdminToast from '@/components/admin-toast'
 import DevSignInLink from '@/components/dev-sign-in-link'
 import { getApiErrorMessage } from '@/lib/api-error'
 import {
@@ -48,9 +49,11 @@ export default function ClientAccessManager() {
   const [savingBrand24Id, setSavingBrand24Id] = useState<string | null>(null)
   const [brand24Drafts, setBrand24Drafts] = useState<Record<string, string>>({})
 
-  const loadClients = async () => {
-    setLoading(true)
-    setError(null)
+  const loadClients = async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true)
+      setError(null)
+    }
     try {
       const data = await fetchAdminBff<ClientRosterItem[]>('/api/clients')
       setClients(data)
@@ -68,7 +71,9 @@ export default function ClientAccessManager() {
             : 'Could not load clients.'
       setError(message)
     } finally {
-      setLoading(false)
+      if (!options?.silent) {
+        setLoading(false)
+      }
     }
   }
 
@@ -114,7 +119,7 @@ export default function ClientAccessManager() {
       } else {
         setSuccess('Invitation sent. The client will receive an email shortly.')
       }
-      await loadClients()
+      await loadClients({ silent: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to invite client')
     } finally {
@@ -124,9 +129,11 @@ export default function ClientAccessManager() {
 
   const suspend = async (userId: string) => {
     setError(null)
+    setSuccess(null)
     try {
       await fetchAdminBff(`/api/clients/users/${userId}/suspend`, { method: 'POST' })
-      await loadClients()
+      setSuccess('Client access suspended.')
+      await loadClients({ silent: true })
     } catch (err) {
       setError(
         err instanceof AdminApiFetchError
@@ -157,7 +164,7 @@ export default function ClientAccessManager() {
         throw new Error(getApiErrorMessage(data, 'Failed to save Brand24 project ID'))
       }
       setSuccess('Brand24 project ID saved. Client charts use org-specific mock data until live API is enabled.')
-      await loadClients()
+      await loadClients({ silent: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save Brand24 project ID')
     } finally {
@@ -189,7 +196,7 @@ export default function ClientAccessManager() {
           ? 'Social Listening enabled for this client.'
           : 'Social Listening disabled for this client.',
       )
-      await loadClients()
+      await loadClients({ silent: true })
     } catch (err) {
       setError(
         err instanceof Error
@@ -203,9 +210,15 @@ export default function ClientAccessManager() {
 
   return (
     <div className="space-y-5 sm:space-y-8">
+      {success ? (
+        <AdminToast message={success} variant="success" onDismiss={() => setSuccess(null)} />
+      ) : null}
+      {error ? (
+        <AdminToast message={error} variant="error" onDismiss={() => setError(null)} />
+      ) : null}
       <form
         onSubmit={onSubmit}
-        className="admin-glass-card admin-animate-in flex flex-col gap-4 p-5 sm:p-6"
+        className="admin-glass-card flex flex-col gap-4 p-5 sm:p-6"
       >
         <div>
           <p className="admin-eyebrow">Onboard</p>
@@ -252,13 +265,11 @@ export default function ClientAccessManager() {
         </button>
       </form>
 
-      {success ? <p className="admin-alert-success">{success}</p> : null}
       {devSignInUrl ? (
         <DevSignInLink url={devSignInUrl} label="Open client sign-in link" />
       ) : null}
-      {error ? <p className="admin-alert-error">{error}</p> : null}
 
-      <section className="admin-glass-card admin-animate-in admin-animate-in-delay-1 p-5 sm:p-6">
+      <section className="admin-glass-card p-5 sm:p-6">
         <p className="admin-eyebrow">Roster</p>
         <h2 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
           Client roster
