@@ -109,13 +109,16 @@ export default function SourceBarChart({ data }: SourceBarChartProps) {
                     <span
                       className="flex h-5 w-5 items-center justify-center rounded-md ring-1 ring-white/80"
                       style={{
-                        background: `linear-gradient(135deg, ${grad.start}, ${grad.end})`,
+                        background:
+                          platformId === 'facebook'
+                            ? '#1877F2'
+                            : `linear-gradient(135deg, ${grad.start}, ${grad.end})`,
                       }}
                     >
                       <PlatformIcon
                         platformId={platformId}
                         size={14}
-                        className="text-white drop-shadow-sm"
+                        className="drop-shadow-sm"
                       />
                     </span>
                     <span className="truncate">{meta.name}</span>
@@ -140,10 +143,13 @@ export default function SourceBarChart({ data }: SourceBarChartProps) {
                 <span
                   className="flex h-8 w-8 items-center justify-center rounded-lg shadow-inner"
                   style={{
-                    background: `linear-gradient(135deg, ${grad.start}, ${grad.end})`,
+                    background:
+                      platformId === 'facebook'
+                        ? '#1877F2'
+                        : `linear-gradient(135deg, ${grad.start}, ${grad.end})`,
                   }}
                 >
-                  <PlatformIcon platformId={platformId} size={18} className="text-white" />
+                  <PlatformIcon platformId={platformId} size={18} />
                 </span>
                 <div>
                   <strong className="text-chambray">{meta.name}</strong>

@@ -4,6 +4,7 @@ import { ResponsiveLine } from '@nivo/line'
 import ChartContainer from '@/components/social-listening/chart-container'
 import GlassChartTooltip from '@/components/social-listening/glass-tooltip'
 import { brandColors, lineSeriesColors, nivoTheme } from '@/components/social-listening/nivo-theme'
+import { useIsMobileChart } from '@/components/social-listening/use-is-mobile-chart'
 import { usePrefersReducedMotion } from '@/components/social-listening/use-prefers-reduced-motion'
 import type { ReachEngagementSeries } from '@/lib/social-listening/types'
 
@@ -32,6 +33,41 @@ const lineDefs = [
 
 export default function ReachEngagementLineChart({ data }: ReachEngagementLineChartProps) {
   const reducedMotion = usePrefersReducedMotion()
+  const isMobile = useIsMobileChart()
+
+  const margin = isMobile
+    ? { top: 16, right: 16, bottom: 72, left: 40 }
+    : { top: 24, right: 28, bottom: 64, left: 48 }
+
+  const legends = isMobile
+    ? [
+        {
+          anchor: 'bottom' as const,
+          direction: 'column' as const,
+          align: 'center' as const,
+          translateX: 0,
+          translateY: 56,
+          itemWidth: 200,
+          itemHeight: 22,
+          itemsSpacing: 6,
+          symbolSize: 12,
+          symbolShape: 'circle' as const,
+        },
+      ]
+    : [
+        {
+          anchor: 'bottom' as const,
+          direction: 'row' as const,
+          justify: false,
+          translateX: 0,
+          translateY: 52,
+          itemWidth: 175,
+          itemHeight: 22,
+          itemsSpacing: 32,
+          symbolSize: 12,
+          symbolShape: 'circle' as const,
+        },
+      ]
 
   return (
     <ChartContainer
@@ -40,7 +76,7 @@ export default function ReachEngagementLineChart({ data }: ReachEngagementLineCh
     >
       <ResponsiveLine
         data={data}
-        margin={{ top: 24, right: 120, bottom: 48, left: 48 }}
+        margin={margin}
         xScale={{ type: 'point' }}
         yScale={{ type: 'linear', stacked: false }}
         curve="monotoneX"
@@ -72,17 +108,7 @@ export default function ReachEngagementLineChart({ data }: ReachEngagementLineCh
         theme={nivoTheme}
         animate={!reducedMotion}
         motionConfig={reducedMotion ? 'none' : 'gentle'}
-        legends={[
-          {
-            anchor: 'top-right',
-            direction: 'column',
-            translateX: 110,
-            itemWidth: 100,
-            itemHeight: 20,
-            symbolSize: 12,
-            symbolShape: 'circle',
-          },
-        ]}
+        legends={legends}
         tooltip={({ point }) => (
           <GlassChartTooltip
             accent={
