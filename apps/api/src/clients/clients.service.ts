@@ -25,6 +25,37 @@ export class ClientsService {
     return email.trim().toLowerCase()
   }
 
+  private mapOrganizationRoster(org: {
+    id: string
+    name: string
+    slug: string
+    logoUrl: string | null
+    isSocialListeningSubscriber: boolean
+    brand24ProjectId: string | null
+    createdAt: Date
+    updatedAt: Date
+    users: {
+      id: string
+      email: string
+      role: UserRole
+      status: UserStatus
+      createdAt: Date
+      updatedAt: Date
+    }[]
+  }): ClientOrganizationRosterItem {
+    return {
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      logoUrl: org.logoUrl,
+      isSocialListeningSubscriber: org.isSocialListeningSubscriber,
+      brand24ProjectId: org.brand24ProjectId,
+      createdAt: org.createdAt,
+      updatedAt: org.updatedAt,
+      primaryContact: org.users[0] ? this.mapPrimaryContact(org.users[0]) : null,
+    }
+  }
+
   private mapPrimaryContact(user: {
     id: string
     email: string
@@ -121,6 +152,7 @@ export class ClientsService {
         slug: organization.slug,
         logoUrl: organization.logoUrl,
         isSocialListeningSubscriber: organization.isSocialListeningSubscriber,
+        brand24ProjectId: organization.brand24ProjectId,
       },
       user: this.mapPrimaryContact(contact),
       invitation: {
@@ -145,16 +177,79 @@ export class ClientsService {
       },
     })
 
-    return organizations.map((org) => ({
-      id: org.id,
-      name: org.name,
-      slug: org.slug,
-      logoUrl: org.logoUrl,
-      isSocialListeningSubscriber: org.isSocialListeningSubscriber,
-      createdAt: org.createdAt,
-      updatedAt: org.updatedAt,
-      primaryContact: org.users[0] ? this.mapPrimaryContact(org.users[0]) : null,
-    }))
+    return organizations.map((org) => this.mapOrganizationRoster(org))
+  }
+
+  async updateSocialListeningSubscription(
+    organizationId: string,
+    enabled: boolean,
+  ): Promise<ClientOrganizationRosterItem> {
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      include: {
+        users: {
+          where: { role: UserRole.CLIENT },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    })
+
+    if (!organization) {
+      throw new NotFoundException('Organization not found')
+    }
+
+    const updated = await this.prisma.organization.update({
+      where: { id: organizationId },
+      data: { isSocialListeningSubscriber: enabled },
+      include: {
+        users: {
+          where: { role: UserRole.CLIENT },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    })
+
+    return this.mapOrganizationRoster(updated)
+  }
+
+  async updateBrand24Project(
+    organizationId: string,
+    brand24ProjectId: string | null | undefined,
+  ): Promise<ClientOrganizationRosterItem> {
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      include: {
+        users: {
+          where: { role: UserRole.CLIENT },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    })
+
+    if (!organization) {
+      throw new NotFoundException('Organization not found')
+    }
+
+    const normalized =
+      brand24ProjectId === undefined
+        ? undefined
+        : brand24ProjectId === null || brand24ProjectId.trim() === ''
+          ? null
+          : brand24ProjectId.trim()
+
+    const updated = await this.prisma.organization.update({
+      where: { id: organizationId },
+      data:
+        normalized === undefined ? {} : { brand24ProjectId: normalized },
+      include: {
+        users: {
+          where: { role: UserRole.CLIENT },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    })
+
+    return this.mapOrganizationRoster(updated)
   }
 
   async suspendClientUser(userId: string): Promise<ClientPrimaryContact> {

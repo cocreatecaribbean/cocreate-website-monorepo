@@ -15,6 +15,7 @@ export type ClientOrganizationRosterItem = {
   slug: string
   logoUrl: string | null
   isSocialListeningSubscriber: boolean
+  brand24ProjectId: string | null
   createdAt: Date
   updatedAt: Date
   primaryContact: ClientPrimaryContact | null
@@ -27,6 +28,7 @@ export type InviteClientResult = {
     slug: string
     logoUrl: string | null
     isSocialListeningSubscriber: boolean
+    brand24ProjectId: string | null
   }
   user: ClientPrimaryContact
   invitation: {

@@ -48,17 +48,22 @@ pnpm approve-builds
 3. In Supabase Dashboard → Authentication → URL Configuration, add redirect URLs:
    - `http://localhost:3002/auth/callback` (admin)
    - `http://localhost:3003/auth/callback` (client portal)
-4. Admin Center: http://localhost:3002/login
-5. Client invite: Admin Center → Clients
+4. Admin Center: http://localhost:3002/login (sign-in required when Supabase is configured)
+5. Additional admins: Admin Center → **Team** (or `POST /admin/admins/invite`)
+6. Client invite: Admin Center → **Clients**
 
-Admin client APIs: `POST /admin/clients/invite`, `GET /admin/clients`. See [supabase-database-setup.md](./supabase-database-setup.md).
+Admin APIs: `GET/POST /admin/admins`, `GET /auth/admin/me`, `POST /admin/clients/invite`, `GET /admin/clients`, `PATCH .../brand24-project`. See [supabase-database-setup.md](./supabase-database-setup.md).
+
+### Admin Center: “Could not load clients/admins” (403)
+
+Supabase sign-in alone is not enough — the email must exist in Prisma with `role: ADMIN` and `status` not `SUSPENDED` (seed with `seed:admin` or Team invite). Admin Center middleware calls `GET /auth/admin/me` on page loads (not `/api/*` BFF routes). Expired sessions redirect through `/auth/signout` (clears cookies) then `/login?error=session_expired` to avoid redirect loops. List pages show the API error message (e.g. `Admin access required`) instead of a generic failure.
 
 ### Local auth without email rate limits
 
 Supabase caps auth emails (~4/hour per address, project-wide). For local dev, the API uses **`AUTH_DEV_LINKS=true`** (default in development): sign-in URLs are generated via the service role and shown in the UI / API logs — **no email is sent**.
 
-- **Admin dashboard (skip login):** comment out `NEXT_PUBLIC_SUPABASE_*` in `apps/admin-center/.env.local` — middleware bypasses auth in dev; API uses `ADMIN_API_KEY`.
-- **Test real sign-in flow:** keep Supabase keys in the app, request a link on `/login`, click the yellow **dev sign-in link** on the page (also logged in the `@cocreate/api` terminal).
+- **Test real sign-in flow:** set `NEXT_PUBLIC_SUPABASE_*` in `apps/admin-center/.env.local`, seed an admin, open `/login`, use the **dev sign-in link** on the page (also logged in the `@cocreate/api` terminal).
+- **Optional dev bypass (no login):** `ADMIN_DEV_SKIP_AUTH=true` with Supabase unset — uses `ADMIN_API_KEY` for BFF → API only. Not for production.
 - **Production:** set `AUTH_DEV_LINKS=false` (or deploy with `NODE_ENV=production`) — emails send normally.
 
 ### Auth emails via Resend (recommended)
@@ -80,7 +85,12 @@ Also add `http://localhost:3003/auth/callback` under Authentication → URL Conf
 
 ### Client portal entitlements
 
-`Organization.isSocialListeningSubscriber` (set when inviting from Admin → Clients) controls access to Social Listening. The portal loads entitlements from `GET /client-portal/me` (Bearer JWT, server-side) — not from the UI alone.
+`Organization.isSocialListeningSubscriber` (set on invite or toggled per client in Admin → Clients roster) controls Social Listening access. The portal loads entitlements from `GET /client-portal/me` (Bearer JWT, server-side) — not from the UI alone. Paid subscriptions can flip the same flag via billing webhooks later (with optional expiry and renewal reminders).
+
+The premium **Social Listening** tab loads data from **`GET /client-portal/social-listening/analytics`** (Bearer JWT, `ClientAuthGuard`). The API resolves **`organizationId` from the logged-in user only** — never from client-supplied org ids.
+
+- **`Organization.brand24ProjectId`** — optional; set per client in Admin → Clients (for when Brand24 subscription is live).
+- **Until live API:** `BRAND24_USE_LIVE_API` is unset/false → **org-scoped mock** analytics (each client sees different sample numbers). Set `BRAND24_API_KEY` and `BRAND24_USE_LIVE_API=true` when the subscription is ready.
 
 ## Versions (catalog: `api` / `ai`)
 

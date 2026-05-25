@@ -7,11 +7,13 @@ import {
   FolderKanban,
   LayoutDashboard,
   LogOut,
+  Shield,
   Users,
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { bricolage_grot600 } from '@/styles/fonts'
+import { useAdminSession } from '@/components/admin-session-provider'
 
 type NavItem = {
   label: string
@@ -39,6 +41,12 @@ const navItems: NavItem[] = [
     icon: Users,
     match: (pathname) => pathname.startsWith('/client-access'),
   },
+  {
+    label: 'Team',
+    href: '/team',
+    icon: Shield,
+    match: (pathname) => pathname.startsWith('/team'),
+  },
 ]
 
 function isActive(item: NavItem, pathname: string) {
@@ -58,16 +66,15 @@ export default function AdminSidebar({
 }: AdminSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const { session, loading: sessionLoading } = useAdminSession()
 
   const logout = async () => {
-    const supabase = createSupabaseBrowserClient()
-    await supabase.auth.signOut()
-    router.push('/login')
+    router.push('/auth/signout')
     router.refresh()
   }
 
   return (
-    <div className="flex h-full flex-col px-4 py-6 text-white sm:px-6 sm:py-8">
+    <div className={`flex h-full flex-col px-4 py-6 sm:px-6 sm:py-8 ${bricolage_grot600.className}`}>
       <div className="mb-8 flex items-center justify-between gap-4">
         <Link
           href="/"
@@ -106,11 +113,10 @@ export default function AdminSidebar({
               href={item.href}
               onClick={onNavigate}
               className={`
-                group flex min-h-11 items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium
-                transition-colors duration-200
+                group flex min-h-11 items-center gap-3 rounded-xl px-3 py-3 text-[15px] transition-all duration-200
                 ${
                   active
-                    ? 'bg-white/15 text-white shadow-sm'
+                    ? 'bg-white/18 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] ring-1 ring-white/15'
                     : 'text-white/85 hover:bg-white/10 hover:text-white'
                 }
               `}
@@ -125,10 +131,18 @@ export default function AdminSidebar({
         })}
       </nav>
 
+      {session?.email ? (
+        <p className="mt-4 truncate px-3 text-xs text-white/60" title={session.email}>
+          Signed in as {session.email}
+        </p>
+      ) : sessionLoading ? null : session?.mode === 'api_key' ? (
+        <p className="mt-4 px-3 text-xs text-white/60">Dev API key access</p>
+      ) : null}
+
       <button
         type="button"
         onClick={() => void logout()}
-        className="mt-6 flex min-h-11 items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+        className="mt-4 flex min-h-11 items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] text-white/80 transition-colors hover:bg-white/10 hover:text-white"
       >
         <LogOut className="h-5 w-5 shrink-0 text-white/70" strokeWidth={1.75} />
         Logout

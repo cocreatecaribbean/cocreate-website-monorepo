@@ -3,6 +3,12 @@
 import { FormEvent, useEffect, useState } from 'react'
 import DevSignInLink from '@/components/dev-sign-in-link'
 import { getApiErrorMessage } from '@/lib/api-error'
+import {
+  adminFetchErrorHint,
+  AdminApiFetchError,
+  fetchAdminBff,
+} from '@/lib/admin-api-fetch'
+import { bricolage_grot600 } from '@/styles/fonts'
 
 type ClientRosterItem = {
   id: string
@@ -10,6 +16,7 @@ type ClientRosterItem = {
   slug: string
   logoUrl: string | null
   isSocialListeningSubscriber: boolean
+  brand24ProjectId: string | null
   createdAt: string
   primaryContact: {
     id: string
@@ -35,17 +42,31 @@ export default function ClientAccessManager() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [devSignInUrl, setDevSignInUrl] = useState<string | null>(null)
+  const [updatingSocialListeningId, setUpdatingSocialListeningId] = useState<string | null>(
+    null,
+  )
+  const [savingBrand24Id, setSavingBrand24Id] = useState<string | null>(null)
+  const [brand24Drafts, setBrand24Drafts] = useState<Record<string, string>>({})
 
   const loadClients = async () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch('/api/clients')
-      if (!response.ok) throw new Error('Failed to load clients')
-      const data = (await response.json()) as ClientRosterItem[]
+      const data = await fetchAdminBff<ClientRosterItem[]>('/api/clients')
       setClients(data)
-    } catch {
-      setError('Could not load clients. Sign in again or check the API connection.')
+      setBrand24Drafts(
+        Object.fromEntries(
+          data.map((c) => [c.id, c.brand24ProjectId ?? '']),
+        ),
+      )
+    } catch (err) {
+      const message =
+        err instanceof AdminApiFetchError
+          ? `${err.message} — ${adminFetchErrorHint(err.code)}`
+          : err instanceof Error
+            ? err.message
+            : 'Could not load clients.'
+      setError(message)
     } finally {
       setLoading(false)
     }
@@ -104,13 +125,79 @@ export default function ClientAccessManager() {
   const suspend = async (userId: string) => {
     setError(null)
     try {
-      const response = await fetch(`/api/clients/${userId}/suspend`, {
-        method: 'POST',
-      })
-      if (!response.ok) throw new Error('Failed to suspend client')
+      await fetchAdminBff(`/api/clients/users/${userId}/suspend`, { method: 'POST' })
       await loadClients()
-    } catch {
-      setError('Could not suspend client access')
+    } catch (err) {
+      setError(
+        err instanceof AdminApiFetchError
+          ? `${err.message} — ${adminFetchErrorHint(err.code)}`
+          : err instanceof Error
+            ? err.message
+            : 'Could not suspend client access',
+      )
+    }
+  }
+
+  const saveBrand24Project = async (organizationId: string) => {
+    setError(null)
+    setSuccess(null)
+    setSavingBrand24Id(organizationId)
+    try {
+      const brand24ProjectId = brand24Drafts[organizationId]?.trim() || null
+      const response = await fetch(
+        `/api/clients/organizations/${organizationId}/brand24-project`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ brand24ProjectId }),
+        },
+      )
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(data, 'Failed to save Brand24 project ID'))
+      }
+      setSuccess('Brand24 project ID saved. Client charts use org-specific mock data until live API is enabled.')
+      await loadClients()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save Brand24 project ID')
+    } finally {
+      setSavingBrand24Id(null)
+    }
+  }
+
+  const toggleSocialListening = async (organizationId: string, enabled: boolean) => {
+    setError(null)
+    setSuccess(null)
+    setUpdatingSocialListeningId(organizationId)
+    try {
+      const response = await fetch(
+        `/api/clients/organizations/${organizationId}/social-listening`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled }),
+        },
+      )
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(data, 'Failed to update Social Listening access'),
+        )
+      }
+      setSuccess(
+        enabled
+          ? 'Social Listening enabled for this client.'
+          : 'Social Listening disabled for this client.',
+      )
+      await loadClients()
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Could not update Social Listening access',
+      )
+    } finally {
+      setUpdatingSocialListeningId(null)
     }
   }
 
@@ -118,8 +205,14 @@ export default function ClientAccessManager() {
     <div className="space-y-5 sm:space-y-8">
       <form
         onSubmit={onSubmit}
-        className="flex flex-col gap-4 rounded-2xl border border-chambray/10 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6"
+        className="admin-glass-card admin-animate-in flex flex-col gap-4 p-5 sm:p-6"
       >
+        <div>
+          <p className="admin-eyebrow">Onboard</p>
+          <h2 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
+            Invite a client
+          </h2>
+        </div>
         <div className="grid gap-3 md:grid-cols-2">
           <input
             type="text"
@@ -127,7 +220,7 @@ export default function ClientAccessManager() {
             value={companyName}
             onChange={(event) => setCompanyName(event.target.value)}
             placeholder="Company name"
-            className="min-h-11 min-w-0 rounded-full border border-chambray/15 px-4 py-3 text-base outline-none focus:border-sanmarino sm:px-5"
+            className="admin-input"
           />
           <input
             type="email"
@@ -135,7 +228,7 @@ export default function ClientAccessManager() {
             value={clientEmail}
             onChange={(event) => setClientEmail(event.target.value)}
             placeholder="client@company.com"
-            className="min-h-11 min-w-0 rounded-full border border-chambray/15 px-4 py-3 text-base outline-none focus:border-sanmarino sm:px-5"
+            className="admin-input"
           />
         </div>
         <input
@@ -143,7 +236,7 @@ export default function ClientAccessManager() {
           value={logoUrl}
           onChange={(event) => setLogoUrl(event.target.value)}
           placeholder="Client logo URL (optional) — https://…"
-          className="min-h-11 min-w-0 rounded-full border border-chambray/15 px-4 py-3 text-base outline-none focus:border-sanmarino sm:px-5"
+          className="admin-input"
         />
         <label className="flex cursor-pointer items-center gap-3 text-sm text-slate-700">
           <input
@@ -152,35 +245,36 @@ export default function ClientAccessManager() {
             onChange={(event) => setEnableSocialListening(event.target.checked)}
             className="h-4 w-4 rounded border-chambray/30 text-chambray focus:ring-sanmarino"
           />
-          Enable Social Listening (premium tier)
+          Enable Social Listening on invite (optional — you can also toggle per client below)
         </label>
-        <button
-          type="submit"
-          disabled={submitting}
-          className="min-h-11 w-full rounded-full bg-chambray px-6 py-3 text-sm font-semibold text-white transition hover:bg-sanmarino disabled:opacity-60 md:w-fit"
-        >
+        <button type="submit" disabled={submitting} className="admin-btn-primary md:w-fit">
           {submitting ? 'Sending invite…' : 'Invite client'}
         </button>
       </form>
 
-      {success ? (
-        <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{success}</p>
-      ) : null}
+      {success ? <p className="admin-alert-success">{success}</p> : null}
       {devSignInUrl ? (
         <DevSignInLink url={devSignInUrl} label="Open client sign-in link" />
       ) : null}
-      {error ? (
-        <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
-      ) : null}
+      {error ? <p className="admin-alert-error">{error}</p> : null}
 
-      <section className="rounded-2xl border border-chambray/10 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6">
-        <h2 className="text-base font-semibold text-chambray sm:text-lg">Client roster</h2>
+      <section className="admin-glass-card admin-animate-in admin-animate-in-delay-1 p-5 sm:p-6">
+        <p className="admin-eyebrow">Roster</p>
+        <h2 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
+          Client roster
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Turn Social Listening on for test runs or comps. Optional Brand24 project ID
+          is stored per client — charts use org-specific mock data until{' '}
+          <code className="rounded bg-chambray/5 px-1 text-xs">BRAND24_USE_LIVE_API=true</code>{' '}
+          and your subscription key are set on the API.
+        </p>
         {loading ? (
           <p className="mt-4 text-sm text-slate-500">Loading…</p>
         ) : clients.length === 0 ? (
           <p className="mt-4 text-sm text-slate-500">No clients onboarded yet.</p>
         ) : (
-          <ul className="mt-4 divide-y divide-chambray/10">
+          <ul className="mt-4 divide-y divide-chambray/6">
             {clients.map((client) => (
               <li
                 key={client.id}
@@ -195,7 +289,7 @@ export default function ClientAccessManager() {
                       className="h-10 w-10 shrink-0 rounded-full object-contain"
                     />
                   ) : (
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-chambray/10 text-xs font-semibold text-chambray">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-sanmarino/20 to-chambray/10 text-xs font-semibold text-chambray ring-1 ring-sanmarino/15">
                       {client.name
                         .split(/\s+/)
                         .filter(Boolean)
@@ -205,28 +299,73 @@ export default function ClientAccessManager() {
                     </span>
                   )}
                   <div className="min-w-0">
-                  <p className="font-medium text-slate-900">{client.name}</p>
-                  <p className="text-sm text-slate-600">
-                    {client.primaryContact?.email ?? 'No contact'}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {client.primaryContact
-                      ? statusLabel[client.primaryContact.status] ?? client.primaryContact.status
-                      : '—'}
-                    {client.isSocialListeningSubscriber ? ' · Social Listening' : ''}
-                  </p>
+                    <p className="font-medium text-slate-900">{client.name}</p>
+                    <p className="text-sm text-slate-600">
+                      {client.primaryContact?.email ?? 'No contact'}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {client.primaryContact
+                        ? statusLabel[client.primaryContact.status] ??
+                          client.primaryContact.status
+                        : '—'}
+                    </p>
                   </div>
                 </div>
-                {client.primaryContact &&
-                client.primaryContact.status !== 'SUSPENDED' ? (
-                  <button
-                    type="button"
-                    onClick={() => void suspend(client.primaryContact!.id)}
-                    className="min-h-10 w-full rounded-full border border-chambray/15 px-4 py-2 text-sm text-chambray transition hover:bg-chambray/5 sm:w-auto"
-                  >
-                    Suspend
-                  </button>
-                ) : null}
+                <div className="flex w-full flex-col gap-3 sm:max-w-md">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <input
+                      type="text"
+                      value={brand24Drafts[client.id] ?? ''}
+                      onChange={(e) =>
+                        setBrand24Drafts((prev) => ({
+                          ...prev,
+                          [client.id]: e.target.value,
+                        }))
+                      }
+                      placeholder="Brand24 project ID (optional)"
+                      className="admin-input min-h-10 flex-1 text-sm"
+                      disabled={!client.isSocialListeningSubscriber}
+                    />
+                    <button
+                      type="button"
+                      disabled={
+                        savingBrand24Id === client.id ||
+                        !client.isSocialListeningSubscriber
+                      }
+                      onClick={() => void saveBrand24Project(client.id)}
+                      className="admin-btn-ghost min-h-10 shrink-0 px-4"
+                    >
+                      {savingBrand24Id === client.id ? 'Saving…' : 'Save ID'}
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                  <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-full border border-white/60 bg-white/50 px-4 py-2 text-sm text-slate-700 backdrop-blur-sm">
+                    <input
+                      type="checkbox"
+                      checked={client.isSocialListeningSubscriber}
+                      disabled={updatingSocialListeningId === client.id}
+                      onChange={(event) =>
+                        void toggleSocialListening(client.id, event.target.checked)
+                      }
+                      className="h-4 w-4 rounded border-chambray/30 text-chambray focus:ring-sanmarino disabled:opacity-50"
+                    />
+                    <span>
+                      Social Listening
+                      {updatingSocialListeningId === client.id ? '…' : ''}
+                    </span>
+                  </label>
+                  {client.primaryContact &&
+                  client.primaryContact.status !== 'SUSPENDED' ? (
+                    <button
+                      type="button"
+                      onClick={() => void suspend(client.primaryContact!.id)}
+                      className="admin-btn-ghost min-h-10 w-full sm:w-auto"
+                    >
+                      Suspend
+                    </button>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>

@@ -1,16 +1,25 @@
 'use client'
 
 import { FormEvent, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import CoCreateLogo from '@/components/cocreate-logo'
 import DevSignInLink from '@/components/dev-sign-in-link'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { alkatra600, bricolage_grot500 } from '@/styles/fonts'
 
 const apiBase = () => process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 export default function AdminLoginForm() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const next = searchParams.get('next') ?? '/'
-  const authError = searchParams.get('error') === 'auth'
+  const errorCode = searchParams.get('error')
+  const authError = errorCode === 'auth'
+  const sessionExpired = errorCode === 'session_expired'
+  const adminRequired = errorCode === 'admin_required'
+  const adminSuspended = errorCode === 'admin_suspended'
+  const showSignOut =
+    adminRequired || adminSuspended || sessionExpired || errorCode === 'auth'
   const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -52,14 +61,14 @@ export default function AdminLoginForm() {
   }
 
   return (
-    <main className="flex min-h-svh items-center justify-center bg-[#eef1f8] px-6 py-16">
-      <div className="w-full max-w-md rounded-3xl border border-chambray/10 bg-white p-8 shadow-sm">
+    <main className="flex min-h-svh items-center justify-center px-6 py-16">
+      <div className="admin-glass-card w-full max-w-md p-8 sm:p-10">
         <CoCreateLogo href="/" className="h-9 w-auto" priority />
-        <p className="mt-6 text-sm font-medium uppercase tracking-[0.18em] text-sanmarino">
-          CoCreate Control Center
-        </p>
-        <h1 className="mt-2 text-2xl font-semibold text-chambray">Admin sign in</h1>
-        <p className="mt-2 text-sm text-slate-600">
+        <p className="admin-eyebrow mt-8">CoCreate Control Center</p>
+        <h1 className={`mt-2 text-2xl text-chambray sm:text-3xl ${alkatra600.className}`}>
+          Admin sign in
+        </h1>
+        <p className={`mt-2 text-sm leading-relaxed text-slate-600 ${bricolage_grot500.className}`}>
           Enter your agency admin email. We&apos;ll send a secure magic link.
         </p>
 
@@ -71,31 +80,52 @@ export default function AdminLoginForm() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="you@cocreate.com"
-            className="w-full rounded-full border border-chambray/15 px-5 py-3 text-base outline-none focus:border-sanmarino"
+            className="admin-input w-full"
           />
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-full bg-chambray px-6 py-3 text-sm font-semibold text-white transition hover:bg-sanmarino disabled:opacity-60"
-          >
+          <button type="submit" disabled={submitting} className="admin-btn-primary w-full">
             {submitting ? 'Sending link…' : 'Email me a sign-in link'}
           </button>
         </form>
 
         {authError && !message ? (
-          <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="admin-alert-warn mt-4">
             That sign-in link expired or was already used. Request a new link below.
           </p>
         ) : null}
-        {message ? (
-          <p className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            {message}
+        {sessionExpired && !message ? (
+          <p className="admin-alert-warn mt-4">
+            Your session expired. Request a new magic link below.
           </p>
         ) : null}
-        {devSignInUrl ? <DevSignInLink url={devSignInUrl} /> : null}
-        {error ? (
-          <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+        {adminRequired && !message ? (
+          <p className="admin-alert-warn mt-4">
+            This signed-in account is not on the agency admin roster. Use an email from{' '}
+            <code className="rounded bg-chambray/5 px-1 text-xs">seed:admin</code> or Team
+            invite, then sign in again.
+          </p>
         ) : null}
+        {adminSuspended && !message ? (
+          <p className="admin-alert-warn mt-4">
+            This admin account is suspended. Contact another agency admin to restore access.
+          </p>
+        ) : null}
+        {showSignOut ? (
+          <button
+            type="button"
+            className="admin-btn-ghost mt-4 w-full"
+            onClick={async () => {
+              const supabase = createSupabaseBrowserClient()
+              await supabase.auth.signOut()
+              router.replace('/login')
+              router.refresh()
+            }}
+          >
+            Sign out and use a different email
+          </button>
+        ) : null}
+        {message ? <p className="admin-alert-success mt-4">{message}</p> : null}
+        {devSignInUrl ? <DevSignInLink url={devSignInUrl} /> : null}
+        {error ? <p className="admin-alert-error mt-4">{error}</p> : null}
 
         <p className="mt-6 text-xs text-slate-500">
           After signing in you&apos;ll return to {next === '/' ? 'the dashboard' : next}.

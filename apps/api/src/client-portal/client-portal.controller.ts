@@ -1,16 +1,26 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common'
 import { ClientAuthGuard } from '../auth/guards/client-auth.guard'
 import type { ClientPortalRequest } from '../auth/guards/client-auth.guard'
+import { SocialListeningService } from '../social-listening/social-listening.service'
 import { ClientPortalService } from './client-portal.service'
 
 @Controller('client-portal')
 export class ClientPortalController {
-  constructor(private readonly clientPortalService: ClientPortalService) {}
+  constructor(
+    private readonly clientPortalService: ClientPortalService,
+    private readonly socialListeningService: SocialListeningService,
+  ) {}
 
   @Get('me')
   @UseGuards(ClientAuthGuard)
   me(@Req() request: ClientPortalRequest) {
     return this.clientPortalService.getSessionProfile(request.clientUser!)
+  }
+
+  @Get('social-listening/analytics')
+  @UseGuards(ClientAuthGuard)
+  socialListeningAnalytics(@Req() request: ClientPortalRequest) {
+    return this.socialListeningService.getAnalyticsForClient(request.clientUser!)
   }
 
   /** @deprecated Use POST /client-portal/magic-link */

@@ -6,6 +6,10 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Menu } from 'lucide-react'
 import AdminSidebar from '@/components/admin-sidebar'
+import {
+  AdminAccessBanner,
+  AdminSessionProvider,
+} from '@/components/admin-session-provider'
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -16,7 +20,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     return <>{children}</>
   }
 
-  return <AdminShellChrome>{children}</AdminShellChrome>
+  return (
+    <AdminSessionProvider>
+      <AdminShellChrome>{children}</AdminShellChrome>
+    </AdminSessionProvider>
+  )
 }
 
 function AdminShellChrome({ children }: { children: React.ReactNode }) {
@@ -35,19 +43,20 @@ function AdminShellChrome({ children }: { children: React.ReactNode }) {
   }, [menuOpen])
 
   return (
-    <div className="flex min-h-svh bg-[#eef1f8]">
+    <div className="flex min-h-svh">
       {menuOpen ? (
         <button
           type="button"
           aria-label="Close menu"
-          className="fixed inset-0 z-40 bg-chambray/50 backdrop-blur-[2px] lg:hidden"
+          className="fixed inset-0 z-40 bg-chambray/40 backdrop-blur-sm lg:hidden"
           onClick={() => setMenuOpen(false)}
         />
       ) : null}
 
       <aside
         className={`
-          fixed inset-y-0 left-0 z-50 flex w-[min(88vw,18rem)] flex-col bg-chambray shadow-2xl
+          fixed inset-y-0 left-0 z-50 flex w-[min(88vw,18rem)] flex-col
+          bg-linear-to-b from-chambray via-[#353d8f] to-[#2a3170] shadow-2xl
           transition-transform duration-300 ease-out
           lg:static lg:z-auto lg:w-64 lg:shrink-0 lg:translate-x-0 lg:shadow-none xl:w-72
           ${menuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -61,13 +70,13 @@ function AdminShellChrome({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-chambray/8 bg-white/90 px-4 py-3 backdrop-blur-md pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden">
+        <header className="admin-surface sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden">
           <button
             type="button"
             aria-expanded={menuOpen}
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             onClick={() => setMenuOpen((open) => !open)}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-chambray/10 text-chambray transition hover:border-sanmarino/30 hover:text-sanmarino"
+            className="admin-btn-ghost flex h-11 w-11 shrink-0 items-center justify-center rounded-full p-0"
           >
             <Menu className="h-5 w-5" strokeWidth={1.75} />
           </button>
@@ -84,6 +93,7 @@ function AdminShellChrome({ children }: { children: React.ReactNode }) {
           <div className="h-11 w-11 shrink-0" aria-hidden />
         </header>
 
+        <AdminAccessBanner />
         {children}
       </div>
     </div>

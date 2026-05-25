@@ -28,14 +28,18 @@ export async function createSupabaseServerClient() {
   })
 }
 
+/** Prefer getUser() so cookies refresh before reading the access token. */
 export async function getAccessToken() {
   const env = getSupabasePublicEnv()
   if (!env) return null
 
   try {
     const supabase = await createSupabaseServerClient()
-    const { data } = await supabase.auth.getSession()
-    return data.session?.access_token ?? null
+    const { data: userData, error: userError } = await supabase.auth.getUser()
+    if (userError || !userData.user) return null
+
+    const { data: sessionData } = await supabase.auth.getSession()
+    return sessionData.session?.access_token ?? null
   } catch {
     return null
   }

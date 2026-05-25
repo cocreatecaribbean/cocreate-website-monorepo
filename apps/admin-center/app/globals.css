@@ -6,14 +6,141 @@
   --color-casablanca: #f6b03f;
 }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background: #eef1f8;
-  color: #0f172a;
-  font-family:
-    'Segoe UI',
-    system-ui,
-    -apple-system,
-    sans-serif;
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: #0f172a;
+    background-color: #eef1f8;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 10% -10%, rgba(64, 110, 181, 0.22), transparent 55%),
+      radial-gradient(ellipse 60% 45% at 95% 5%, rgba(246, 176, 63, 0.14), transparent 50%),
+      radial-gradient(ellipse 70% 60% at 50% 100%, rgba(57, 65, 154, 0.08), transparent 55%),
+      linear-gradient(165deg, #f4f6fb 0%, #eef1f8 42%, #fafbff 100%);
+  }
+}
+
+@layer components {
+  .admin-eyebrow {
+    @apply text-xs font-medium uppercase tracking-[0.2em] text-sanmarino;
+  }
+
+  .admin-display {
+    @apply font-[family-name:var(--font-alkatra-600)] text-2xl leading-tight text-chambray sm:text-3xl lg:text-4xl;
+  }
+
+  .admin-surface {
+    @apply border-b border-white/50 bg-white/70 shadow-[0_4px_24px_rgba(57,65,154,0.06)] backdrop-blur-xl;
+  }
+
+  .admin-glass-card {
+    @apply overflow-hidden rounded-[1.75rem] border border-white/55 bg-white/55 shadow-[0_10px_40px_rgba(57,65,154,0.08)] backdrop-blur-2xl ring-1 ring-white/70;
+  }
+
+  .admin-glass-kpi {
+    @apply overflow-hidden rounded-[1.75rem] border border-white/60 bg-white/50 shadow-[0_6px_24px_rgba(64,110,181,0.08)] backdrop-blur-xl ring-1 ring-sanmarino/10;
+  }
+
+  .admin-btn-primary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-chambray px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-sanmarino focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sanmarino disabled:opacity-60;
+  }
+
+  .admin-btn-ghost {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-chambray/12 bg-white/80 px-4 py-2 text-sm font-medium text-chambray backdrop-blur-sm transition hover:border-sanmarino/40 hover:bg-white;
+  }
+
+  .admin-input {
+    @apply min-h-11 min-w-0 rounded-full border border-chambray/12 bg-white/90 px-4 py-3 text-base shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sanmarino focus:ring-2 focus:ring-sanmarino/20 sm:px-5;
+  }
+
+  .admin-alert-success {
+    @apply rounded-2xl bg-emerald-50/90 px-4 py-3 text-sm text-emerald-800 ring-1 ring-emerald-200/60;
+  }
+
+  .admin-alert-error {
+    @apply rounded-2xl bg-red-50/90 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200/60;
+  }
+
+  .admin-alert-warn {
+    @apply rounded-2xl bg-amber-50/90 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200/60;
+  }
+
+  .admin-action-tile {
+    @apply flex min-h-[4.5rem] items-center justify-between gap-3 rounded-2xl border border-white/60 bg-white/50 px-4 py-4 shadow-sm backdrop-blur-sm transition hover:border-sanmarino/25 hover:shadow-md active:scale-[0.99];
+  }
+
+  .admin-shine-hover {
+    @apply relative overflow-hidden;
+  }
+
+  .admin-shine-hover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      105deg,
+      transparent 40%,
+      rgba(255, 255, 255, 0.35) 50%,
+      transparent 60%
+    );
+    transform: translateX(-100%);
+    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+
+  .admin-shine-hover:hover::after {
+    transform: translateX(100%);
+  }
+}
+
+@layer utilities {
+  .admin-animate-in {
+    animation: admin-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .admin-animate-in-delay-1 {
+    animation-delay: 0.07s;
+  }
+  .admin-animate-in-delay-2 {
+    animation-delay: 0.14s;
+  }
+  .admin-animate-in-delay-3 {
+    animation-delay: 0.21s;
+  }
+  .admin-animate-in-delay-4 {
+    animation-delay: 0.28s;
+  }
+}
+
+@keyframes admin-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-animate-in,
+  .admin-animate-in-delay-1,
+  .admin-animate-in-delay-2,
+  .admin-animate-in-delay-3,
+  .admin-animate-in-delay-4,
+  .admin-shine-hover::after {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .admin-shine-hover::after {
+    display: none;
+  }
 }

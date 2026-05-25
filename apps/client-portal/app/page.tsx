@@ -2,8 +2,10 @@ import Link from 'next/link'
 import CoCreateLogo from '@/components/cocreate-logo'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { fetchClientPortalProfile } from '@/lib/client-session'
+import { fetchSocialListeningAnalytics } from '@/lib/social-listening/fetch-analytics'
 import ClientPortalShell from '@/components/client-portal-shell'
 import ClientPortalDashboard from '@/components/client-portal-dashboard'
+import { alkatra600, bricolage_grot500 } from '@/styles/fonts'
 
 export default async function ClientPortalHomePage() {
   const supabase = await createSupabaseServerClient()
@@ -13,24 +15,22 @@ export default async function ClientPortalHomePage() {
 
   if (!user?.email) {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col justify-center px-6 py-16">
-        <CoCreateLogo className="h-10 w-auto" priority />
-        <p className="mt-6 text-sm font-medium uppercase tracking-[0.18em] text-sanmarino">
-          CoCreate Caribbean
-        </p>
-        <h1 className="mt-2 text-4xl font-semibold text-chambray">Client Portal</h1>
-        <p className="mt-4 text-base text-slate-600">
-          Your project workspace will live here — files, updates, and approvals.
-        </p>
-        <p className="mt-6 text-sm text-slate-500">
-          Sign in from the CoCreate website or use the link from your invitation email.
-        </p>
-        <Link
-          href="/login"
-          className="mt-8 inline-flex w-fit rounded-full bg-chambray px-6 py-3 text-sm font-semibold text-white transition hover:bg-sanmarino"
-        >
-          Go to sign in
-        </Link>
+      <main className="mx-auto flex min-h-svh w-full max-w-3xl flex-col justify-center px-6 py-16 sm:px-8">
+        <div className="portal-surface-solid p-8 sm:p-10">
+          <CoCreateLogo className="h-10 w-auto" priority />
+          <p className="portal-eyebrow mt-8">CoCreate Caribbean</p>
+          <h1 className={`portal-display mt-2 ${alkatra600.className}`}>Client Portal</h1>
+          <p className={`mt-4 text-base leading-relaxed text-slate-600 ${bricolage_grot500.className}`}>
+            Your project workspace — files, updates, approvals, and brand analytics in one
+            place.
+          </p>
+          <p className="mt-4 text-sm text-slate-500">
+            Sign in from the CoCreate website or use the link from your invitation email.
+          </p>
+          <Link href="/login" className="portal-btn-primary mt-8">
+            Go to sign in
+          </Link>
+        </div>
       </main>
     )
   }
@@ -39,6 +39,9 @@ export default async function ClientPortalHomePage() {
   const hasSocialListening = Boolean(
     profile?.organization?.isSocialListeningSubscriber,
   )
+  const socialListeningAnalytics = hasSocialListening
+    ? await fetchSocialListeningAnalytics()
+    : null
 
   return (
     <ClientPortalShell
@@ -51,6 +54,7 @@ export default async function ClientPortalHomePage() {
         organizationName={profile?.organization?.name ?? null}
         organizationLogoUrl={profile?.organization?.logoUrl ?? null}
         hasSocialListening={hasSocialListening}
+        socialListeningAnalytics={socialListeningAnalytics}
       />
     </ClientPortalShell>
   )

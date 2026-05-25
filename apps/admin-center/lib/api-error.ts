@@ -9,6 +9,9 @@ export function getApiErrorMessage(
   const message = body.message
 
   if (typeof message === 'string' && message.trim()) {
+    if (/^Cannot (GET|POST|PATCH|PUT|DELETE) /.test(message)) {
+      return `${message} Restart the API (port 3001): stop any old process, then run pnpm dev from the monorepo root.`
+    }
     return message
   }
 

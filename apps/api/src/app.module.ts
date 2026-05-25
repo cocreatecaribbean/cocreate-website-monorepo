@@ -9,6 +9,7 @@ import { HealthModule } from './health/health.module'
 import { AuthModule } from './auth/auth.module'
 import { ClientsModule } from './clients/clients.module'
 import { ClientPortalModule } from './client-portal/client-portal.module'
+import { AdminsModule } from './admins/admins.module'
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ClientPortalModule } from './client-portal/client-portal.module'
     AuthModule,
     ClientsModule,
     ClientPortalModule,
+    AdminsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

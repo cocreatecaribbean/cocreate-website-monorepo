@@ -1,5 +1,6 @@
 /**
  * Seed the first agency admin user in Prisma.
+ * On update, clears organizationId so a former client user is not tied to a tenant.
  *
  * Usage (from repo root):
  *   pnpm --filter @cocreate/database seed:admin traile@cocreatecaribbean.com
@@ -51,6 +52,7 @@ try {
     update: {
       role: UserRole.ADMIN,
       status: UserStatus.INVITED,
+      organizationId: null,
     },
   })
 

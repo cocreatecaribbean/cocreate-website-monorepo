@@ -35,6 +35,8 @@ model Organization {
   /// Public URL to client logo (CDN, Supabase Storage, etc.)
   logoUrl                     String?
   isSocialListeningSubscriber Boolean  @default(false)
+  /// Brand24 / BrandMentions project id — set in Admin Center when subscription is live
+  brand24ProjectId            String?
   createdAt                   DateTime @default(now())
   updatedAt                   DateTime @updatedAt
   users                       User[]

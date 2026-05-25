@@ -1,5 +1,6 @@
 import CoCreateLogo from '@/components/cocreate-logo'
 import OrganizationLogo from '@/components/organization-logo'
+import { bricolage_grot600 } from '@/styles/fonts'
 
 type PortalBrandHeaderProps = {
   organizationName?: string | null
@@ -29,7 +30,9 @@ export default function PortalBrandHeader({
               logoUrl={organizationLogoUrl}
               size="md"
             />
-            <span className="hidden truncate text-sm font-medium text-chambray lg:inline">
+            <span
+              className={`hidden truncate text-sm text-chambray lg:inline ${bricolage_grot600.className}`}
+            >
               {organizationName}
             </span>
           </div>
