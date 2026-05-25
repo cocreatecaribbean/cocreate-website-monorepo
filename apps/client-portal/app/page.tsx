@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import CoCreateLogo from '@/components/cocreate-logo'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { fetchClientPortalProfile } from '@/lib/client-session'
@@ -36,8 +37,13 @@ export default async function ClientPortalHomePage() {
   }
 
   const profile = await fetchClientPortalProfile()
+  if (!profile?.user.email) {
+    redirect('/auth/signout?error=client_required')
+  }
+
+  const displayEmail = profile.user.email
   const hasSocialListening = Boolean(
-    profile?.organization?.isSocialListeningSubscriber,
+    profile.organization?.isSocialListeningSubscriber,
   )
   const socialListeningAnalytics = hasSocialListening
     ? await fetchSocialListeningAnalytics()
@@ -45,14 +51,14 @@ export default async function ClientPortalHomePage() {
 
   return (
     <ClientPortalShell
-      userEmail={user.email}
-      organizationName={profile?.organization?.name ?? null}
-      organizationLogoUrl={profile?.organization?.logoUrl ?? null}
+      userEmail={displayEmail}
+      organizationName={profile.organization?.name ?? null}
+      organizationLogoUrl={profile.organization?.logoUrl ?? null}
     >
       <ClientPortalDashboard
-        userEmail={user.email}
-        organizationName={profile?.organization?.name ?? null}
-        organizationLogoUrl={profile?.organization?.logoUrl ?? null}
+        userEmail={displayEmail}
+        organizationName={profile.organization?.name ?? null}
+        organizationLogoUrl={profile.organization?.logoUrl ?? null}
         hasSocialListening={hasSocialListening}
         socialListeningAnalytics={socialListeningAnalytics}
       />

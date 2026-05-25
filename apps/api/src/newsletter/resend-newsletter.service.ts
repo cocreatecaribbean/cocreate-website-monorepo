@@ -67,24 +67,19 @@ export class ResendNewsletterService implements OnModuleInit {
     )
   }
 
+  /** Newsletter only — do not fall back to AUTH_EMAIL_FROM (auth uses no-reply@). */
   getFromEmail(): string | null {
-    return (
-      this.env('NEWSLETTER_FROM_EMAIL') ??
-      this.env('AUTH_EMAIL_FROM') ??
-      this.env('RESEND_FROM_EMAIL') ??
-      null
-    )
+    return this.env('NEWSLETTER_FROM_EMAIL') ?? null
   }
 
   getFromAddress(): string {
     const email = this.getFromEmail()
     if (!email) {
-      throw new BadRequestException('Newsletter sender email is not configured')
+      throw new BadRequestException(
+        'NEWSLETTER_FROM_EMAIL is not configured (e.g. signup@mail.cocreatecaribbean.com)',
+      )
     }
-    const name =
-      this.env('NEWSLETTER_FROM_NAME') ??
-      this.env('AUTH_EMAIL_FROM_NAME') ??
-      'CoCreate Caribbean'
+    const name = this.env('NEWSLETTER_FROM_NAME') ?? 'CoCreate Caribbean'
     return `${name} <${email}>`
   }
 
@@ -110,7 +105,7 @@ export class ResendNewsletterService implements OnModuleInit {
     const resend = this.ensureClient()
     const from = this.getFromAddress()
 
-    const { error } = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from,
       to: [params.to],
       subject: 'Confirm your CoCreate mailing list subscription',
@@ -124,11 +119,16 @@ export class ResendNewsletterService implements OnModuleInit {
     })
 
     if (error) {
-      this.logger.error(`Newsletter confirmation email failed: ${error.message}`)
+      this.logger.error(
+        `Newsletter confirmation email failed (from ${from}): ${error.message}`,
+      )
       throw new BadRequestException(`Resend: ${error.message}`)
     }
 
-    this.logger.log(`Newsletter confirmation email sent to ${params.to}`)
+    this.logger.log(
+      `Newsletter confirmation email sent from ${from} to ${params.to}` +
+        (data?.id ? ` (Resend id: ${data.id})` : ''),
+    )
   }
 
   async addConfirmedContact(email: string): Promise<string | null> {

@@ -46,7 +46,7 @@ export class NewsletterService {
 
     if (!this.resendNewsletter.isEmailConfigured()) {
       throw new BadRequestException(
-        'Newsletter signup is not configured. Set RESEND_API_KEY and sender email.',
+        'Newsletter signup is not configured. Set RESEND_API_KEY and NEWSLETTER_FROM_EMAIL.',
       )
     }
 
@@ -55,6 +55,9 @@ export class NewsletterService {
     })
 
     if (existing?.status === NewsletterStatus.CONFIRMED) {
+      this.logger.log(
+        `Newsletter subscribe skipped send for ${normalized} (already confirmed)`,
+      )
       if (
         !existing.resendContactId &&
         this.resendNewsletter.isResendListConfigured()
@@ -88,6 +91,9 @@ export class NewsletterService {
       existing.confirmTokenExpiresAt.getTime() > now &&
       existing.updatedAt.getTime() > now - RESEND_COOLDOWN_MS
     ) {
+      this.logger.log(
+        `Newsletter subscribe skipped send for ${normalized} (confirmation email sent recently; wait 15 minutes)`,
+      )
       return { ok: true, message: GENERIC_SUCCESS_MESSAGE }
     }
 

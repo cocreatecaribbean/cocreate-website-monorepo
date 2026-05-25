@@ -58,6 +58,8 @@ Admin APIs: `GET/POST /admin/admins`, `GET /auth/admin/me`, `POST /admin/clients
 
 Supabase sign-in alone is not enough — the email must exist in Prisma with `role: ADMIN` and `status` not `SUSPENDED` (seed with `seed:admin` or Team invite). Admin Center middleware calls `GET /auth/admin/me` on page loads (not `/api/*` BFF routes). Expired sessions redirect through `/auth/signout` (clears cookies) then `/login?error=session_expired` to avoid redirect loops. List pages show the API error message (e.g. `Admin access required`) instead of a generic failure.
 
+**Admin vs Client Portal sessions:** Both apps share one Supabase project but use **separate auth cookies** (`sb-<ref>-admin-auth-token` vs `sb-<ref>-client-auth-token`) so localhost ports 3002/3003 do not overwrite each other. Client middleware also calls `GET /client-portal/me` and signs out non-client roles. After this change, sign in again on each portal once.
+
 ### Local auth without email rate limits
 
 Supabase caps auth emails (~4/hour per address, project-wide). For local dev, the API uses **`AUTH_DEV_LINKS=true`** (default in development): sign-in URLs are generated via the service role and shown in the UI / API logs — **no email is sent**.
@@ -103,7 +105,9 @@ RESEND_API_KEY=re_…
 RESEND_SEGMENT_ID=…           # Resend Dashboard → Segments
 # RESEND_AUDIENCE_ID=…        # deprecated; legacy Audiences API only
 WEB_URL=http://localhost:3000
-AUTH_EMAIL_FROM=no-reply@mail.cocreatecaribbean.com   # or NEWSLETTER_FROM_EMAIL
+NEWSLETTER_FROM_EMAIL=signup@mail.cocreatecaribbean.com
+NEWSLETTER_FROM_NAME=CoCreate Caribbean
+AUTH_EMAIL_FROM=no-reply@mail.cocreatecaribbean.com   # auth / invites only
 ```
 
 **Web (`apps/web/.env.local`):** `API_URL=http://localhost:3001` (BFF to Nest).

@@ -11,7 +11,10 @@ const apiBase = () => process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 export default function ClientPortalLoginForm() {
   const searchParams = useSearchParams()
-  const authError = searchParams.get('error') === 'auth'
+  const errorCode = searchParams.get('error')
+  const authError = errorCode === 'auth'
+  const clientRequired = errorCode === 'client_required'
+  const sessionExpired = errorCode === 'session_expired'
   const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -83,6 +86,17 @@ export default function ClientPortalLoginForm() {
           </button>
         </form>
 
+        {clientRequired && !message ? (
+          <p className="mt-4 rounded-2xl bg-amber-50/90 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200/60">
+            This email is not authorized for the Client Portal. Use the email your CoCreate
+            team invited, or sign in to the Admin Center instead.
+          </p>
+        ) : null}
+        {sessionExpired && !message ? (
+          <p className="mt-4 rounded-2xl bg-amber-50/90 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200/60">
+            Your session expired. Request a new sign-in link below.
+          </p>
+        ) : null}
         {authError && !message ? (
           <p className="mt-4 rounded-2xl bg-amber-50/90 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200/60">
             That sign-in link expired or was already used. Request a new invite from your

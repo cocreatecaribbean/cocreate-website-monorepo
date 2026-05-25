@@ -1,6 +1,7 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import type { CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { EmailOtpType, Session } from '@supabase/supabase-js'
+import { createSupabaseServerClientWithCookies } from '@/lib/supabase/create-server-client'
 
 function normalizeOtpType(type: string): EmailOtpType {
   if (type === 'magiclink') return 'email'
@@ -19,19 +20,17 @@ export function createSupabaseRouteHandlerClient(
 ) {
   let response = NextResponse.redirect(redirectTo)
 
-  const supabase = createServerClient(
+  const supabase = createSupabaseServerClientWithCookies(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          )
-        },
+      getAll() {
+        return request.cookies.getAll()
+      },
+      setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options),
+        )
       },
     },
   )
