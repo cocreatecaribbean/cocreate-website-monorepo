@@ -141,6 +141,16 @@ Optional fallback: Supabase → Authentication → SMTP (only used if `RESEND_AP
 
 Also add `http://localhost:3003/auth/callback` under Authentication → URL Configuration.
 
+### Email senders (Resend)
+
+All use `RESEND_API_KEY` and a verified `mail.cocreatecaribbean.com` domain. Each flow uses its own `From` address (no cross-fallback).
+
+| Flow | From address | Env |
+|------|----------------|-----|
+| Auth invites & magic links | `no-reply@mail.cocreatecaribbean.com` | `AUTH_EMAIL_FROM`, `AUTH_EMAIL_FROM_NAME` |
+| Newsletter double opt-in | `signup@mail.cocreatecaribbean.com` | `NEWSLETTER_FROM_EMAIL`, `NEWSLETTER_FROM_NAME` |
+| Project workspace (client + admin) | `updates@mail.cocreatecaribbean.com` | `PROJECT_UPDATES_FROM_EMAIL`, `PROJECT_UPDATES_FROM_NAME` |
+
 ### Client portal entitlements
 
 `Organization.isSocialListeningSubscriber` (set on invite or toggled per client in Admin → Clients roster) controls Social Listening access. The portal loads entitlements from `GET /client-portal/me` (Bearer JWT, server-side) — not from the UI alone. Paid subscriptions can flip the same flag via billing webhooks later (with optional expiry and renewal reminders).
@@ -267,9 +277,11 @@ Optional env:
 ADMIN_CENTER_URL=http://localhost:3002
 CLIENT_PORTAL_URL=http://localhost:3003
 ADMIN_NOTIFY_EMAIL=ops@agency.com   # comma-separated; else all ACTIVE admins
+PROJECT_UPDATES_FROM_EMAIL=updates@mail.cocreatecaribbean.com
+PROJECT_UPDATES_FROM_NAME=CoCreate Caribbean
 ```
 
-Project notification emails use the same Resend config as auth (`RESEND_API_KEY`, `AUTH_EMAIL_FROM`). With `AUTH_DEV_LINKS=true`, links are logged instead of sent.
+Project notification emails use `RESEND_API_KEY` and **`PROJECT_UPDATES_FROM_EMAIL`** (not `AUTH_EMAIL_FROM` or `NEWSLETTER_FROM_EMAIL`). With `AUTH_DEV_LINKS=true`, action links are logged instead of sent (`[project-email]` in API logs).
 
 ## Versions (catalog: `api` / `ai`)
 

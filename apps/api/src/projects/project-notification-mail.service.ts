@@ -18,20 +18,32 @@ export class ProjectNotificationMailService implements OnModuleInit {
   constructor(private readonly config: ConfigService) {}
 
   onModuleInit() {
-    const key = this.config.get<string>('RESEND_API_KEY')?.trim()
-    if (key) {
-      this.client = new Resend(key)
+    const key = this.env('RESEND_API_KEY')
+    this.client = key ? new Resend(key) : null
+    if (this.isConfigured()) {
+      this.logger.log(`Project emails via Resend from ${this.getFromAddress()}`)
+    } else if (key) {
+      this.logger.warn(
+        'RESEND_API_KEY is set but PROJECT_UPDATES_FROM_EMAIL is missing — project notification emails disabled',
+      )
     }
   }
 
+  private env(key: string): string | undefined {
+    return (
+      this.config.get<string>(key)?.trim() || process.env[key]?.trim() || undefined
+    )
+  }
+
+  /** Project workspace only — do not fall back to AUTH_EMAIL_FROM or NEWSLETTER_FROM_EMAIL. */
+  private getFromEmail(): string | null {
+    return this.env('PROJECT_UPDATES_FROM_EMAIL') ?? null
+  }
+
   private getFromAddress(): string | null {
-    const email =
-      this.config.get<string>('AUTH_EMAIL_FROM')?.trim() ||
-      this.config.get<string>('RESEND_FROM_EMAIL')?.trim()
+    const email = this.getFromEmail()
     if (!email) return null
-    const name =
-      this.config.get<string>('AUTH_EMAIL_FROM_NAME')?.trim() ||
-      'CoCreate Caribbean'
+    const name = this.env('PROJECT_UPDATES_FROM_NAME') ?? 'CoCreate Caribbean'
     return `${name} <${email}>`
   }
 
@@ -61,7 +73,9 @@ export class ProjectNotificationMailService implements OnModuleInit {
     }
 
     if (!this.isConfigured()) {
-      this.logger.warn(`[project-email] skipped (Resend not configured): ${params.subject}`)
+      this.logger.warn(
+        `[project-email] skipped (set RESEND_API_KEY + PROJECT_UPDATES_FROM_EMAIL): ${params.subject}`,
+      )
       return 'skipped'
     }
 
