@@ -1,5 +1,15 @@
 import { ClientProjectPhase } from '@cocreate/database'
-import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator'
+import { Type } from 'class-transformer'
+import {
+  IsArray,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+  ValidateNested,
+} from 'class-validator'
+import { StagedCheckpointAttachmentDto } from './staged-checkpoint-attachment.dto'
 
 export class CreateCheckpointDto {
   @IsString()
@@ -11,6 +21,17 @@ export class CreateCheckpointDto {
   body!: string
 
   @IsOptional()
+  @IsUrl({ require_protocol: true })
+  @MaxLength(2048)
+  reviewUrl?: string
+
+  @IsOptional()
   @IsEnum(ClientProjectPhase)
   targetPhase?: ClientProjectPhase
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StagedCheckpointAttachmentDto)
+  attachments?: StagedCheckpointAttachmentDto[]
 }

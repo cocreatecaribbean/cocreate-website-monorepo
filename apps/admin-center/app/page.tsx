@@ -163,7 +163,7 @@ export default function AdminHomePage() {
             <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               <Link
                 href="/team"
-                className="group admin-action-tile bg-linear-to-br from-white/80 to-chambray/5"
+                className="group admin-action-tile bg-linear-to-br from-white/80 to-chambray/5 dark:bg-linear-to-br dark:from-chambray/45 dark:via-chambray/15 dark:to-sanmarino/10 dark:ring-1 dark:ring-inset dark:ring-white/10"
               >
                 <div className="min-w-0">
                   <p className={`font-medium text-chambray ${bricolage_grot600.className}`}>
@@ -171,11 +171,14 @@ export default function AdminHomePage() {
                   </p>
                   <p className="mt-1 text-sm text-app-muted">Invite admins who can sign in</p>
                 </div>
-                <ArrowUpRight className="h-4 w-4 shrink-0 text-chambray transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                <ArrowUpRight
+                  className="h-4 w-4 shrink-0 text-chambray transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 dark:text-sanmarino"
+                  strokeWidth={1.75}
+                />
               </Link>
               <Link
                 href="/client-access"
-                className="group admin-action-tile bg-linear-to-br from-white/80 to-sanmarino/10"
+                className="group admin-action-tile bg-linear-to-br from-white/80 to-sanmarino/10 dark:bg-linear-to-br dark:from-sanmarino/40 dark:via-chambray/20 dark:to-chambray/10 dark:ring-1 dark:ring-inset dark:ring-sanmarino/25"
               >
                 <div className="min-w-0">
                   <p className={`font-medium text-chambray ${bricolage_grot600.className}`}>
@@ -183,11 +186,14 @@ export default function AdminHomePage() {
                   </p>
                   <p className="mt-1 text-sm text-app-muted">Invite or revoke portal emails</p>
                 </div>
-                <ArrowUpRight className="h-4 w-4 shrink-0 text-sanmarino transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                <ArrowUpRight
+                  className="h-4 w-4 shrink-0 text-sanmarino transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                  strokeWidth={1.75}
+                />
               </Link>
               <Link
                 href="/project-center"
-                className="group admin-action-tile bg-linear-to-br from-white/80 to-casablanca/15"
+                className="group admin-action-tile bg-linear-to-br from-white/80 to-casablanca/15 dark:bg-linear-to-br dark:from-casablanca/18 dark:via-sanmarino/15 dark:to-chambray/25 dark:ring-1 dark:ring-inset dark:ring-casablanca/20"
               >
                 <div className="min-w-0">
                   <p className={`font-medium text-chambray ${bricolage_grot600.className}`}>
@@ -195,7 +201,10 @@ export default function AdminHomePage() {
                   </p>
                   <p className="mt-1 text-sm text-app-muted">Review active engagements</p>
                 </div>
-                <ArrowUpRight className="h-4 w-4 shrink-0 text-chambray transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                <ArrowUpRight
+                  className="h-4 w-4 shrink-0 text-chambray transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 dark:text-sanmarino"
+                  strokeWidth={1.75}
+                />
               </Link>
             </div>
           </article>

@@ -27,7 +27,7 @@ export function getProjectStatusTone(status: ClientProjectStatus): string {
     case 'SUBMITTED':
       return 'bg-casablanca/20 text-chambray ring-casablanca/30'
     case 'ACTIVE':
-      return 'bg-emerald-50 text-emerald-800 ring-emerald-200/80'
+      return 'bg-emerald-50 text-emerald-800 ring-emerald-200/80 dark:bg-casablanca/20 dark:text-casablanca dark:ring-casablanca/35'
     case 'COMPLETED':
       return 'bg-sanmarino/15 text-sanmarino ring-sanmarino/25'
     case 'CANCELLED':

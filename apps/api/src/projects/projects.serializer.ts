@@ -56,6 +56,38 @@ type RequestWithRelations = ProjectRequest & {
   }
 }
 
+type PendingCheckpointMessagePick = Pick<
+  ProjectRequestMessage,
+  'messageKind' | 'requiresClientApproval' | 'supersededAt' | 'clientApprovedAt'
+>
+
+export function isPendingCheckpointMessage(message: PendingCheckpointMessagePick): boolean {
+  return (
+    message.messageKind === 'CHECKPOINT' &&
+    message.requiresClientApproval &&
+    !message.supersededAt &&
+    !message.clientApprovedAt
+  )
+}
+
+export function countPendingCheckpointMessages(
+  project: ProjectWithReviewMeta,
+): number {
+  if (project.pendingCheckpointCount != null) {
+    return project.pendingCheckpointCount
+  }
+  if (!project.requests?.length) return 0
+
+  return project.requests.reduce((sum, request) => {
+    const messages =
+      'messages' in request && Array.isArray(request.messages)
+        ? request.messages
+        : null
+    if (!messages?.length) return sum
+    return sum + messages.filter(isPendingCheckpointMessage).length
+  }, 0)
+}
+
 function serializeActorFields(user: UserActorPick | null | undefined, role: 'ADMIN' | 'CLIENT') {
   const fallback = role === 'ADMIN' ? 'CoCreate team' : 'Client'
   return {
@@ -74,11 +106,7 @@ export function serializeMessage(
       ? serializeActorFields(message.author, 'ADMIN')
       : serializeActorFields(message.author, 'CLIENT')
 
-  const pendingApproval =
-    message.messageKind === 'CHECKPOINT' &&
-    message.requiresClientApproval &&
-    !message.supersededAt &&
-    !message.clientApprovedAt
+  const pendingApproval = isPendingCheckpointMessage(message)
 
   return {
     id: message.id,
@@ -105,10 +133,7 @@ type ProjectWithReviewMeta = ProjectWithRelations & {
 }
 
 export function serializeProject(project: ProjectWithReviewMeta) {
-  const pendingCheckpointCount =
-    project.pendingCheckpointCount ??
-    project.requests?.filter((r) => r.type === 'PROGRESS').length ??
-    0
+  const pendingCheckpointCount = countPendingCheckpointMessages(project)
 
   const openCancellationCount =
     project.openCancellationCount ??

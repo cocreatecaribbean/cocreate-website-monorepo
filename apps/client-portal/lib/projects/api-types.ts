@@ -99,6 +99,7 @@ export type ProjectRequestItem = {
   cancellationFeeNotes?: string | null
   createdAt: string
   messages?: ProjectRequestMessage[]
+  attachments?: ProjectAttachment[]
   messageCount?: number
 }
 

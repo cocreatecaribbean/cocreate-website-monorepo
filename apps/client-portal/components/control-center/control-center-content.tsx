@@ -52,12 +52,12 @@ const FILES = [
 const ACTIVITY = [
   {
     title: 'Brand guidelines v2 ready for review',
-    project: 'Island Fresh rebrand',
+    project: 'cancara',
     time: '2 hours ago',
   },
   {
-    title: 'Q2 campaign storyboard uploaded',
-    project: 'Tourism board social',
+    title: 'Portmore park uploaded',
+    project: 'udc',
     time: 'Yesterday',
   },
   {

@@ -1,8 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import ControlCenterAttentionLink from '@/components/control-center/control-center-attention-link'
-import { fetchOpenApprovals } from '@/lib/projects/fetch-projects-client'
+import {
+  APPROVALS_BADGE_REFRESH_EVENT,
+  fetchUnreadApprovalsCount,
+  PORTAL_NOTIFICATIONS_REFRESH_EVENT,
+} from '@/lib/projects/fetch-projects-client'
 import {
   CONTROL_CENTER_NAV,
   CONTROL_CENTER_SETTINGS,
@@ -67,11 +71,25 @@ export default function ControlCenterSidebar({
   const workspaceLabel = organizationName?.trim() || 'Workspace'
   const [approvalsBadge, setApprovalsBadge] = useState<string | undefined>()
 
-  useEffect(() => {
-    void fetchOpenApprovals().then((items) => {
-      setApprovalsBadge(items.length > 0 ? String(items.length) : undefined)
+  const refreshApprovalsBadge = useCallback(() => {
+    void fetchUnreadApprovalsCount().then((count) => {
+      setApprovalsBadge(count > 0 ? String(count) : undefined)
     })
   }, [])
+
+  useEffect(() => {
+    refreshApprovalsBadge()
+  }, [refreshApprovalsBadge, activeView])
+
+  useEffect(() => {
+    const handler = () => refreshApprovalsBadge()
+    window.addEventListener(APPROVALS_BADGE_REFRESH_EVENT, handler)
+    window.addEventListener(PORTAL_NOTIFICATIONS_REFRESH_EVENT, handler)
+    return () => {
+      window.removeEventListener(APPROVALS_BADGE_REFRESH_EVENT, handler)
+      window.removeEventListener(PORTAL_NOTIFICATIONS_REFRESH_EVENT, handler)
+    }
+  }, [refreshApprovalsBadge])
 
   return (
     <aside

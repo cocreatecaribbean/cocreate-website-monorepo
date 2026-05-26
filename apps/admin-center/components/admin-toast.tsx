@@ -12,9 +12,9 @@ type AdminToastProps = {
 }
 
 const variantClass: Record<AdminToastProps['variant'], string> = {
-  success: 'admin-alert-success',
-  error: 'admin-alert-error',
-  warn: 'admin-alert-warn',
+  success: 'admin-toast-panel admin-toast-panel-success',
+  error: 'admin-toast-panel admin-toast-panel-error',
+  warn: 'admin-toast-panel admin-toast-panel-warn',
 }
 
 export default function AdminToast({

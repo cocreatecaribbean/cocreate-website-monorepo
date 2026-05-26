@@ -1,8 +1,10 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useCallback, useState } from 'react'
 import type { ProjectRequestItem, ProjectRequestMessage } from '@/lib/projects/types'
 import { formatActorWithTitle } from '@/lib/projects/project-display'
+import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-project-files'
+import { LinkifiedBody, indexAttachmentsByMessage, RequestAttachments } from '@/lib/projects/thread-content'
 import { bricolage_grot600 } from '@/styles/fonts'
 
 type RequestMessageThreadProps = {
@@ -51,6 +53,11 @@ export default function RequestMessageThread({
 
   const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(request.status)
   const canCompose = !readOnly && !isClosed
+  const attachmentsByMessage = indexAttachmentsByMessage(messages, request.attachments)
+  const fetchDownloadUrl = useCallback(
+    (attachmentId: string) => fetchAttachmentDownloadUrl(attachmentId),
+    [],
+  )
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -72,7 +79,8 @@ export default function RequestMessageThread({
         {messages.length === 0 ? (
           <p className="text-sm text-app-muted">No messages yet.</p>
         ) : (
-          messages.map((msg) => {
+          messages.map((msg, messageIndex) => {
+            const messageAttachments = attachmentsByMessage.get(messageIndex)
             const isMine =
               (viewerRole === 'ADMIN' && msg.authorRole === 'ADMIN') ||
               (viewerRole === 'CLIENT' && msg.authorRole === 'CLIENT')
@@ -102,7 +110,7 @@ export default function RequestMessageThread({
                     : ''}{' '}
                   · {new Date(msg.createdAt).toLocaleString()}
                 </p>
-                <p
+                <div
                   className={`mt-1 max-w-[90%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
                     isMine ? 'admin-msg-mine' : 'admin-msg-theirs'
                   } ${bricolage_grot600.className}`}
@@ -112,14 +120,14 @@ export default function RequestMessageThread({
                       Progress check
                     </span>
                   ) : null}
-                  {msg.body}
+                  <LinkifiedBody body={msg.body} />
                   {msg.supersededAt ? (
                     <span className="mt-2 block text-xs text-app-muted italic">
                       Superseded by a newer review
                     </span>
                   ) : null}
                   {msg.clientApprovedAt ? (
-                    <span className="mt-2 block text-xs text-emerald-700 dark:text-casablanca">
+                    <span className="admin-info-text mt-2 block text-xs">
                       Client approved {new Date(msg.clientApprovedAt).toLocaleString()}
                     </span>
                   ) : null}
@@ -128,7 +136,16 @@ export default function RequestMessageThread({
                       Awaiting client approval
                     </span>
                   ) : null}
-                </p>
+                </div>
+                {messageAttachments?.length ? (
+                  <RequestAttachments
+                    attachments={messageAttachments}
+                    fetchDownloadUrl={fetchDownloadUrl}
+                    variant="admin"
+                    showHeading={false}
+                    className={`mt-2 max-w-[90%] ${isMine ? 'self-end' : 'self-start'}`}
+                  />
+                ) : null}
               </div>
             )
           })

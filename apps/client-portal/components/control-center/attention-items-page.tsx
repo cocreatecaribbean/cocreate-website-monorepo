@@ -1,29 +1,41 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { ATTENTION_PAGE_PATH } from '@/lib/control-center/attention-items'
 import { formatAttentionStatusLabel } from '@/lib/control-center/attention-items'
 import type { PortalNotificationItem } from '@/lib/projects/api-types'
 import {
-  fetchNotifications,
+  dispatchPortalNotificationsRefresh,
+  fetchAttentionItems,
   markNotificationRead,
 } from '@/lib/projects/fetch-projects-client'
-import { alkatra600, bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
+import { alkatra600, bricolage_grot600 } from '@/styles/fonts'
 import { ArrowLeft, Bell } from 'lucide-react'
 
 type AttentionItemsPageProps = {
   organizationName?: string | null
 }
 
+function attentionHrefToPath(href: string): string | null {
+  try {
+    const url = new URL(href, window.location.origin)
+    if (url.origin !== window.location.origin) return null
+    return `${url.pathname}${url.search}`
+  } catch {
+    return href.startsWith('/') ? href : null
+  }
+}
+
 export default function AttentionItemsPage({ organizationName }: AttentionItemsPageProps) {
+  const router = useRouter()
   const workspaceLabel = organizationName?.trim() || 'your workspace'
   const [items, setItems] = useState<PortalNotificationItem[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = async () => {
     setLoading(true)
-    setItems(await fetchNotifications(true))
+    setItems(await fetchAttentionItems())
     setLoading(false)
   }
 
@@ -31,14 +43,29 @@ export default function AttentionItemsPage({ organizationName }: AttentionItemsP
     void load()
   }, [])
 
-  const onOpen = async (item: PortalNotificationItem) => {
-    await markNotificationRead(item.id)
-    await load()
-    if (item.href && item.href.startsWith('http')) {
-      window.location.href = item.href
-    } else if (item.href) {
-      window.location.href = item.href
+  const onOpen = (item: PortalNotificationItem) => {
+    if (item.href) {
+      const path = item.href.startsWith('http')
+        ? attentionHrefToPath(item.href)
+        : item.href.startsWith('/')
+          ? item.href
+          : null
+
+      if (path) {
+        router.push(path)
+      } else if (item.href.startsWith('http')) {
+        window.location.href = item.href
+      }
     }
+
+    void (async () => {
+      try {
+        await markNotificationRead(item.id)
+        dispatchPortalNotificationsRefresh()
+      } catch {
+        /* non-blocking */
+      }
+    })()
   }
 
   const count = items.length
@@ -91,7 +118,7 @@ export default function AttentionItemsPage({ organizationName }: AttentionItemsP
                   {item.href ? (
                     <button
                       type="button"
-                      onClick={() => void onOpen(item)}
+                      onClick={() => onOpen(item)}
                       className="portal-btn-primary shrink-0 text-sm"
                     >
                       Open

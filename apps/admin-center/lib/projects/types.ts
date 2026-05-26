@@ -86,7 +86,18 @@ export type ProjectRequestItem = {
   createdByEmail: string | null
   createdAt: string
   messages?: ProjectRequestMessage[]
+  attachments?: ProjectAttachment[]
   messageCount?: number
+}
+
+export type ProjectAttachment = {
+  id: string
+  projectId: string
+  requestId: string | null
+  fileName: string
+  mimeType: string
+  sizeBytes: number
+  createdAt: string
 }
 
 export type ProjectActivityItem = {

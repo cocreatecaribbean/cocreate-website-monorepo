@@ -3,11 +3,12 @@
   "private": true,
   "packageManager": "pnpm@10.31.0",
   "scripts": {
-    "dev": "turbo dev --continue --filter=@cocreate/web --filter=@cocreate/api --filter=@cocreate/admin-center --filter=@cocreate/client-portal",
+    "dev": "turbo dev --continue --filter=@cocreate/web --filter=@cocreate/api --filter=@cocreate/admin-center --filter=@cocreate/client-portal --filter=@cocreate/studio",
     "dev:web": "turbo dev --filter=@cocreate/web",
     "dev:api": "turbo dev --filter=@cocreate/api",
     "dev:admin": "turbo dev --filter=@cocreate/admin-center",
     "dev:portal": "turbo dev --filter=@cocreate/client-portal",
+    "dev:studio": "turbo dev --filter=@cocreate/studio",
     "build": "turbo build",
     "lint": "turbo lint",
     "db:generate": "pnpm --filter @cocreate/database db:generate",

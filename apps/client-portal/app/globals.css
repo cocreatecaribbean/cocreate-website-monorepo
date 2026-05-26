@@ -39,6 +39,7 @@
   --msg-theirs-bg: rgba(57, 65, 154, 0.08);
   --msg-mine-text: #39419a;
   --msg-theirs-text: #1e293b;
+  --text-info-accent: #065f46;
   /* Social listening / analytics copy — change these to tune contrast globally */
   --sl-text-secondary: #64748b;
   --sl-text-label: #64748b;
@@ -81,6 +82,7 @@
   --msg-theirs-bg: rgba(255, 255, 255, 0.08);
   --msg-mine-text: #e8ecf8;
   --msg-theirs-text: #e2e8f0;
+  --text-info-accent: #d4bc8a;
   --sl-text-secondary: #e2e8f0;
   --sl-text-label: #f8fafc;
   --sl-kpi-total: #f8fafc;
@@ -257,6 +259,22 @@
     color: var(--msg-theirs-text);
   }
 
+  .portal-info-text {
+    color: var(--text-info-accent);
+  }
+
+  .portal-info-callout {
+    @apply rounded-xl px-3 py-2;
+    border: 1px solid rgba(6, 95, 70, 0.25);
+    background-color: rgba(16, 185, 129, 0.08);
+    color: var(--text-info-accent);
+  }
+
+  .dark .portal-info-callout {
+    border-color: rgba(212, 188, 138, 0.35);
+    background-color: rgba(246, 176, 63, 0.1);
+  }
+
   /* Social listening: dark sidebar + content frame */
   .portal-sl-frame {
     @apply rounded-[1.75rem] backdrop-blur-xl;
@@ -406,6 +424,13 @@
 
   .dark .text-sanmarino {
     color: var(--color-casablanca);
+  }
+
+  /* Metadata / attribution lines — pastel casablanca in dark mode */
+  .dark .text-emerald-700,
+  .dark .text-emerald-800,
+  .dark .text-emerald-900 {
+    color: var(--text-info-accent);
   }
 
   .dark .hover\:text-chambray:hover {

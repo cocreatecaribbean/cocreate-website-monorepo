@@ -1,17 +1,34 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ATTENTION_PAGE_PATH, formatAttentionStatusLabel } from '@/lib/control-center/attention-items'
-import { fetchUnreadNotificationCount } from '@/lib/projects/fetch-projects-client'
+import {
+  fetchUnreadAttentionCount,
+  PORTAL_NOTIFICATIONS_REFRESH_EVENT,
+} from '@/lib/projects/fetch-projects-client'
 import { bricolage_grot600 } from '@/styles/fonts'
 
 export default function ControlCenterAttentionLink() {
   const [count, setCount] = useState(0)
 
-  useEffect(() => {
-    void fetchUnreadNotificationCount().then(setCount)
+  const refresh = useCallback(() => {
+    void fetchUnreadAttentionCount().then(setCount)
   }, [])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  useEffect(() => {
+    const handler = () => refresh()
+    window.addEventListener(PORTAL_NOTIFICATIONS_REFRESH_EVENT, handler)
+    window.addEventListener('focus', handler)
+    return () => {
+      window.removeEventListener(PORTAL_NOTIFICATIONS_REFRESH_EVENT, handler)
+      window.removeEventListener('focus', handler)
+    }
+  }, [refresh])
 
   if (count <= 0) return null
 

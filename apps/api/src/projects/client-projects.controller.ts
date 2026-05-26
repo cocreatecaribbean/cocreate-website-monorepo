@@ -17,6 +17,8 @@ import { CreateRequestMessageDto } from './dto/create-request-message.dto'
 import { CreatePhaseApprovalDto } from './dto/create-phase-approval.dto'
 import { CreateProjectDto } from './dto/create-project.dto'
 import { RegisterAttachmentDto } from './dto/register-attachment.dto'
+import { MarkAttentionReadDto } from './dto/mark-attention-read.dto'
+import { MarkInboxReadDto } from './dto/mark-inbox-read.dto'
 import { UpdateRequestDto } from './dto/update-request.dto'
 import { UploadUrlDto } from './dto/upload-url.dto'
 import { ProjectsService } from './projects.service'
@@ -44,6 +46,31 @@ export class ClientProjectsController {
   @Get('approvals/history')
   listApprovalHistory(@Req() req: ClientPortalRequest) {
     return this.projects.listApprovalHistoryForClient(req.clientUser!)
+  }
+
+  @Get('approvals/unread-count')
+  unreadApprovalsCount(@Req() req: ClientPortalRequest) {
+    return this.projects.unreadApprovalsCountForClient(req.clientUser!)
+  }
+
+  @Post('approvals/mark-read')
+  markApprovalsRead(@Req() req: ClientPortalRequest, @Body() dto: MarkInboxReadDto) {
+    return this.projects.markApprovalsReadForClient(req.clientUser!, dto.requestId)
+  }
+
+  @Get('attention/unread-count')
+  unreadAttentionCount(@Req() req: ClientPortalRequest) {
+    return this.projects.unreadAttentionCountForClient(req.clientUser!)
+  }
+
+  @Get('attention/items')
+  listAttentionItems(@Req() req: ClientPortalRequest) {
+    return this.projects.listAttentionForClient(req.clientUser!)
+  }
+
+  @Post('attention/mark-read')
+  markAttentionRead(@Req() req: ClientPortalRequest, @Body() dto: MarkAttentionReadDto) {
+    return this.projects.markAttentionReadForClient(req.clientUser!, dto)
   }
 
   @Get('projects/:id')

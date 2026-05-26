@@ -30,6 +30,7 @@
   --msg-theirs-bg: rgba(57, 65, 154, 0.08);
   --msg-mine-text: #39419a;
   --msg-theirs-text: #1e293b;
+  --text-info-accent: #065f46;
 }
 
 .dark {
@@ -210,10 +211,62 @@
     ring-color: rgba(245, 158, 11, 0.3);
   }
 
+  /* Floating toasts — solid backgrounds so page content does not show through */
+  .admin-toast-panel {
+    @apply rounded-2xl px-4 py-3.5 text-sm ring-1 shadow-lg;
+  }
+
+  .admin-toast-panel-success {
+    background-color: #ecfdf5;
+    color: #047857;
+    ring-color: rgba(16, 185, 129, 0.35);
+  }
+
+  .dark .admin-toast-panel-success {
+    background-color: #064e3b;
+    color: #6ee7b7;
+    ring-color: rgba(16, 185, 129, 0.35);
+  }
+
+  .admin-toast-panel-error {
+    background-color: #fef2f2;
+    color: #991b1b;
+    ring-color: rgba(239, 68, 68, 0.4);
+  }
+
+  .dark .admin-toast-panel-error {
+    background-color: #450a0a;
+    color: #fecaca;
+    ring-color: rgba(239, 68, 68, 0.4);
+  }
+
+  .admin-toast-panel-warn {
+    background-color: #fffbeb;
+    color: #92400e;
+    ring-color: rgba(245, 158, 11, 0.35);
+  }
+
+  .dark .admin-toast-panel-warn {
+    background-color: #451a03;
+    color: #fcd34d;
+    ring-color: rgba(245, 158, 11, 0.35);
+  }
+
   .admin-action-tile {
     @apply flex min-h-[4.5rem] items-center justify-between gap-3 rounded-2xl border px-4 py-4 shadow-sm backdrop-blur-sm transition hover:border-sanmarino/25 hover:shadow-md active:scale-[0.99];
     border-color: var(--surface-border);
     background-color: var(--surface-card);
+  }
+
+  .dark .admin-action-tile {
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  .dark .admin-action-tile:hover {
+    border-color: rgba(246, 176, 63, 0.28);
+    box-shadow:
+      0 8px 28px rgba(0, 0, 0, 0.4),
+      0 0 0 1px rgba(64, 110, 181, 0.35);
   }
 
   .admin-thread-panel {
@@ -236,10 +289,6 @@
   }
 
   .admin-info-text {
-    @apply text-emerald-800;
-  }
-
-  .dark .admin-info-text {
     color: var(--text-info-accent);
   }
 
@@ -292,6 +341,12 @@
 
   .dark .text-sanmarino {
     color: var(--color-casablanca);
+  }
+
+  /* Metadata / attribution lines — pastel casablanca in dark mode */
+  .dark .text-emerald-700,
+  .dark .text-emerald-800 {
+    color: var(--text-info-accent);
   }
 
   .dark .hover\:text-chambray:hover {

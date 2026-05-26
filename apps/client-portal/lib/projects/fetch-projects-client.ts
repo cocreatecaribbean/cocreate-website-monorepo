@@ -79,6 +79,29 @@ export async function fetchOpenApprovals(): Promise<ProjectRequestItem[]> {
   return result.ok ? result.data : []
 }
 
+export const APPROVALS_BADGE_REFRESH_EVENT = 'portal-approvals-badge-refresh'
+export const PORTAL_NOTIFICATIONS_REFRESH_EVENT = 'portal-notifications-refresh'
+
+export function dispatchPortalNotificationsRefresh() {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event(APPROVALS_BADGE_REFRESH_EVENT))
+  window.dispatchEvent(new Event(PORTAL_NOTIFICATIONS_REFRESH_EVENT))
+}
+
+export async function fetchUnreadApprovalsCount(): Promise<number> {
+  const result = await portalFetch<{ count: number }>(
+    '/client-portal/approvals/unread-count',
+  )
+  return result.ok ? result.data.count : 0
+}
+
+export async function markApprovalsRead(requestId?: string): Promise<void> {
+  await portalFetch('/client-portal/approvals/mark-read', {
+    method: 'POST',
+    body: JSON.stringify(requestId ? { requestId } : {}),
+  })
+}
+
 export async function fetchApprovalHistory(): Promise<ClientApprovalRecordItem[]> {
   const result = await portalFetch<ClientApprovalRecordItem[]>(
     '/client-portal/approvals/history',
@@ -171,6 +194,30 @@ export async function fetchUnreadNotificationCount(): Promise<number> {
   return result.ok ? result.data.count : 0
 }
 
+export async function fetchUnreadAttentionCount(): Promise<number> {
+  const result = await portalFetch<{ count: number }>(
+    '/client-portal/attention/unread-count',
+  )
+  return result.ok ? result.data.count : 0
+}
+
+export async function fetchAttentionItems(): Promise<PortalNotificationItem[]> {
+  const result = await portalFetch<PortalNotificationItem[]>(
+    '/client-portal/attention/items',
+  )
+  return result.ok ? result.data : []
+}
+
+export async function markAttentionRead(params: {
+  requestId?: string
+  projectId?: string
+}): Promise<void> {
+  await portalFetch('/client-portal/attention/mark-read', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
 export async function markNotificationRead(id: string) {
   return portalFetch<PortalNotificationItem>(`/client-portal/notifications/${id}/read`, {
     method: 'PATCH',
@@ -208,9 +255,19 @@ export async function registerAttachment(
   })
 }
 
+export async function fetchAttachmentDownloadUrl(
+  attachmentId: string,
+): Promise<string | null> {
+  const result = await portalFetch<{
+    download: { signedUrl: string }
+  }>(`/client-portal/attachments/${attachmentId}/download`)
+  return result.ok ? result.data.download.signedUrl : null
+}
+
 export async function uploadProjectFiles(
   projectId: string,
   files: File[],
+  requestId?: string,
 ): Promise<{ ok: boolean; message?: string }> {
   for (const file of files) {
     const urlResult = await requestUploadUrl(projectId, {
@@ -238,6 +295,7 @@ export async function uploadProjectFiles(
       fileName: file.name,
       mimeType: file.type || 'application/octet-stream',
       sizeBytes: file.size,
+      requestId,
     })
     if (!reg.ok) {
       return { ok: false, message: reg.message }

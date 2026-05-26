@@ -1,8 +1,10 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useCallback, useState } from 'react'
 import type { ProjectRequestItem, ProjectRequestMessage } from '@/lib/projects/api-types'
+import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-projects-client'
 import { formatActorWithTitle } from '@/lib/projects/project-display'
+import { LinkifiedBody, indexAttachmentsByMessage, RequestAttachments } from '@/lib/projects/thread-content'
 import { bricolage_grot600 } from '@/styles/fonts'
 
 type RequestMessageThreadProps = {
@@ -60,6 +62,11 @@ export default function RequestMessageThread({
 
   const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(request.status)
   const canCompose = !readOnly && !isClosed
+  const attachmentsByMessage = indexAttachmentsByMessage(messages, request.attachments)
+  const fetchDownloadUrl = useCallback(
+    (attachmentId: string) => fetchAttachmentDownloadUrl(attachmentId),
+    [],
+  )
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -90,7 +97,8 @@ export default function RequestMessageThread({
         {messages.length === 0 ? (
           <p className="text-sm text-app-muted">No messages yet.</p>
         ) : (
-          messages.map((msg) => {
+          messages.map((msg, messageIndex) => {
+            const messageAttachments = attachmentsByMessage.get(messageIndex)
             const isMine =
               (viewerRole === 'ADMIN' && msg.authorRole === 'ADMIN') ||
               (viewerRole === 'CLIENT' && msg.authorRole === 'CLIENT')
@@ -136,18 +144,27 @@ export default function RequestMessageThread({
                       Progress check
                     </p>
                   ) : null}
-                  {msg.body}
+                  <LinkifiedBody body={msg.body} />
                   {msg.supersededAt ? (
                     <p className="mt-2 text-xs text-app-muted italic">
                       Superseded by a newer review from CoCreate
                     </p>
                   ) : null}
                   {msg.clientApprovedAt ? (
-                    <p className="mt-2 text-xs text-emerald-700">
+                    <p className="portal-info-text mt-2 text-xs">
                       Approved {new Date(msg.clientApprovedAt).toLocaleString()}
                     </p>
                   ) : null}
                 </div>
+                {messageAttachments?.length ? (
+                  <RequestAttachments
+                    attachments={messageAttachments}
+                    fetchDownloadUrl={fetchDownloadUrl}
+                    variant="portal"
+                    showHeading={false}
+                    className={`mt-2 max-w-[90%] ${isMine ? 'self-end' : 'self-start'}`}
+                  />
+                ) : null}
                 {showApprove ? (
                   <button
                     type="button"

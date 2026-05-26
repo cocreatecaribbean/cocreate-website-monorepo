@@ -1,14 +1,17 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import MarkApprovalsReadOnView from '@/components/control-center/mark-approvals-read-on-view'
 import RequestMessageThread from '@/components/control-center/request-message-thread'
 import type { ClientApprovalRecordItem, ProjectRequestItem } from '@/lib/projects/api-types'
+import { CONTROL_CENTER_VIEW_QUERY } from '@/lib/control-center/nav'
 import {
   approveCheckpointMessage,
   fetchApprovalHistory,
   fetchOpenApprovals,
   fetchRequestThread,
-  navigateToProject,
   sendRequestMessage,
 } from '@/lib/projects/fetch-projects-client'
 import { bricolage_grot600 } from '@/styles/fonts'
@@ -18,13 +21,29 @@ const typeLabel: Record<string, string> = {
   PROGRESS: 'Progress check',
 }
 
+function mergeThreadWithListItem(
+  thread: ProjectRequestItem,
+  listItem: ProjectRequestItem | undefined,
+): ProjectRequestItem {
+  if (!listItem?.attachments?.length || thread.attachments?.length) {
+    return thread
+  }
+  return { ...thread, attachments: listItem.attachments }
+}
+
 export default function ControlCenterApprovalsView() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const deepLinkRequestId = searchParams.get('requestId')
+
   const [tab, setTab] = useState<'active' | 'history'>('active')
   const [items, setItems] = useState<ProjectRequestItem[]>([])
   const [history, setHistory] = useState<ClientApprovalRecordItem[]>([])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(deepLinkRequestId)
   const [selected, setSelected] = useState<ProjectRequestItem | null>(null)
   const [loading, setLoading] = useState(true)
+  const [threadLoading, setThreadLoading] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -43,35 +62,61 @@ export default function ControlCenterApprovalsView() {
   }, [load])
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const requestId = params.get('requestId')
-    if (requestId) {
+    if (deepLinkRequestId) {
       setTab('active')
-      setSelectedId(requestId)
+      setSelectedId(deepLinkRequestId)
     }
-  }, [])
+  }, [deepLinkRequestId])
 
   useEffect(() => {
     if (!selectedId) {
       setSelected(null)
+      setThreadLoading(false)
       return
     }
-    void fetchRequestThread(selectedId).then((thread) => {
-      if (thread.ok) setSelected(thread.data)
-    })
-  }, [selectedId])
+
+    setThreadLoading(true)
+    let cancelled = false
+
+    void (async () => {
+      const optimistic = items.find((item) => item.id === selectedId)
+      if (optimistic) {
+        setSelected(optimistic)
+      }
+
+      const thread = await fetchRequestThread(selectedId)
+      if (cancelled) return
+      if (thread.ok) {
+        setSelected(mergeThreadWithListItem(thread.data, optimistic))
+      } else if (!optimistic) {
+        setSelected(null)
+      }
+      setThreadLoading(false)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedId, items])
 
   const refreshSelected = async () => {
     const pending = await load()
     if (selectedId) {
+      const listItem = pending.find((item) => item.id === selectedId)
       const thread = await fetchRequestThread(selectedId)
-      if (thread.ok) setSelected(thread.data)
+      if (thread.ok) {
+        setSelected(mergeThreadWithListItem(thread.data, listItem))
+      }
     } else if (pending.length > 0) {
       setSelectedId(pending[0]!.id)
     }
   }
 
-  if (loading) {
+  const awaitingDeepLink = Boolean(selectedId && (loading || threadLoading))
+  const showEmptyActive = !loading && !awaitingDeepLink && items.length === 0
+  const detailReady = Boolean(selectedId && selected && selected.id === selectedId)
+
+  if (loading && !selectedId) {
     return <p className="text-sm text-app-muted">Loading approvals…</p>
   }
 
@@ -129,7 +174,14 @@ export default function ControlCenterApprovalsView() {
                 <button
                   type="button"
                   className="mt-3 text-xs text-sanmarino underline underline-offset-2"
-                  onClick={() => navigateToProject(record.projectId)}
+                  onClick={() => {
+                    const params = new URLSearchParams(window.location.search)
+                    params.set(CONTROL_CENTER_VIEW_QUERY, 'projects')
+                    params.set('projectId', record.projectId)
+                    params.delete('requestId')
+                    const query = params.toString()
+                    router.push(query ? `${pathname}?${query}` : pathname)
+                  }}
                 >
                   View project
                 </button>
@@ -137,7 +189,12 @@ export default function ControlCenterApprovalsView() {
             ))}
           </ul>
         )
-      ) : items.length === 0 ? (
+      ) : awaitingDeepLink && items.length === 0 ? (
+        <section className="portal-glass-card space-y-4 p-8 text-center">
+          <p className={`text-chambray ${bricolage_grot600.className}`}>Opening approval…</p>
+          <p className="text-sm text-app-muted">Loading review details</p>
+        </section>
+      ) : showEmptyActive ? (
         <section className="portal-glass-card p-8 text-center">
           <p className="text-sm text-app-muted">Nothing waiting on your approval right now.</p>
         </section>
@@ -150,7 +207,16 @@ export default function ControlCenterApprovalsView() {
                 <li key={item.id}>
                   <button
                     type="button"
-                    onClick={() => setSelectedId(item.id)}
+                    onClick={() => {
+                      setSelectedId(item.id)
+                      const params = new URLSearchParams(searchParams.toString())
+                      params.set(CONTROL_CENTER_VIEW_QUERY, 'approvals')
+                      params.set('requestId', item.id)
+                      const query = params.toString()
+                      router.replace(query ? `${pathname}?${query}` : pathname, {
+                        scroll: false,
+                      })
+                    }}
                     className={`flex w-full flex-col gap-1 px-4 py-3 text-left transition ${
                       active ? 'bg-sanmarino/10' : 'hover:bg-chambray/5'
                     }`}
@@ -168,8 +234,9 @@ export default function ControlCenterApprovalsView() {
             })}
           </ul>
 
-          {selected ? (
+          {detailReady && selected ? (
             <section className="portal-glass-card p-6">
+              <MarkApprovalsReadOnView requestId={selected.id} enabled={!threadLoading} />
               <div className="mb-4 flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-casablanca/20 text-chambray">
                   <CheckCircle2 className="h-5 w-5" aria-hidden />
@@ -195,6 +262,11 @@ export default function ControlCenterApprovalsView() {
                   return { ok: result.ok, message: result.ok ? undefined : result.message }
                 }}
               />
+            </section>
+          ) : selectedId ? (
+            <section className="portal-glass-card space-y-4 p-8 text-center">
+              <p className={`text-chambray ${bricolage_grot600.className}`}>Opening approval…</p>
+              <p className="text-sm text-app-muted">Loading review details</p>
             </section>
           ) : (
             <p className="text-sm text-app-muted">Select an item to review and approve.</p>

@@ -115,7 +115,26 @@ export class ProjectsService {
       approvedBy: { select: userActorSelect },
       completedBy: { select: userActorSelect },
       requests: {
-        select: { id: true, type: true, status: true },
+        select: {
+          id: true,
+          type: true,
+          status: true,
+          messages: {
+            where: {
+              messageKind: ProjectMessageKind.CHECKPOINT,
+              requiresClientApproval: true,
+              supersededAt: null,
+              clientApprovedAt: null,
+            },
+            select: {
+              id: true,
+              messageKind: true,
+              requiresClientApproval: true,
+              supersededAt: true,
+              clientApprovedAt: true,
+            },
+          },
+        },
       },
     }
   }
@@ -175,11 +194,8 @@ export class ProjectsService {
     const request = await this.prisma.projectRequest.findUnique({
       where: { id: requestId },
       include: {
+        ...this.requestInclude(),
         project: { include: { organization: { select: { id: true, name: true } } } },
-        messages: {
-          orderBy: { createdAt: 'asc' },
-          include: { author: { select: userActorSelect } },
-        },
       },
     })
     if (!request) throw new NotFoundException('Request not found')
@@ -805,31 +821,69 @@ export class ProjectsService {
     const progress = await this.ensureProgressThread(projectId, admin.id)
     await this.supersedePendingCheckpoints(progress.id)
 
-    const body = dto.body.trim()
+    let body = dto.body.trim()
     const title = dto.title.trim()
+    const reviewUrl = dto.reviewUrl?.trim()
+    if (reviewUrl) {
+      body = `${body}\n\nReview link: ${reviewUrl}`
+    }
 
-    await this.prisma.projectRequest.update({
-      where: { id: progress.id },
-      data: { title, description: body, status: ProjectRequestStatus.IN_PROGRESS },
-    })
+    const attachments = dto.attachments ?? []
+    for (const attachment of attachments) {
+      this.storage.assertPathBelongsToProject(
+        attachment.storagePath,
+        project.organizationId,
+        project.id,
+      )
+    }
 
-    const message = await this.prisma.projectRequestMessage.create({
-      data: {
-        requestId: progress.id,
-        authorUserId: admin.id,
-        authorRole: ProjectMessageAuthorRole.ADMIN,
-        body,
-        messageKind: ProjectMessageKind.CHECKPOINT,
-        checkpointTargetPhase: dto.targetPhase ?? null,
-        requiresClientApproval: true,
-      },
-      include: { author: { select: userActorSelect } },
+    const message = await this.prisma.$transaction(async (tx) => {
+      await tx.projectRequest.update({
+        where: { id: progress.id },
+        data: { title, description: body, status: ProjectRequestStatus.IN_PROGRESS },
+      })
+
+      const checkpointMessage = await tx.projectRequestMessage.create({
+        data: {
+          requestId: progress.id,
+          authorUserId: admin.id,
+          authorRole: ProjectMessageAuthorRole.ADMIN,
+          body,
+          messageKind: ProjectMessageKind.CHECKPOINT,
+          checkpointTargetPhase: dto.targetPhase ?? null,
+          requiresClientApproval: true,
+        },
+        include: { author: { select: userActorSelect } },
+      })
+
+      for (const attachment of attachments) {
+        await tx.projectAttachment.create({
+          data: {
+            projectId: project.id,
+            requestId: progress.id,
+            storagePath: attachment.storagePath,
+            fileName: attachment.fileName,
+            mimeType: attachment.mimeType,
+            sizeBytes: attachment.sizeBytes,
+            uploadedByUserId: admin.id,
+          },
+        })
+      }
+
+      return checkpointMessage
     })
 
     await this.logActivity(projectId, admin.id, 'checkpoint.sent', {
       requestId: progress.id,
       messageId: message.id,
     })
+
+    if (attachments.length > 0) {
+      await this.logActivity(projectId, admin.id, 'attachment.uploaded', {
+        requestId: progress.id,
+        count: attachments.length,
+      })
+    }
 
     const portalLink = `${this.notifications.clientPortalUrl()}/?ccView=approvals&requestId=${progress.id}`
     await this.notifications.notifyOrgClients({
@@ -1076,8 +1130,7 @@ export class ProjectsService {
         resolvedByUserId: isClosing ? actor.id : null,
       },
       include: {
-        createdBy: { select: userActorSelect },
-        resolvedBy: { select: userActorSelect },
+        ...this.requestInclude(),
         project: {
           include: { organization: { select: { id: true, name: true } } },
         },
@@ -1201,6 +1254,13 @@ export class ProjectsService {
       project.id,
     )
 
+    if (dto.requestId) {
+      const req = await this.prisma.projectRequest.findFirst({
+        where: { id: dto.requestId, projectId: project.id },
+      })
+      if (!req) throw new NotFoundException('Request not found')
+    }
+
     const row = await this.prisma.projectAttachment.create({
       data: {
         projectId: project.id,
@@ -1252,5 +1312,62 @@ export class ProjectsService {
 
   unreadNotificationCount(client: AuthenticatedClient) {
     return this.notifications.unreadCount(client.id)
+  }
+
+  async unreadApprovalsCountForClient(client: AuthenticatedClient) {
+    const orgId = client.organization?.id
+    if (!orgId) throw new ForbiddenException('No organization linked to your account')
+    const count = await this.notifications.unreadCheckpointApprovalsCountForClient(
+      client.id,
+      orgId,
+    )
+    return { count }
+  }
+
+  async markApprovalsReadForClient(client: AuthenticatedClient, requestId?: string) {
+    const orgId = client.organization?.id
+    if (!orgId) throw new ForbiddenException('No organization linked to your account')
+    return this.notifications.markCheckpointApprovalsReadForClient(
+      client.id,
+      orgId,
+      requestId,
+    )
+  }
+
+  async unreadAttentionCountForClient(client: AuthenticatedClient) {
+    const orgId = client.organization?.id
+    if (!orgId) throw new ForbiddenException('No organization linked to your account')
+    const count = await this.notifications.unreadAttentionCountForClient(client.id, orgId)
+    return { count }
+  }
+
+  async listAttentionForClient(client: AuthenticatedClient) {
+    const orgId = client.organization?.id
+    if (!orgId) throw new ForbiddenException('No organization linked to your account')
+    return this.notifications.listAttentionForClient(client.id, orgId)
+  }
+
+  async markAttentionReadForClient(
+    client: AuthenticatedClient,
+    params: { requestId?: string; projectId?: string },
+  ) {
+    const orgId = client.organization?.id
+    if (!orgId) throw new ForbiddenException('No organization linked to your account')
+
+    if (params.requestId) {
+      return this.notifications.markRequestNotificationsReadForClient(
+        client.id,
+        orgId,
+        params.requestId,
+      )
+    }
+    if (params.projectId) {
+      return this.notifications.markProjectNotificationsReadForClient(
+        client.id,
+        orgId,
+        params.projectId,
+      )
+    }
+    return { count: 0 }
   }
 }

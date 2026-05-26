@@ -7,9 +7,9 @@ export default defineCliConfig({
   },
   deployment: {
     /**
-     * Enable auto-updates for studios.
-     * Learn more at https://www.sanity.io/docs/studio/latest-version-of-sanity#k47faf43faf56
+     * Disabled locally so dev uses the installed sanity version (avoids blank
+     * studio when local packages differ from the auto-update runtime).
      */
-    autoUpdates: true,
+    autoUpdates: false,
   }
 })

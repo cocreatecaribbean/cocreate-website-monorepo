@@ -49,7 +49,7 @@ export default function ProjectStatusAttribution({
     return (
       <div className="space-y-1">
         {project.status === 'ACTIVE' && project.approvedAt ? (
-          <p className="text-xs text-emerald-800">
+          <p className="portal-info-text text-xs">
             {formatAttributionLine({
               verb: 'Onboarded',
               name: project.approvedByName ?? null,
@@ -82,7 +82,7 @@ export default function ProjectStatusAttribution({
         <ProjectStatusBadge project={project} />
         <p className="text-sm text-sanmarino">Phase: {project.phase.replace(/_/g, ' ')}</p>
         {project.status === 'ACTIVE' && project.approvedAt ? (
-          <p className="rounded-xl border border-emerald-200/80 bg-emerald-50/80 px-3 py-2 text-sm text-emerald-900">
+          <p className="portal-info-callout text-sm">
             Project onboarded —{' '}
             {formatAttributionLine({
               verb: 'Accepted',
@@ -117,7 +117,7 @@ export default function ProjectStatusAttribution({
         ) : null}
       </div>
       {project.status === 'ACTIVE' && project.approvedAt ? (
-        <p className="text-xs text-emerald-800">
+        <p className="portal-info-text text-xs">
           {formatAttributionLine({
             verb: 'Onboarded',
             name: project.approvedByName ?? null,

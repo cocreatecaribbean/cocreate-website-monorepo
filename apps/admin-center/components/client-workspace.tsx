@@ -13,6 +13,7 @@ import {
   fetchAdminBff,
 } from '@/lib/admin-api-fetch'
 import { fetchInboxUnreadCount, markInboxRead } from '@/lib/projects/inbox-unread'
+import { stageProjectFiles } from '@/lib/projects/fetch-project-files'
 import type {
   ClientProjectSummary,
   ProjectActivityItem,
@@ -43,6 +44,150 @@ function findThread(project: ClientProjectSummary, type: ProjectRequestItem['typ
   return project.requests?.find((r) => r.type === type) ?? null
 }
 
+function formatPhaseLabel(phase: string): string {
+  return phase.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function resetCheckpointFields(setters: {
+  setTitle: (v: string) => void
+  setBody: (v: string) => void
+  setReviewUrl: (v: string) => void
+  setFiles: (v: FileList | null) => void
+  setPhase: (v: string) => void
+}) {
+  setters.setTitle('')
+  setters.setBody('')
+  setters.setReviewUrl('')
+  setters.setFiles(null)
+  setters.setPhase('')
+}
+
+function ProgressCheckPanel({
+  project,
+  clientName,
+  title,
+  body,
+  reviewUrl,
+  phase,
+  selectedFiles,
+  submitting,
+  onTitleChange,
+  onBodyChange,
+  onReviewUrlChange,
+  onFilesChange,
+  onPhaseChange,
+  onSubmit,
+  onCancel,
+}: {
+  project: ClientProjectSummary
+  clientName: string
+  title: string
+  body: string
+  reviewUrl: string
+  phase: string
+  selectedFiles: FileList | null
+  submitting: boolean
+  onTitleChange: (value: string) => void
+  onBodyChange: (value: string) => void
+  onReviewUrlChange: (value: string) => void
+  onFilesChange: (files: FileList | null) => void
+  onPhaseChange: (value: string) => void
+  onSubmit: () => void
+  onCancel: () => void
+}) {
+  return (
+    <section
+      id={`progress-check-${project.id}`}
+      className="rounded-xl border border-casablanca/35 bg-linear-to-br from-casablanca/10 via-white/40 to-sanmarino/5 p-5 ring-1 ring-casablanca/20 dark:from-casablanca/10 dark:via-chambray/20 dark:to-sanmarino/10 dark:ring-casablanca/25"
+    >
+      <p className="admin-eyebrow">Progress check for</p>
+      <h3 className={`mt-1 text-lg text-chambray ${bricolage_grot600.className}`}>
+        {project.title}
+      </h3>
+      <p className="mt-1 text-sm text-app-muted">
+        {clientName} · Phase: {formatPhaseLabel(project.phase)}
+      </p>
+      {project.description ? (
+        <p className="mt-2 line-clamp-2 text-sm text-app-muted">{project.description}</p>
+      ) : null}
+      <p className="mt-4 text-sm text-app-muted">
+        The client can approve or reply with changes. New checks replace any previous pending
+        approval on this project.
+      </p>
+      <div className="mt-4 space-y-3">
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => onTitleChange(e.target.value)}
+          placeholder="Title (e.g. Approve phase 2 deliverables)"
+          className="admin-input w-full"
+        />
+        <textarea
+          value={body}
+          onChange={(e) => onBodyChange(e.target.value)}
+          placeholder="What should the client review?"
+          rows={4}
+          className="admin-textarea w-full resize-y"
+        />
+        <input
+          type="url"
+          value={reviewUrl}
+          onChange={(e) => onReviewUrlChange(e.target.value)}
+          placeholder="Review link (optional) — website, video, etc."
+          className="admin-input w-full"
+        />
+        <div>
+          <p className="text-sm text-app-muted">Attachments (optional)</p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <label className="admin-btn-ghost cursor-pointer text-sm">
+              Choose files
+              <input
+                type="file"
+                multiple
+                accept="image/*,video/*,.pdf"
+                onChange={(e) => onFilesChange(e.target.files)}
+                className="sr-only"
+              />
+            </label>
+            {selectedFiles && selectedFiles.length > 0 ? (
+              <span className="text-sm text-app-muted">
+                {Array.from(selectedFiles)
+                  .map((file) => file.name)
+                  .join(', ')}
+              </span>
+            ) : (
+              <span className="text-sm text-app-muted">No files selected</span>
+            )}
+          </div>
+        </div>
+        <select
+          value={phase}
+          onChange={(e) => onPhaseChange(e.target.value)}
+          className="admin-input w-full"
+        >
+          <option value="">No phase change</option>
+          <option value="CLIENT_REVIEW">On approve → Client review</option>
+          <option value="READY_FOR_DELIVERY">On approve → Ready for delivery</option>
+          <option value="DELIVERED">On approve → Delivered</option>
+        </select>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => void onSubmit()}
+            className="admin-btn-primary text-sm"
+          >
+            {submitting ? 'Sending…' : 'Send to client'}
+          </button>
+          <button type="button" onClick={onCancel} className="admin-btn-ghost text-sm">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 type ClientWorkspaceProps = {
   organizationId: string
   initialTab?: TabId
@@ -59,11 +204,14 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const [activity, setActivity] = useState<ProjectActivityItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [checkpointError, setCheckpointError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [checkpointTitle, setCheckpointTitle] = useState('')
   const [checkpointBody, setCheckpointBody] = useState('')
+  const [checkpointReviewUrl, setCheckpointReviewUrl] = useState('')
+  const [checkpointFiles, setCheckpointFiles] = useState<FileList | null>(null)
   const [checkpointPhase, setCheckpointPhase] = useState('')
   const [submittingCheckpoint, setSubmittingCheckpoint] = useState(false)
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null)
@@ -133,6 +281,40 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
       setTab(t)
     }
   }, [])
+
+  useEffect(() => {
+    if (!selectedProjectId) return
+    const el = document.getElementById(`progress-check-${selectedProjectId}`)
+    if (!el) return
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    el.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'nearest' })
+  }, [selectedProjectId])
+
+  const resetCheckpointForm = useCallback(() => {
+    resetCheckpointFields({
+      setTitle: setCheckpointTitle,
+      setBody: setCheckpointBody,
+      setReviewUrl: setCheckpointReviewUrl,
+      setFiles: setCheckpointFiles,
+      setPhase: setCheckpointPhase,
+    })
+  }, [])
+
+  const openProgressCheckForm = useCallback(
+    (projectId: string) => {
+      if (selectedProjectId !== projectId) {
+        resetCheckpointForm()
+      }
+      setSelectedProjectId(projectId)
+      setExpandedProjectId(projectId)
+    },
+    [resetCheckpointForm, selectedProjectId],
+  )
+
+  const cancelProgressCheckForm = useCallback(() => {
+    setSelectedProjectId(null)
+    resetCheckpointForm()
+  }, [resetCheckpointForm])
 
   const refreshThread = async (requestId: string) => {
     const thread = await fetchAdminBff<ProjectRequestItem>(
@@ -217,26 +399,43 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const submitCheckpoint = async () => {
     if (!selectedProjectId || !checkpointTitle.trim() || !checkpointBody.trim()) return
     setSubmittingCheckpoint(true)
-    setError(null)
+    setCheckpointError(null)
     try {
-      await fetchAdminBff(`/api/projects/${selectedProjectId}/checkpoints`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: checkpointTitle.trim(),
-          body: checkpointBody.trim(),
-          ...(checkpointPhase ? { targetPhase: checkpointPhase } : {}),
-        }),
-      })
+      const attachments =
+        checkpointFiles && checkpointFiles.length > 0
+          ? await stageProjectFiles(selectedProjectId, Array.from(checkpointFiles))
+          : undefined
+
+      await fetchAdminBff<ProjectRequestItem>(
+        `/api/projects/${selectedProjectId}/checkpoints`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: checkpointTitle.trim(),
+            body: checkpointBody.trim(),
+            ...(checkpointReviewUrl.trim() ? { reviewUrl: checkpointReviewUrl.trim() } : {}),
+            ...(checkpointPhase ? { targetPhase: checkpointPhase } : {}),
+            ...(attachments?.length ? { attachments } : {}),
+          }),
+        },
+      )
+
       setSuccess('Progress check sent — client can approve or reply.')
-      setCheckpointTitle('')
-      setCheckpointBody('')
-      setCheckpointPhase('')
+      resetCheckpointForm()
       setExpandedProjectId(selectedProjectId)
       setSelectedProjectId(null)
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not send progress check')
+      const message =
+        err instanceof AdminApiFetchError
+          ? err.status === 400
+            ? err.message
+            : `${err.message} — ${adminFetchErrorHint(err.code)}`
+          : err instanceof Error
+            ? err.message
+            : 'Could not send progress check'
+      setCheckpointError(message)
     } finally {
       setSubmittingCheckpoint(false)
     }
@@ -332,6 +531,14 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         {success ? (
           <AdminToast message={success} variant="success" onDismiss={() => setSuccess(null)} />
         ) : null}
+        {checkpointError ? (
+          <AdminToast
+            message={checkpointError}
+            variant="error"
+            autoDismissMs={0}
+            onDismiss={() => setCheckpointError(null)}
+          />
+        ) : null}
 
         {loading ? (
           <p className="text-sm text-app-muted">Loading workspace…</p>
@@ -366,12 +573,18 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                 const progress = findThread(project, 'PROGRESS')
                 const cancellation = findThread(project, 'CANCELLATION')
                 const expanded = expandedProjectId === project.id
+                const progressCheckOpen = selectedProjectId === project.id
                 const onboardingClosed = onboarding
                   ? ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(onboarding.status)
                   : false
 
                 return (
-                  <section key={project.id} className="admin-glass-card overflow-hidden">
+                  <section
+                    key={project.id}
+                    className={`admin-glass-card overflow-hidden ${
+                      progressCheckOpen ? 'ring-2 ring-casablanca/40' : ''
+                    }`}
+                  >
                     <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                       <div>
                         <p className={`text-chambray ${bricolage_grot600.className}`}>
@@ -420,12 +633,17 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                             <button
                               type="button"
                               onClick={() => {
-                                setSelectedProjectId(project.id)
-                                setExpandedProjectId(project.id)
+                                if (progressCheckOpen) {
+                                  cancelProgressCheckForm()
+                                } else {
+                                  openProgressCheckForm(project.id)
+                                }
                               }}
-                              className="admin-btn-ghost text-sm"
+                              className={`text-sm ${
+                                progressCheckOpen ? 'admin-btn-primary' : 'admin-btn-ghost'
+                              }`}
                             >
-                              Send progress check
+                              {progressCheckOpen ? 'Cancel progress check' : 'Send progress check'}
                             </button>
                           </>
                         ) : null}
@@ -434,6 +652,25 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
 
                     {expanded ? (
                       <div className="space-y-4 border-t border-chambray/6 bg-chambray/[0.02] px-5 py-4 dark:border-white/8 dark:bg-white/5 sm:px-6">
+                        {progressCheckOpen ? (
+                          <ProgressCheckPanel
+                            project={project}
+                            clientName={clientName}
+                            title={checkpointTitle}
+                            body={checkpointBody}
+                            reviewUrl={checkpointReviewUrl}
+                            phase={checkpointPhase}
+                            selectedFiles={checkpointFiles}
+                            submitting={submittingCheckpoint}
+                            onTitleChange={setCheckpointTitle}
+                            onBodyChange={setCheckpointBody}
+                            onReviewUrlChange={setCheckpointReviewUrl}
+                            onFilesChange={setCheckpointFiles}
+                            onPhaseChange={setCheckpointPhase}
+                            onSubmit={submitCheckpoint}
+                            onCancel={cancelProgressCheckForm}
+                          />
+                        ) : null}
                         {project.activities && project.activities.length > 0 ? (
                           <ProjectTimeline
                             activities={project.activities}
@@ -487,59 +724,6 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                 )
               })
             )}
-
-            {selectedProjectId ? (
-              <section className="admin-glass-card max-w-lg space-y-4 p-6">
-                <p className={`text-chambray ${bricolage_grot600.className}`}>
-                  Send progress check
-                </p>
-                <p className="text-sm text-app-muted">
-                  Client can approve or reply with changes. New checks replace the previous
-                  pending approval.
-                </p>
-                <input
-                  type="text"
-                  value={checkpointTitle}
-                  onChange={(e) => setCheckpointTitle(e.target.value)}
-                  placeholder="Title (e.g. Approve phase 2 deliverables)"
-                  className="admin-input w-full"
-                />
-                <textarea
-                  value={checkpointBody}
-                  onChange={(e) => setCheckpointBody(e.target.value)}
-                  placeholder="What should the client review?"
-                  rows={4}
-                  className="admin-textarea w-full resize-y"
-                />
-                <select
-                  value={checkpointPhase}
-                  onChange={(e) => setCheckpointPhase(e.target.value)}
-                  className="admin-input w-full"
-                >
-                  <option value="">No phase change</option>
-                  <option value="CLIENT_REVIEW">On approve → Client review</option>
-                  <option value="READY_FOR_DELIVERY">On approve → Ready for delivery</option>
-                  <option value="DELIVERED">On approve → Delivered</option>
-                </select>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={submittingCheckpoint}
-                    onClick={() => void submitCheckpoint()}
-                    className="admin-btn-primary text-sm"
-                  >
-                    Send to client
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedProjectId(null)}
-                    className="admin-btn-ghost text-sm"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </section>
-            ) : null}
           </div>
         ) : tab === 'inbox' ? (
           <div className="space-y-4">

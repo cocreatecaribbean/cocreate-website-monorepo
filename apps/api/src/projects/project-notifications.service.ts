@@ -4,6 +4,7 @@ import {
   PortalNotificationType,
   Prisma,
   ProjectRequestStatus,
+  ProjectRequestType,
   UserRole,
   UserStatus,
 } from '@cocreate/database'
@@ -266,6 +267,163 @@ export class ProjectNotificationsService {
   async markAllInboxReadForOrg(adminUserId: string, organizationId: string) {
     const result = await this.prisma.portalNotification.updateMany({
       where: this.inboxUnreadWhere(adminUserId, organizationId),
+      data: { readAt: new Date() },
+    })
+    return { count: result.count }
+  }
+
+  private clientApprovalsUnreadWhere(
+    userId: string,
+    organizationId: string,
+  ): Prisma.PortalNotificationWhereInput {
+    return {
+      userId,
+      organizationId,
+      readAt: null,
+      type: PortalNotificationType.CHECKPOINT_PENDING,
+      requestId: { not: null },
+      request: {
+        type: ProjectRequestType.PROGRESS,
+        project: { organizationId },
+        messages: {
+          some: {
+            requiresClientApproval: true,
+            supersededAt: null,
+            clientApprovedAt: null,
+          },
+        },
+      },
+    }
+  }
+
+  async unreadCheckpointApprovalsCountForClient(userId: string, organizationId: string) {
+    return this.prisma.portalNotification.count({
+      where: this.clientApprovalsUnreadWhere(userId, organizationId),
+    })
+  }
+
+  async markCheckpointApprovalsReadForClient(
+    userId: string,
+    organizationId: string,
+    requestId?: string,
+  ) {
+    if (requestId) {
+      return this.markRequestNotificationsReadForClient(userId, organizationId, requestId)
+    }
+
+    const result = await this.prisma.portalNotification.updateMany({
+      where: this.clientApprovalsUnreadWhere(userId, organizationId),
+      data: { readAt: new Date() },
+    })
+    return { count: result.count }
+  }
+
+  private clientAttentionUnreadWhere(
+    userId: string,
+    organizationId: string,
+  ): Prisma.PortalNotificationWhereInput {
+    const openStatuses = ProjectNotificationsService.openInboxRequestStatuses
+    return {
+      userId,
+      organizationId,
+      readAt: null,
+      OR: [
+        {
+          type: PortalNotificationType.CHECKPOINT_PENDING,
+          requestId: { not: null },
+          request: {
+            type: ProjectRequestType.PROGRESS,
+            project: { organizationId },
+            messages: {
+              some: {
+                requiresClientApproval: true,
+                supersededAt: null,
+                clientApprovedAt: null,
+              },
+            },
+          },
+        },
+        {
+          type: PortalNotificationType.REQUEST_MESSAGE,
+          requestId: { not: null },
+          request: {
+            status: { in: openStatuses },
+            project: { organizationId },
+          },
+        },
+        {
+          type: {
+            in: [
+              PortalNotificationType.PROJECT_APPROVED,
+              PortalNotificationType.REQUEST_RESOLVED,
+              PortalNotificationType.CANCELLATION_RESOLVED,
+            ],
+          },
+          project: { organizationId },
+        },
+      ],
+    }
+  }
+
+  async unreadAttentionCountForClient(userId: string, organizationId: string) {
+    return this.prisma.portalNotification.count({
+      where: this.clientAttentionUnreadWhere(userId, organizationId),
+    })
+  }
+
+  async listAttentionForClient(userId: string, organizationId: string) {
+    const rows = await this.prisma.portalNotification.findMany({
+      where: this.clientAttentionUnreadWhere(userId, organizationId),
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    })
+    return rows.map(serializeNotification)
+  }
+
+  async markRequestNotificationsReadForClient(
+    userId: string,
+    organizationId: string,
+    requestId: string,
+  ) {
+    const request = await this.prisma.projectRequest.findFirst({
+      where: {
+        id: requestId,
+        project: { organizationId },
+      },
+      select: { id: true },
+    })
+    if (!request) return { count: 0 }
+
+    const result = await this.prisma.portalNotification.updateMany({
+      where: {
+        userId,
+        organizationId,
+        readAt: null,
+        requestId,
+      },
+      data: { readAt: new Date() },
+    })
+    return { count: result.count }
+  }
+
+  async markProjectNotificationsReadForClient(
+    userId: string,
+    organizationId: string,
+    projectId: string,
+  ) {
+    const project = await this.prisma.clientProject.findFirst({
+      where: { id: projectId, organizationId },
+      select: { id: true },
+    })
+    if (!project) return { count: 0 }
+
+    const result = await this.prisma.portalNotification.updateMany({
+      where: {
+        userId,
+        organizationId,
+        readAt: null,
+        projectId,
+      },
       data: { readAt: new Date() },
     })
     return { count: result.count }

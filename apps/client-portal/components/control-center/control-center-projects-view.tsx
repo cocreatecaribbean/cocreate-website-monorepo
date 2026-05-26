@@ -1,6 +1,13 @@
 'use client'
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { ClientProjectDetail, ClientProjectSummary } from '@/lib/projects/api-types'
 import RequestMessageThread from '@/components/control-center/request-message-thread'
@@ -10,10 +17,12 @@ import ProjectStatusAttribution, {
 } from '@/components/project-status-attribution'
 import {
   createProject,
+  dispatchPortalNotificationsRefresh,
   fetchProject,
   fetchProjects,
   approveCheckpointMessage,
   createCancellationRequest,
+  markAttentionRead,
   navigateToApprovals,
   sendRequestMessage,
   uploadProjectFiles,
@@ -38,6 +47,7 @@ export default function ControlCenterProjectsView() {
   const [files, setFiles] = useState<FileList | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [detailError, setDetailError] = useState<string | null>(null)
 
   const loadProjects = useCallback(async () => {
     setLoading(true)
@@ -51,7 +61,7 @@ export default function ControlCenterProjectsView() {
   }, [loadProjects])
 
   // Email / notification deep links use ?projectId= once; in-app navigation uses local state only.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (deepLinkHandled.current) return
     deepLinkHandled.current = true
 
@@ -80,10 +90,40 @@ export default function ControlCenterProjectsView() {
   useEffect(() => {
     if (!openedProjectId) {
       setDetail(null)
+      setDetailError(null)
       return
     }
-    void fetchProject(openedProjectId).then(setDetail)
+    setDetailError(null)
+    let cancelled = false
+    void fetchProject(openedProjectId).then((project) => {
+      if (cancelled) return
+      if (!project) {
+        setDetail(null)
+        setDetailError('Could not load this project.')
+        return
+      }
+      setDetail(project)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [openedProjectId])
+
+  useEffect(() => {
+    if (!openedProjectId || !detail || detail.id !== openedProjectId) return
+    let cancelled = false
+    void (async () => {
+      try {
+        await markAttentionRead({ projectId: openedProjectId })
+        if (!cancelled) dispatchPortalNotificationsRefresh()
+      } catch {
+        /* non-blocking */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [openedProjectId, detail])
 
   const openProject = useCallback((projectId: string) => {
     setOpenedProjectId(projectId)
@@ -119,13 +159,41 @@ export default function ControlCenterProjectsView() {
     openProject(result.project.id)
   }
 
-  if (openedProjectId && detail) {
+  const detailReady = Boolean(
+    openedProjectId && detail && detail.id === openedProjectId,
+  )
+
+  if (openedProjectId && detailError) {
+    return (
+      <div className="space-y-4">
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
+          {detailError}
+        </p>
+        <button type="button" onClick={closeProject} className="portal-btn-ghost text-sm">
+          ← All projects
+        </button>
+      </div>
+    )
+  }
+
+  if (openedProjectId && !detailReady) {
+    return (
+      <div className="space-y-4 py-8">
+        <p className={`text-center text-chambray ${bricolage_grot600.className}`}>
+          Opening project…
+        </p>
+        <p className="text-center text-sm text-app-muted">Loading workspace details</p>
+      </div>
+    )
+  }
+
+  if (detailReady && detail) {
     return (
       <ProjectDetailView
         project={detail}
         onBack={closeProject}
         onRefresh={async () => {
-          const next = await fetchProject(openedProjectId)
+          const next = await fetchProject(openedProjectId!)
           setDetail(next)
           await loadProjects()
         }}
@@ -232,7 +300,7 @@ export default function ControlCenterProjectsView() {
                 Open project
                 <ExternalLink className="h-3.5 w-3.5" aria-hidden />
               </button>
-              {project.hasPendingCheckpoint || project.hasOpenAdminReview ? (
+              {project.hasPendingCheckpoint ? (
                 <button
                   type="button"
                   onClick={() => navigateToApprovals()}
