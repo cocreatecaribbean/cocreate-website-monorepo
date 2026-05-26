@@ -15,6 +15,7 @@ import { philosophies } from "@/site-info/home-page-data";
 import { EmblaOptionsType } from "embla-carousel";
 import { splitTextGradient } from "@/utils/util-funcs";
 import { consumeSpaNavigation } from "@/lib/scroll/navigation";
+import { prefersNativeScroll } from "@/lib/scroll/native-scroll";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText);
 
@@ -23,7 +24,24 @@ const FRAME_COUNT = 185;
 const IMG_WIDTH = 1920;
 const IMG_HEIGHT = 1080;
 const FILE_PATH = (index: number) =>
-  `/cocreate-graphic-anim/cocreate-home-graphic_${index}.webp`;
+  `/cocreate-graphic-anim/cocreate-home-graphic_${index}.webp`
+
+const FRAME_ASPECT = IMG_WIDTH / IMG_HEIGHT
+
+const INITIAL_PRELOAD_FRAMES = 28
+const INITIAL_PRELOAD_FRAMES_NATIVE = 56
+const IDLE_BATCH_SIZE = 16
+const MOBILE_BREAKPOINT = 768
+
+function scheduleIdle(cb: () => void) {
+  if (typeof window === "undefined") return
+  const ric = window.requestIdleCallback
+  if (ric) {
+    ric(() => cb(), { timeout: 120 })
+  } else {
+    window.setTimeout(cb, 32)
+  }
+}
 
 function prefersReducedMotion() {
   return (
@@ -57,6 +75,12 @@ function getBrandStartY(): number {
   return 160;
 }
 
+function progressToFrameIndex(progress: number) {
+  const frame = progress * 1.75;
+  const val = Math.round(frame * (FRAME_COUNT - 1)) + 1;
+  return Math.min(Math.max(val, 1), FRAME_COUNT);
+}
+
 export default function HomeHeroSection() {
   const mainRef = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
@@ -65,41 +89,130 @@ export default function HomeHeroSection() {
   const vid_container = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imagesRef = useRef<HTMLImageElement[]>([]);
+  const lastRenderedFrameRef = useRef(0);
+  const canvasCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const lastPrefetchCenterRef = useRef(0);
+  const heroScrollingRef = useRef(false);
+  const idlePumpRef = useRef<(() => void) | null>(null);
 
   const [emblaApi, setEmblaApi] = useState<EmblaCarouselType | null>(null)
 
-  // 1. Image Preloading Logic
-  useEffect(() => {
-    ScrollTrigger.config({ ignoreMobileResize: true });
+  /** Size backing store like object-cover — 16:9, never stretch to viewport aspect */
+  const fitCanvasForDisplay = (canvas: HTMLCanvasElement) => {
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    if (!w || !h) return;
 
-    const preloadImages = () => {
-      for (let i = 1; i <= FRAME_COUNT; i++) {
-        const img = new window.Image();
-        img.src = FILE_PATH(i);
-        if (i === 1) {
-          img.onload = () => {
-            if (getReloadScrollY() == null) renderFrame(1);
-          };
-        }
-        imagesRef.current[i] = img;
-      }
-    };
+    const cap = prefersNativeScroll() ? 1.25 : 2;
+    const dpr = Math.min(window.devicePixelRatio || 1, cap);
+    const containerAspect = w / h;
 
-    preloadImages();
-  }, []);
+    let bw: number;
+    let bh: number;
+    if (containerAspect > FRAME_ASPECT) {
+      bw = Math.round(w * dpr);
+      bh = Math.round((w / FRAME_ASPECT) * dpr);
+    } else {
+      bh = Math.round(h * dpr);
+      bw = Math.round(h * FRAME_ASPECT * dpr);
+    }
 
-  // 2. Optimized Render Function
+    if (canvas.width !== bw || canvas.height !== bh) {
+      canvas.width = bw;
+      canvas.height = bh;
+      canvasCtxRef.current = null;
+    }
+  };
+
+  const ensureImage = (index: number) => {
+    if (index < 1 || index > FRAME_COUNT) return;
+    if (imagesRef.current[index]) return;
+    const img = new window.Image();
+    img.src = FILE_PATH(index);
+    imagesRef.current[index] = img;
+  };
+
+  const prefetchAroundFrame = (center: number) => {
+    if (center === lastPrefetchCenterRef.current) return;
+    lastPrefetchCenterRef.current = center;
+    for (let i = center - 2; i <= center + 8; i++) {
+      if (i >= 1 && i <= FRAME_COUNT) ensureImage(i);
+    }
+  };
+
   const renderFrame = (index: number) => {
+    if (index === lastRenderedFrameRef.current) return;
+
     const canvas = canvasRef.current;
     const img = imagesRef.current[index];
     if (!canvas || !img) return;
 
-    const ctx = canvas.getContext("2d", { alpha: true });
-    if (ctx) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    if (!img.complete) {
+      ensureImage(index);
+      img.addEventListener("load", () => renderFrame(index), { once: true });
+      return;
     }
+
+    fitCanvasForDisplay(canvas);
+
+    if (!canvasCtxRef.current) {
+      canvasCtxRef.current = canvas.getContext("2d", {
+        alpha: true,
+        desynchronized: prefersNativeScroll(),
+      });
+    }
+    const ctx = canvasCtxRef.current;
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    lastRenderedFrameRef.current = index;
   };
+
+  // Batched preload — avoids 185 simultaneous decodes on cold load
+  useEffect(() => {
+    ScrollTrigger.config({ ignoreMobileResize: true });
+    let cancelled = false;
+
+    const initialCount = prefersNativeScroll()
+      ? INITIAL_PRELOAD_FRAMES_NATIVE
+      : INITIAL_PRELOAD_FRAMES;
+
+    ensureImage(1);
+    const first = imagesRef.current[1];
+    if (first) {
+      first.onload = () => {
+        if (cancelled || getReloadScrollY() != null) return;
+        renderFrame(1);
+      };
+    }
+
+    for (let i = 2; i <= initialCount; i++) {
+      ensureImage(i);
+    }
+
+    let next = initialCount + 1;
+    const pump = () => {
+      if (cancelled || next > FRAME_COUNT) return;
+      if (heroScrollingRef.current) {
+        scheduleIdle(pump);
+        return;
+      }
+      const end = Math.min(next + IDLE_BATCH_SIZE - 1, FRAME_COUNT);
+      for (let i = next; i <= end; i++) {
+        ensureImage(i);
+      }
+      next = end + 1;
+      if (next <= FRAME_COUNT) scheduleIdle(pump);
+    };
+    idlePumpRef.current = pump;
+    scheduleIdle(pump);
+
+    return () => {
+      cancelled = true;
+      idlePumpRef.current = null;
+    };
+  }, []);
 
   // ─── Main Animations ─────────────────────────────────────────────────────────
 
@@ -130,16 +243,32 @@ export default function HomeHeroSection() {
       }
 
       const mm = gsap.matchMedia();
-      const breakpoint = 768;
+      const breakpoint = MOBILE_BREAKPOINT;
+      const nativeScroll = prefersNativeScroll();
 
-      /** Bounce lives on the canvas — only disable once pin scrub actually starts */
+      /** Float animation fights pin scrub on native touch scroll — desktop only */
       const setBrandFloatActive = (active: boolean) => {
+        if (nativeScroll) return;
         const canvas = canvasRef.current;
         if (!canvas) return;
         canvas.classList.toggle("animate-float", active);
       };
 
-      setBrandFloatActive(true);
+      if (!nativeScroll) {
+        setBrandFloatActive(true);
+      } else {
+        canvasRef.current?.classList.remove("animate-float");
+      }
+
+      let heroScrollEndTimer: ReturnType<typeof setTimeout> | undefined;
+      const markHeroScrolling = () => {
+        heroScrollingRef.current = true;
+        if (heroScrollEndTimer) clearTimeout(heroScrollEndTimer);
+        heroScrollEndTimer = setTimeout(() => {
+          heroScrollingRef.current = false;
+          if (idlePumpRef.current) scheduleIdle(idlePumpRef.current);
+        }, 200);
+      };
 
       // ─── Split Text ─────────────────────────────────────────────────────────
 
@@ -204,6 +333,64 @@ export default function HomeHeroSection() {
           "<0.3",
         );
 
+      let pendingFrame: number | null = null;
+      let rafScheduled = false;
+
+      const flushPendingFrame = () => {
+        rafScheduled = false;
+        if (pendingFrame == null) return;
+        const index = pendingFrame;
+        pendingFrame = null;
+        renderFrame(index);
+      };
+
+      const scheduleFrameFromProgress = (progress: number, coalesce: boolean) => {
+        const safeIndex = progressToFrameIndex(progress);
+        if (!coalesce || safeIndex !== lastRenderedFrameRef.current) {
+          prefetchAroundFrame(safeIndex);
+        }
+        if (!coalesce) {
+          pendingFrame = null;
+          rafScheduled = false;
+          renderFrame(safeIndex);
+          return;
+        }
+        pendingFrame = safeIndex;
+        if (rafScheduled) return;
+        rafScheduled = true;
+        requestAnimationFrame(flushPendingFrame);
+      };
+
+      const syncHeroFrameFromScroll = () => {
+        const st = ScrollTrigger.getById("home-hero-pin");
+        if (!st) return;
+        scheduleFrameFromProgress(st.progress, false);
+      };
+
+      const waitForSmoothContentReady = () =>
+        new Promise<void>((resolve) => {
+          const check = () => {
+            const content = document.getElementById("smooth-content");
+            const opacity = content
+              ? (gsap.getProperty(content, "opacity") as number)
+              : 1;
+            if (opacity >= 0.99) {
+              resolve();
+              return;
+            }
+            requestAnimationFrame(check);
+          };
+          check();
+        });
+
+      const runAfterLayoutReady = async (fn: () => void) => {
+        if (document.fonts?.ready) {
+          await document.fonts.ready.catch(() => undefined);
+        }
+        await waitForSmoothContentReady();
+        fn();
+      };
+
       // ─── ScrollTriggers ─────────────────────────────────────────────────────
 
       mm.add(
@@ -228,19 +415,29 @@ export default function HomeHeroSection() {
             scrub: isMobile ? 0.4 : true,
             pin: true,
             pinSpacing: true,
-            pinType: "transform",
-            anticipatePin: 1,
-            fastScrollEnd: true,
-            invalidateOnRefresh: !isMobile,
+            // Fixed pin to viewport works on native document scroll; transform
+            // pairs with ScrollSmoother on desktop.
+            pinType: isMobile && nativeScroll ? "fixed" : "transform",
+            anticipatePin: isMobile && nativeScroll ? 0 : 1,
+            fastScrollEnd: !(isMobile && nativeScroll),
+            invalidateOnRefresh: isMobile && nativeScroll,
             onLeaveBack: () => setBrandFloatActive(true),
             onUpdate: (self) => {
+              if (isMobile && nativeScroll) markHeroScrolling();
               setBrandFloatActive(self.progress < 0.02);
-              const frame = self.progress * 1.75;
-              const val = Math.round(frame * (FRAME_COUNT - 1)) + 1;
-              const safeIndex = Math.min(Math.max(val, 1), FRAME_COUNT);
-              renderFrame(safeIndex);
+              scheduleFrameFromProgress(self.progress, isMobile);
             },
           });
+
+          let vvTimer: ReturnType<typeof setTimeout> | undefined;
+          let onViewportResize: (() => void) | undefined;
+          if (isMobile && nativeScroll) {
+            onViewportResize = () => {
+              if (vvTimer) clearTimeout(vvTimer);
+              vvTimer = setTimeout(() => ScrollTrigger.refresh(true), 120);
+            };
+            window.visualViewport?.addEventListener("resize", onViewportResize);
+          }
 
           ScrollTrigger.create({
             id: "home-what-we-do",
@@ -256,6 +453,10 @@ export default function HomeHeroSection() {
             gsap.set(hero_text.current, { opacity: 1 });
             gsap.set(brand_elem.current, { y: getBrandStartY() });
             mainTimeline.progress(0);
+            pendingFrame = null;
+            rafScheduled = false;
+            lastRenderedFrameRef.current = 0;
+            lastPrefetchCenterRef.current = 0;
 
             const st = ScrollTrigger.getById("home-hero-pin");
             if (st) {
@@ -274,6 +475,16 @@ export default function HomeHeroSection() {
               resetHeroToScrollStart();
             });
           }
+
+          return () => {
+            if (vvTimer) clearTimeout(vvTimer);
+            if (onViewportResize) {
+              window.visualViewport?.removeEventListener(
+                "resize",
+                onViewportResize,
+              );
+            }
+          };
         },
       );
 
@@ -281,24 +492,13 @@ export default function HomeHeroSection() {
         gsap.to(mainRef.current, { autoAlpha: 1, duration: 0.2 });
       };
 
-      const syncHeroFrameFromScroll = () => {
-        const st = ScrollTrigger.getById("home-hero-pin");
-        if (!st) return;
-        const frame = st.progress * 1.75;
-        const val = Math.round(frame * (FRAME_COUNT - 1)) + 1;
-        const safeIndex = Math.min(Math.max(val, 1), FRAME_COUNT);
-        renderFrame(safeIndex);
-      };
-
       if (getReloadScrollY() != null) {
         gsap.set(container.current, { visibility: "hidden" });
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            ScrollTrigger.refresh();
-            syncHeroFrameFromScroll();
-            gsap.set(container.current, { visibility: "visible" });
-            revealMain();
-          });
+        void runAfterLayoutReady(() => {
+          ScrollTrigger.refresh(true);
+          syncHeroFrameFromScroll();
+          gsap.set(container.current, { visibility: "visible" });
+          revealMain();
         });
       } else {
         revealMain();
@@ -385,7 +585,7 @@ export default function HomeHeroSection() {
             ref={canvasRef}
             width={IMG_WIDTH}
             height={IMG_HEIGHT}
-            className="w-full h-full object-cover will-change-transform animate-float"
+            className="w-full h-full object-cover md:will-change-transform md:animate-float"
           />
         </div>
 

@@ -53,6 +53,20 @@ body {
   z-index: 1;
 }
 
+/* Native scroll on touch — allow pull-to-refresh overscroll at the document */
+@media (pointer: coarse) {
+  html,
+  body {
+    overscroll-behavior-y: auto;
+  }
+
+  #smooth-wrapper {
+    position: static;
+    min-height: 100svh;
+    overflow: visible;
+  }
+}
+
 body.menu-open #smooth-wrapper,
 body.search-open #smooth-wrapper,
 body.client-portal-open #smooth-wrapper {
