@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import {
   PortalNotificationType,
+  Prisma,
+  ProjectRequestStatus,
   UserRole,
   UserStatus,
 } from '@cocreate/database'
@@ -191,5 +193,81 @@ export class ProjectNotificationsService {
     return this.prisma.portalNotification.count({
       where: { userId, readAt: null },
     })
+  }
+
+  private static readonly openInboxRequestStatuses: ProjectRequestStatus[] = [
+    ProjectRequestStatus.OPEN,
+    ProjectRequestStatus.IN_PROGRESS,
+  ]
+
+  private inboxUnreadWhere(
+    adminUserId: string,
+    organizationId: string,
+  ): Prisma.PortalNotificationWhereInput {
+    const openStatuses = ProjectNotificationsService.openInboxRequestStatuses
+    return {
+      userId: adminUserId,
+      organizationId,
+      readAt: null,
+      OR: [
+        {
+          requestId: { not: null },
+          request: {
+            status: { in: openStatuses },
+            project: { organizationId },
+          },
+        },
+        {
+          requestId: null,
+          projectId: { not: null },
+          project: {
+            organizationId,
+            requests: {
+              some: { status: { in: openStatuses } },
+            },
+          },
+        },
+      ],
+    }
+  }
+
+  async unreadInboxCountForAdmin(adminUserId: string, organizationId: string) {
+    return this.prisma.portalNotification.count({
+      where: this.inboxUnreadWhere(adminUserId, organizationId),
+    })
+  }
+
+  async markInboxReadForRequest(
+    adminUserId: string,
+    organizationId: string,
+    requestId: string,
+  ) {
+    const request = await this.prisma.projectRequest.findFirst({
+      where: {
+        id: requestId,
+        project: { organizationId },
+      },
+      select: { id: true },
+    })
+    if (!request) return { count: 0 }
+
+    const result = await this.prisma.portalNotification.updateMany({
+      where: {
+        userId: adminUserId,
+        organizationId,
+        readAt: null,
+        requestId,
+      },
+      data: { readAt: new Date() },
+    })
+    return { count: result.count }
+  }
+
+  async markAllInboxReadForOrg(adminUserId: string, organizationId: string) {
+    const result = await this.prisma.portalNotification.updateMany({
+      where: this.inboxUnreadWhere(adminUserId, organizationId),
+      data: { readAt: new Date() },
+    })
+    return { count: result.count }
   }
 }

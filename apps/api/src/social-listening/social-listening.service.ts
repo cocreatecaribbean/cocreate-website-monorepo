@@ -8,7 +8,12 @@ import { PrismaService } from '../prisma/prisma.service'
 import type { AuthenticatedClient } from '../auth/auth.service'
 import { Brand24Service } from './brand24.service'
 import { parseUtcDateOnly } from './social-listening-dates'
+import type { CreateListeningSetupDto } from './dto/create-listening-setup.dto'
 import { SocialListeningSnapshotService } from './social-listening-snapshot.service'
+import {
+  enumerateUtcDatesInclusive,
+  validateListeningSetupDateRange,
+} from './social-listening-setup-dates'
 import type {
   SocialListeningAnalyticsResponse,
   SocialListeningCompareResponse,
@@ -81,6 +86,44 @@ export class SocialListeningService {
         ? parsedLimit
         : 90
     return this.snapshots.listSnapshotDates(organization.id, safeLimit)
+  }
+
+  async createListeningSetupForClient(
+    client: AuthenticatedClient,
+    dto: CreateListeningSetupDto,
+  ) {
+    const organization = await this.requireSubscriberOrg(client)
+    const { start, end } = validateListeningSetupDateRange(
+      dto.startDate,
+      dto.endDate,
+    )
+
+    const activeSources = this.brand24.mapPlatformsToActiveSources(dto.platforms)
+    const { projectId } = await this.brand24.addProject({
+      keywords: dto.keywords,
+      activeSources,
+      projectName: organization.id,
+    })
+
+    await this.prisma.organization.update({
+      where: { id: organization.id },
+      data: { brand24ProjectId: projectId },
+    })
+
+    const orgContext = { id: organization.id, brand24ProjectId: projectId }
+    const dates = enumerateUtcDatesInclusive(start, end)
+
+    for (const snapshotDate of dates) {
+      await this.snapshots.captureSnapshot(orgContext, snapshotDate)
+    }
+
+    return {
+      ok: true as const,
+      brand24ProjectId: projectId,
+      snapshotsCaptured: dates.length,
+      startDate: dto.startDate,
+      endDate: dto.endDate,
+    }
   }
 
   async compareForClient(

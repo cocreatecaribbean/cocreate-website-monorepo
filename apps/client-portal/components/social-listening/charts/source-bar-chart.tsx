@@ -5,7 +5,7 @@ import { ResponsiveBar } from '@nivo/bar'
 import ChartContainer from '@/components/social-listening/chart-container'
 import GlassChartTooltip from '@/components/social-listening/glass-tooltip'
 import PlatformIcon from '@/components/social-listening/platform-icon'
-import { nivoTheme } from '@/components/social-listening/nivo-theme'
+import { useNivoTheme } from '@/components/social-listening/use-nivo-theme'
 import { usePrefersReducedMotion } from '@/components/social-listening/use-prefers-reduced-motion'
 import {
   PLATFORM_BAR_GRADIENTS,
@@ -32,6 +32,7 @@ const LEFT_MARGIN = 152
 
 export default function SourceBarChart({ data, platformDeltas }: SourceBarChartProps) {
   const reducedMotion = usePrefersReducedMotion()
+  const nivoTheme = useNivoTheme()
   const rows = data ?? []
 
   const deltaByPlatform = useMemo(() => {
@@ -77,7 +78,7 @@ export default function SourceBarChart({ data, platformDeltas }: SourceBarChartP
 
   if (!chartData.length) {
     return (
-      <p className="py-12 text-center text-sm text-slate-500">
+      <p className="py-12 text-center text-sm portal-sl-secondary">
         No platform breakdown available.
       </p>
     )
@@ -172,12 +173,12 @@ export default function SourceBarChart({ data, platformDeltas }: SourceBarChartP
                 </span>
                 <div>
                   <strong className="text-chambray">{meta.name}</strong>
-                  <div className="text-slate-600">
+                  <div className="portal-sl-secondary">
                     {Number(value).toLocaleString()} mentions
                   </div>
                   {delta ? (
                     <>
-                      <div className="mt-1 text-xs text-slate-500">
+                      <div className="mt-1 text-xs portal-sl-secondary">
                         Baseline: {delta.baseline.toLocaleString()}
                       </div>
                       <div className="text-xs font-medium text-sanmarino">

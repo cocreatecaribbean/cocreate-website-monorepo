@@ -600,6 +600,29 @@ export class ProjectsService {
     return serializeProject(project)
   }
 
+  async unreadInboxCountForAdmin(admin: AuthenticatedAdmin, organizationId: string) {
+    const count = await this.notifications.unreadInboxCountForAdmin(
+      admin.id,
+      organizationId,
+    )
+    return { count }
+  }
+
+  async markInboxReadForAdmin(
+    admin: AuthenticatedAdmin,
+    organizationId: string,
+    requestId?: string,
+  ) {
+    if (requestId) {
+      return this.notifications.markInboxReadForRequest(
+        admin.id,
+        organizationId,
+        requestId,
+      )
+    }
+    return this.notifications.markAllInboxReadForOrg(admin.id, organizationId)
+  }
+
   async listInboxForOrganization(organizationId: string) {
     const requests = await this.prisma.projectRequest.findMany({
       where: {
@@ -1009,6 +1032,11 @@ export class ProjectsService {
           actionLink: clientLink,
         },
       })
+      await this.notifications.markInboxReadForRequest(
+        actor.id,
+        request.project.organizationId,
+        requestId,
+      )
     }
 
     return serializeMessage(message)

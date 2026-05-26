@@ -8,6 +8,8 @@ import SentimentStreamChart from '@/components/social-listening/charts/sentiment
 import ChartCard from '@/components/social-listening/chart-card'
 import MentionsByPlatformBlock from '@/components/social-listening/mentions-by-platform-block'
 import SocialListeningReportsPanel from '@/components/social-listening/social-listening-reports-panel'
+import PortalSettingsPanel from '@/components/portal-settings-panel'
+import SocialListeningSetupPanel from '@/components/social-listening/social-listening-setup-panel'
 import SocialListeningSectionPlaceholder from '@/components/social-listening/social-listening-section-placeholder'
 import SentimentKpiStrip from '@/components/social-listening/sentiment-kpi-strip'
 import type { SocialListeningComparePayload } from '@/lib/social-listening/api-types'
@@ -19,21 +21,25 @@ import { Quote } from 'lucide-react'
 type SocialListeningDashboardProps = {
   data: SocialListeningAnalytics
   activeView: SocialListeningViewId
+  settingsOpen?: boolean
   metaSource?: 'brand24' | 'org_mock'
   compareDeltas?: SocialListeningComparePayload['deltas'] | null
   compareBaselineDate?: string
   compareCurrentDate?: string
   comparePayload?: SocialListeningComparePayload | null
+  onSetupComplete?: () => void
 }
 
 export default function SocialListeningDashboard({
   data,
   activeView,
+  settingsOpen = false,
   metaSource = 'org_mock',
   compareDeltas = null,
   compareBaselineDate,
   compareCurrentDate,
   comparePayload = null,
+  onSetupComplete,
 }: SocialListeningDashboardProps) {
   const platformMentionDeltas = useMemo(() => {
     if (!comparePayload) return null
@@ -49,13 +55,14 @@ export default function SocialListeningDashboard({
     Boolean(compareCurrentDate)
 
   return (
-    <div className="space-y-6">
-      {compareDeltas && compareBaselineDate && compareCurrentDate ? (
-        <p className="text-center text-xs text-slate-500">
+    <div className="portal-sl-region space-y-6">
+      {settingsOpen ? <PortalSettingsPanel /> : null}
+      {!settingsOpen && compareDeltas && compareBaselineDate && compareCurrentDate ? (
+        <p className="text-center text-xs portal-sl-secondary">
           Comparing {compareCurrentDate} to baseline {compareBaselineDate}
         </p>
       ) : null}
-      {activeView === 'summary' ? (
+      {!settingsOpen && activeView === 'summary' ? (
         <SummaryView
           data={data}
           compareDeltas={compareDeltas}
@@ -65,9 +72,9 @@ export default function SocialListeningDashboard({
           platformCompareActive={platformCompareActive}
         />
       ) : null}
-      {activeView === 'mentions' ? <MentionsView data={data} /> : null}
-      {activeView === 'analysis' ? <AnalysisView data={data} /> : null}
-      {activeView === 'sources' ? (
+      {!settingsOpen && activeView === 'mentions' ? <MentionsView data={data} /> : null}
+      {!settingsOpen && activeView === 'analysis' ? <AnalysisView data={data} /> : null}
+      {!settingsOpen && activeView === 'sources' ? (
         <SourcesView
           data={data}
           platformMentionDeltas={platformMentionDeltas}
@@ -76,20 +83,25 @@ export default function SocialListeningDashboard({
           platformCompareActive={platformCompareActive}
         />
       ) : null}
-      {activeView === 'quotes' ? (
+      {!settingsOpen && activeView === 'quotes' ? (
         <SocialListeningSectionPlaceholder
           title="Quotes"
           description="Surface standout posts and verbatim snippets from across the web and social channels."
           icon={Quote}
         />
       ) : null}
-      {activeView === 'reports' ? <SocialListeningReportsPanel /> : null}
+      {!settingsOpen && activeView === 'reports' ? <SocialListeningReportsPanel /> : null}
+      {!settingsOpen && activeView === 'setup' ? (
+        <SocialListeningSetupPanel onComplete={onSetupComplete} />
+      ) : null}
 
-      <p className="portal-animate-in text-center text-xs tracking-wide text-slate-400 uppercase">
+      {!settingsOpen && activeView !== 'setup' ? (
+      <p className="portal-animate-in text-center text-xs tracking-wide portal-sl-caption uppercase">
         {metaSource === 'brand24'
           ? 'Live Brand24 data'
           : 'Sample data · Brand24 data mockup instead of Awario because API is more robust! · Unique per client org'}
       </p>
+      ) : null}
     </div>
   )
 }

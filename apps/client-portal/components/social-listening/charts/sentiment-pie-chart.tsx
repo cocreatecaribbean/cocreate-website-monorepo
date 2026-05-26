@@ -5,7 +5,8 @@ import { ResponsivePie } from '@nivo/pie'
 import ChartContainer from '@/components/social-listening/chart-container'
 import GlassChartTooltip from '@/components/social-listening/glass-tooltip'
 import SentimentFace from '@/components/social-listening/sentiment-face'
-import { formatPercent, nivoTheme } from '@/components/social-listening/nivo-theme'
+import { formatPercent } from '@/components/social-listening/nivo-theme'
+import { useNivoTheme } from '@/components/social-listening/use-nivo-theme'
 import { usePrefersReducedMotion } from '@/components/social-listening/use-prefers-reduced-motion'
 import { SENTIMENT_BRAND_COLORS, SENTIMENT_LABELS } from '@/lib/social-listening/sentiment-meta'
 import type { SentimentId, SentimentSlice } from '@/lib/social-listening/types'
@@ -22,6 +23,7 @@ function dominantSentiment(data: SentimentSlice[]): SentimentId {
 
 export default function SentimentPieChart({ data }: SentimentPieChartProps) {
   const reducedMotion = usePrefersReducedMotion()
+  const nivoTheme = useNivoTheme()
   const total = data.reduce((sum, slice) => sum + slice.value, 0)
   const dominant = useMemo(() => dominantSentiment(data), [data])
 
@@ -61,7 +63,7 @@ export default function SentimentPieChart({ data }: SentimentPieChartProps) {
                   <SentimentFace sentiment={id} size={28} />
                   <div>
                     <strong className="text-chambray">{SENTIMENT_LABELS[id]}</strong>
-                    <div className="text-slate-600">
+                    <div className="portal-sl-secondary">
                       {datum.value.toLocaleString()} ({formatPercent(datum.value, total)})
                     </div>
                   </div>
@@ -125,7 +127,7 @@ export default function SentimentPieChart({ data }: SentimentPieChartProps) {
             <SentimentFace sentiment={slice.id} size={24} />
             <div className="text-left text-xs">
               <p className="font-semibold text-chambray">{SENTIMENT_LABELS[slice.id]}</p>
-              <p className="tabular-nums text-slate-500">
+              <p className="tabular-nums portal-sl-secondary">
                 {formatPercent(slice.value, total)} · {slice.value.toLocaleString()}
               </p>
             </div>

@@ -145,7 +145,7 @@ export default function AdminProfileForm() {
   }
 
   if (loading) {
-    return <p className="text-sm text-slate-500">Loading profile…</p>
+    return <p className="text-sm text-app-muted">Loading profile…</p>
   }
 
   const needsName = !profile?.profileComplete
@@ -187,13 +187,13 @@ export default function AdminProfileForm() {
                 onChange={(e) => void onAvatarChange(e.target.files?.[0] ?? null)}
               />
             </label>
-            <p className="text-xs text-slate-500">JPG or PNG, max 5 MB</p>
+            <p className="text-xs text-app-muted">JPG or PNG, max 5 MB</p>
           </div>
         </div>
 
         <div>
           <p className={`text-xl text-chambray ${bricolage_grot700.className}`}>Your profile</p>
-          <p className="mt-1 text-sm text-slate-500">{profile?.email}</p>
+          <p className="mt-1 text-sm text-app-muted">{profile?.email}</p>
         </div>
 
         <div className="space-y-4">
@@ -212,11 +212,11 @@ export default function AdminProfileForm() {
           </div>
           <fieldset>
             <legend className="text-sm font-medium text-chambray">Job titles</legend>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-app-muted">
               Select all that apply. Shown to clients next to your name on project actions.
             </p>
             {jobTitleOptions.length === 0 ? (
-              <p className="mt-3 text-sm text-slate-500">No job titles available yet.</p>
+              <p className="mt-3 text-sm text-app-muted">No job titles available yet.</p>
             ) : (
               <ul className="mt-3 space-y-2">
                 {jobTitleOptions.map((option) => (

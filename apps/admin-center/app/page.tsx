@@ -50,17 +50,17 @@ const stats = [
 const recentActivity = [
   {
     title: 'Portal access granted',
-    detail: 'alex@acme.com added to client portal',
+    detail: 'makeba@provengroup.com added to client portal',
     time: '2 hours ago',
   },
   {
     title: 'Project brief uploaded',
-    detail: 'Island Fresh rebrand — phase 2 assets',
+    detail: 'Cancara rebrand — phase 2 assets',
     time: 'Yesterday',
   },
   {
     title: 'Client check-in scheduled',
-    detail: 'Caribbean Tourism Board — Friday 10:00 AM',
+    detail: 'UDC — Friday 10:00 AM',
     time: '2 days ago',
   },
 ]
@@ -82,7 +82,15 @@ export default function AdminHomePage() {
           width={520}
           height={120}
           aria-hidden
-          className="h-auto w-[min(85vw,28rem)] sm:w-[min(70vw,32rem)]"
+          className="h-auto w-[min(85vw,28rem)] sm:w-[min(70vw,32rem)] dark:hidden"
+        />
+        <Image
+          src="/co_create_logo_hor_wht.svg"
+          alt=""
+          width={520}
+          height={120}
+          aria-hidden
+          className="hidden h-auto w-[min(85vw,28rem)] sm:w-[min(70vw,32rem)] dark:block"
         />
       </div>
 
@@ -118,7 +126,7 @@ export default function AdminHomePage() {
                 />
                 <div className="flex items-start justify-between gap-3 pt-1">
                   <div className="min-w-0">
-                    <p className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    <p className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-app-muted">
                       {stat.label}
                     </p>
                     <p
@@ -131,7 +139,7 @@ export default function AdminHomePage() {
                     <Icon className="h-5 w-5" strokeWidth={1.75} />
                   </div>
                 </div>
-                <p className="mt-2 text-xs text-slate-500">{stat.change}</p>
+                <p className="mt-2 text-xs text-app-muted">{stat.change}</p>
               </article>
             )
           })}
@@ -145,7 +153,7 @@ export default function AdminHomePage() {
                 <h2 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
                   Quick actions
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-app-muted">
                   Jump into the workflows your team uses most.
                 </p>
               </div>
@@ -161,7 +169,7 @@ export default function AdminHomePage() {
                   <p className={`font-medium text-chambray ${bricolage_grot600.className}`}>
                     Manage agency team
                   </p>
-                  <p className="mt-1 text-sm text-slate-500">Invite admins who can sign in</p>
+                  <p className="mt-1 text-sm text-app-muted">Invite admins who can sign in</p>
                 </div>
                 <ArrowUpRight className="h-4 w-4 shrink-0 text-chambray transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </Link>
@@ -173,7 +181,7 @@ export default function AdminHomePage() {
                   <p className={`font-medium text-chambray ${bricolage_grot600.className}`}>
                     Manage client access
                   </p>
-                  <p className="mt-1 text-sm text-slate-500">Invite or revoke portal emails</p>
+                  <p className="mt-1 text-sm text-app-muted">Invite or revoke portal emails</p>
                 </div>
                 <ArrowUpRight className="h-4 w-4 shrink-0 text-sanmarino transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </Link>
@@ -185,7 +193,7 @@ export default function AdminHomePage() {
                   <p className={`font-medium text-chambray ${bricolage_grot600.className}`}>
                     Open project center
                   </p>
-                  <p className="mt-1 text-sm text-slate-500">Review active engagements</p>
+                  <p className="mt-1 text-sm text-app-muted">Review active engagements</p>
                 </div>
                 <ArrowUpRight className="h-4 w-4 shrink-0 text-chambray transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </Link>
@@ -197,7 +205,7 @@ export default function AdminHomePage() {
             <h2 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
               Recent updates
             </h2>
-            <p className="mt-1 text-sm text-slate-500">Latest updates across the admin center.</p>
+            <p className="mt-1 text-sm text-app-muted">Latest updates across the admin center.</p>
 
             <ul className="mt-5 divide-y divide-chambray/6">
               {recentActivity.map((item) => (
@@ -205,8 +213,8 @@ export default function AdminHomePage() {
                   key={item.title}
                   className="border-b border-chambray/6 py-4 first:pt-0 last:border-0 last:pb-0"
                 >
-                  <p className={`text-slate-900 ${bricolage_grot600.className}`}>{item.title}</p>
-                  <p className="mt-1 text-sm wrap-break-word text-slate-600">{item.detail}</p>
+                  <p className={`text-app-primary ${bricolage_grot600.className}`}>{item.title}</p>
+                  <p className="mt-1 text-sm wrap-break-word text-app-muted">{item.detail}</p>
                   <p className="mt-2 text-xs font-medium tracking-wide text-sanmarino">
                     {item.time}
                   </p>

@@ -38,7 +38,7 @@ export default function ClientPortalDashboard(props: ClientPortalDashboardProps)
     <Suspense
       fallback={
         <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-          <p className="text-sm text-slate-500">Loading portal…</p>
+          <p className="text-sm text-app-muted">Loading portal…</p>
         </main>
       }
     >
@@ -101,9 +101,11 @@ function ClientPortalDashboardContent({
         ) : null}
         <p className="portal-eyebrow">Client Portal</p>
         <h1 className={`portal-display mt-2 ${alkatra600.className}`}>Welcome back</h1>
-        <p className={`mt-3 text-sm leading-relaxed text-slate-600 sm:text-base ${bricolage_grot500.className}`}>
+        <p className={`mt-3 text-sm leading-relaxed text-app-muted sm:text-base ${bricolage_grot500.className}`}>
           Signed in as{' '}
-          <span className={`text-chambray ${bricolage_grot600.className}`}>{userEmail}</span>
+          <span className={`text-chambray dark:text-white/90 ${bricolage_grot600.className}`}>
+            {userEmail}
+          </span>
           {organizationName ? (
             <>
               {' '}
@@ -132,8 +134,8 @@ function ClientPortalDashboardContent({
                   ${bricolage_grot600.className}
                   ${
                     selected
-                      ? 'bg-white text-chambray shadow-[0_4px_20px_rgba(57,65,154,0.12)] ring-1 ring-chambray/8'
-                      : 'text-slate-600 hover:text-chambray'
+                      ? 'bg-white text-chambray shadow-[0_4px_20px_rgba(57,65,154,0.12)] ring-1 ring-chambray/8 dark:bg-white/15 dark:text-white dark:ring-white/15'
+                      : 'text-app-muted hover:text-chambray dark:hover:text-white'
                   }
                 `}
               >
@@ -153,7 +155,7 @@ function ClientPortalDashboardContent({
               organizationName={organizationName}
             />
           ) : hasSocialListening ? (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-app-muted">
               Unable to load analytics. Try refreshing or contact CoCreate support.
             </p>
           ) : (
@@ -241,7 +243,7 @@ function SocialListeningSubscribePanel({
             <h2 className={`mt-2 text-xl text-chambray sm:text-2xl ${bricolage_grot600.className}`}>
               Social Listening
             </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-app-muted">
               Choose a plan based on how many{' '}
               <span className="font-medium text-chambray">mentions</span> and{' '}
               <span className="font-medium text-chambray">alerts</span> you need each
@@ -278,43 +280,43 @@ function SocialListeningSubscribePanel({
             ) : null}
 
             <h3 className={`text-lg text-chambray ${bricolage_grot600.className}`}>{plan.name}</h3>
-            <p className="mt-1 text-sm text-slate-600">{plan.description}</p>
+            <p className="mt-1 text-sm text-app-muted">{plan.description}</p>
 
             <p className="mt-6 flex items-baseline gap-1">
               <span className={`text-3xl text-chambray ${bricolage_grot700.className}`}>
                 {plan.price}
               </span>
-              <span className="text-sm text-slate-500">{plan.period}</span>
+              <span className="text-sm text-app-muted">{plan.period}</span>
             </p>
 
             <dl className="mt-6 grid grid-cols-2 gap-3 rounded-2xl bg-chambray/[0.04] p-4 text-sm ring-1 ring-chambray/6">
               <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                <dt className="text-xs font-medium uppercase tracking-wide text-app-muted">
                   Mentions / mo
                 </dt>
                 <dd className="mt-0.5 font-semibold text-chambray">{plan.mentions}</dd>
               </div>
               <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                <dt className="text-xs font-medium uppercase tracking-wide text-app-muted">
                   Alerts
                 </dt>
                 <dd className="mt-0.5 font-semibold text-chambray">{plan.alerts}</dd>
               </div>
               <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                <dt className="text-xs font-medium uppercase tracking-wide text-app-muted">
                   Keywords
                 </dt>
                 <dd className="mt-0.5 font-semibold text-chambray">{plan.keywords}</dd>
               </div>
               <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                <dt className="text-xs font-medium uppercase tracking-wide text-app-muted">
                   Team seats
                 </dt>
                 <dd className="mt-0.5 font-semibold text-chambray">{plan.users}</dd>
               </div>
             </dl>
 
-            <ul className="mt-6 flex-1 space-y-2.5 text-sm text-slate-700">
+            <ul className="mt-6 flex-1 space-y-2.5 text-sm text-app-primary">
               {plan.features.map((feature) => (
                 <li key={feature} className="flex gap-2">
                   <CheckCircle2
@@ -336,7 +338,7 @@ function SocialListeningSubscribePanel({
         ))}
       </div>
 
-      <p className="text-center text-xs text-slate-500">
+      <p className="text-center text-xs text-app-muted">
         Pricing is subject to change. Your CoCreate team will confirm availability,
         billing, and mention limits before activation.
       </p>

@@ -3,7 +3,8 @@
 import { ResponsiveHeatMap } from '@nivo/heatmap'
 import ChartContainer from '@/components/social-listening/chart-container'
 import GlassChartTooltip from '@/components/social-listening/glass-tooltip'
-import { heatmapBrandScale, nivoTheme } from '@/components/social-listening/nivo-theme'
+import { heatmapBrandScale } from '@/components/social-listening/nivo-theme'
+import { useNivoTheme } from '@/components/social-listening/use-nivo-theme'
 import { usePrefersReducedMotion } from '@/components/social-listening/use-prefers-reduced-motion'
 import type { MentionMatrixRow } from '@/lib/social-listening/types'
 
@@ -23,6 +24,7 @@ function heatmapCellColor(value: number, max: number): string {
 
 export default function MentionHeatmapChart({ data }: MentionHeatmapChartProps) {
   const reducedMotion = usePrefersReducedMotion()
+  const nivoTheme = useNivoTheme()
   const maxVal = Math.max(...data.flatMap((row) => row.data.map((cell) => cell.y)), 1)
 
   return (
@@ -75,7 +77,7 @@ export default function MentionHeatmapChart({ data }: MentionHeatmapChartProps) 
         tooltip={({ cell }) => (
           <GlassChartTooltip accent="rgba(64, 110, 181, 0.3)">
             <strong className="text-chambray">{cell.serieId}</strong>
-            <div className="text-slate-600">
+            <div className="portal-sl-secondary">
               {cell.data.x}: {cell.formattedValue} mentions
             </div>
           </GlassChartTooltip>

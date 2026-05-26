@@ -68,7 +68,7 @@ export default function AdminLoginForm() {
         <h1 className={`mt-2 text-2xl text-chambray sm:text-3xl ${alkatra600.className}`}>
           Admin sign in
         </h1>
-        <p className={`mt-2 text-sm leading-relaxed text-slate-600 ${bricolage_grot500.className}`}>
+        <p className={`mt-2 text-sm leading-relaxed text-app-muted ${bricolage_grot500.className}`}>
           Enter your agency admin email. We&apos;ll send a secure magic link.
         </p>
 
@@ -127,7 +127,7 @@ export default function AdminLoginForm() {
         {devSignInUrl ? <DevSignInLink url={devSignInUrl} /> : null}
         {error ? <p className="admin-alert-error mt-4">{error}</p> : null}
 
-        <p className="mt-6 text-xs text-slate-500">
+        <p className="mt-6 text-xs text-app-muted">
           After signing in you&apos;ll return to {next === '/' ? 'the dashboard' : next}.
         </p>
       </div>

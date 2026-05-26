@@ -4,10 +4,11 @@ import { useCallback, useMemo } from 'react'
 import { ResponsiveStream, type StackTooltipProps } from '@nivo/stream'
 import SentimentFace from '@/components/social-listening/sentiment-face'
 import {
-  nivoTheme,
   sentimentStreamColors,
   sentimentStreamKeys,
 } from '@/components/social-listening/nivo-theme'
+import { useNivoTheme } from '@/components/social-listening/use-nivo-theme'
+import { useTheme } from 'next-themes'
 import { useIsMobileChart } from '@/components/social-listening/use-is-mobile-chart'
 import { usePrefersReducedMotion } from '@/components/social-listening/use-prefers-reduced-motion'
 import { SENTIMENT_LABELS } from '@/lib/social-listening/sentiment-meta'
@@ -30,6 +31,9 @@ const legendSentiments: SentimentId[] = ['positive', 'neutral', 'negative']
 export default function SentimentStreamChart({ data }: SentimentStreamChartProps) {
   const reducedMotion = usePrefersReducedMotion()
   const isMobile = useIsMobileChart()
+  const nivoTheme = useNivoTheme()
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === 'dark'
 
   const streamData = useMemo(
     () =>
@@ -51,7 +55,7 @@ export default function SentimentStreamChart({ data }: SentimentStreamChartProps
       ...nivoTheme,
       tooltip: {
         container: {
-          background: 'rgba(57, 65, 154, 0.92)',
+          background: isDark ? 'rgba(24, 30, 58, 0.95)' : 'rgba(57, 65, 154, 0.92)',
           color: '#ffffff',
           fontSize: 12,
           boxShadow: '0 8px 24px rgba(0, 0, 0, 0.18)',
@@ -60,7 +64,7 @@ export default function SentimentStreamChart({ data }: SentimentStreamChartProps
         },
       },
     }),
-    [],
+    [nivoTheme, isDark],
   )
 
   const stackTooltip = useCallback(
@@ -106,7 +110,7 @@ export default function SentimentStreamChart({ data }: SentimentStreamChartProps
         {legendSentiments.map((id) => (
           <li
             key={id}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/60 bg-white/70 px-2 py-1 text-xs font-medium text-chambray backdrop-blur-sm"
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-app bg-app-input px-2 py-1 text-xs font-medium text-app-heading backdrop-blur-sm"
           >
             <SentimentFace sentiment={id} size={18} />
             <span>{SENTIMENT_LABELS[id]}</span>

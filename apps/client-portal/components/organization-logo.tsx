@@ -40,7 +40,7 @@ export default function OrganizationLogo({
 
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-chambray/10 font-semibold text-chambray ${sizes.box}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-chambray/10 font-semibold text-chambray dark:bg-casablanca dark:text-chambray ${sizes.box}`}
       title={name}
       aria-label={`${name} (no logo uploaded)`}
     >

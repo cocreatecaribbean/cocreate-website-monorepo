@@ -100,7 +100,15 @@ function AdminShellChrome({ children }: { children: React.ReactNode }) {
               width={152}
               height={36}
               priority
-              className="h-auto w-full"
+              className="h-auto w-full dark:hidden"
+            />
+            <Image
+              src="/co_create_logo_hor_wht.svg"
+              alt="CoCreate Caribbean"
+              width={152}
+              height={36}
+              priority
+              className="hidden h-auto w-full dark:block"
             />
           </Link>
           <div className="h-11 w-11 shrink-0" aria-hidden />

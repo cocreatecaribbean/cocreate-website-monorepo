@@ -45,7 +45,7 @@ export default function SourceBreakdownPlatformStrip({
           ? 'text-sanmarino'
           : changeDown
             ? 'text-red-600'
-            : 'text-slate-500'
+            : 'portal-sl-secondary'
 
         return (
           <article
@@ -57,21 +57,21 @@ export default function SourceBreakdownPlatformStrip({
             </span>
             <div className="min-w-0 flex-1">
               <p
-                className={`text-xs font-semibold uppercase tracking-wide text-slate-500 ${bricolage_grot600.className}`}
+                className={`text-xs font-semibold uppercase tracking-wide portal-sl-secondary ${bricolage_grot600.className}`}
               >
                 {meta.name}
               </p>
               <p
-                className={`mt-1 text-lg tabular-nums text-chambray ${bricolage_grot700.className}`}
+                className={`portal-sl-kpi-value mt-1 text-lg tabular-nums ${bricolage_grot700.className}`}
               >
                 {(delta?.current ?? row.mentions).toLocaleString()}
-                <span className="ml-1.5 text-sm font-normal text-slate-500">
+                <span className="ml-1.5 text-sm font-normal portal-sl-secondary">
                   mentions
                 </span>
               </p>
               {compareMode && delta ? (
                 <>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs portal-sl-secondary">
                     Was {delta.baseline.toLocaleString()} on {baselineDate}
                   </p>
                   <p className={`mt-0.5 text-xs font-medium ${deltaClass}`}>
@@ -80,7 +80,7 @@ export default function SourceBreakdownPlatformStrip({
                   </p>
                 </>
               ) : (
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs portal-sl-secondary">
                   Share of voice for this channel
                 </p>
               )}
@@ -89,7 +89,7 @@ export default function SourceBreakdownPlatformStrip({
         )
       })}
       {compareMode && baselineDate && currentDate ? (
-        <p className="col-span-full text-center text-xs text-slate-400">
+        <p className="col-span-full text-center text-xs portal-sl-caption">
           Comparing {currentDate} to baseline {baselineDate}
         </p>
       ) : null}

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import ControlCenterApprovalsView from '@/components/control-center/control-center-approvals-view'
 import ControlCenterProjectsView from '@/components/control-center/control-center-projects-view'
 import PortalSectionPlaceholder from '@/components/portal/section-placeholder'
+import PortalSettingsPanel from '@/components/portal-settings-panel'
 import { ATTENTION_PAGE_PATH } from '@/lib/control-center/attention-items'
 import type { ControlCenterViewId } from '@/lib/control-center/nav'
 import { alkatra600, bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
@@ -14,7 +15,6 @@ import {
   FileText,
   FolderKanban,
   MessageSquare,
-  Settings,
   Sparkles,
 } from 'lucide-react'
 
@@ -90,13 +90,7 @@ export default function ControlCenterContent({
     case 'messages':
       return <MessagesSection />
     case 'settings':
-      return (
-        <PortalSectionPlaceholder
-          title="Settings"
-          description="Manage email notifications, default project view, and team access preferences."
-          icon={Settings}
-        />
-      )
+      return <SettingsSection />
     default:
       return <OverviewSection />
   }
@@ -119,8 +113,8 @@ function KpiGrid({ delayOffset = 0 }: { delayOffset?: number }) {
             <stat.icon className="h-5 w-5" aria-hidden />
           </div>
           <p className={`mt-4 text-2xl text-chambray ${bricolage_grot700.className}`}>{stat.value}</p>
-          <p className={`mt-1 text-sm text-slate-800 ${bricolage_grot600.className}`}>{stat.label}</p>
-          <p className="mt-0.5 text-xs text-slate-500">{stat.hint}</p>
+          <p className={`mt-1 text-sm text-app-primary ${bricolage_grot600.className}`}>{stat.label}</p>
+          <p className="mt-0.5 text-xs text-app-muted">{stat.hint}</p>
         </article>
       ))}
     </section>
@@ -137,7 +131,7 @@ function OverviewSection() {
           <h3 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
             What needs you today
           </h3>
-          <p className="mt-4 text-sm text-slate-600">
+          <p className="mt-4 text-sm text-app-muted">
             Open Approvals for reviews from your CoCreate team, or check{' '}
             <Link href={ATTENTION_PAGE_PATH} className="text-sanmarino hover:underline">
               items needing attention
@@ -160,9 +154,9 @@ function OverviewSection() {
           <ul className="mt-5 space-y-4">
             {ACTIVITY.map((item) => (
               <li key={item.title} className="border-b border-chambray/6 pb-4 last:border-0 last:pb-0">
-                <p className={`text-sm text-slate-900 ${bricolage_grot600.className}`}>{item.title}</p>
+                <p className={`text-sm text-app-primary ${bricolage_grot600.className}`}>{item.title}</p>
                 <p className="text-xs text-sanmarino">{item.project}</p>
-                <p className="mt-1 text-xs text-slate-500">{item.time}</p>
+                <p className="mt-1 text-xs text-app-muted">{item.time}</p>
               </li>
             ))}
           </ul>
@@ -177,7 +171,7 @@ function FilesSection() {
   return (
     <div className="space-y-6">
       <section className="portal-glass-card portal-animate-in overflow-hidden">
-        <div className="hidden border-b border-chambray/8 bg-white/40 px-5 py-3 text-xs font-medium tracking-wide text-slate-500 uppercase sm:grid sm:grid-cols-[1fr_140px_100px_80px] sm:gap-4">
+        <div className="hidden border-b border-chambray/8 bg-chambray/[0.03] px-5 py-3 text-xs font-medium tracking-wide text-app-muted uppercase dark:border-white/10 dark:bg-white/5 sm:grid sm:grid-cols-[1fr_140px_100px_80px] sm:gap-4">
           <span>File</span>
           <span>Project</span>
           <span>Updated</span>
@@ -200,9 +194,9 @@ function FilesSection() {
                 </p>
               </div>
               <p className="text-sm text-sanmarino sm:truncate">{file.project}</p>
-              <p className="text-xs text-slate-500">{file.updated}</p>
+              <p className="text-xs text-app-muted">{file.updated}</p>
               <div className="flex items-center justify-between gap-2 sm:justify-end">
-                <span className="text-xs text-slate-500">{file.size}</span>
+                <span className="text-xs text-app-muted">{file.size}</span>
                 <button
                   type="button"
                   className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sanmarino transition hover:bg-chambray/8 hover:text-chambray"
@@ -231,10 +225,10 @@ function ActivitySection() {
               className="flex flex-col gap-1 py-5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
             >
               <div>
-                <p className={`text-slate-900 ${bricolage_grot600.className}`}>{item.title}</p>
+                <p className={`text-app-primary ${bricolage_grot600.className}`}>{item.title}</p>
                 <p className="text-sm text-sanmarino">{item.project}</p>
               </div>
-              <p className="text-xs text-slate-500 sm:text-sm">{item.time}</p>
+              <p className="text-xs text-app-muted sm:text-sm">{item.time}</p>
             </li>
           ))}
         </ul>
@@ -257,7 +251,7 @@ function MessagesSection() {
           <h3 className={`mt-2 text-2xl text-chambray ${alkatra600.className}`}>
             Message CoCreate
           </h3>
-          <p className="mt-3 text-sm leading-relaxed text-slate-600">
+          <p className="mt-3 text-sm leading-relaxed text-app-muted">
             Questions about a deliverable, timeline, or approval? Your account team responds within
             one business day.
           </p>
@@ -268,7 +262,7 @@ function MessagesSection() {
         </div>
       </section>
       <section className="portal-surface-solid portal-animate-in portal-animate-in-delay-1 p-6">
-        <p className={`text-sm text-slate-600 ${bricolage_grot600.className}`}>
+        <p className={`text-sm text-app-muted ${bricolage_grot600.className}`}>
           Common topics
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -277,7 +271,7 @@ function MessagesSection() {
               <button
                 key={topic}
                 type="button"
-                className="rounded-full border border-chambray/10 bg-white px-4 py-2 text-sm text-chambray transition hover:border-sanmarino/30 hover:text-sanmarino"
+                className="portal-btn-ghost rounded-full px-4 py-2"
               >
                 {topic}
               </button>
@@ -290,9 +284,18 @@ function MessagesSection() {
   )
 }
 
+function SettingsSection() {
+  return (
+    <div className="space-y-6">
+      <PortalSettingsPanel />
+      <PreviewBanner />
+    </div>
+  )
+}
+
 function PreviewBanner() {
   return (
-    <p className="flex items-center justify-center gap-2 text-center text-xs tracking-wide text-slate-400 uppercase">
+    <p className="flex items-center justify-center gap-2 text-center text-xs tracking-wide text-app-muted uppercase">
       <Sparkles className="h-3.5 w-3.5 text-sanmarino" aria-hidden />
       Preview workspace · Live data coming soon
     </p>

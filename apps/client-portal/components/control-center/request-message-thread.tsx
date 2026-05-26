@@ -86,9 +86,9 @@ export default function RequestMessageThread({
 
   return (
     <div className="space-y-4">
-      <div className="max-h-80 space-y-3 overflow-y-auto rounded-xl border border-chambray/8 bg-white/40 p-4">
+      <div className="portal-thread-panel">
         {messages.length === 0 ? (
-          <p className="text-sm text-slate-500">No messages yet.</p>
+          <p className="text-sm text-app-muted">No messages yet.</p>
         ) : (
           messages.map((msg) => {
             const isMine =
@@ -105,7 +105,7 @@ export default function RequestMessageThread({
                 key={msg.id}
                 className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}
               >
-                <p className="text-[0.65rem] font-medium text-slate-500">
+                <p className="text-[0.65rem] font-medium text-app-muted">
                   {isMine
                     ? 'You'
                     : msg.authorRole === 'ADMIN'
@@ -128,9 +128,7 @@ export default function RequestMessageThread({
                 </p>
                 <div
                   className={`mt-1 max-w-[90%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
-                    isMine
-                      ? 'bg-sanmarino/15 text-chambray'
-                      : 'bg-chambray/8 text-slate-800'
+                    isMine ? 'portal-msg-mine' : 'portal-msg-theirs'
                   } ${bricolage_grot600.className}`}
                 >
                   {msg.messageKind === 'CHECKPOINT' ? (
@@ -140,7 +138,7 @@ export default function RequestMessageThread({
                   ) : null}
                   {msg.body}
                   {msg.supersededAt ? (
-                    <p className="mt-2 text-xs text-slate-500 italic">
+                    <p className="mt-2 text-xs text-app-muted italic">
                       Superseded by a newer review from CoCreate
                     </p>
                   ) : null}
@@ -205,9 +203,9 @@ export default function RequestMessageThread({
           </div>
         </form>
       ) : isClosed ? (
-        <p className="text-sm text-slate-500">This conversation is closed ({request.status}).</p>
+        <p className="text-sm text-app-muted">This conversation is closed ({request.status}).</p>
       ) : readOnly ? (
-        <p className="text-sm text-slate-500">Archived conversation (read only).</p>
+        <p className="text-sm text-app-muted">Archived conversation (read only).</p>
       ) : null}
     </div>
   )

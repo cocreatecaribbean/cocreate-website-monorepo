@@ -39,6 +39,8 @@ export default function ClientAccessManager() {
   const [clientEmail, setClientEmail] = useState('')
   const [enableSocialListening, setEnableSocialListening] = useState(false)
   const [logoUrl, setLogoUrl] = useState('')
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [logoFileName, setLogoFileName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -82,6 +84,44 @@ export default function ClientAccessManager() {
     void loadClients()
   }, [])
 
+  const onLogoChange = async (file: File | null) => {
+    if (!file) return
+    setLogoUploading(true)
+    setError(null)
+    try {
+      const urlRes = await fetchAdminBff<{
+        signedUrl?: string
+        publicUrl?: string
+      }>('/api/clients/logo/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType: file.type,
+          sizeBytes: file.size,
+        }),
+      })
+
+      if (!urlRes.signedUrl || !urlRes.publicUrl) {
+        throw new Error('Upload URL missing')
+      }
+
+      const upload = await fetch(urlRes.signedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      })
+      if (!upload.ok) throw new Error('Logo upload failed')
+
+      setLogoUrl(urlRes.publicUrl)
+      setLogoFileName(file.name)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not upload logo')
+    } finally {
+      setLogoUploading(false)
+    }
+  }
+
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSubmitting(true)
@@ -112,6 +152,7 @@ export default function ClientAccessManager() {
       setClientEmail('')
       setEnableSocialListening(false)
       setLogoUrl('')
+      setLogoFileName(null)
       if (payload.invitation?.devSignInUrl) {
         setDevSignInUrl(payload.invitation.devSignInUrl)
         setSuccess(
@@ -245,14 +286,38 @@ export default function ClientAccessManager() {
             className="admin-input"
           />
         </div>
-        <input
-          type="url"
-          value={logoUrl}
-          onChange={(event) => setLogoUrl(event.target.value)}
-          placeholder="Client logo URL (optional) — https://…"
-          className="admin-input"
-        />
-        <label className="flex cursor-pointer items-center gap-3 text-sm text-slate-700">
+        <div className="flex items-center gap-3">
+          <label className="admin-btn-ghost cursor-pointer text-sm">
+            {logoUploading ? 'Uploading…' : 'Upload client logo (optional)'}
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              disabled={logoUploading}
+              onChange={(e) => void onLogoChange(e.target.files?.[0] ?? null)}
+            />
+          </label>
+          {logoUrl && !logoUploading ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt="Logo preview"
+              className="h-8 w-auto max-w-[120px] rounded object-contain"
+            />
+          ) : logoFileName && !logoUploading ? (
+            <span className="text-sm text-app-muted">{logoFileName}</span>
+          ) : null}
+          {logoUrl ? (
+            <button
+              type="button"
+              onClick={() => { setLogoUrl(''); setLogoFileName(null) }}
+              className="text-xs text-app-muted hover:text-chambray"
+            >
+              Remove
+            </button>
+          ) : null}
+        </div>
+        <label className="flex cursor-pointer items-center gap-3 text-sm text-app-primary">
           <input
             type="checkbox"
             checked={enableSocialListening}
@@ -275,14 +340,14 @@ export default function ClientAccessManager() {
         <h2 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
           Client roster
         </h2>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-app-muted">
           Turn Social Listening on for test runs or comps. Optional Brand24 project ID
           is stored per client.
         </p>
         {loading ? (
-          <p className="mt-4 text-sm text-slate-500">Loading…</p>
+          <p className="mt-4 text-sm text-app-muted">Loading…</p>
         ) : clients.length === 0 ? (
-          <p className="mt-4 text-sm text-slate-500">No clients onboarded yet.</p>
+          <p className="mt-4 text-sm text-app-muted">No clients onboarded yet.</p>
         ) : (
           <ul className="mt-4 divide-y divide-chambray/6">
             {clients.map((client) => (
@@ -311,14 +376,14 @@ export default function ClientAccessManager() {
                   <div className="min-w-0">
                     <Link
                       href={`/clients/${client.id}`}
-                      className="font-medium text-slate-900 hover:text-sanmarino"
+                      className="font-medium text-app-primary hover:text-sanmarino"
                     >
                       {client.name}
                     </Link>
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-app-muted">
                       {client.primaryContact?.email ?? 'No contact'}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-app-muted">
                       {client.primaryContact
                         ? statusLabel[client.primaryContact.status] ??
                           client.primaryContact.status
@@ -355,7 +420,7 @@ export default function ClientAccessManager() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-                  <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-full border border-white/60 bg-white/50 px-4 py-2 text-sm text-slate-700 backdrop-blur-sm">
+                  <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-full border border-white/60 bg-white/50 px-4 py-2 text-sm text-app-primary backdrop-blur-sm">
                     <input
                       type="checkbox"
                       checked={client.isSocialListeningSubscriber}

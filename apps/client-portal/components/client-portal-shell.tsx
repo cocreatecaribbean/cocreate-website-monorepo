@@ -30,7 +30,7 @@ export default function ClientPortalShell({
             priority
           />
           <div className="flex items-center gap-2 sm:gap-3">
-            <p className="hidden max-w-44 truncate text-sm text-slate-600 lg:block">
+            <p className="hidden max-w-44 truncate text-sm text-app-muted dark:text-white/90 lg:block">
               {userEmail}
             </p>
             <Link href="/auth/signout" className="portal-btn-ghost">
@@ -45,15 +45,15 @@ export default function ClientPortalShell({
 
       <footer className="px-4 py-6 sm:px-6 lg:px-8">
         <div
-          className={`mx-auto flex w-full max-w-[88rem] flex-wrap items-center justify-between gap-3 text-sm text-slate-500 ${bricolage_grot500.className}`}
+          className={`mx-auto flex w-full max-w-[88rem] flex-wrap items-center justify-between gap-3 text-sm text-app-muted dark:text-white/80 ${bricolage_grot500.className}`}
         >
-          <p className="truncate lg:hidden">{userEmail}</p>
-          <p className="hidden text-xs uppercase tracking-[0.14em] text-slate-400 lg:block">
+          <p className="truncate lg:hidden dark:text-white/90">{userEmail}</p>
+          <p className="hidden text-xs uppercase tracking-[0.14em] text-app-muted dark:text-casablanca/90 lg:block">
             CoCreate Caribbean · Client Portal
           </p>
           <Link
             href="/auth/signout"
-            className="text-sanmarino transition hover:text-chambray"
+            className="text-sanmarino transition hover:text-chambray dark:text-casablanca dark:hover:text-white"
           >
             Sign out
           </Link>

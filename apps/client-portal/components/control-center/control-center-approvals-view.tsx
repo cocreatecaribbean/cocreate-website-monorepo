@@ -72,7 +72,7 @@ export default function ControlCenterApprovalsView() {
   }
 
   if (loading) {
-    return <p className="text-sm text-slate-500">Loading approvals…</p>
+    return <p className="text-sm text-app-muted">Loading approvals…</p>
   }
 
   return (
@@ -84,7 +84,7 @@ export default function ControlCenterApprovalsView() {
           className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
             tab === 'active'
               ? 'bg-sanmarino/15 text-chambray'
-              : 'text-slate-600 hover:bg-chambray/5'
+              : 'text-app-muted hover:bg-chambray/5'
           }`}
         >
           Awaiting your approval
@@ -96,7 +96,7 @@ export default function ControlCenterApprovalsView() {
           className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
             tab === 'history'
               ? 'bg-sanmarino/15 text-chambray'
-              : 'text-slate-600 hover:bg-chambray/5'
+              : 'text-app-muted hover:bg-chambray/5'
           }`}
         >
           History
@@ -107,7 +107,7 @@ export default function ControlCenterApprovalsView() {
       {tab === 'history' ? (
         history.length === 0 ? (
           <section className="portal-glass-card p-8 text-center">
-            <p className="text-sm text-slate-500">No approvals recorded yet.</p>
+            <p className="text-sm text-app-muted">No approvals recorded yet.</p>
           </section>
         ) : (
           <ul className="portal-glass-card divide-y divide-chambray/6 overflow-hidden">
@@ -116,7 +116,7 @@ export default function ControlCenterApprovalsView() {
                 <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>
                   {record.title}
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-app-muted">
                   {record.projectTitle ?? 'Project'} ·{' '}
                   {new Date(record.approvedAt).toLocaleString()}
                   {record.targetPhase
@@ -124,7 +124,7 @@ export default function ControlCenterApprovalsView() {
                     : ''}
                 </p>
                 {record.summary ? (
-                  <p className="mt-2 text-sm text-slate-600 line-clamp-2">{record.summary}</p>
+                  <p className="mt-2 text-sm text-app-muted line-clamp-2">{record.summary}</p>
                 ) : null}
                 <button
                   type="button"
@@ -139,7 +139,7 @@ export default function ControlCenterApprovalsView() {
         )
       ) : items.length === 0 ? (
         <section className="portal-glass-card p-8 text-center">
-          <p className="text-sm text-slate-500">Nothing waiting on your approval right now.</p>
+          <p className="text-sm text-app-muted">Nothing waiting on your approval right now.</p>
         </section>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,280px)_1fr]">
@@ -178,7 +178,7 @@ export default function ControlCenterApprovalsView() {
                   <p className={`text-lg text-chambray ${bricolage_grot600.className}`}>
                     {selected.title}
                   </p>
-                  <p className="text-sm text-slate-600">{selected.description}</p>
+                  <p className="text-sm text-app-muted">{selected.description}</p>
                 </div>
               </div>
               <RequestMessageThread
@@ -197,7 +197,7 @@ export default function ControlCenterApprovalsView() {
               />
             </section>
           ) : (
-            <p className="text-sm text-slate-500">Select an item to review and approve.</p>
+            <p className="text-sm text-app-muted">Select an item to review and approve.</p>
           )}
         </div>
       )}

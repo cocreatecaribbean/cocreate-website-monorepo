@@ -54,11 +54,11 @@ export default function ProjectStatusAttribution({
       <div className="flex flex-wrap items-center gap-2">
         <ProjectStatusBadge project={project} />
         {showPhase ? (
-          <span className="text-sm text-slate-500">{project.phase.replace(/_/g, ' ')}</span>
+          <span className="text-sm text-app-muted">{project.phase.replace(/_/g, ' ')}</span>
         ) : null}
       </div>
       {project.status === 'ACTIVE' && project.approvedAt ? (
-        <p className="text-xs text-emerald-800">
+        <p className="admin-info-text text-xs">
           {formatAttributionLine({
             verb: 'Onboarded',
             name: project.approvedByName,
@@ -68,7 +68,7 @@ export default function ProjectStatusAttribution({
           })}
         </p>
       ) : project.status === 'SUBMITTED' ? (
-        <p className="text-xs text-slate-500">Waiting for agency to onboard this project</p>
+        <p className="text-xs text-app-muted">Waiting for agency to onboard this project</p>
       ) : null}
       {project.status === 'COMPLETED' && project.completedAt ? (
         <p className="text-xs text-sanmarino">
@@ -102,13 +102,13 @@ export function ProjectTimeline({
 }) {
   if (!activities.length) return null
   return (
-    <section className="rounded-xl border border-chambray/8 bg-white/40 p-4">
+    <section className="admin-thread-panel max-h-none p-4">
       <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>{title}</p>
       <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto">
         {activities.map((item) => (
           <li key={item.id} className="border-b border-chambray/6 pb-2 last:border-0 last:pb-0">
-            <p className="text-sm text-slate-800">{item.summary ?? item.action}</p>
-            <p className="text-xs text-slate-500">
+            <p className="text-sm text-app-primary">{item.summary ?? item.action}</p>
+            <p className="text-xs text-app-muted">
               {formatTimelineActor(
                 item.actorName,
                 item.actorJobTitle,

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ThemeProvider } from '@/components/theme-provider'
 import {
   alkatra600,
   bricolage_grot400,
@@ -25,8 +26,10 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={fontVariables}>
-      <body className={`${bricolage_grot400.className} antialiased`}>{children}</body>
+    <html lang="en" className={fontVariables} suppressHydrationWarning>
+      <body className={`${bricolage_grot400.className} antialiased`}>
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   )
 }

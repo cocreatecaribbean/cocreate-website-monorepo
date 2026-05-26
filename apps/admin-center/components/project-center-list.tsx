@@ -44,11 +44,11 @@ export default function ProjectCenterList() {
       {error ? (
         <p className="px-6 py-4 text-sm text-red-700">{error}</p>
       ) : loading ? (
-        <p className="px-6 py-8 text-sm text-slate-500">Loading…</p>
+        <p className="px-6 py-8 text-sm text-app-muted">Loading…</p>
       ) : (
         <ul className="divide-y divide-chambray/6">
           {projects.length === 0 ? (
-            <li className="px-6 py-8 text-sm text-slate-500">No projects yet.</li>
+            <li className="px-6 py-8 text-sm text-app-muted">No projects yet.</li>
           ) : (
             projects.map((project) => (
               <li
@@ -60,10 +60,10 @@ export default function ProjectCenterList() {
                     <FolderKanban className="h-5 w-5" strokeWidth={1.75} />
                   </div>
                   <div className="min-w-0">
-                    <p className={`wrap-break-word text-slate-900 ${bricolage_grot600.className}`}>
+                    <p className={`wrap-break-word text-app-primary ${bricolage_grot600.className}`}>
                       {project.title}
                     </p>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-sm text-app-muted">
                       {project.organizationName ?? 'Client'}
                     </p>
                   </div>

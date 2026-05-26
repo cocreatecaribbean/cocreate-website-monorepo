@@ -111,7 +111,7 @@ export default function SocialListeningPanel({
       : 'Latest'
 
   return (
-    <div className="space-y-6">
+    <div className="portal-sl-region space-y-6">
       <section className="portal-glass-card portal-gradient-hero portal-shine-hover portal-animate-in relative overflow-hidden p-6 sm:p-8">
         <div
           className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-casablanca/25 blur-3xl"
@@ -125,18 +125,18 @@ export default function SocialListeningPanel({
           <div className="min-w-0 flex-1">
             <p className="portal-eyebrow">Analytics</p>
             <h2
-              className={`mt-2 bg-linear-to-r from-chambray via-sanmarino to-chambray bg-clip-text text-xl text-transparent sm:text-2xl ${alkatra600.className}`}
+              className={`brand-gradient-text mt-2 bg-linear-to-r from-chambray via-sanmarino to-chambray bg-clip-text text-xl text-transparent sm:text-2xl ${alkatra600.className}`}
             >
               Social Listening
             </h2>
             <p
-              className={`mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 ${bricolage_grot600.className}`}
+              className={`mt-2 max-w-2xl text-sm leading-relaxed portal-sl-secondary ${bricolage_grot600.className}`}
             >
               Tune into the global conversation. Use the sidebar to jump between mentions,
               summary, sources, and more. Pick a saved date to compare trends over time.
             </p>
           </div>
-          <span className="inline-flex shrink-0 items-center rounded-full border border-casablanca/40 bg-linear-to-r from-casablanca/35 to-sanmarino/15 px-3 py-1.5 text-xs font-semibold tracking-wide text-chambray uppercase shadow-sm backdrop-blur-md ring-1 ring-white/60">
+          <span className="portal-sl-hero-badge inline-flex shrink-0 items-center rounded-full border border-casablanca/40 bg-linear-to-r from-casablanca/35 to-sanmarino/15 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase shadow-sm backdrop-blur-md ring-1 ring-white/60 dark:from-casablanca/30 dark:to-casablanca/10 dark:ring-casablanca/25">
             {isMock ? 'Mock · per org' : 'Live'} · {snapshotLabel}
           </span>
         </div>
@@ -152,7 +152,7 @@ export default function SocialListeningPanel({
       />
 
       {loading ? (
-        <p className="text-center text-sm text-slate-500">Loading analytics…</p>
+        <p className="portal-sl-secondary text-center text-sm">Loading analytics…</p>
       ) : null}
 
       {notFound ? (
@@ -173,15 +173,21 @@ export default function SocialListeningPanel({
             organizationName={organizationName}
             mentionHint={mentionHint}
           >
-            {(activeView) => (
+            {(activeView, settingsOpen) => (
               <SocialListeningDashboard
                 data={analytics.data}
                 activeView={activeView}
+                settingsOpen={settingsOpen}
                 metaSource={analytics.meta.source}
                 compareDeltas={compare?.deltas ?? null}
                 comparePayload={compare}
                 compareBaselineDate={compare?.baseline.date}
                 compareCurrentDate={compare?.current.date}
+                onSetupComplete={() => {
+                  setAsOf(null)
+                  skipInitialLatestFetch.current = false
+                  void loadAnalytics()
+                }}
               />
             )}
           </SocialListeningLayout>

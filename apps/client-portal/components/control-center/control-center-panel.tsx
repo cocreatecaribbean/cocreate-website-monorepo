@@ -23,12 +23,12 @@ export default function ControlCenterPanel({ organizationName }: ControlCenterPa
         <div className="relative">
           <p className="portal-eyebrow">Workspace</p>
           <h2
-            className={`mt-2 bg-linear-to-r from-chambray via-sanmarino to-chambray bg-clip-text text-xl text-transparent sm:text-2xl ${alkatra600.className}`}
+            className={`brand-gradient-text mt-2 bg-linear-to-r from-chambray via-sanmarino to-chambray bg-clip-text text-xl text-transparent sm:text-2xl ${alkatra600.className}`}
           >
             Control Center
           </h2>
           <p
-            className={`mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 ${bricolage_grot600.className}`}
+            className={`mt-2 max-w-2xl text-sm leading-relaxed text-app-muted ${bricolage_grot600.className}`}
           >
             Projects, approvals, files, and messages in one place. Use the sidebar to jump
             straight to what you need.

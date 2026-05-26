@@ -19,6 +19,7 @@
     "@supabase/supabase-js": "^2.49.8",
     "lucide-react": "catalog:web",
     "next": "catalog:web",
+    "next-themes": "^0.4.6",
     "react": "catalog:react",
     "react-dom": "catalog:react"
   },

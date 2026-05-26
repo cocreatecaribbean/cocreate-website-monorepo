@@ -1,3 +1,5 @@
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
 
@@ -13,14 +15,24 @@ export default function CoCreateLogo({
   priority = false,
 }: CoCreateLogoProps) {
   const image = (
-    <Image
-      src="/co_create_logo_hor_blue.svg"
-      alt="CoCreate Caribbean"
-      width={140}
-      height={36}
-      className={className}
-      priority={priority}
-    />
+    <>
+      <Image
+        src="/co_create_logo_hor_blue.svg"
+        alt="CoCreate Caribbean"
+        width={140}
+        height={36}
+        className={`${className} dark:hidden`}
+        priority={priority}
+      />
+      <Image
+        src="/co_create_logo_hor_wht.svg"
+        alt="CoCreate Caribbean"
+        width={140}
+        height={36}
+        className={`${className} hidden dark:block`}
+        priority={priority}
+      />
+    </>
   )
 
   if (href) {

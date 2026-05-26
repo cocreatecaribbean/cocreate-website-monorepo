@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import AdminShell from '@/components/admin-shell'
+import { ThemeProvider } from '@/components/theme-provider'
 import {
   alkatra600,
   bricolage_grot400,
@@ -26,9 +27,11 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={fontVariables}>
+    <html lang="en" className={fontVariables} suppressHydrationWarning>
       <body className={`${bricolage_grot400.className} antialiased`}>
-        <AdminShell>{children}</AdminShell>
+        <ThemeProvider>
+          <AdminShell>{children}</AdminShell>
+        </ThemeProvider>
       </body>
     </html>
   )

@@ -21,11 +21,11 @@ export default async function ClientPortalHomePage() {
           <CoCreateLogo className="h-10 w-auto" priority />
           <p className="portal-eyebrow mt-8">CoCreate Caribbean</p>
           <h1 className={`portal-display mt-2 ${alkatra600.className}`}>Client Portal</h1>
-          <p className={`mt-4 text-base leading-relaxed text-slate-600 ${bricolage_grot500.className}`}>
+          <p className={`mt-4 text-base leading-relaxed text-app-muted ${bricolage_grot500.className}`}>
             Your project workspace — files, updates, approvals, and brand analytics in one
             place.
           </p>
-          <p className="mt-4 text-sm text-slate-500">
+          <p className="mt-4 text-sm text-app-muted">
             Sign in from the CoCreate website or use the link from your invitation email.
           </p>
           <Link href="/login" className="portal-btn-primary mt-8">
@@ -44,7 +44,7 @@ export default async function ClientPortalHomePage() {
           <div className="portal-glass-card p-8 sm:p-10">
             <p className="portal-eyebrow">Client Portal</p>
             <h1 className={`portal-display mt-2 ${alkatra600.className}`}>Service temporarily unavailable</h1>
-            <p className={`mt-4 text-base leading-relaxed text-slate-600 ${bricolage_grot500.className}`}>
+            <p className={`mt-4 text-base leading-relaxed text-app-muted ${bricolage_grot500.className}`}>
               We could not reach the API to load your workspace right now. Please try again in a
               moment. If you are running locally, make sure the API is running at{' '}
               <span className="font-medium">http://localhost:3001</span>.

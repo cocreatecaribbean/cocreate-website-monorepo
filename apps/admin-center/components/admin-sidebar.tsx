@@ -23,6 +23,7 @@ import {
   normalizeAdminPathname,
   type AdminNavId,
 } from '@/lib/admin-nav'
+import ThemeToggle from '@/components/theme-toggle'
 
 type NavItem = {
   id: AdminNavId
@@ -194,6 +195,10 @@ export default function AdminSidebar({
       ) : sessionLoading ? null : session?.mode === 'api_key' ? (
         <p className="mt-4 px-3 text-xs text-white/60">Dev API key access</p>
       ) : null}
+
+      <div className="mt-6 border-t border-white/10 pt-4">
+        <ThemeToggle variant="sidebar" />
+      </div>
 
       <button
         type="button"

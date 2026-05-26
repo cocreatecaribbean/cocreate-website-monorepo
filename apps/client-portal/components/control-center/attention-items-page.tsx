@@ -56,7 +56,7 @@ export default function AttentionItemsPage({ organizationName }: AttentionItemsP
           </Link>
           <p className="portal-eyebrow mt-6">Notifications</p>
           <h1
-            className={`mt-2 bg-linear-to-r from-chambray via-sanmarino to-chambray bg-clip-text text-xl text-transparent sm:text-2xl ${alkatra600.className}`}
+            className={`brand-gradient-text mt-2 bg-linear-to-r from-chambray via-sanmarino to-chambray bg-clip-text text-xl text-transparent sm:text-2xl ${alkatra600.className}`}
           >
             Items needing attention
           </h1>

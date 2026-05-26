@@ -1,5 +1,6 @@
 'use client'
 
+import { PORTAL_SETTINGS } from '@/lib/portal/nav'
 import {
   SOCIAL_LISTENING_NAV,
   SOCIAL_LISTENING_REPORTS,
@@ -13,6 +14,8 @@ import type { MentionSnapshotHint } from '@/lib/social-listening/mention-snapsho
 type SocialListeningSidebarProps = {
   activeView: SocialListeningViewId
   onSelectView: (view: SocialListeningViewId) => void
+  settingsActive: boolean
+  onOpenSettings: () => void
   organizationName?: string | null
   mentionHint?: MentionSnapshotHint
 }
@@ -52,9 +55,18 @@ function NavButton({
   )
 }
 
+const portalSettingsNavItem: SocialListeningNavItem = {
+  id: 'summary',
+  label: PORTAL_SETTINGS.label,
+  description: PORTAL_SETTINGS.description,
+  icon: PORTAL_SETTINGS.icon,
+}
+
 export default function SocialListeningSidebar({
   activeView,
   onSelectView,
+  settingsActive,
+  onOpenSettings,
   organizationName,
   mentionHint,
 }: SocialListeningSidebarProps) {
@@ -74,9 +86,10 @@ export default function SocialListeningSidebar({
           </p>
           <button
             type="button"
-            disabled
-            aria-label="Add project (coming soon)"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-casablanca/90 text-chambray opacity-60"
+            onClick={() => onSelectView('setup')}
+            aria-label="Create new listening setup"
+            title="New listening setup"
+            className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-casablanca/90 text-chambray transition hover:bg-casablanca hover:ring-2 hover:ring-casablanca/40"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden />
           </button>
@@ -104,17 +117,22 @@ export default function SocialListeningSidebar({
           <NavButton
             key={item.id}
             item={item}
-            active={activeView === item.id}
+            active={!settingsActive && activeView === item.id}
             onSelect={() => onSelectView(item.id)}
           />
         ))}
       </nav>
 
-      <div className="border-t border-white/10 px-2 py-3">
+      <div className="space-y-0.5 border-t border-white/10 px-2 py-3">
         <NavButton
           item={SOCIAL_LISTENING_REPORTS}
-          active={activeView === SOCIAL_LISTENING_REPORTS.id}
+          active={!settingsActive && activeView === SOCIAL_LISTENING_REPORTS.id}
           onSelect={() => onSelectView(SOCIAL_LISTENING_REPORTS.id)}
+        />
+        <NavButton
+          item={portalSettingsNavItem}
+          active={settingsActive}
+          onSelect={onOpenSettings}
         />
       </div>
     </aside>

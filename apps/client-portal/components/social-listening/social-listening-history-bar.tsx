@@ -36,14 +36,14 @@ export default function SocialListeningHistoryBar({
 
   return (
     <div
-      className={`flex flex-wrap items-end gap-4 rounded-xl border border-slate-200/80 bg-white/60 px-4 py-3 shadow-sm backdrop-blur-sm ${bricolage_grot600.className}`}
+      className={`flex flex-wrap items-end gap-4 rounded-xl border border-app bg-app-input px-4 py-3 shadow-sm backdrop-blur-sm ${bricolage_grot600.className}`}
     >
-      <label className="flex min-w-[10rem] flex-col gap-1 text-xs text-slate-600">
-        <span className="font-semibold uppercase tracking-wide text-slate-500">
+      <label className="flex min-w-[10rem] flex-col gap-1 text-xs text-app-muted">
+        <span className="font-semibold uppercase tracking-wide text-app-muted">
           View date
         </span>
         <select
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-chambray"
+          className="portal-input rounded-lg py-2 text-sm"
           value={asOf ?? ''}
           onChange={(e) => onAsOfChange(e.target.value || null)}
         >
@@ -56,10 +56,10 @@ export default function SocialListeningHistoryBar({
         </select>
       </label>
 
-      <label className="flex items-center gap-2 pb-2 text-sm text-slate-700">
+      <label className="flex items-center gap-2 pb-2 text-sm text-app-primary">
         <input
           type="checkbox"
-          className="size-4 rounded border-slate-300 text-sanmarino"
+          className="size-4 rounded border-app text-sanmarino"
           checked={compareEnabled}
           onChange={(e) => onCompareEnabledChange(e.target.checked)}
         />
@@ -67,12 +67,12 @@ export default function SocialListeningHistoryBar({
       </label>
 
       {compareEnabled ? (
-        <label className="flex min-w-[10rem] flex-col gap-1 text-xs text-slate-600">
-          <span className="font-semibold uppercase tracking-wide text-slate-500">
+        <label className="flex min-w-[10rem] flex-col gap-1 text-xs text-app-muted">
+          <span className="font-semibold uppercase tracking-wide text-app-muted">
             Baseline date
           </span>
           <select
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-chambray"
+            className="portal-input rounded-lg py-2 text-sm"
             value={compareBaseline ?? ''}
             onChange={(e) => onCompareBaselineChange(e.target.value || null)}
           >

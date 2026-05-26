@@ -110,7 +110,7 @@ function ControlCenterLayoutInner({
       <div className="portal-sl-main flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="mb-4 shrink-0 px-1 lg:px-2">
           <p className="portal-eyebrow">{activeMeta.label}</p>
-          <p className="mt-1 text-sm text-slate-600">{activeMeta.description}</p>
+          <p className="mt-1 text-sm text-app-muted">{activeMeta.description}</p>
         </header>
         <div className="min-h-0 flex-1">{children(activeView, projectsListKey)}</div>
       </div>
@@ -122,7 +122,7 @@ export default function ControlCenterLayout(props: ControlCenterLayoutProps) {
   return (
     <Suspense
       fallback={
-        <div className="py-12 text-center text-sm text-slate-500">Loading workspace…</div>
+        <div className="py-12 text-center text-sm text-app-muted">Loading workspace…</div>
       }
     >
       <ControlCenterLayoutInner {...props} />

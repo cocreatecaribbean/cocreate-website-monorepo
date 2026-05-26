@@ -5,11 +5,14 @@ import { useCallback, useEffect, useState } from 'react'
 import RequestMessageThread from '@/components/request-message-thread'
 import ProjectStatusAttribution, { ProjectTimeline } from '@/components/project-status-attribution'
 import AdminToast from '@/components/admin-toast'
+import MarkInboxReadOnView from '@/components/mark-inbox-read-on-view'
+import { useAdminSession } from '@/components/admin-session-provider'
 import {
   adminFetchErrorHint,
   AdminApiFetchError,
   fetchAdminBff,
 } from '@/lib/admin-api-fetch'
+import { fetchInboxUnreadCount, markInboxRead } from '@/lib/projects/inbox-unread'
 import type {
   ClientProjectSummary,
   ProjectActivityItem,
@@ -46,10 +49,13 @@ type ClientWorkspaceProps = {
 }
 
 export default function ClientWorkspace({ organizationId, initialTab = 'projects' }: ClientWorkspaceProps) {
+  const { session } = useAdminSession()
+  const canTrackUnread = session?.mode === 'user'
   const [tab, setTab] = useState<TabId>(initialTab)
   const [client, setClient] = useState<ClientRosterItem | null>(null)
   const [projects, setProjects] = useState<ClientProjectSummary[]>([])
   const [inbox, setInbox] = useState<ProjectRequestItem[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
   const [activity, setActivity] = useState<ProjectActivityItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -63,20 +69,34 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null)
   const [completingId, setCompletingId] = useState<string | null>(null)
 
+  const refreshUnreadCount = useCallback(async () => {
+    if (!canTrackUnread) {
+      setUnreadCount(0)
+      return
+    }
+    try {
+      setUnreadCount(await fetchInboxUnreadCount(organizationId))
+    } catch {
+      setUnreadCount(0)
+    }
+  }, [canTrackUnread, organizationId])
+
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const [roster, projectList, inboxList, activityList] = await Promise.all([
+      const [roster, projectList, inboxList, activityList, unread] = await Promise.all([
         fetchAdminBff<ClientRosterItem[]>('/api/clients'),
         fetchAdminBff<ClientProjectSummary[]>(`/api/clients/${organizationId}/projects`),
         fetchAdminBff<ProjectRequestItem[]>(`/api/clients/${organizationId}/inbox`),
         fetchAdminBff<ProjectActivityItem[]>(`/api/clients/${organizationId}/activity`),
+        canTrackUnread ? fetchInboxUnreadCount(organizationId) : Promise.resolve(0),
       ])
       setClient(roster.find((c) => c.id === organizationId) ?? null)
       setProjects(projectList)
       setInbox(inboxList)
       setActivity(activityList)
+      setUnreadCount(unread)
     } catch (err) {
       const message =
         err instanceof AdminApiFetchError
@@ -88,11 +108,23 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
     } finally {
       setLoading(false)
     }
-  }, [organizationId])
+  }, [canTrackUnread, organizationId])
 
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (tab !== 'inbox' || loading || !canTrackUnread) return
+    void (async () => {
+      try {
+        await markInboxRead(organizationId)
+        await refreshUnreadCount()
+      } catch {
+        /* non-blocking */
+      }
+    })()
+  }, [tab, loading, canTrackUnread, organizationId, refreshUnreadCount])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -249,7 +281,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
           {clientName}
         </h1>
         {client?.primaryContact ? (
-          <p className="mt-1 text-sm text-slate-500">{client.primaryContact.email}</p>
+          <p className="mt-1 text-sm text-app-muted">{client.primaryContact.email}</p>
         ) : null}
         <nav className="mt-4 flex flex-wrap gap-2">
           {(
@@ -267,6 +299,11 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                 key={item.id}
                 type="button"
                 onClick={() => setTab(item.id)}
+                aria-label={
+                  item.id === 'inbox' && unreadCount > 0
+                    ? `Inbox (${unreadCount} unread)`
+                    : item.label
+                }
                 className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition ${bricolage_grot600.className} ${
                   active
                     ? 'bg-chambray text-white'
@@ -275,8 +312,10 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
               >
                 <Icon className="h-3.5 w-3.5" aria-hidden />
                 {item.label}
-                {item.id === 'inbox' && inbox.length > 0 ? (
-                  <span className="rounded-full bg-casablanca/30 px-1.5 text-xs">{inbox.length}</span>
+                {item.id === 'inbox' && unreadCount > 0 ? (
+                  <span className="rounded-full bg-casablanca/30 px-1.5 text-xs tabular-nums">
+                    {unreadCount}
+                  </span>
                 ) : null}
               </button>
             )
@@ -295,11 +334,11 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         ) : null}
 
         {loading ? (
-          <p className="text-sm text-slate-500">Loading workspace…</p>
+          <p className="text-sm text-app-muted">Loading workspace…</p>
         ) : tab === 'overview' ? (
           <section className="admin-glass-card max-w-2xl p-6">
             <p className={`text-chambray ${bricolage_grot600.className}`}>Workspace summary</p>
-            <ul className="mt-4 space-y-2 text-sm text-slate-600">
+            <ul className="mt-4 space-y-2 text-sm text-app-muted">
               <li>
                 <span className="font-medium text-chambray">{projects.length}</span> projects
               </li>
@@ -311,13 +350,16 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
               </li>
               <li>
                 <span className="font-medium text-chambray">{inbox.length}</span> open inbox items
+                {unreadCount > 0 ? (
+                  <span className="text-app-muted"> · {unreadCount} unread</span>
+                ) : null}
               </li>
             </ul>
           </section>
         ) : tab === 'projects' ? (
           <div className="space-y-6">
             {projects.length === 0 ? (
-              <p className="text-sm text-slate-500">No projects yet.</p>
+              <p className="text-sm text-app-muted">No projects yet.</p>
             ) : (
               projects.map((project) => {
                 const onboarding = findThread(project, 'ONBOARDING')
@@ -340,7 +382,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                             </span>
                           ) : null}
                         </p>
-                        <p className="mt-1 line-clamp-2 text-sm text-slate-500">
+                        <p className="mt-1 line-clamp-2 text-sm text-app-muted">
                           {project.description}
                         </p>
                         <div className="mt-2">
@@ -391,7 +433,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                     </div>
 
                     {expanded ? (
-                      <div className="space-y-4 border-t border-chambray/6 bg-white/30 px-5 py-4 sm:px-6">
+                      <div className="space-y-4 border-t border-chambray/6 bg-chambray/[0.02] px-5 py-4 dark:border-white/8 dark:bg-white/5 sm:px-6">
                         {project.activities && project.activities.length > 0 ? (
                           <ProjectTimeline
                             activities={project.activities}
@@ -408,6 +450,9 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                             }
                             request={onboarding}
                             readOnly={onboardingClosed}
+                            organizationId={organizationId}
+                            markReadEnabled={canTrackUnread}
+                            onInboxMarked={() => void refreshUnreadCount()}
                             onSendMessage={(body) => sendAdminMessage(onboarding.id, body)}
                           />
                         ) : null}
@@ -416,6 +461,9 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                             title="Project progress"
                             subtitle="Progress checks and client replies"
                             request={progress}
+                            organizationId={organizationId}
+                            markReadEnabled={canTrackUnread}
+                            onInboxMarked={() => void refreshUnreadCount()}
                             onSendMessage={(body) => sendAdminMessage(progress.id, body)}
                           />
                         ) : null}
@@ -424,6 +472,9 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                             title="Cancellation"
                             subtitle={cancellation.cancellationOutcome ?? 'Open'}
                             request={cancellation}
+                            organizationId={organizationId}
+                            markReadEnabled={canTrackUnread}
+                            onInboxMarked={() => void refreshUnreadCount()}
                             onSendMessage={(body) => sendAdminMessage(cancellation.id, body)}
                             cancellationResolve={(payload) =>
                               resolveCancellation(cancellation.id, payload)
@@ -442,7 +493,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                 <p className={`text-chambray ${bricolage_grot600.className}`}>
                   Send progress check
                 </p>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-app-muted">
                   Client can approve or reply with changes. New checks replace the previous
                   pending approval.
                 </p>
@@ -493,7 +544,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         ) : tab === 'inbox' ? (
           <div className="space-y-4">
             {inbox.length === 0 ? (
-              <p className="text-sm text-slate-500">Inbox is clear.</p>
+              <p className="text-sm text-app-muted">Inbox is clear.</p>
             ) : (
               inbox.map((item) => (
                 <section key={item.id} className="admin-glass-card p-5">
@@ -501,8 +552,16 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                     {requestTypeLabel[item.type] ?? item.type}
                   </p>
                   <p className={`mt-1 text-chambray ${bricolage_grot600.className}`}>{item.title}</p>
-                  <p className="text-sm text-slate-500">{item.projectTitle}</p>
+                  <p className="text-sm text-app-muted">{item.projectTitle}</p>
                   <div className="mt-4">
+                    {canTrackUnread ? (
+                      <MarkInboxReadOnView
+                        organizationId={organizationId}
+                        requestId={item.id}
+                        enabled
+                        onMarked={() => void refreshUnreadCount()}
+                      />
+                    ) : null}
                     <RequestMessageThread
                       request={item}
                       viewerRole="ADMIN"
@@ -530,17 +589,17 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         ) : (
           <ul className="admin-glass-card divide-y divide-chambray/6 overflow-hidden">
             {activity.length === 0 ? (
-              <li className="px-6 py-8 text-sm text-slate-500">No activity yet.</li>
+              <li className="px-6 py-8 text-sm text-app-muted">No activity yet.</li>
             ) : (
               activity.map((item) => (
                 <li key={item.id} className="px-5 py-3 sm:px-6">
                   <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>
                     {item.projectTitle}
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-app-muted">
                     {item.summary ?? item.action}
                   </p>
-                  <p className="mt-0.5 text-xs text-slate-500">
+                  <p className="mt-0.5 text-xs text-app-muted">
                     {item.actorName ?? item.actorEmail} ·{' '}
                     {new Date(item.createdAt).toLocaleString()}
                   </p>
@@ -559,6 +618,9 @@ function ThreadPanel({
   subtitle,
   request,
   readOnly,
+  organizationId,
+  markReadEnabled,
+  onInboxMarked,
   onSendMessage,
   cancellationResolve,
 }: {
@@ -566,6 +628,9 @@ function ThreadPanel({
   subtitle: string
   request: ProjectRequestItem
   readOnly?: boolean
+  organizationId: string
+  markReadEnabled?: boolean
+  onInboxMarked?: () => void
   onSendMessage: (body: string) => Promise<{ ok: boolean; message?: string }>
   cancellationResolve?: (payload: {
     outcome: string
@@ -577,8 +642,16 @@ function ThreadPanel({
   return (
     <div className="rounded-xl border border-chambray/8 p-4">
       <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>{title}</p>
-      <p className="text-xs text-slate-500">{subtitle}</p>
+      <p className="text-xs text-app-muted">{subtitle}</p>
       <div className="mt-3">
+        {markReadEnabled ? (
+          <MarkInboxReadOnView
+            organizationId={organizationId}
+            requestId={request.id}
+            enabled
+            onMarked={onInboxMarked}
+          />
+        ) : null}
         <RequestMessageThread
           request={request}
           viewerRole="ADMIN"

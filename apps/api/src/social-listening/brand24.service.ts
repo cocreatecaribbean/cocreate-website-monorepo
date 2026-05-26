@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { randomUUID } from 'node:crypto'
 import type {
   SentimentId,
   SocialListeningAnalytics,
@@ -247,5 +248,72 @@ export class Brand24Service {
       reachVsEngagement,
       mentionMatrix,
     }
+  }
+
+  /** Map portal platform ids to BrandMentions active_sources values. */
+  mapPlatformsToActiveSources(platforms: string[]): string[] {
+    const mapped = new Set<string>()
+    for (const platform of platforms) {
+      if (platform === 'x') mapped.add('twitter')
+      else if (platform === 'forums') mapped.add('reddit')
+      else mapped.add(platform)
+    }
+    return [...mapped]
+  }
+
+  async addProject(params: {
+    keywords: { value: string; matchType: 'broad' | 'exact' }[]
+    activeSources: string[]
+    projectName?: string
+  }): Promise<{ projectId: string }> {
+    if (!params.keywords.length) {
+      throw new BadRequestException('At least one keyword is required')
+    }
+
+    if (!this.isLiveApiEnabled()) {
+      return { projectId: `mock-${randomUUID()}` }
+    }
+
+    const searchParams = new URLSearchParams({
+      api_key: this.apiKey!,
+      command: 'AddProject',
+      alert_frequency: 'day',
+    })
+
+    if (params.projectName?.trim()) {
+      searchParams.set('name', params.projectName.trim().slice(0, 120))
+    }
+
+    params.keywords.slice(0, 5).forEach((kw, index) => {
+      const n = index + 1
+      searchParams.set(`keyword${n}`, kw.value.trim())
+      searchParams.set(`match_type${n}`, kw.matchType)
+    })
+
+    for (const source of params.activeSources) {
+      searchParams.append('active_sources[]', source)
+    }
+
+    const response = await fetch(`${this.apiBase}?${searchParams.toString()}`)
+    if (!response.ok) {
+      throw new BadRequestException(`BrandMentions HTTP ${response.status}`)
+    }
+
+    const json = (await response.json()) as {
+      status?: string
+      project_id?: string
+      message?: string
+    }
+
+    if (json.status !== 'success' || !json.project_id) {
+      this.logger.warn(
+        `AddProject failed: ${json.message ?? JSON.stringify(json)}`,
+      )
+      throw new BadRequestException(
+        json.message ?? 'Could not create listening project',
+      )
+    }
+
+    return { projectId: String(json.project_id) }
   }
 }

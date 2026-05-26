@@ -13,6 +13,7 @@ import { ClientAuthGuard } from '../auth/guards/client-auth.guard'
 import type { ClientPortalRequest } from '../auth/guards/client-auth.guard'
 import { SocialListeningReportService } from '../social-listening/social-listening-report.service'
 import { SocialListeningService } from '../social-listening/social-listening.service'
+import { CreateListeningSetupDto } from '../social-listening/dto/create-listening-setup.dto'
 import { ClientPortalService } from './client-portal.service'
 
 @Controller('client-portal')
@@ -27,6 +28,18 @@ export class ClientPortalController {
   @UseGuards(ClientAuthGuard)
   me(@Req() request: ClientPortalRequest) {
     return this.clientPortalService.getSessionProfile(request.clientUser!)
+  }
+
+  @Post('social-listening/setup')
+  @UseGuards(ClientAuthGuard)
+  createSocialListeningSetup(
+    @Req() request: ClientPortalRequest,
+    @Body() dto: CreateListeningSetupDto,
+  ) {
+    return this.socialListeningService.createListeningSetupForClient(
+      request.clientUser!,
+      dto,
+    )
   }
 
   @Get('social-listening/analytics')

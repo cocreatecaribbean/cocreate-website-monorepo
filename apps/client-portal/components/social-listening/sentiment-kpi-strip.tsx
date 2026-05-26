@@ -34,7 +34,7 @@ function buildKpis(
       secondary: 'Across all tracked sources',
       deltaLine: deltas ? formatMetricDeltaLine(deltas.totalMentions) : undefined,
       accentBar: 'from-sanmarino via-casablanca to-chambray',
-      valueClass: 'text-chambray',
+      valueClass: 'portal-sl-kpi-value',
       sentiment: null,
     },
     {
@@ -43,7 +43,7 @@ function buildKpis(
       secondary: `${positive.toLocaleString()} mentions`,
       deltaLine: deltas ? formatMetricDeltaLine(deltas.positive, true) : undefined,
       accentBar: 'from-sanmarino to-casablanca',
-      valueClass: 'text-sanmarino',
+      valueClass: 'portal-sl-kpi-value-positive',
       sentiment: 'positive',
     },
     {
@@ -52,7 +52,7 @@ function buildKpis(
       secondary: `${negative.toLocaleString()} mentions`,
       deltaLine: deltas ? formatMetricDeltaLine(deltas.negative, true) : undefined,
       accentBar: 'from-chambray to-red-500',
-      valueClass: 'text-red-600',
+      valueClass: 'portal-sl-kpi-value-negative',
       sentiment: 'negative',
     },
     {
@@ -61,7 +61,7 @@ function buildKpis(
       secondary: `${neutral.toLocaleString()} mentions`,
       deltaLine: deltas ? formatMetricDeltaLine(deltas.neutral, true) : undefined,
       accentBar: 'from-slate-300 via-sanmarino/40 to-sanmarino/60',
-      valueClass: 'text-slate-600',
+      valueClass: 'portal-sl-kpi-value-neutral',
       sentiment: 'neutral',
     },
   ]
@@ -105,11 +105,7 @@ export default function SentimentKpiStrip({ data, deltas }: SentimentKpiStripPro
           />
 
           <div className="flex flex-1 flex-col gap-3 p-5 pt-4">
-            <p
-              className={`text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-slate-500 ${bricolage_grot600.className}`}
-            >
-              {kpi.label}
-            </p>
+            <p className={`portal-sl-label ${bricolage_grot600.className}`}>{kpi.label}</p>
 
             <div className="flex min-h-9 items-center gap-3">
               {kpi.sentiment ? (
@@ -122,10 +118,8 @@ export default function SentimentKpiStrip({ data, deltas }: SentimentKpiStripPro
               </p>
             </div>
 
-            <p className="text-xs leading-snug text-slate-500">{kpi.secondary}</p>
-            {kpi.deltaLine ? (
-              <p className="text-xs font-medium text-sanmarino">{kpi.deltaLine}</p>
-            ) : null}
+            <p className="portal-sl-caption leading-snug">{kpi.secondary}</p>
+            {kpi.deltaLine ? <p className="portal-sl-delta">{kpi.deltaLine}</p> : null}
           </div>
         </article>
       ))}

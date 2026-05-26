@@ -31,7 +31,7 @@ export default function PortalBrandHeader({
               size="md"
             />
             <span
-              className={`hidden truncate text-sm text-chambray lg:inline ${bricolage_grot600.className}`}
+              className={`hidden truncate text-sm text-chambray dark:text-white/90 lg:inline ${bricolage_grot600.className}`}
             >
               {organizationName}
             </span>

@@ -136,7 +136,7 @@ export default function ControlCenterProjectsView() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className={`text-sm text-slate-600 ${bricolage_grot600.className}`}>
+        <p className={`text-sm text-app-muted ${bricolage_grot600.className}`}>
           Submit new work for agency review. Approved projects become active.
         </p>
         <button
@@ -178,12 +178,12 @@ export default function ControlCenterProjectsView() {
             className="portal-input w-full resize-y"
           />
           <div>
-            <label className="text-sm text-slate-600">Attachments (optional)</label>
+            <label className="text-sm text-app-muted">Attachments (optional)</label>
             <input
               type="file"
               multiple
               onChange={(e) => setFiles(e.target.files)}
-              className="mt-2 block w-full text-sm text-slate-600"
+              className="mt-2 block w-full text-sm text-app-muted"
             />
           </div>
           <div className="flex gap-2">
@@ -202,7 +202,7 @@ export default function ControlCenterProjectsView() {
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-slate-500">Loading projects…</p>
+        <p className="text-sm text-app-muted">Loading projects…</p>
       ) : (
         <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
           {projects.map((project) => (
@@ -216,11 +216,11 @@ export default function ControlCenterProjectsView() {
                 </h3>
                 <ProjectStatusBadge project={project} />
               </div>
-              <p className="mt-2 line-clamp-3 text-sm text-slate-500">{project.description}</p>
+              <p className="mt-2 line-clamp-3 text-sm text-app-muted">{project.description}</p>
               <div className="mt-2">
                 <ProjectStatusAttribution project={project} variant="linesOnly" />
               </div>
-              <p className="mt-4 flex items-center gap-1.5 text-xs text-slate-500">
+              <p className="mt-4 flex items-center gap-1.5 text-xs text-app-muted">
                 <Calendar className="h-3.5 w-3.5" aria-hidden />
                 {new Date(project.updatedAt).toLocaleDateString()}
               </p>
@@ -245,7 +245,7 @@ export default function ControlCenterProjectsView() {
             </article>
           ))}
           {projects.length === 0 ? (
-            <p className="col-span-full text-sm text-slate-500">
+            <p className="col-span-full text-sm text-app-muted">
               No projects yet. Create one to get started.
             </p>
           ) : null}
@@ -324,7 +324,7 @@ function ProjectDetailView({
             <h3 className={`mt-1 text-xl text-chambray ${bricolage_grot700.className}`}>
               {project.title}
             </h3>
-            <p className="mt-2 text-sm text-slate-600">{project.description}</p>
+            <p className="mt-2 text-sm text-app-muted">{project.description}</p>
           </div>
           <ProjectStatusAttribution project={project} variant="detail" />
         </div>
@@ -343,7 +343,7 @@ function ProjectDetailView({
       {project.attachments && project.attachments.length > 0 ? (
         <section className="portal-glass-card p-6">
           <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>Files</p>
-          <ul className="mt-3 space-y-2 text-sm text-slate-600">
+          <ul className="mt-3 space-y-2 text-sm text-app-muted">
             {project.attachments.map((f) => (
               <li key={f.id} className="flex items-center gap-2">
                 <FolderKanban className="h-4 w-4 text-sanmarino" aria-hidden />
@@ -359,7 +359,7 @@ function ProjectDetailView({
           <p className={`text-chambray ${bricolage_grot600.className}`}>
             Onboarding conversation
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-app-muted">
             {onboardingClosed
               ? 'Closed after project was onboarded — kept for your records.'
               : 'Discussion before your project is accepted.'}
@@ -376,7 +376,7 @@ function ProjectDetailView({
       {progress && project.status !== 'SUBMITTED' ? (
         <section className="portal-glass-card p-6">
           <p className={`text-chambray ${bricolage_grot600.className}`}>Project progress</p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-app-muted">
             Updates, progress checks, and replies with CoCreate.
           </p>
           <div className="mt-4">
@@ -389,7 +389,7 @@ function ProjectDetailView({
         <section className="portal-glass-card p-6">
           <p className={`text-chambray ${bricolage_grot600.className}`}>Cancellation</p>
           {cancellation.cancellationOutcome ? (
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-app-muted">
               Outcome: {cancellation.cancellationOutcome.replace(/_/g, ' ').toLowerCase()}
               {cancellation.cancellationFeeAmount != null
                 ? ` · Fee: ${cancellation.cancellationFeeAmount}`
@@ -408,7 +408,7 @@ function ProjectDetailView({
       {canCancel && !cancellation ? (
         <section className="portal-glass-card border border-red-200/40 p-6">
           <p className={`text-chambray ${bricolage_grot600.className}`}>Request cancellation</p>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-app-muted">
             Tell CoCreate you wish to end this project. We will confirm any fees before it is
             cancelled.
           </p>

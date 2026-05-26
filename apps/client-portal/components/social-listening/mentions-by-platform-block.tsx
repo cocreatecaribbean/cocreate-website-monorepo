@@ -45,10 +45,10 @@ export default function MentionsByPlatformBlock({
       : description
 
   const viewSelect = (
-    <label className={`flex flex-col gap-1 text-xs text-slate-600 ${bricolage_grot600.className}`}>
-      <span className="font-semibold uppercase tracking-wide text-slate-500">View</span>
+    <label className={`flex flex-col gap-1 text-xs text-app-muted ${bricolage_grot600.className}`}>
+      <span className="font-semibold uppercase tracking-wide text-app-muted">View</span>
       <select
-        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-chambray"
+        className="portal-input rounded-lg py-2 text-sm"
         value={viewMode}
         onChange={(e) => setViewMode(e.target.value as PlatformMentionsViewMode)}
         aria-label="Mentions by platform view"
@@ -70,7 +70,7 @@ export default function MentionsByPlatformBlock({
         delayClass={delayClass}
         headerAction={viewSelect}
       >
-        <p className="py-12 text-center text-sm text-slate-500">
+        <p className="py-12 text-center text-sm portal-sl-secondary">
           No platform breakdown available for this snapshot.
         </p>
       </ChartCard>

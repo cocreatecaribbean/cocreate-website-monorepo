@@ -64,6 +64,64 @@ export async function fetchSocialListeningSnapshotDates(): Promise<string[]> {
   return json?.dates ?? []
 }
 
+export type CreateListeningSetupPayload = {
+  keywords: { value: string; matchType: 'broad' | 'exact' }[]
+  platforms: string[]
+  startDate: string
+  endDate: string
+}
+
+export async function createListeningSetup(
+  payload: CreateListeningSetupPayload,
+): Promise<
+  | {
+      ok: true
+      brand24ProjectId: string
+      snapshotsCaptured: number
+      startDate: string
+      endDate: string
+    }
+  | { ok: false; message: string }
+> {
+  const token = await getBrowserAccessToken()
+  if (!token) return { ok: false, message: 'Not signed in' }
+
+  const response = await fetch(`${apiBase()}/client-portal/social-listening/setup`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  const data = (await response.json().catch(() => ({}))) as {
+    message?: string
+    brand24ProjectId?: string
+    snapshotsCaptured?: number
+    startDate?: string
+    endDate?: string
+  }
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      message:
+        typeof data.message === 'string'
+          ? data.message
+          : `Setup failed (HTTP ${response.status})`,
+    }
+  }
+
+  return {
+    ok: true,
+    brand24ProjectId: data.brand24ProjectId ?? '',
+    snapshotsCaptured: data.snapshotsCaptured ?? 0,
+    startDate: data.startDate ?? payload.startDate,
+    endDate: data.endDate ?? payload.endDate,
+  }
+}
+
 export async function fetchSocialListeningCompare(options: {
   baseline: string
   current?: string

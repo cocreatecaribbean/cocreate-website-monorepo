@@ -6,8 +6,8 @@ import {
   FolderKanban,
   LayoutDashboard,
   MessageSquare,
-  Settings,
 } from 'lucide-react'
+import { PORTAL_SETTINGS } from '@/lib/portal/nav'
 
 export type ControlCenterViewId =
   | 'overview'
@@ -65,10 +65,10 @@ export const CONTROL_CENTER_NAV: ControlCenterNavItem[] = [
 ]
 
 export const CONTROL_CENTER_SETTINGS: ControlCenterNavItem = {
-  id: 'settings',
-  label: 'Settings',
-  description: 'Notifications and portal preferences',
-  icon: Settings,
+  id: PORTAL_SETTINGS.id,
+  label: PORTAL_SETTINGS.label,
+  description: PORTAL_SETTINGS.description,
+  icon: PORTAL_SETTINGS.icon,
 }
 
 const VALID_VIEWS = new Set<string>([

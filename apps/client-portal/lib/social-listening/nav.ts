@@ -15,6 +15,14 @@ export type SocialListeningViewId =
   | 'sources'
   | 'quotes'
   | 'reports'
+  | 'setup'
+
+/** Shown when opening the + shortcut (not in main nav list). */
+export const SOCIAL_LISTENING_SETUP = {
+  id: 'setup' as const,
+  label: 'New listening setup',
+  description: 'Configure keywords, platforms, and date range for mention tracking',
+}
 
 export type SocialListeningNavItem = {
   id: SocialListeningViewId
@@ -66,6 +74,7 @@ export const SOCIAL_LISTENING_REPORTS: SocialListeningNavItem = {
 const VALID_VIEWS = new Set<string>([
   ...SOCIAL_LISTENING_NAV.map((item) => item.id),
   SOCIAL_LISTENING_REPORTS.id,
+  SOCIAL_LISTENING_SETUP.id,
 ])
 
 export function parseSocialListeningView(

@@ -63,7 +63,7 @@ export default function ClientPortalLoginForm() {
         <h1 className={`mt-2 text-2xl text-chambray sm:text-3xl ${alkatra600.className}`}>
           Sign in
         </h1>
-        <p className={`mt-2 text-sm leading-relaxed text-slate-600 ${bricolage_grot500.className}`}>
+        <p className={`mt-2 text-sm leading-relaxed text-app-muted ${bricolage_grot500.className}`}>
           Enter the email address assigned by your CoCreate team.
         </p>
 
@@ -75,7 +75,7 @@ export default function ClientPortalLoginForm() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="you@company.com"
-            className="w-full rounded-full border border-chambray/12 bg-white/90 px-5 py-3 text-base shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sanmarino focus:ring-2 focus:ring-sanmarino/20"
+            className="portal-input rounded-full px-5 py-3 text-base"
           />
           <button
             type="submit"
@@ -124,7 +124,7 @@ export default function ClientPortalLoginForm() {
           </Link>
           <Link
             href="/auth/signout"
-            className="inline-flex w-fit text-slate-500 transition hover:text-chambray"
+            className="inline-flex w-fit text-app-muted transition hover:text-chambray"
           >
             Sign out
           </Link>

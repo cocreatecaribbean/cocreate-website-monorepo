@@ -14,7 +14,7 @@ export default function SuperAdminGate({ children }: { children: ReactNode }) {
 
   if (!isSuperAdminSession(session?.role ?? null)) {
     return (
-      <div className="admin-alert rounded-xl border border-chambray/10 bg-white px-4 py-4 text-sm text-chambray">
+      <div className="admin-glass-card px-4 py-4 text-sm text-chambray dark:text-app-heading">
         <p className="font-medium">Super admin access required</p>
         <p className="mt-2 text-slate-600">
           Only super admins can manage the agency job title list. Ask a super admin to update

@@ -3,7 +3,8 @@
 import { ResponsiveLine } from '@nivo/line'
 import ChartContainer from '@/components/social-listening/chart-container'
 import GlassChartTooltip from '@/components/social-listening/glass-tooltip'
-import { brandColors, lineSeriesColors, nivoTheme } from '@/components/social-listening/nivo-theme'
+import { brandColors, lineSeriesColors } from '@/components/social-listening/nivo-theme'
+import { useNivoTheme } from '@/components/social-listening/use-nivo-theme'
 import { useIsMobileChart } from '@/components/social-listening/use-is-mobile-chart'
 import { usePrefersReducedMotion } from '@/components/social-listening/use-prefers-reduced-motion'
 import type { ReachEngagementSeries } from '@/lib/social-listening/types'
@@ -33,6 +34,7 @@ const lineDefs = [
 
 export default function ReachEngagementLineChart({ data }: ReachEngagementLineChartProps) {
   const reducedMotion = usePrefersReducedMotion()
+  const nivoTheme = useNivoTheme()
   const isMobile = useIsMobileChart()
 
   const margin = isMobile
@@ -118,7 +120,7 @@ export default function ReachEngagementLineChart({ data }: ReachEngagementLineCh
             }
           >
             <strong className="text-chambray">{point.serieId}</strong>
-            <div className="text-slate-600">
+            <div className="portal-sl-secondary">
               {point.data.xFormatted}: {point.data.yFormatted}
             </div>
           </GlassChartTooltip>

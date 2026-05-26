@@ -76,7 +76,7 @@ export default function SocialListeningReportsPanel() {
           Export PDF presentations
         </h3>
         <p
-          className={`mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 ${bricolage_grot600.className}`}
+          className={`mt-2 max-w-2xl text-sm leading-relaxed text-app-muted ${bricolage_grot600.className}`}
         >
           Choose a template and snapshot date. Reports use saved snapshot data from
           your reporting period.
@@ -99,13 +99,13 @@ export default function SocialListeningReportsPanel() {
                   className={`w-full rounded-xl border px-4 py-3 text-left transition ${
                     active
                       ? 'border-sanmarino/50 bg-sanmarino/10 ring-1 ring-sanmarino/30'
-                      : 'border-slate-200/80 bg-white/50 hover:border-sanmarino/30'
+                      : 'border-app bg-app-input hover:border-sanmarino/30'
                   }`}
                 >
                   <p className={`text-sm font-semibold text-chambray ${bricolage_grot600.className}`}>
                     {template.label}
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">{template.description}</p>
+                  <p className="mt-1 text-xs text-app-muted">{template.description}</p>
                   <p className="mt-2 text-xs font-medium text-sanmarino">{template.pageHint}</p>
                 </button>
               )
@@ -118,12 +118,12 @@ export default function SocialListeningReportsPanel() {
             Options
           </h4>
 
-          <label className="flex flex-col gap-1 text-xs text-slate-600">
-            <span className="font-semibold uppercase tracking-wide text-slate-500">
+          <label className="flex flex-col gap-1 text-xs text-app-muted">
+            <span className="font-semibold uppercase tracking-wide text-app-muted">
               Snapshot date
             </span>
             <select
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-chambray"
+              className="portal-input rounded-lg py-2 text-sm"
               value={asOf ?? ''}
               onChange={(e) => setAsOf(e.target.value || null)}
             >
@@ -140,12 +140,12 @@ export default function SocialListeningReportsPanel() {
 
           {selectedTemplate?.supportsCompare ? (
             <>
-              <label className="flex flex-col gap-1 text-xs text-slate-600">
-                <span className="font-semibold uppercase tracking-wide text-slate-500">
+              <label className="flex flex-col gap-1 text-xs text-app-muted">
+                <span className="font-semibold uppercase tracking-wide text-app-muted">
                   Baseline date
                 </span>
                 <select
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-chambray"
+                  className="portal-input rounded-lg py-2 text-sm"
                   value={baseline ?? ''}
                   onChange={(e) => setBaseline(e.target.value || null)}
                 >
@@ -159,12 +159,12 @@ export default function SocialListeningReportsPanel() {
                     ))}
                 </select>
               </label>
-              <label className="flex flex-col gap-1 text-xs text-slate-600">
-                <span className="font-semibold uppercase tracking-wide text-slate-500">
+              <label className="flex flex-col gap-1 text-xs text-app-muted">
+                <span className="font-semibold uppercase tracking-wide text-app-muted">
                   Current date (optional)
                 </span>
                 <select
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-chambray"
+                  className="portal-input rounded-lg py-2 text-sm"
                   value={current ?? ''}
                   onChange={(e) => setCurrent(e.target.value || null)}
                 >

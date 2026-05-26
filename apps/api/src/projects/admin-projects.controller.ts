@@ -16,6 +16,7 @@ import { ResolveCancellationDto } from './dto/resolve-cancellation.dto'
 import { CreateRequestMessageDto } from './dto/create-request-message.dto'
 import { RegisterAttachmentDto } from './dto/register-attachment.dto'
 import { UpdateProjectDto } from './dto/update-project.dto'
+import { MarkInboxReadDto } from './dto/mark-inbox-read.dto'
 import { UpdateRequestDto } from './dto/update-request.dto'
 import { UploadUrlDto } from './dto/upload-url.dto'
 import { ProjectsService } from './projects.service'
@@ -144,6 +145,29 @@ export class AdminProjectsController {
   @Get('clients/:organizationId/inbox')
   listOrgInbox(@Param('organizationId') organizationId: string) {
     return this.projects.listInboxForOrganization(organizationId)
+  }
+
+  @Get('clients/:organizationId/inbox/unread-count')
+  inboxUnreadCount(
+    @Req() req: AdminRequest,
+    @Param('organizationId') organizationId: string,
+  ) {
+    if (!req.adminUser) throw new UnauthorizedException('Admin session required')
+    return this.projects.unreadInboxCountForAdmin(req.adminUser, organizationId)
+  }
+
+  @Post('clients/:organizationId/inbox/mark-read')
+  markInboxRead(
+    @Req() req: AdminRequest,
+    @Param('organizationId') organizationId: string,
+    @Body() dto: MarkInboxReadDto,
+  ) {
+    if (!req.adminUser) throw new UnauthorizedException('Admin session required')
+    return this.projects.markInboxReadForAdmin(
+      req.adminUser,
+      organizationId,
+      dto.requestId,
+    )
   }
 
   @Get('clients/:organizationId/activity')
