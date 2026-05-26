@@ -11,6 +11,8 @@ import { ClientsModule } from './clients/clients.module'
 import { ClientPortalModule } from './client-portal/client-portal.module'
 import { AdminsModule } from './admins/admins.module'
 import { NewsletterModule } from './newsletter/newsletter.module'
+import { ProjectsModule } from './projects/projects.module'
+import { UsersModule } from './users/users.module'
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { NewsletterModule } from './newsletter/newsletter.module'
     ClientPortalModule,
     AdminsModule,
     NewsletterModule,
+    ProjectsModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

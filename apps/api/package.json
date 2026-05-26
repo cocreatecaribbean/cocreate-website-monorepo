@@ -12,10 +12,12 @@
   },
   "dependencies": {
     "@cocreate/database": "workspace:*",
+    "@cocreate/social-listening-reports": "workspace:*",
     "@nestjs/common": "catalog:api",
     "@nestjs/config": "catalog:api",
     "@nestjs/core": "catalog:api",
     "@nestjs/platform-express": "catalog:api",
+    "@nestjs/schedule": "catalog:api",
     "@prisma/adapter-pg": "catalog:api",
     "@supabase/supabase-js": "^2.49.8",
     "class-transformer": "^0.5.1",

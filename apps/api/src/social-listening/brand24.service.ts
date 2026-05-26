@@ -6,7 +6,13 @@ import type {
   SocialPlatformId,
 } from './social-listening.types'
 import { SENTIMENT_COLORS } from './social-listening.types'
+import { endOfUtcDay } from './social-listening-dates'
 import { buildOrgScopedMockAnalytics } from './org-scoped-mock'
+
+export type Brand24FetchOptions = {
+  periodStart: Date
+  periodEnd: Date
+}
 
 type BrandMentionsMention = {
   sentiment?: string
@@ -54,21 +60,35 @@ export class Brand24Service {
   async fetchAnalytics(
     organizationId: string,
     brand24ProjectId: string | null,
+    options?: Brand24FetchOptions,
   ): Promise<{ data: SocialListeningAnalytics; source: 'brand24' | 'org_mock' }> {
     const projectKey = brand24ProjectId ?? organizationId
+    const periodEnd = options?.periodEnd ?? new Date()
+    const periodStart =
+      options?.periodStart ??
+      (() => {
+        const start = new Date(periodEnd)
+        start.setUTCDate(start.getUTCDate() - 6)
+        return start
+      })()
+    const mockOpts = { periodEnd: endOfUtcDay(periodEnd) }
 
     if (!this.isLiveApiEnabled() || !brand24ProjectId) {
       return {
-        data: buildOrgScopedMockAnalytics(organizationId, projectKey),
+        data: buildOrgScopedMockAnalytics(organizationId, projectKey, mockOpts),
         source: 'org_mock',
       }
     }
 
     try {
-      const mentions = await this.fetchProjectMentions(brand24ProjectId)
+      const mentions = await this.fetchProjectMentions(
+        brand24ProjectId,
+        periodStart,
+        periodEnd,
+      )
       if (!mentions.length) {
         return {
-          data: buildOrgScopedMockAnalytics(organizationId, projectKey),
+          data: buildOrgScopedMockAnalytics(organizationId, projectKey, mockOpts),
           source: 'org_mock',
         }
       }
@@ -81,25 +101,25 @@ export class Brand24Service {
         `Brand24 fetch failed: ${err instanceof Error ? err.message : err}`,
       )
       return {
-        data: buildOrgScopedMockAnalytics(organizationId, projectKey),
+        data: buildOrgScopedMockAnalytics(organizationId, projectKey, mockOpts),
         source: 'org_mock',
       }
     }
   }
 
-  private async fetchProjectMentions(projectId: string): Promise<BrandMentionsMention[]> {
-    const end = new Date()
-    const start = new Date()
-    start.setDate(start.getDate() - 7)
-
+  private async fetchProjectMentions(
+    projectId: string,
+    periodStart: Date,
+    periodEnd: Date,
+  ): Promise<BrandMentionsMention[]> {
     const params = new URLSearchParams({
       api_key: this.apiKey!,
       command: 'GetProjectMentions',
       project_id: projectId,
       per_page: '100',
       page: '1',
-      start_period: start.toISOString().slice(0, 10),
-      end_period: end.toISOString().slice(0, 10),
+      start_period: periodStart.toISOString().slice(0, 10),
+      end_period: periodEnd.toISOString().slice(0, 10),
     })
 
     const response = await fetch(`${this.apiBase}?${params.toString()}`)

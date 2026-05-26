@@ -1,0 +1,20 @@
+{
+  "name": "@cocreate/social-listening-reports",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@react-pdf/renderer": "^4.3.0",
+    "react": "catalog:react"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:tooling",
+    "@types/react": "catalog:react",
+    "typescript": "catalog:tooling"
+  }
+}

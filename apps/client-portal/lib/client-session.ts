@@ -22,10 +22,15 @@ export async function fetchClientPortalProfile(): Promise<ClientPortalProfile | 
   const token = await getAccessToken()
   if (!token) return null
 
-  const response = await fetch(`${apiBase()}/client-portal/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: 'no-store',
-  })
+  let response: Response
+  try {
+    response = await fetch(`${apiBase()}/client-portal/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    })
+  } catch {
+    return null
+  }
 
   if (!response.ok) return null
 

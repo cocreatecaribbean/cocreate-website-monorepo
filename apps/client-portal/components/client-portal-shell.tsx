@@ -22,7 +22,7 @@ export default function ClientPortalShell({
     <div className="flex min-h-svh flex-col">
       <div className="sticky top-0 z-40 px-4 pt-4 sm:px-6 lg:px-8">
         <header
-          className={`portal-surface mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 ${bricolage_grot500.className}`}
+          className={`portal-surface mx-auto flex w-full max-w-[88rem] items-center justify-between gap-4 px-4 py-3 sm:px-6 ${bricolage_grot500.className}`}
         >
           <PortalBrandHeader
             organizationName={organizationName}
@@ -45,7 +45,7 @@ export default function ClientPortalShell({
 
       <footer className="px-4 py-6 sm:px-6 lg:px-8">
         <div
-          className={`mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 text-sm text-slate-500 ${bricolage_grot500.className}`}
+          className={`mx-auto flex w-full max-w-[88rem] flex-wrap items-center justify-between gap-3 text-sm text-slate-500 ${bricolage_grot500.className}`}
         >
           <p className="truncate lg:hidden">{userEmail}</p>
           <p className="hidden text-xs uppercase tracking-[0.14em] text-slate-400 lg:block">

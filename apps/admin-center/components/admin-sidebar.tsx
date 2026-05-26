@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   LogOut,
   Shield,
+  UserCircle,
   Users,
   X,
   type LucideIcon,
@@ -46,6 +47,12 @@ const navItems: NavItem[] = [
     href: '/team',
     icon: Shield,
     match: (pathname) => pathname.startsWith('/team'),
+  },
+  {
+    label: 'Profile',
+    href: '/profile',
+    icon: UserCircle,
+    match: (pathname) => pathname.startsWith('/profile'),
   },
 ]
 
@@ -132,9 +139,20 @@ export default function AdminSidebar({
       </nav>
 
       {session?.email ? (
-        <p className="mt-4 truncate px-3 text-xs text-white/60" title={session.email}>
-          Signed in as {session.email}
-        </p>
+        <div className="mt-4 space-y-1 px-3">
+          <p className="truncate text-xs text-white/60" title={session.email}>
+            Signed in as {session.displayName ?? session.email}
+          </p>
+          {!session.profileComplete && session.mode === 'user' ? (
+            <Link
+              href="/profile"
+              onClick={onNavigate}
+              className="text-xs text-casablanca underline underline-offset-2"
+            >
+              Complete your profile
+            </Link>
+          ) : null}
+        </div>
       ) : sessionLoading ? null : session?.mode === 'api_key' ? (
         <p className="mt-4 px-3 text-xs text-white/60">Dev API key access</p>
       ) : null}

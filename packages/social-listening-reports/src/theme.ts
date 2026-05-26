@@ -1,0 +1,158 @@
+import { StyleSheet } from '@react-pdf/renderer'
+
+export const colors = {
+  chambray: '#2c4a7c',
+  sanmarino: '#406eb5',
+  casablanca: '#f5b84c',
+  positive: '#406eb5',
+  neutral: '#a8b8e8',
+  negative: '#d94f4f',
+  slate600: '#475569',
+  slate500: '#64748b',
+  slate200: '#e2e8f0',
+  white: '#ffffff',
+  pageBg: '#f8fafc',
+} as const
+
+export const theme = StyleSheet.create({
+  page: {
+    paddingTop: 48,
+    paddingBottom: 56,
+    paddingHorizontal: 48,
+    fontFamily: 'Helvetica',
+    fontSize: 10,
+    color: colors.chambray,
+    backgroundColor: colors.pageBg,
+  },
+  coverPage: {
+    paddingTop: 72,
+    paddingBottom: 56,
+    paddingHorizontal: 48,
+    backgroundColor: colors.chambray,
+    color: colors.white,
+    fontFamily: 'Helvetica',
+  },
+  coverEyebrow: {
+    fontSize: 9,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: colors.casablanca,
+    marginBottom: 12,
+  },
+  coverTitle: {
+    fontSize: 28,
+    fontFamily: 'Helvetica-Bold',
+    marginBottom: 8,
+  },
+  coverSubtitle: {
+    fontSize: 14,
+    color: '#c8d4ef',
+    marginBottom: 32,
+  },
+  coverMeta: {
+    fontSize: 10,
+    color: '#a8b8e8',
+    lineHeight: 1.6,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontFamily: 'Helvetica-Bold',
+    color: colors.chambray,
+    marginBottom: 4,
+  },
+  sectionDesc: {
+    fontSize: 9,
+    color: colors.slate500,
+    marginBottom: 16,
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 24,
+    left: 48,
+    right: 48,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    fontSize: 8,
+    color: colors.slate500,
+  },
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  kpiCard: {
+    width: '48%',
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.slate200,
+  },
+  kpiLabel: {
+    fontSize: 8,
+    color: colors.slate500,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  kpiValue: {
+    fontSize: 18,
+    fontFamily: 'Helvetica-Bold',
+    color: colors.chambray,
+  },
+  kpiSub: {
+    fontSize: 8,
+    color: colors.slate500,
+    marginTop: 2,
+  },
+  barRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  barLabel: {
+    width: 100,
+    fontSize: 9,
+    color: colors.chambray,
+  },
+  barTrack: {
+    flex: 1,
+    height: 10,
+    backgroundColor: colors.slate200,
+    borderRadius: 5,
+    marginHorizontal: 8,
+  },
+  barFill: {
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.sanmarino,
+  },
+  barValue: {
+    width: 48,
+    fontSize: 9,
+    textAlign: 'right',
+    color: colors.slate600,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.slate200,
+    paddingBottom: 6,
+    marginBottom: 6,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  cell: {
+    fontSize: 9,
+    color: colors.slate600,
+  },
+  cellBold: {
+    fontSize: 9,
+    fontFamily: 'Helvetica-Bold',
+    color: colors.chambray,
+  },
+})

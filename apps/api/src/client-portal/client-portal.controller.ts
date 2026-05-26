@@ -1,6 +1,17 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common'
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common'
+import type { Response } from 'express'
 import { ClientAuthGuard } from '../auth/guards/client-auth.guard'
 import type { ClientPortalRequest } from '../auth/guards/client-auth.guard'
+import { SocialListeningReportService } from '../social-listening/social-listening-report.service'
 import { SocialListeningService } from '../social-listening/social-listening.service'
 import { ClientPortalService } from './client-portal.service'
 
@@ -9,6 +20,7 @@ export class ClientPortalController {
   constructor(
     private readonly clientPortalService: ClientPortalService,
     private readonly socialListeningService: SocialListeningService,
+    private readonly socialListeningReports: SocialListeningReportService,
   ) {}
 
   @Get('me')
@@ -19,8 +31,70 @@ export class ClientPortalController {
 
   @Get('social-listening/analytics')
   @UseGuards(ClientAuthGuard)
-  socialListeningAnalytics(@Req() request: ClientPortalRequest) {
-    return this.socialListeningService.getAnalyticsForClient(request.clientUser!)
+  socialListeningAnalytics(
+    @Req() request: ClientPortalRequest,
+    @Query('asOf') asOf?: string,
+  ) {
+    return this.socialListeningService.getAnalyticsForClient(
+      request.clientUser!,
+      asOf,
+    )
+  }
+
+  @Get('social-listening/analytics/snapshots')
+  @UseGuards(ClientAuthGuard)
+  socialListeningSnapshotDates(
+    @Req() request: ClientPortalRequest,
+    @Query('limit') limit?: string,
+  ) {
+    return this.socialListeningService.listSnapshotDatesForClient(
+      request.clientUser!,
+      limit ? Number.parseInt(limit, 10) : undefined,
+    )
+  }
+
+  @Get('social-listening/reports/templates')
+  @UseGuards(ClientAuthGuard)
+  socialListeningReportTemplates() {
+    return this.socialListeningReports.listTemplates()
+  }
+
+  @Post('social-listening/reports/generate')
+  @UseGuards(ClientAuthGuard)
+  async socialListeningGenerateReport(
+    @Req() request: ClientPortalRequest,
+    @Res() res: Response,
+    @Query('templateId') templateId: string,
+    @Query('asOf') asOf?: string,
+    @Query('baseline') baseline?: string,
+    @Query('current') current?: string,
+  ) {
+    const { buffer, filename } =
+      await this.socialListeningReports.generatePdfForClient(
+        request.clientUser!,
+        templateId,
+        asOf,
+        baseline,
+        current,
+      )
+
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    res.send(buffer)
+  }
+
+  @Get('social-listening/analytics/compare')
+  @UseGuards(ClientAuthGuard)
+  socialListeningCompare(
+    @Req() request: ClientPortalRequest,
+    @Query('baseline') baseline: string,
+    @Query('current') current?: string,
+  ) {
+    return this.socialListeningService.compareForClient(
+      request.clientUser!,
+      baseline,
+      current,
+    )
   }
 
   /** @deprecated Use POST /client-portal/magic-link */

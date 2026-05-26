@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import { AuthService } from './auth.service'
 import { AdminAuthGuard, type AdminRequest } from './guards/admin-auth.guard'
 import { SupabaseAuthService } from '../clients/supabase-auth.service'
+import { AdminProfileService } from '../users/admin-profile.service'
 
 @Controller('auth/admin')
 export class AdminAuthController {
@@ -10,13 +11,15 @@ export class AdminAuthController {
     private readonly authService: AuthService,
     private readonly supabaseAuth: SupabaseAuthService,
     private readonly config: ConfigService,
+    private readonly adminProfiles: AdminProfileService,
   ) {}
 
   /** Current admin from Bearer token (or dev x-admin-key). */
   @Get('me')
   @UseGuards(AdminAuthGuard)
-  me(@Req() request: AdminRequest) {
+  async me(@Req() request: AdminRequest) {
     if (request.adminUser) {
+      const profile = await this.adminProfiles.getProfile(request.adminUser)
       return {
         ok: true as const,
         mode: 'user' as const,
@@ -25,6 +28,7 @@ export class AdminAuthController {
           email: request.adminUser.email,
           status: request.adminUser.status,
           role: request.adminUser.role,
+          profile,
         },
       }
     }

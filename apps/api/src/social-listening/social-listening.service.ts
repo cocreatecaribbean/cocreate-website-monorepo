@@ -1,19 +1,114 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import type { AuthenticatedClient } from '../auth/auth.service'
 import { Brand24Service } from './brand24.service'
-import type { SocialListeningAnalyticsResponse } from './social-listening.types'
+import { parseUtcDateOnly } from './social-listening-dates'
+import { SocialListeningSnapshotService } from './social-listening-snapshot.service'
+import type {
+  SocialListeningAnalyticsResponse,
+  SocialListeningCompareResponse,
+  SocialListeningSnapshotDatesResponse,
+} from './social-listening.types'
 
 @Injectable()
 export class SocialListeningService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly brand24: Brand24Service,
+    private readonly snapshots: SocialListeningSnapshotService,
   ) {}
 
   async getAnalyticsForClient(
     client: AuthenticatedClient,
+    asOf?: string,
   ): Promise<SocialListeningAnalyticsResponse> {
+    const organization = await this.requireSubscriberOrg(client)
+    await this.snapshots.ensureDemoSnapshots(organization)
+
+    if (asOf) {
+      const date = parseUtcDateOnly(asOf)
+      if (!date) {
+        throw new BadRequestException('asOf must be YYYY-MM-DD')
+      }
+      const snapshot = await this.snapshots.getSnapshot(organization, date)
+      if (!snapshot) {
+        throw new NotFoundException(`No snapshot for ${asOf}`)
+      }
+      return snapshot
+    }
+
+    if (this.snapshots.isEnabled()) {
+      const latestSnapshot = await this.snapshots.getSnapshot(organization)
+      if (latestSnapshot) return latestSnapshot
+
+      await this.snapshots.captureSnapshot(organization)
+      const saved = await this.snapshots.getSnapshot(organization)
+      if (saved) return saved
+    }
+
+    const { data, source } = await this.brand24.fetchAnalytics(
+      organization.id,
+      organization.brand24ProjectId,
+    )
+
+    return {
+      ok: true,
+      data,
+      meta: {
+        source,
+        organizationId: organization.id,
+        brand24ProjectId: organization.brand24ProjectId,
+        fetchedAt: new Date().toISOString(),
+        fromSnapshot: false,
+      },
+    }
+  }
+
+  async listSnapshotDatesForClient(
+    client: AuthenticatedClient,
+    limit?: number,
+  ): Promise<SocialListeningSnapshotDatesResponse> {
+    const organization = await this.requireSubscriberOrg(client)
+    await this.snapshots.ensureDemoSnapshots(organization)
+    const parsedLimit = limit ? Number.parseInt(String(limit), 10) : 90
+    const safeLimit =
+      Number.isFinite(parsedLimit) && parsedLimit > 0 && parsedLimit <= 365
+        ? parsedLimit
+        : 90
+    return this.snapshots.listSnapshotDates(organization.id, safeLimit)
+  }
+
+  async compareForClient(
+    client: AuthenticatedClient,
+    baseline: string,
+    current?: string,
+  ): Promise<SocialListeningCompareResponse> {
+    const organization = await this.requireSubscriberOrg(client)
+    await this.snapshots.ensureDemoSnapshots(organization)
+
+    const baselineDate = parseUtcDateOnly(baseline)
+    if (!baselineDate) {
+      throw new BadRequestException('baseline must be YYYY-MM-DD')
+    }
+
+    let currentDate: Date | undefined
+    if (current) {
+      const parsed = parseUtcDateOnly(current)
+      if (!parsed) {
+        throw new BadRequestException('current must be YYYY-MM-DD')
+      }
+      currentDate = parsed
+    }
+
+    return this.snapshots.compare(organization, baselineDate, currentDate)
+  }
+
+  private async requireSubscriberOrg(client: AuthenticatedClient) {
     const organizationId = client.organization?.id
     if (!organizationId) {
       throw new ForbiddenException('No organization linked to this account')
@@ -33,23 +128,11 @@ export class SocialListeningService {
     }
 
     if (!organization.isSocialListeningSubscriber) {
-      throw new ForbiddenException('Social Listening is not enabled for this organization')
+      throw new ForbiddenException(
+        'Social Listening is not enabled for this organization',
+      )
     }
 
-    const { data, source } = await this.brand24.fetchAnalytics(
-      organization.id,
-      organization.brand24ProjectId,
-    )
-
-    return {
-      ok: true,
-      data,
-      meta: {
-        source,
-        organizationId: organization.id,
-        brand24ProjectId: organization.brand24ProjectId,
-        fetchedAt: new Date().toISOString(),
-      },
-    }
+    return organization
   }
 }

@@ -30,6 +30,7 @@ function classifyAdminError(
     return 'admin_required'
   }
   if (status === 404 || status === 502 || status === 503) return 'api_unavailable'
+  if (status === 500 && /could not reach the api/i.test(message)) return 'api_unavailable'
   return 'unknown'
 }
 

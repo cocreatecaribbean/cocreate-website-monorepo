@@ -46,6 +46,10 @@
     @apply inline-flex items-center justify-center rounded-full bg-chambray px-6 py-3 text-sm font-semibold text-white transition hover:bg-sanmarino focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sanmarino;
   }
 
+  .portal-input {
+    @apply min-h-11 w-full rounded-xl border border-chambray/12 bg-white/80 px-4 py-2.5 text-sm text-chambray shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sanmarino/40 focus:ring-2 focus:ring-sanmarino/15;
+  }
+
   .portal-btn-ghost {
     @apply inline-flex items-center justify-center gap-2 rounded-full border border-chambray/12 bg-white/80 px-4 py-2 text-sm font-medium text-chambray backdrop-blur-sm transition hover:border-sanmarino/40 hover:bg-white;
   }
@@ -86,6 +90,27 @@
 
   .portal-shine-hover:hover::after {
     transform: translateX(100%);
+  }
+
+  /* Social listening: dark sidebar + content frame (Brand24-style nav, portal colors) */
+  .portal-sl-frame {
+    @apply rounded-[1.75rem] border border-chambray/10 bg-white/40 shadow-[0_16px_56px_rgba(57,65,154,0.1)] backdrop-blur-xl ring-1 ring-white/70;
+  }
+
+  .portal-sl-sidebar {
+    @apply rounded-l-[1.65rem] bg-linear-to-b from-chambray via-[#2f3678] to-[#252b63] text-white shadow-[inset_-1px_0_0_rgba(255,255,255,0.06)];
+  }
+
+  .portal-sl-mobile-nav {
+    @apply rounded-2xl bg-linear-to-r from-chambray via-[#2f3678] to-chambray p-1 shadow-[0_8px_28px_rgba(57,65,154,0.2)] ring-1 ring-chambray/20;
+  }
+
+  .portal-sl-main {
+    @apply p-4 sm:p-6 lg:border-l lg:border-chambray/8 lg:pl-6;
+  }
+
+  .portal-sl-shell {
+    @apply lg:min-h-[520px];
   }
 }
 

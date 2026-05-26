@@ -4,6 +4,7 @@ import type {
   SentimentId,
 } from './social-listening.types'
 import { SENTIMENT_COLORS } from './social-listening.types'
+import { formatUtcDateOnly } from './social-listening-dates'
 
 function hashSeed(input: string): number {
   let h = 0
@@ -23,9 +24,9 @@ function mulberry32(seed: number) {
   }
 }
 
-function isoDateDaysAgo(daysAgo: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() - daysAgo)
+function isoDateDaysBefore(anchor: Date, daysBefore: number): string {
+  const d = new Date(anchor)
+  d.setUTCDate(d.getUTCDate() - daysBefore)
   return d.toISOString().slice(0, 10)
 }
 
@@ -43,12 +44,21 @@ const TIME_BLOCKS = ['12am-6am', '6am-12pm', '12pm-6pm', '6pm-12am']
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
 const CHART_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
+export type OrgScopedMockOptions = {
+  /** End of the analytics window (defaults to now) */
+  periodEnd?: Date
+}
+
 /** Per-tenant mock until Brand24 subscription + API key are live. */
 export function buildOrgScopedMockAnalytics(
   organizationId: string,
   projectId?: string | null,
+  options?: OrgScopedMockOptions,
 ): SocialListeningAnalytics {
-  const seed = hashSeed(`${organizationId}:${projectId ?? ''}`)
+  const periodEnd = options?.periodEnd ?? new Date()
+  const seed = hashSeed(
+    `${organizationId}:${projectId ?? ''}:${formatUtcDateOnly(periodEnd)}`,
+  )
   const rand = mulberry32(seed)
 
   const scale = 0.55 + rand() * 0.9
@@ -63,7 +73,7 @@ export function buildOrgScopedMockAnalytics(
   ]
 
   const sentimentOverTime = Array.from({ length: 7 }, (_, i) => ({
-    date: isoDateDaysAgo(6 - i),
+    date: isoDateDaysBefore(periodEnd, 6 - i),
     positive: Math.round(positive / 14 + rand() * 40),
     neutral: Math.round(neutral / 14 + rand() * 60),
     negative: Math.round(negative / 14 + rand() * 15),

@@ -4,18 +4,24 @@ import SentimentFace from '@/components/social-listening/sentiment-face'
 import { formatPercent } from '@/components/social-listening/nivo-theme'
 import { SENTIMENT_LABELS } from '@/lib/social-listening/sentiment-meta'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
+import { formatMetricDeltaLine } from '@/lib/social-listening/format-compare-delta'
+import type { SocialListeningMetricDelta } from '@/lib/social-listening/api-types'
 import type { SentimentId, SocialListeningAnalytics } from '@/lib/social-listening/types'
 
 type KpiItem = {
   label: string
   primary: string
   secondary: string
+  deltaLine?: string
   accentBar: string
   valueClass: string
   sentiment: SentimentId | null
 }
 
-function buildKpis(data: SocialListeningAnalytics): KpiItem[] {
+function buildKpis(
+  data: SocialListeningAnalytics,
+  deltas?: SocialListeningCompareDeltas | null,
+): KpiItem[] {
   const total = data.sentimentSummary.reduce((sum, s) => sum + s.value, 0)
   const positive = data.sentimentSummary.find((s) => s.id === 'positive')?.value ?? 0
   const negative = data.sentimentSummary.find((s) => s.id === 'negative')?.value ?? 0
@@ -26,6 +32,7 @@ function buildKpis(data: SocialListeningAnalytics): KpiItem[] {
       label: 'Total mentions',
       primary: total.toLocaleString(),
       secondary: 'Across all tracked sources',
+      deltaLine: deltas ? formatMetricDeltaLine(deltas.totalMentions) : undefined,
       accentBar: 'from-sanmarino via-casablanca to-chambray',
       valueClass: 'text-chambray',
       sentiment: null,
@@ -34,6 +41,7 @@ function buildKpis(data: SocialListeningAnalytics): KpiItem[] {
       label: SENTIMENT_LABELS.positive,
       primary: formatPercent(positive, total),
       secondary: `${positive.toLocaleString()} mentions`,
+      deltaLine: deltas ? formatMetricDeltaLine(deltas.positive, true) : undefined,
       accentBar: 'from-sanmarino to-casablanca',
       valueClass: 'text-sanmarino',
       sentiment: 'positive',
@@ -42,6 +50,7 @@ function buildKpis(data: SocialListeningAnalytics): KpiItem[] {
       label: SENTIMENT_LABELS.negative,
       primary: formatPercent(negative, total),
       secondary: `${negative.toLocaleString()} mentions`,
+      deltaLine: deltas ? formatMetricDeltaLine(deltas.negative, true) : undefined,
       accentBar: 'from-chambray to-red-500',
       valueClass: 'text-red-600',
       sentiment: 'negative',
@@ -50,11 +59,19 @@ function buildKpis(data: SocialListeningAnalytics): KpiItem[] {
       label: SENTIMENT_LABELS.neutral,
       primary: formatPercent(neutral, total),
       secondary: `${neutral.toLocaleString()} mentions`,
+      deltaLine: deltas ? formatMetricDeltaLine(deltas.neutral, true) : undefined,
       accentBar: 'from-slate-300 via-sanmarino/40 to-sanmarino/60',
       valueClass: 'text-slate-600',
       sentiment: 'neutral',
     },
   ]
+}
+
+type SocialListeningCompareDeltas = {
+  totalMentions: SocialListeningMetricDelta
+  positive: SocialListeningMetricDelta
+  neutral: SocialListeningMetricDelta
+  negative: SocialListeningMetricDelta
 }
 
 const STAGGER = [
@@ -66,10 +83,11 @@ const STAGGER = [
 
 type SentimentKpiStripProps = {
   data: SocialListeningAnalytics
+  deltas?: SocialListeningCompareDeltas | null
 }
 
-export default function SentimentKpiStrip({ data }: SentimentKpiStripProps) {
-  const kpis = buildKpis(data)
+export default function SentimentKpiStrip({ data, deltas }: SentimentKpiStripProps) {
+  const kpis = buildKpis(data, deltas)
 
   return (
     <section
@@ -105,6 +123,9 @@ export default function SentimentKpiStrip({ data }: SentimentKpiStripProps) {
             </div>
 
             <p className="text-xs leading-snug text-slate-500">{kpi.secondary}</p>
+            {kpi.deltaLine ? (
+              <p className="text-xs font-medium text-sanmarino">{kpi.deltaLine}</p>
+            ) : null}
           </div>
         </article>
       ))}

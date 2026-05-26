@@ -2,18 +2,12 @@
 
 import { Suspense, useCallback } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import ControlCenterPanel from '@/components/control-center/control-center-panel'
 import OrganizationLogo from '@/components/organization-logo'
 import SocialListeningPanel from '@/components/social-listening/social-listening-panel'
-import type { SocialListeningAnalyticsPayload } from '@/lib/social-listening/fetch-analytics'
+import type { SocialListeningAnalyticsPayload } from '@/lib/social-listening/api-types'
 import { alkatra600, bricolage_grot500, bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
-import {
-  CheckCircle2,
-  FileText,
-  FolderKanban,
-  MessageSquare,
-  Radio,
-  Sparkles,
-} from 'lucide-react'
+import { CheckCircle2, Radio } from 'lucide-react'
 
 type TabId = 'control-center' | 'social-listening'
 
@@ -79,8 +73,15 @@ function ClientPortalDashboardContent({
     [pathname, router, searchParams],
   )
 
+  const useWideLayout =
+    activeTab === 'social-listening' || activeTab === 'control-center'
+
   return (
-    <main className="relative mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <main
+      className={`relative mx-auto w-full px-4 py-8 sm:px-6 sm:py-10 lg:px-8 ${
+        useWideLayout ? 'max-w-[88rem]' : 'max-w-6xl'
+      }`}
+    >
       <div className="pointer-events-none absolute inset-0 flex items-start justify-center pt-8 opacity-[0.04]">
         <div className="h-48 w-48 rounded-full bg-chambray blur-3xl" />
       </div>
@@ -145,9 +146,12 @@ function ClientPortalDashboardContent({
 
         <div className="mt-6" role="tabpanel">
           {activeTab === 'control-center' ? (
-            <ControlCenterPanel />
+            <ControlCenterPanel organizationName={organizationName} />
           ) : hasSocialListening && socialListeningAnalytics ? (
-            <SocialListeningPanel analytics={socialListeningAnalytics} />
+            <SocialListeningPanel
+              initialAnalytics={socialListeningAnalytics}
+              organizationName={organizationName}
+            />
           ) : hasSocialListening ? (
             <p className="text-sm text-slate-500">
               Unable to load analytics. Try refreshing or contact CoCreate support.
@@ -158,119 +162,6 @@ function ClientPortalDashboardContent({
         </div>
       </div>
     </main>
-  )
-}
-
-function ControlCenterPanel() {
-  const stats = [
-    {
-      label: 'Active projects',
-      value: '2',
-      hint: '1 awaiting your review',
-      icon: FolderKanban,
-      accent: 'bg-sanmarino/10 text-sanmarino',
-    },
-    {
-      label: 'Pending approvals',
-      value: '3',
-      hint: 'Due this week',
-      icon: CheckCircle2,
-      accent: 'bg-casablanca/15 text-chambray',
-    },
-    {
-      label: 'Shared files',
-      value: '14',
-      hint: 'Last upload yesterday',
-      icon: FileText,
-      accent: 'bg-chambray/10 text-chambray',
-    },
-  ]
-
-  const activity = [
-    {
-      title: 'Brand guidelines v2 ready for review',
-      project: 'Island Fresh rebrand',
-      time: '2 hours ago',
-    },
-    {
-      title: 'Q2 campaign storyboard uploaded',
-      project: 'Tourism board social',
-      time: 'Yesterday',
-    },
-    {
-      title: 'Kickoff notes and timeline shared',
-      project: 'Portal onboarding',
-      time: '3 days ago',
-    },
-  ]
-
-  return (
-    <div className="space-y-6">
-      <section className="grid gap-4 sm:grid-cols-3">
-        {stats.map((stat) => (
-          <article key={stat.label} className="portal-surface-solid relative overflow-hidden p-5">
-            <div
-              className={`absolute inset-x-0 top-0 h-0.5 bg-linear-to-r from-sanmarino/60 to-chambray/40`}
-              aria-hidden
-            />
-            <div className={`mt-1 inline-flex rounded-2xl p-2.5 ${stat.accent}`}>
-              <stat.icon className="h-5 w-5" aria-hidden />
-            </div>
-            <p className={`mt-4 text-2xl text-chambray ${bricolage_grot700.className}`}>
-              {stat.value}
-            </p>
-            <p className={`mt-1 text-sm text-slate-800 ${bricolage_grot600.className}`}>
-              {stat.label}
-            </p>
-            <p className="mt-0.5 text-xs text-slate-500">{stat.hint}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="portal-surface-solid p-6 sm:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="portal-eyebrow">Workspace</p>
-            <h2 className={`mt-2 text-lg text-chambray sm:text-xl ${bricolage_grot600.className}`}>
-              Project workspace
-            </h2>
-            <p className="mt-1 text-sm leading-relaxed text-slate-600">
-              Files, updates, and approvals from your CoCreate team will appear here.
-            </p>
-          </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50/90 px-3 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200/80">
-            <Sparkles className="h-3.5 w-3.5" aria-hidden />
-            Preview
-          </span>
-        </div>
-
-        <ul className="mt-6 divide-y divide-chambray/6">
-          {activity.map((item) => (
-            <li
-              key={item.title}
-              className="flex flex-col gap-1 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div>
-                <p className={`text-slate-900 ${bricolage_grot600.className}`}>{item.title}</p>
-                <p className="text-sm text-sanmarino">{item.project}</p>
-              </div>
-              <p className="text-xs text-slate-500 sm:text-sm">{item.time}</p>
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-8 grid gap-3 sm:grid-cols-2">
-          <button type="button" className="portal-btn-ghost min-h-11 px-5 py-3">
-            <FileText className="h-4 w-4" aria-hidden />
-            View deliverables
-          </button>
-          <button type="button" className="portal-btn-primary min-h-11 gap-2">
-            <MessageSquare className="h-4 w-4" aria-hidden />
-            Message your team
-          </button>
-        </div>
-      </section>
-    </div>
   )
 }
 

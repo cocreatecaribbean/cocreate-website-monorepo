@@ -70,6 +70,7 @@ catalogs:
     "@nestjs/config": "4.0.3"
     "@nestjs/core": "11.1.23"
     "@nestjs/platform-express": "11.1.23"
+    "@nestjs/schedule": "6.0.1"
     "@nestjs/cli": "11.0.21"
     "@nestjs/schematics": "11.0.9"
     "@prisma/adapter-pg": "7.8.0"

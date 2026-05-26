@@ -19,6 +19,8 @@ type AdminSession = {
   mode: 'user' | 'api_key'
   email: string | null
   status: string | null
+  displayName?: string | null
+  profileComplete?: boolean
 }
 
 type AdminSessionContextValue = {
@@ -54,7 +56,14 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
       const data = await fetchAdminBff<{
         ok?: boolean
         mode?: 'user' | 'api_key'
-        admin?: { email: string; status: string } | null
+        admin?: {
+          email: string
+          status: string
+          profile?: {
+            displayName?: string | null
+            profileComplete?: boolean
+          }
+        } | null
       }>('/api/session')
 
       if (data.mode === 'api_key') {
@@ -67,6 +76,8 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
           mode: 'user',
           email: data.admin.email,
           status: data.admin.status,
+          displayName: data.admin.profile?.displayName ?? null,
+          profileComplete: data.admin.profile?.profileComplete ?? false,
         })
         return
       }

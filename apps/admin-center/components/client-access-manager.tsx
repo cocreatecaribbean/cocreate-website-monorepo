@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { FormEvent, useEffect, useState } from 'react'
 import AdminToast from '@/components/admin-toast'
 import DevSignInLink from '@/components/dev-sign-in-link'
@@ -163,7 +164,7 @@ export default function ClientAccessManager() {
       if (!response.ok) {
         throw new Error(getApiErrorMessage(data, 'Failed to save Brand24 project ID'))
       }
-      setSuccess('Brand24 project ID saved. Client charts use org-specific mock data until live API is enabled.')
+      setSuccess('Brand24 project ID saved.')
       await loadClients({ silent: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save Brand24 project ID')
@@ -276,9 +277,7 @@ export default function ClientAccessManager() {
         </h2>
         <p className="mt-1 text-sm text-slate-500">
           Turn Social Listening on for test runs or comps. Optional Brand24 project ID
-          is stored per client — charts use org-specific mock data until{' '}
-          <code className="rounded bg-chambray/5 px-1 text-xs">BRAND24_USE_LIVE_API=true</code>{' '}
-          and your subscription key are set on the API.
+          is stored per client.
         </p>
         {loading ? (
           <p className="mt-4 text-sm text-slate-500">Loading…</p>
@@ -310,7 +309,12 @@ export default function ClientAccessManager() {
                     </span>
                   )}
                   <div className="min-w-0">
-                    <p className="font-medium text-slate-900">{client.name}</p>
+                    <Link
+                      href={`/clients/${client.id}`}
+                      className="font-medium text-slate-900 hover:text-sanmarino"
+                    >
+                      {client.name}
+                    </Link>
                     <p className="text-sm text-slate-600">
                       {client.primaryContact?.email ?? 'No contact'}
                     </p>
@@ -366,6 +370,12 @@ export default function ClientAccessManager() {
                       {updatingSocialListeningId === client.id ? '…' : ''}
                     </span>
                   </label>
+                  <Link
+                    href={`/clients/${client.id}`}
+                    className="admin-btn-primary min-h-10 w-full text-center sm:w-auto"
+                  >
+                    Workspace
+                  </Link>
                   {client.primaryContact &&
                   client.primaryContact.status !== 'SUSPENDED' ? (
                     <button

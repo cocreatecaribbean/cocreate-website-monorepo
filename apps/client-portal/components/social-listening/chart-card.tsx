@@ -11,6 +11,7 @@ type ChartCardProps = {
   compact?: boolean
   delayClass?: string
   className?: string
+  headerAction?: ReactNode
   children: ReactNode
 }
 
@@ -21,6 +22,7 @@ export default function ChartCard({
   compact = false,
   delayClass = '',
   className = '',
+  headerAction,
   children,
 }: ChartCardProps) {
   return (
@@ -44,12 +46,21 @@ export default function ChartCard({
           }
         `}
       >
-        <h3 className={`text-base text-chambray sm:text-lg ${bricolage_grot600.className}`}>
-          {title}
-        </h3>
-        {description ? (
-          <p className="mt-1 text-sm leading-relaxed text-slate-600">{description}</p>
-        ) : null}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h3
+              className={`text-base text-chambray sm:text-lg ${bricolage_grot600.className}`}
+            >
+              {title}
+            </h3>
+            {description ? (
+              <p className="mt-1 text-sm leading-relaxed text-slate-600">{description}</p>
+            ) : null}
+          </div>
+          {headerAction ? (
+            <div className="shrink-0">{headerAction}</div>
+          ) : null}
+        </div>
       </header>
       <div
         className={`bg-linear-to-b from-white/20 to-transparent p-4 sm:p-5 ${compact ? '' : 'min-h-0 flex-1'}`}

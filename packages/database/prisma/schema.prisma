@@ -40,8 +40,201 @@ model Organization {
   createdAt                   DateTime @default(now())
   updatedAt                   DateTime @updatedAt
   users                       User[]
+  socialListeningSnapshots    SocialListeningSnapshot[]
+  clientProjects              ClientProject[]
+  portalNotifications         PortalNotification[]
 
   @@index([slug])
+}
+
+// ─── Client project workspace ───────────────────────────────────────────────
+
+enum ClientProjectStatus {
+  SUBMITTED
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum ClientProjectPhase {
+  DISCOVERY
+  IN_PROGRESS
+  CLIENT_REVIEW
+  READY_FOR_DELIVERY
+  DELIVERED
+}
+
+enum ProjectRequestType {
+  CHANGE_REQUEST
+  PHASE_APPROVAL
+  ADMIN_REVIEW
+}
+
+enum ProjectRequestStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+  CANCELLED
+}
+
+enum PortalNotificationType {
+  PROJECT_SUBMITTED
+  PROJECT_APPROVED
+  CHANGE_REQUEST
+  ADMIN_REVIEW
+  PHASE_APPROVAL
+  REQUEST_RESOLVED
+  REQUEST_MESSAGE
+}
+
+enum ProjectMessageAuthorRole {
+  ADMIN
+  CLIENT
+}
+
+/// Client-initiated engagement; agency approves SUBMITTED → ACTIVE
+model ClientProject {
+  id               String              @id @default(cuid())
+  organizationId   String
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  title            String
+  description      String              @db.Text
+  status           ClientProjectStatus @default(SUBMITTED)
+  phase            ClientProjectPhase  @default(DISCOVERY)
+  createdByUserId  String
+  createdBy        User                @relation("ProjectCreatedBy", fields: [createdByUserId], references: [id])
+  approvedByUserId  String?
+  approvedBy        User?               @relation("ProjectApprovedBy", fields: [approvedByUserId], references: [id])
+  approvedAt        DateTime?
+  completedByUserId String?
+  completedBy       User?               @relation("ProjectCompletedBy", fields: [completedByUserId], references: [id])
+  completedAt       DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  requests         ProjectRequest[]
+  attachments      ProjectAttachment[]
+  activities       ProjectActivity[]
+  notifications    PortalNotification[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([createdByUserId])
+}
+
+/// Change requests, phase approvals, and agency review tickets
+model ProjectRequest {
+  id               String               @id @default(cuid())
+  projectId        String
+  project          ClientProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type             ProjectRequestType
+  status           ProjectRequestStatus @default(OPEN)
+  title            String
+  description      String               @db.Text
+  targetPhase      ClientProjectPhase?
+  createdByUserId  String
+  createdBy        User                 @relation("RequestCreatedBy", fields: [createdByUserId], references: [id])
+  resolvedByUserId String?
+  resolvedBy       User?                @relation("RequestResolvedBy", fields: [resolvedByUserId], references: [id])
+  resolvedAt       DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  attachments      ProjectAttachment[]
+  notifications    PortalNotification[]
+  messages         ProjectRequestMessage[]
+
+  @@index([projectId])
+  @@index([projectId, status])
+  @@index([createdByUserId])
+}
+
+/// Threaded messages on a project request (admin ↔ client)
+model ProjectRequestMessage {
+  id              String                 @id @default(cuid())
+  requestId       String
+  request         ProjectRequest         @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  authorUserId    String
+  author          User                   @relation("RequestMessageAuthor", fields: [authorUserId], references: [id])
+  authorRole      ProjectMessageAuthorRole
+  body            String                 @db.Text
+  createdAt       DateTime               @default(now())
+
+  @@index([requestId, createdAt])
+}
+
+/// Files stored in Supabase Storage (private bucket)
+model ProjectAttachment {
+  id               String          @id @default(cuid())
+  projectId        String
+  project          ClientProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestId        String?
+  request          ProjectRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  storagePath      String
+  fileName         String
+  mimeType         String
+  sizeBytes        Int
+  uploadedByUserId String
+  uploadedBy       User            @relation("AttachmentUploadedBy", fields: [uploadedByUserId], references: [id])
+  createdAt        DateTime        @default(now())
+
+  @@index([projectId])
+  @@index([requestId])
+}
+
+/// Append-only audit log per project
+model ProjectActivity {
+  id           String        @id @default(cuid())
+  projectId    String
+  project      ClientProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  action       String
+  actorUserId  String
+  actor        User          @relation("ActivityActor", fields: [actorUserId], references: [id])
+  metadata     Json?
+  createdAt    DateTime      @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+/// In-portal notification for a specific user
+model PortalNotification {
+  id             String                 @id @default(cuid())
+  userId         String
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           PortalNotificationType
+  title          String
+  body           String                 @db.Text
+  href           String?
+  readAt         DateTime?
+  projectId      String?
+  project        ClientProject?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  requestId      String?
+  request        ProjectRequest?        @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  createdAt      DateTime               @default(now())
+
+  @@index([userId, readAt])
+  @@index([organizationId])
+  @@index([projectId])
+}
+
+/// Daily (or on-demand) aggregated social listening chart payload per organization
+model SocialListeningSnapshot {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// UTC calendar date bucket for this snapshot
+  snapshotDate     DateTime     @db.Date
+  periodStart      DateTime
+  periodEnd        DateTime
+  source           String
+  brand24ProjectId String?
+  payload          Json
+  createdAt        DateTime     @default(now())
+
+  @@unique([organizationId, snapshotDate])
+  @@index([organizationId, snapshotDate])
 }
 
 /// Portal account — agency admins (ADMIN) or client contacts (CLIENT)
@@ -51,15 +244,38 @@ model User {
   /// Supabase Auth user id (linked after invite or first sign-in)
   supabaseAuthId String?       @unique
   organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  role           UserRole      @default(CLIENT)
-  status         UserStatus    @default(INVITED)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  organization            Organization?          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role                    UserRole               @default(CLIENT)
+  status                  UserStatus             @default(INVITED)
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  projectsCreated         ClientProject[]        @relation("ProjectCreatedBy")
+  projectsApproved        ClientProject[]        @relation("ProjectApprovedBy")
+  projectsCompleted       ClientProject[]        @relation("ProjectCompletedBy")
+  requestsCreated         ProjectRequest[]       @relation("RequestCreatedBy")
+  requestsResolved        ProjectRequest[]       @relation("RequestResolvedBy")
+  attachmentsUploaded     ProjectAttachment[]    @relation("AttachmentUploadedBy")
+  projectActivities       ProjectActivity[]      @relation("ActivityActor")
+  portalNotifications     PortalNotification[]
+  requestMessages         ProjectRequestMessage[] @relation("RequestMessageAuthor")
+  profile                 UserProfile?
 
   @@index([organizationId])
   @@index([email])
   @@index([status])
+}
+
+/// Display identity for portal users (admins set name/title for project attribution)
+model UserProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName       String?
+  jobTitle          String?
+  department        String?
+  avatarStoragePath String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 // ─── Contact chat (marketing site) ──────────────────────────────────────────

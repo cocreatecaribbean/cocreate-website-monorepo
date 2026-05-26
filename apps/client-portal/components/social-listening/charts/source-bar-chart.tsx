@@ -15,6 +15,8 @@ import {
   PLATFORM_META,
   type SocialPlatformId,
 } from '@/lib/social-listening/platform-meta'
+import { formatMetricDeltaLine } from '@/lib/social-listening/format-compare-delta'
+import type { PlatformMentionDelta } from '@/lib/social-listening/platform-mention-deltas'
 import type { SourceBreakdownRow } from '@/lib/social-listening/types'
 
 type ChartRow = SourceBreakdownRow & {
@@ -23,20 +25,27 @@ type ChartRow = SourceBreakdownRow & {
 
 type SourceBarChartProps = {
   data: SourceBreakdownRow[]
+  platformDeltas?: PlatformMentionDelta[] | null
 }
 
 const LEFT_MARGIN = 152
 
-export default function SourceBarChart({ data }: SourceBarChartProps) {
+export default function SourceBarChart({ data, platformDeltas }: SourceBarChartProps) {
   const reducedMotion = usePrefersReducedMotion()
+  const rows = data ?? []
+
+  const deltaByPlatform = useMemo(() => {
+    if (!platformDeltas?.length) return null
+    return new Map(platformDeltas.map((d) => [d.platformId, d]))
+  }, [platformDeltas])
 
   const chartData: ChartRow[] = useMemo(
     () =>
-      data.map((row) => ({
+      rows.map((row) => ({
         ...row,
         platformLabel: PLATFORM_META[row.platformId].name,
       })),
-    [data],
+    [rows],
   )
 
   const defs = useMemo(
@@ -66,13 +75,22 @@ export default function SourceBarChart({ data }: SourceBarChartProps) {
 
   const margin = { top: 12, right: 28, bottom: 36, left: LEFT_MARGIN }
 
+  if (!chartData.length) {
+    return (
+      <p className="py-12 text-center text-sm text-slate-500">
+        No platform breakdown available.
+      </p>
+    )
+  }
+
   return (
     <ChartContainer
       label="Mentions by platform bar chart"
       minHeight="min-h-[300px] sm:min-h-[340px]"
       className="portal-chart-glow"
     >
-      <ResponsiveBar
+      <div className="absolute inset-0">
+        <ResponsiveBar
         data={chartData}
         keys={['mentions']}
         indexBy="platformId"
@@ -137,6 +155,7 @@ export default function SourceBarChart({ data }: SourceBarChartProps) {
           const platformId = indexValue as SocialPlatformId
           const meta = PLATFORM_META[platformId]
           const grad = PLATFORM_BAR_GRADIENTS[platformId]
+          const delta = deltaByPlatform?.get(platformId)
           return (
             <GlassChartTooltip accent={grad.glow}>
               <div className="flex items-center gap-2.5">
@@ -156,6 +175,17 @@ export default function SourceBarChart({ data }: SourceBarChartProps) {
                   <div className="text-slate-600">
                     {Number(value).toLocaleString()} mentions
                   </div>
+                  {delta ? (
+                    <>
+                      <div className="mt-1 text-xs text-slate-500">
+                        Baseline: {delta.baseline.toLocaleString()}
+                      </div>
+                      <div className="text-xs font-medium text-sanmarino">
+                        {formatMetricDeltaLine(delta, true)} ·{' '}
+                        {formatMetricDeltaLine(delta)}
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               </div>
             </GlassChartTooltip>
@@ -185,7 +215,8 @@ export default function SourceBarChart({ data }: SourceBarChartProps) {
             </g>
           ),
         ]}
-      />
+        />
+      </div>
     </ChartContainer>
   )
 }

@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import CoCreateLogo from '@/components/cocreate-logo'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { fetchClientPortalProfile } from '@/lib/client-session'
-import { fetchSocialListeningAnalytics } from '@/lib/social-listening/fetch-analytics'
+import { fetchSocialListeningAnalytics } from '@/lib/social-listening/fetch-analytics-server'
 import ClientPortalShell from '@/components/client-portal-shell'
 import ClientPortalDashboard from '@/components/client-portal-dashboard'
 import { alkatra600, bricolage_grot500 } from '@/styles/fonts'
@@ -38,7 +38,21 @@ export default async function ClientPortalHomePage() {
 
   const profile = await fetchClientPortalProfile()
   if (!profile?.user.email) {
-    redirect('/auth/signout?error=client_required')
+    return (
+      <ClientPortalShell userEmail={user.email} organizationName={null} organizationLogoUrl={null}>
+        <main className="relative mx-auto w-full max-w-3xl px-6 py-16 sm:px-8">
+          <div className="portal-glass-card p-8 sm:p-10">
+            <p className="portal-eyebrow">Client Portal</p>
+            <h1 className={`portal-display mt-2 ${alkatra600.className}`}>Service temporarily unavailable</h1>
+            <p className={`mt-4 text-base leading-relaxed text-slate-600 ${bricolage_grot500.className}`}>
+              We could not reach the API to load your workspace right now. Please try again in a
+              moment. If you are running locally, make sure the API is running at{' '}
+              <span className="font-medium">http://localhost:3001</span>.
+            </p>
+          </div>
+        </main>
+      </ClientPortalShell>
+    )
   }
 
   const displayEmail = profile.user.email

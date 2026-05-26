@@ -34,6 +34,14 @@ SUPABASE_URL="https://[PROJECT-REF].supabase.co"
 SUPABASE_SERVICE_ROLE_KEY="eyJ..."
 ```
 
+### Storage: project attachments
+
+Create a **private** bucket named `project-attachments` in **Storage** (Supabase Dashboard). The API uploads via signed URLs using `SUPABASE_SERVICE_ROLE_KEY`. No public RLS policies are required for v1 — access is mediated by the Nest API.
+
+### Storage: admin avatars
+
+Create a **private** bucket named `admin-avatars` for Admin Center profile photos. Paths: `admin/{userId}/{uuid}-filename`. Upload and display are mediated by the Nest API (`POST/PATCH /auth/admin/profile/avatar/*`).
+
 ### Local Docker
 
 ```bash
