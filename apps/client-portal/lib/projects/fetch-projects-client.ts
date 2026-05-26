@@ -2,6 +2,7 @@
 
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type {
+  ClientApprovalRecordItem,
   ClientProjectDetail,
   ClientProjectSummary,
   PortalNotificationItem,
@@ -78,6 +79,30 @@ export async function fetchOpenApprovals(): Promise<ProjectRequestItem[]> {
   return result.ok ? result.data : []
 }
 
+export async function fetchApprovalHistory(): Promise<ClientApprovalRecordItem[]> {
+  const result = await portalFetch<ClientApprovalRecordItem[]>(
+    '/client-portal/approvals/history',
+  )
+  return result.ok ? result.data : []
+}
+
+export async function createCancellationRequest(
+  projectId: string,
+  reason?: string,
+) {
+  return portalFetch<ProjectRequestItem>(
+    `/client-portal/projects/${projectId}/cancellation-request`,
+    { method: 'POST', body: JSON.stringify({ reason }) },
+  )
+}
+
+export async function approveCheckpointMessage(requestId: string, messageId: string) {
+  return portalFetch<ProjectRequestMessage>(
+    `/client-portal/project-requests/${requestId}/messages/${messageId}/approve`,
+    { method: 'POST', body: JSON.stringify({}) },
+  )
+}
+
 export async function createChangeRequest(
   projectId: string,
   payload: { title: string; description: string },
@@ -122,6 +147,13 @@ export function navigateToApprovals(requestId?: string) {
   if (requestId) params.set('requestId', requestId)
   const query = params.toString()
   window.location.href = query ? `/?${query}` : '/?ccView=approvals'
+}
+
+export function navigateToProject(projectId: string) {
+  const params = new URLSearchParams(window.location.search)
+  params.set('ccView', 'projects')
+  params.set('projectId', projectId)
+  window.location.href = `/?${params.toString()}`
 }
 
 export async function fetchNotifications(unreadOnly?: boolean) {

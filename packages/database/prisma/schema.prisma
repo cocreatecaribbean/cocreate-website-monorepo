@@ -13,6 +13,7 @@ datasource db {
 // ─── Multi-tenant client portal ─────────────────────────────────────────────
 
 enum UserRole {
+  SUPER_ADMIN
   ADMIN
   CLIENT
 }
@@ -66,9 +67,20 @@ enum ClientProjectPhase {
 }
 
 enum ProjectRequestType {
-  CHANGE_REQUEST
-  PHASE_APPROVAL
-  ADMIN_REVIEW
+  ONBOARDING
+  PROGRESS
+  CANCELLATION
+}
+
+enum ProjectMessageKind {
+  CHAT
+  CHECKPOINT
+}
+
+enum CancellationOutcome {
+  APPROVED_NO_FEE
+  APPROVED_WITH_FEE
+  DENIED
 }
 
 enum ProjectRequestStatus {
@@ -87,6 +99,10 @@ enum PortalNotificationType {
   PHASE_APPROVAL
   REQUEST_RESOLVED
   REQUEST_MESSAGE
+  CHECKPOINT_PENDING
+  CHECKPOINT_APPROVED
+  CANCELLATION_REQUESTED
+  CANCELLATION_RESOLVED
 }
 
 enum ProjectMessageAuthorRole {
@@ -113,37 +129,43 @@ model ClientProject {
   completedAt       DateTime?
   createdAt         DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
-  requests         ProjectRequest[]
-  attachments      ProjectAttachment[]
-  activities       ProjectActivity[]
-  notifications    PortalNotification[]
+  requests          ProjectRequest[]
+  attachments       ProjectAttachment[]
+  activities        ProjectActivity[]
+  notifications     PortalNotification[]
+  clientApprovals   ClientApprovalRecord[]
 
   @@index([organizationId])
   @@index([organizationId, status])
   @@index([createdByUserId])
 }
 
-/// Change requests, phase approvals, and agency review tickets
+/// Durable conversation thread per project (onboarding, progress, cancellation)
 model ProjectRequest {
-  id               String               @id @default(cuid())
-  projectId        String
-  project          ClientProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  type             ProjectRequestType
-  status           ProjectRequestStatus @default(OPEN)
-  title            String
-  description      String               @db.Text
-  targetPhase      ClientProjectPhase?
-  createdByUserId  String
-  createdBy        User                 @relation("RequestCreatedBy", fields: [createdByUserId], references: [id])
-  resolvedByUserId String?
-  resolvedBy       User?                @relation("RequestResolvedBy", fields: [resolvedByUserId], references: [id])
-  resolvedAt       DateTime?
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
-  attachments      ProjectAttachment[]
-  notifications    PortalNotification[]
-  messages         ProjectRequestMessage[]
+  id                  String                @id @default(cuid())
+  projectId           String
+  project             ClientProject         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type                ProjectRequestType
+  status              ProjectRequestStatus  @default(OPEN)
+  title               String
+  description         String                @db.Text
+  targetPhase         ClientProjectPhase?
+  createdByUserId     String
+  createdBy           User                  @relation("RequestCreatedBy", fields: [createdByUserId], references: [id])
+  resolvedByUserId    String?
+  resolvedBy          User?                 @relation("RequestResolvedBy", fields: [resolvedByUserId], references: [id])
+  resolvedAt          DateTime?
+  cancellationOutcome CancellationOutcome?
+  cancellationFeeAmount Decimal?            @db.Decimal(12, 2)
+  cancellationFeeNotes  String?             @db.Text
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  attachments         ProjectAttachment[]
+  notifications       PortalNotification[]
+  messages            ProjectRequestMessage[]
+  approvalRecords     ClientApprovalRecord[]
 
+  @@unique([projectId, type])
   @@index([projectId])
   @@index([projectId, status])
   @@index([createdByUserId])
@@ -151,16 +173,44 @@ model ProjectRequest {
 
 /// Threaded messages on a project request (admin ↔ client)
 model ProjectRequestMessage {
-  id              String                 @id @default(cuid())
-  requestId       String
-  request         ProjectRequest         @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  authorUserId    String
-  author          User                   @relation("RequestMessageAuthor", fields: [authorUserId], references: [id])
-  authorRole      ProjectMessageAuthorRole
-  body            String                 @db.Text
-  createdAt       DateTime               @default(now())
+  id                     String                 @id @default(cuid())
+  requestId              String
+  request                ProjectRequest         @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  authorUserId           String
+  author                 User                   @relation("RequestMessageAuthor", fields: [authorUserId], references: [id])
+  authorRole             ProjectMessageAuthorRole
+  body                   String                 @db.Text
+  messageKind            ProjectMessageKind     @default(CHAT)
+  checkpointTargetPhase  ClientProjectPhase?
+  requiresClientApproval Boolean                @default(false)
+  clientApprovedAt       DateTime?
+  clientApprovedByUserId String?
+  clientApprovedBy       User?                  @relation("MessageApprovedBy", fields: [clientApprovedByUserId], references: [id])
+  supersededAt           DateTime?
+  createdAt              DateTime               @default(now())
+  approvalRecords        ClientApprovalRecord[]
 
   @@index([requestId, createdAt])
+}
+
+/// Client-approved progress checkpoints (Approvals history)
+model ClientApprovalRecord {
+  id               String               @id @default(cuid())
+  projectId        String
+  project          ClientProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestId        String
+  request          ProjectRequest         @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  messageId        String
+  message          ProjectRequestMessage  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  title            String
+  summary          String?                @db.Text
+  targetPhase      ClientProjectPhase?
+  approvedAt       DateTime               @default(now())
+  approvedByUserId String
+  approvedBy       User                   @relation("ClientApprovalBy", fields: [approvedByUserId], references: [id])
+
+  @@index([projectId, approvedAt])
+  @@index([approvedByUserId])
 }
 
 /// Files stored in Supabase Storage (private bucket)
@@ -258,11 +308,27 @@ model User {
   projectActivities       ProjectActivity[]      @relation("ActivityActor")
   portalNotifications     PortalNotification[]
   requestMessages         ProjectRequestMessage[] @relation("RequestMessageAuthor")
+  messagesApproved        ProjectRequestMessage[] @relation("MessageApprovedBy")
+  clientApprovals         ClientApprovalRecord[]  @relation("ClientApprovalBy")
   profile                 UserProfile?
 
   @@index([organizationId])
   @@index([email])
   @@index([status])
+}
+
+/// Agency-wide job title options (managed by super admins)
+model AgencyProfileOption {
+  id        String   @id @default(cuid())
+  label     String   @unique
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profileJobTitles UserProfileJobTitle[]
+
+  @@index([isActive, sortOrder])
 }
 
 /// Display identity for portal users (admins set name/title for project attribution)
@@ -271,11 +337,25 @@ model UserProfile {
   userId            String   @unique
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   displayName       String?
+  /// Denormalized job title labels (comma-separated, synced on save)
   jobTitle          String?
-  department        String?
   avatarStoragePath String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  jobTitles UserProfileJobTitle[]
+}
+
+model UserProfileJobTitle {
+  id        String              @id @default(cuid())
+  profileId String
+  profile   UserProfile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  optionId  String
+  option    AgencyProfileOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  sortOrder Int                 @default(0)
+
+  @@unique([profileId, optionId])
+  @@index([profileId, sortOrder])
 }
 
 // ─── Contact chat (marketing site) ──────────────────────────────────────────

@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common'
 import { ClientAuthGuard } from '../auth/guards/client-auth.guard'
 import type { ClientPortalRequest } from '../auth/guards/client-auth.guard'
+import { CreateCancellationRequestDto } from './dto/create-cancellation-request.dto'
 import { CreateChangeRequestDto } from './dto/create-change-request.dto'
 import { CreateRequestMessageDto } from './dto/create-request-message.dto'
 import { CreatePhaseApprovalDto } from './dto/create-phase-approval.dto'
@@ -37,7 +38,12 @@ export class ClientProjectsController {
 
   @Get('projects/requests/open')
   listOpenRequests(@Req() req: ClientPortalRequest) {
-    return this.projects.listOpenRequestsForClient(req.clientUser!)
+    return this.projects.listPendingCheckpointsForClient(req.clientUser!)
+  }
+
+  @Get('approvals/history')
+  listApprovalHistory(@Req() req: ClientPortalRequest) {
+    return this.projects.listApprovalHistoryForClient(req.clientUser!)
   }
 
   @Get('projects/:id')
@@ -61,6 +67,15 @@ export class ClientProjectsController {
     @Body() dto: CreatePhaseApprovalDto,
   ) {
     return this.projects.createPhaseApproval(req.clientUser!, id, dto)
+  }
+
+  @Post('projects/:id/cancellation-request')
+  createCancellationRequest(
+    @Req() req: ClientPortalRequest,
+    @Param('id') id: string,
+    @Body() dto: CreateCancellationRequestDto,
+  ) {
+    return this.projects.createCancellationRequest(req.clientUser!, id, dto)
   }
 
   @Post('projects/:id/attachments/upload-url')
@@ -104,6 +119,15 @@ export class ClientProjectsController {
     @Body() dto: CreateRequestMessageDto,
   ) {
     return this.projects.addRequestMessage(req.clientUser!, requestId, dto)
+  }
+
+  @Post('project-requests/:requestId/messages/:messageId/approve')
+  approveCheckpoint(
+    @Req() req: ClientPortalRequest,
+    @Param('requestId') requestId: string,
+    @Param('messageId') messageId: string,
+  ) {
+    return this.projects.approveCheckpoint(req.clientUser!, requestId, messageId)
   }
 
   @Patch('project-requests/:requestId')

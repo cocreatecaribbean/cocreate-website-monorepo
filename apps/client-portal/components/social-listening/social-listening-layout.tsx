@@ -67,7 +67,7 @@ function SocialListeningLayoutInner({
                 aria-selected={selected}
                 onClick={() => setActiveView(item.id)}
                 className={`
-                  inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs whitespace-nowrap transition
+                  portal-sl-nav-item inline-flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-xs whitespace-nowrap transition
                   ${bricolage_grot600.className}
                   ${
                     selected

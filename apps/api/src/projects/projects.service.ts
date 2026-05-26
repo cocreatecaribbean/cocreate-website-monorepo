@@ -5,10 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import {
+  CancellationOutcome,
   ClientProjectPhase,
   ClientProjectStatus,
   Prisma,
   ProjectMessageAuthorRole,
+  ProjectMessageKind,
   ProjectRequestStatus,
   ProjectRequestType,
   PortalNotificationType,
@@ -18,10 +20,12 @@ import { PrismaService } from '../prisma/prisma.service'
 import { ProjectNotificationMailService } from './project-notification-mail.service'
 import { ProjectNotificationsService } from './project-notifications.service'
 import { ProjectStorageService } from './project-storage.service'
+import type { CreateCheckpointDto } from './dto/create-checkpoint.dto'
+import type { CreateCancellationRequestDto } from './dto/create-cancellation-request.dto'
 import type { CreateChangeRequestDto } from './dto/create-change-request.dto'
 import type { CreatePhaseApprovalDto } from './dto/create-phase-approval.dto'
 import type { CreateProjectDto } from './dto/create-project.dto'
-import type { CreateReviewRequestDto } from './dto/create-review-request.dto'
+import type { ResolveCancellationDto } from './dto/resolve-cancellation.dto'
 import type { RegisterAttachmentDto } from './dto/register-attachment.dto'
 import type { UpdateProjectDto } from './dto/update-project.dto'
 import type { CreateRequestMessageDto } from './dto/create-request-message.dto'
@@ -29,6 +33,7 @@ import type { UpdateRequestDto } from './dto/update-request.dto'
 import type { UploadUrlDto } from './dto/upload-url.dto'
 import {
   serializeActivity,
+  serializeApprovalRecord,
   serializeAttachment,
   serializeMessage,
   serializeProject,
@@ -110,15 +115,38 @@ export class ProjectsService {
       approvedBy: { select: userActorSelect },
       completedBy: { select: userActorSelect },
       requests: {
-        where: {
-          type: ProjectRequestType.ADMIN_REVIEW,
-          status: {
-            in: [ProjectRequestStatus.OPEN, ProjectRequestStatus.IN_PROGRESS],
-          },
-        },
         select: { id: true, type: true, status: true },
       },
     }
+  }
+
+  private async supersedePendingCheckpoints(requestId: string) {
+    await this.prisma.projectRequestMessage.updateMany({
+      where: {
+        requestId,
+        requiresClientApproval: true,
+        supersededAt: null,
+        clientApprovedAt: null,
+      },
+      data: { supersededAt: new Date() },
+    })
+  }
+
+  private async ensureProgressThread(projectId: string, createdByUserId: string) {
+    return this.prisma.projectRequest.upsert({
+      where: {
+        projectId_type: { projectId, type: ProjectRequestType.PROGRESS },
+      },
+      create: {
+        projectId,
+        type: ProjectRequestType.PROGRESS,
+        title: 'Project progress',
+        description: 'Collaboration and progress approvals',
+        createdByUserId,
+        status: ProjectRequestStatus.OPEN,
+      },
+      update: {},
+    })
   }
 
   private projectDetailInclude() {
@@ -219,7 +247,30 @@ export class ProjectsService {
       email: emailContent,
     })
 
-    return serializeProject(project)
+    await this.prisma.projectRequest.create({
+      data: {
+        projectId: project.id,
+        type: ProjectRequestType.ONBOARDING,
+        title: project.title,
+        description: dto.description.trim(),
+        createdByUserId: client.id,
+        status: ProjectRequestStatus.OPEN,
+        messages: {
+          create: {
+            authorUserId: client.id,
+            authorRole: ProjectMessageAuthorRole.CLIENT,
+            body: dto.description.trim(),
+            messageKind: ProjectMessageKind.CHAT,
+          },
+        },
+      },
+    })
+
+    const full = await this.prisma.clientProject.findUnique({
+      where: { id: project.id },
+      include: this.projectDetailInclude(),
+    })
+    return serializeProject(full!)
   }
 
   async getForClient(client: AuthenticatedClient, projectId: string) {
@@ -231,6 +282,19 @@ export class ProjectsService {
       include: this.projectDetailInclude(),
     })
     if (!project) throw new NotFoundException('Project not found')
+
+    if (project.status === ClientProjectStatus.ACTIVE) {
+      await this.ensureProgressThread(
+        projectId,
+        project.approvedByUserId ?? project.createdByUserId,
+      )
+      const refreshed = await this.prisma.clientProject.findFirst({
+        where: { id: projectId, organizationId: orgId },
+        include: this.projectDetailInclude(),
+      })
+      return serializeProject(refreshed!)
+    }
+
     return serializeProject(project)
   }
 
@@ -241,50 +305,12 @@ export class ProjectsService {
   ) {
     const project = await this.getProjectForClient(client, projectId)
     if (project.status === ClientProjectStatus.SUBMITTED) {
-      throw new BadRequestException('Project must be approved before submitting change requests')
+      throw new BadRequestException('Project must be onboarded before sending progress messages')
     }
 
-    const request = await this.prisma.projectRequest.create({
-      data: {
-        projectId: project.id,
-        type: ProjectRequestType.CHANGE_REQUEST,
-        title: dto.title.trim(),
-        description: dto.description.trim(),
-        createdByUserId: client.id,
-      },
-      include: {
-        createdBy: { select: userActorSelect },
-        project: {
-          include: { organization: { select: { id: true, name: true } } },
-        },
-      },
-    })
-
-    await this.logActivity(project.id, client.id, 'request.change_created', {
-      requestId: request.id,
-    })
-
-    const orgName = project.organization?.name ?? 'Client'
-    const adminLink = `${this.notifications.adminClientWorkspaceLink(project.organizationId)}?tab=inbox`
-    const emailContent = this.mail.buildChangeRequestEmail({
-      orgName,
-      projectTitle: project.title,
-      requestTitle: request.title,
-      adminLink,
-    })
-
-    await this.notifications.notifyAdmins({
-      organizationId: project.organizationId,
-      type: PortalNotificationType.CHANGE_REQUEST,
-      title: `Change request: ${request.title}`,
-      body: `${orgName} requested changes on "${project.title}".`,
-      href: adminLink,
-      projectId: project.id,
-      requestId: request.id,
-      email: emailContent,
-    })
-
-    return serializeRequest(request)
+    const progress = await this.ensureProgressThread(project.id, client.id)
+    const body = `${dto.title.trim()}\n\n${dto.description.trim()}`
+    return this.addRequestMessage(client, progress.id, { body })
   }
 
   async createPhaseApproval(
@@ -294,70 +320,37 @@ export class ProjectsService {
   ) {
     const project = await this.getProjectForClient(client, projectId)
     if (project.status !== ClientProjectStatus.ACTIVE) {
-      throw new BadRequestException('Only active projects can request phase approval')
+      throw new BadRequestException('Only active projects can request phase updates')
     }
 
-    const title = `Ready for ${dto.targetPhase.replace(/_/g, ' ').toLowerCase()}`
-    const description =
+    const progress = await this.ensureProgressThread(project.id, client.id)
+    const body =
       dto.description?.trim() ||
-      `Client approved moving "${project.title}" to ${dto.targetPhase}.`
-
-    const request = await this.prisma.projectRequest.create({
-      data: {
-        projectId: project.id,
-        type: ProjectRequestType.PHASE_APPROVAL,
-        title,
-        description,
-        targetPhase: dto.targetPhase,
-        createdByUserId: client.id,
-      },
-      include: {
-        createdBy: { select: userActorSelect },
-        project: {
-          include: { organization: { select: { id: true, name: true } } },
-        },
-      },
-    })
-
-    await this.logActivity(project.id, client.id, 'request.phase_approval', {
-      requestId: request.id,
-      targetPhase: dto.targetPhase,
-    })
-
-    const orgName = project.organization?.name ?? 'Client'
-    const adminLink = `${this.notifications.adminClientWorkspaceLink(project.organizationId)}?tab=inbox`
-    const emailContent = this.mail.buildPhaseApprovalEmail({
-      orgName,
-      projectTitle: project.title,
-      targetPhase: dto.targetPhase,
-      adminLink,
-    })
-
-    await this.notifications.notifyAdmins({
-      organizationId: project.organizationId,
-      type: PortalNotificationType.PHASE_APPROVAL,
-      title,
-      body: description,
-      href: adminLink,
-      projectId: project.id,
-      requestId: request.id,
-      email: emailContent,
-    })
-
-    return serializeRequest(request)
+      `Client indicated readiness for ${dto.targetPhase.replace(/_/g, ' ').toLowerCase()}.`
+    return this.addRequestMessage(client, progress.id, { body })
   }
 
   async listOpenRequestsForClient(client: AuthenticatedClient) {
+    return this.listPendingCheckpointsForClient(client)
+  }
+
+  async listPendingCheckpointsForClient(client: AuthenticatedClient) {
     const orgId = client.organization?.id
     if (!orgId) throw new ForbiddenException('No organization linked to your account')
 
     const requests = await this.prisma.projectRequest.findMany({
       where: {
-        status: { in: [ProjectRequestStatus.OPEN, ProjectRequestStatus.IN_PROGRESS] },
+        type: ProjectRequestType.PROGRESS,
         project: { organizationId: orgId },
-        type: ProjectRequestType.ADMIN_REVIEW,
+        messages: {
+          some: {
+            requiresClientApproval: true,
+            supersededAt: null,
+            clientApprovedAt: null,
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { updatedAt: 'desc' },
       include: {
         ...this.requestInclude(),
         project: {
@@ -366,6 +359,203 @@ export class ProjectsService {
       },
     })
     return requests.map(serializeRequest)
+  }
+
+  async listApprovalHistoryForClient(client: AuthenticatedClient) {
+    const orgId = client.organization?.id
+    if (!orgId) throw new ForbiddenException('No organization linked to your account')
+
+    const records = await this.prisma.clientApprovalRecord.findMany({
+      where: { project: { organizationId: orgId } },
+      orderBy: { approvedAt: 'desc' },
+      include: {
+        project: { select: { id: true, title: true } },
+      },
+    })
+    return records.map((r) => ({
+      ...serializeApprovalRecord(r),
+      projectTitle: r.project.title,
+    }))
+  }
+
+  async createCancellationRequest(
+    client: AuthenticatedClient,
+    projectId: string,
+    dto: CreateCancellationRequestDto,
+  ) {
+    const project = await this.getProjectForClient(client, projectId)
+    if (
+      project.status !== ClientProjectStatus.ACTIVE &&
+      project.status !== ClientProjectStatus.ON_HOLD
+    ) {
+      throw new BadRequestException(
+        'Only active or on-hold projects can request cancellation',
+      )
+    }
+
+    const reason =
+      dto.reason?.trim() ||
+      'Client has requested to cancel this project.'
+
+    const existing = await this.prisma.projectRequest.findUnique({
+      where: {
+        projectId_type: { projectId: project.id, type: ProjectRequestType.CANCELLATION },
+      },
+    })
+    if (
+      existing &&
+      (existing.status === ProjectRequestStatus.RESOLVED ||
+        existing.status === ProjectRequestStatus.REJECTED)
+    ) {
+      throw new BadRequestException('A cancellation request was already resolved for this project')
+    }
+
+    const request = await this.prisma.projectRequest.upsert({
+      where: {
+        projectId_type: { projectId: project.id, type: ProjectRequestType.CANCELLATION },
+      },
+      create: {
+        projectId: project.id,
+        type: ProjectRequestType.CANCELLATION,
+        title: `Cancellation: ${project.title}`,
+        description: reason,
+        createdByUserId: client.id,
+        status: ProjectRequestStatus.OPEN,
+        messages: {
+          create: {
+            authorUserId: client.id,
+            authorRole: ProjectMessageAuthorRole.CLIENT,
+            body: reason,
+            messageKind: ProjectMessageKind.CHAT,
+          },
+        },
+      },
+      update: {
+        status: ProjectRequestStatus.OPEN,
+        description: reason,
+      },
+      include: {
+        ...this.requestInclude(),
+        project: {
+          include: { organization: { select: { id: true, name: true } } },
+        },
+      },
+    })
+
+    await this.logActivity(project.id, client.id, 'request.cancellation_requested', {
+      requestId: request.id,
+    })
+
+    const adminLink = `${this.notifications.adminClientWorkspaceLink(project.organizationId)}?tab=projects`
+    await this.notifications.notifyAdmins({
+      organizationId: project.organizationId,
+      type: PortalNotificationType.CANCELLATION_REQUESTED,
+      title: `Cancellation requested: ${project.title}`,
+      body: reason,
+      href: adminLink,
+      projectId: project.id,
+      requestId: request.id,
+      email: {
+        subject: `Cancellation requested: ${project.title}`,
+        html: `<p>A client requested cancellation for <strong>${project.title}</strong>.</p><p>${reason}</p><p><a href="${adminLink}">Review in Admin Center</a></p>`,
+        text: `Cancellation requested: ${project.title}\n${reason}\n${adminLink}`,
+        actionLink: adminLink,
+      },
+    })
+
+    return serializeRequest(request)
+  }
+
+  async approveCheckpoint(
+    client: AuthenticatedClient,
+    requestId: string,
+    messageId: string,
+  ) {
+    const request = await this.getRequestForActor(requestId, client)
+    if (request.type !== ProjectRequestType.PROGRESS) {
+      throw new BadRequestException('Only progress checkpoints can be approved')
+    }
+
+    const message = await this.prisma.projectRequestMessage.findFirst({
+      where: {
+        id: messageId,
+        requestId,
+        requiresClientApproval: true,
+        supersededAt: null,
+        clientApprovedAt: null,
+      },
+    })
+    if (!message) {
+      throw new BadRequestException('No pending approval on this message')
+    }
+
+    const latestPending = await this.prisma.projectRequestMessage.findFirst({
+      where: {
+        requestId,
+        requiresClientApproval: true,
+        supersededAt: null,
+        clientApprovedAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+    if (latestPending?.id !== messageId) {
+      throw new BadRequestException(
+        'A newer review is available — please approve the latest message from CoCreate',
+      )
+    }
+
+    const now = new Date()
+    await this.prisma.$transaction(async (tx) => {
+      await tx.projectRequestMessage.update({
+        where: { id: messageId },
+        data: {
+          clientApprovedAt: now,
+          clientApprovedByUserId: client.id,
+        },
+      })
+
+      await tx.clientApprovalRecord.create({
+        data: {
+          projectId: request.projectId,
+          requestId,
+          messageId,
+          title: request.title,
+          summary: message.body.slice(0, 500),
+          targetPhase: message.checkpointTargetPhase,
+          approvedByUserId: client.id,
+        },
+      })
+
+      if (message.checkpointTargetPhase) {
+        await tx.clientProject.update({
+          where: { id: request.projectId },
+          data: { phase: message.checkpointTargetPhase },
+        })
+      }
+    })
+
+    await this.logActivity(request.projectId, client.id, 'checkpoint.approved', {
+      requestId,
+      messageId,
+    })
+
+    const adminLink = `${this.notifications.adminClientWorkspaceLink(request.project.organizationId)}?tab=projects`
+    await this.notifications.notifyAdmins({
+      organizationId: request.project.organizationId,
+      type: PortalNotificationType.CHECKPOINT_APPROVED,
+      title: `Approved: ${request.title}`,
+      body: message.body.slice(0, 200),
+      href: adminLink,
+      projectId: request.projectId,
+      requestId,
+    })
+
+    return serializeMessage(
+      (await this.prisma.projectRequestMessage.findUnique({
+        where: { id: messageId },
+        include: { author: { select: userActorSelect } },
+      }))!,
+    )
   }
 
   // ─── Admin ──────────────────────────────────────────────────────────────────
@@ -388,7 +578,6 @@ export class ProjectsService {
         approvedBy: { select: userActorSelect },
         completedBy: { select: userActorSelect },
         requests: {
-          where: { type: ProjectRequestType.ADMIN_REVIEW },
           orderBy: { createdAt: 'desc' },
           include: this.requestInclude(),
         },
@@ -484,6 +673,17 @@ export class ProjectsService {
       adminEmail: admin.email,
     })
 
+    await this.prisma.projectRequest.updateMany({
+      where: { projectId, type: ProjectRequestType.ONBOARDING },
+      data: {
+        status: ProjectRequestStatus.RESOLVED,
+        resolvedAt: new Date(),
+        resolvedByUserId: admin.id,
+      },
+    })
+
+    await this.ensureProgressThread(projectId, admin.id)
+
     const portalLink = this.notifications.clientProjectLink(projectId)
     const emailContent = this.mail.buildProjectApprovedEmail({
       projectTitle: updated.title,
@@ -564,26 +764,69 @@ export class ProjectsService {
   async createReviewRequest(
     admin: AuthenticatedAdmin,
     projectId: string,
-    dto: CreateReviewRequestDto,
+    dto: CreateCheckpointDto,
+  ) {
+    return this.sendProgressCheckpoint(admin, projectId, dto)
+  }
+
+  async sendProgressCheckpoint(
+    admin: AuthenticatedAdmin,
+    projectId: string,
+    dto: CreateCheckpointDto,
   ) {
     const project = await this.getProjectById(projectId)
+    if (project.status !== ClientProjectStatus.ACTIVE) {
+      throw new BadRequestException('Checkpoints require an active project')
+    }
 
-    const body = dto.description.trim()
-    const request = await this.prisma.projectRequest.create({
+    const progress = await this.ensureProgressThread(projectId, admin.id)
+    await this.supersedePendingCheckpoints(progress.id)
+
+    const body = dto.body.trim()
+    const title = dto.title.trim()
+
+    await this.prisma.projectRequest.update({
+      where: { id: progress.id },
+      data: { title, description: body, status: ProjectRequestStatus.IN_PROGRESS },
+    })
+
+    const message = await this.prisma.projectRequestMessage.create({
       data: {
-        projectId,
-        type: ProjectRequestType.ADMIN_REVIEW,
-        title: dto.title.trim(),
-        description: body,
-        createdByUserId: admin.id,
-        messages: {
-          create: {
-            authorUserId: admin.id,
-            authorRole: ProjectMessageAuthorRole.ADMIN,
-            body,
-          },
-        },
+        requestId: progress.id,
+        authorUserId: admin.id,
+        authorRole: ProjectMessageAuthorRole.ADMIN,
+        body,
+        messageKind: ProjectMessageKind.CHECKPOINT,
+        checkpointTargetPhase: dto.targetPhase ?? null,
+        requiresClientApproval: true,
       },
+      include: { author: { select: userActorSelect } },
+    })
+
+    await this.logActivity(projectId, admin.id, 'checkpoint.sent', {
+      requestId: progress.id,
+      messageId: message.id,
+    })
+
+    const portalLink = `${this.notifications.clientPortalUrl()}/?ccView=approvals&requestId=${progress.id}`
+    await this.notifications.notifyOrgClients({
+      organizationId: project.organizationId,
+      type: PortalNotificationType.CHECKPOINT_PENDING,
+      title: `Approval needed: ${title}`,
+      body: body.slice(0, 200),
+      href: portalLink,
+      projectId,
+      requestId: progress.id,
+      email: {
+        subject: `Approval needed: ${title}`,
+        html: `<p>CoCreate requested your approval on <strong>${project.title}</strong>:</p><blockquote>${body.slice(0, 400)}</blockquote><p><a href="${portalLink}">Review in portal</a></p>`,
+        text: `Approval needed: ${title}\n${body}\n${portalLink}`,
+        actionLink: portalLink,
+      },
+    })
+
+    const full = await this.prisma.projectRequest.findUnique({
+      where: { id: progress.id },
       include: {
         ...this.requestInclude(),
         project: {
@@ -591,30 +834,98 @@ export class ProjectsService {
         },
       },
     })
+    return serializeRequest(full!)
+  }
 
-    await this.logActivity(projectId, admin.id, 'request.admin_review', {
-      requestId: request.id,
+  async resolveCancellation(
+    admin: AuthenticatedAdmin,
+    requestId: string,
+    dto: ResolveCancellationDto,
+  ) {
+    const request = await this.prisma.projectRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        project: {
+          include: { organization: { select: { id: true, name: true } } },
+        },
+      },
+    })
+    if (!request) throw new NotFoundException('Request not found')
+    if (request.type !== ProjectRequestType.CANCELLATION) {
+      throw new BadRequestException('Not a cancellation request')
+    }
+
+    const terminal: ProjectRequestStatus[] = [
+      ProjectRequestStatus.RESOLVED,
+      ProjectRequestStatus.REJECTED,
+      ProjectRequestStatus.CANCELLED,
+    ]
+    if (terminal.includes(request.status)) {
+      throw new BadRequestException('Cancellation request is already closed')
+    }
+
+    const now = new Date()
+    const cancelProject =
+      dto.outcome === CancellationOutcome.APPROVED_NO_FEE ||
+      dto.outcome === CancellationOutcome.APPROVED_WITH_FEE
+
+    await this.prisma.$transaction(async (tx) => {
+      if (dto.message?.trim()) {
+        await tx.projectRequestMessage.create({
+          data: {
+            requestId,
+            authorUserId: admin.id,
+            authorRole: ProjectMessageAuthorRole.ADMIN,
+            body: dto.message.trim(),
+            messageKind: ProjectMessageKind.CHAT,
+          },
+        })
+      }
+
+      await tx.projectRequest.update({
+        where: { id: requestId },
+        data: {
+          status: ProjectRequestStatus.RESOLVED,
+          resolvedAt: now,
+          resolvedByUserId: admin.id,
+          cancellationOutcome: dto.outcome,
+          cancellationFeeAmount:
+            dto.outcome === CancellationOutcome.APPROVED_WITH_FEE && dto.feeAmount != null
+              ? dto.feeAmount
+              : null,
+          cancellationFeeNotes: dto.feeNotes?.trim() || null,
+        },
+      })
+
+      if (cancelProject) {
+        await tx.clientProject.update({
+          where: { id: request.projectId },
+          data: { status: ClientProjectStatus.CANCELLED },
+        })
+      }
     })
 
-    const portalLink = this.notifications.clientAttentionLink()
-    const emailContent = this.mail.buildAdminReviewEmail({
-      projectTitle: project.title,
-      requestTitle: request.title,
-      portalLink,
-    })
-
+    const portalLink = this.notifications.clientProjectLink(request.projectId)
     await this.notifications.notifyOrgClients({
-      organizationId: project.organizationId,
-      type: PortalNotificationType.ADMIN_REVIEW,
-      title: `Review needed: ${request.title}`,
-      body: dto.description.trim(),
+      organizationId: request.project.organizationId,
+      type: PortalNotificationType.CANCELLATION_RESOLVED,
+      title: `Cancellation update: ${request.project.title}`,
+      body: dto.message?.trim() || `Outcome: ${dto.outcome}`,
       href: portalLink,
-      projectId,
-      requestId: request.id,
-      email: emailContent,
+      projectId: request.projectId,
+      requestId,
     })
 
-    return serializeRequest(request)
+    const updated = await this.prisma.projectRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        ...this.requestInclude(),
+        project: {
+          include: { organization: { select: { id: true, name: true } } },
+        },
+      },
+    })
+    return serializeRequest(updated!)
   }
 
   async addRequestMessage(
@@ -660,7 +971,10 @@ export class ProjectsService {
     })
 
     const adminLink = `${this.notifications.adminClientWorkspaceLink(request.project.organizationId)}?tab=projects&thread=${requestId}`
-    const clientLink = `${this.notifications.clientPortalUrl()}/?ccView=approvals&requestId=${requestId}`
+    const clientLink =
+      request.type === ProjectRequestType.PROGRESS
+        ? `${this.notifications.clientPortalUrl()}/?ccView=projects&projectId=${request.projectId}`
+        : `${this.notifications.clientPortalUrl()}/?ccView=approvals&requestId=${requestId}`
     const snippet = dto.body.trim().slice(0, 200)
 
     if (isClient) {
@@ -741,17 +1055,6 @@ export class ProjectsService {
         },
       },
     })
-
-    if (
-      dto.status === ProjectRequestStatus.RESOLVED &&
-      request.type === ProjectRequestType.PHASE_APPROVAL &&
-      request.targetPhase
-    ) {
-      await this.prisma.clientProject.update({
-        where: { id: request.projectId },
-        data: { phase: request.targetPhase },
-      })
-    }
 
     await this.logActivity(request.projectId, actor.id, 'request.updated', {
       requestId,

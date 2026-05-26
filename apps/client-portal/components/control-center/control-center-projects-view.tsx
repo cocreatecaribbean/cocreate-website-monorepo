@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useCallback, useEffect, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { ClientProjectDetail, ClientProjectSummary } from '@/lib/projects/api-types'
 import RequestMessageThread from '@/components/control-center/request-message-thread'
 import ProjectStatusAttribution, {
@@ -11,6 +12,8 @@ import {
   createProject,
   fetchProject,
   fetchProjects,
+  approveCheckpointMessage,
+  createCancellationRequest,
   navigateToApprovals,
   sendRequestMessage,
   uploadProjectFiles,
@@ -19,8 +22,11 @@ import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import { Bell, Calendar, ExternalLink, FolderKanban, Plus } from 'lucide-react'
 
 export default function ControlCenterProjectsView() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const selectedId = searchParams.get('projectId')
   const [projects, setProjects] = useState<ClientProjectSummary[]>([])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detail, setDetail] = useState<ClientProjectDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -49,11 +55,22 @@ export default function ControlCenterProjectsView() {
     void fetchProject(selectedId).then(setDetail)
   }, [selectedId])
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const projectId = params.get('projectId')
-    if (projectId) setSelectedId(projectId)
-  }, [])
+  const openProject = useCallback(
+    (projectId: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('ccView', 'projects')
+      params.set('projectId', projectId)
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+    },
+    [pathname, router, searchParams],
+  )
+
+  const closeProject = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('projectId')
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }, [pathname, router, searchParams])
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -78,14 +95,14 @@ export default function ControlCenterProjectsView() {
     setShowForm(false)
     setSubmitting(false)
     await loadProjects()
-    setSelectedId(result.project.id)
+    openProject(result.project.id)
   }
 
   if (selectedId && detail) {
     return (
       <ProjectDetailView
         project={detail}
-        onBack={() => setSelectedId(null)}
+        onBack={closeProject}
         onRefresh={async () => {
           const next = await fetchProject(selectedId)
           setDetail(next)
@@ -188,20 +205,20 @@ export default function ControlCenterProjectsView() {
               </p>
               <button
                 type="button"
-                onClick={() => setSelectedId(project.id)}
+                onClick={() => openProject(project.id)}
                 className="portal-btn-ghost mt-5 w-full text-sm"
               >
                 Open project
                 <ExternalLink className="h-3.5 w-3.5" aria-hidden />
               </button>
-              {project.hasOpenAdminReview ? (
+              {project.hasPendingCheckpoint || project.hasOpenAdminReview ? (
                 <button
                   type="button"
                   onClick={() => navigateToApprovals()}
                   className="portal-btn-primary mt-2 w-full gap-2 text-sm"
                 >
                   <Bell className="h-4 w-4" aria-hidden />
-                  CoCreate request — respond
+                  Approval needed
                 </button>
               ) : null}
             </article>
@@ -217,6 +234,10 @@ export default function ControlCenterProjectsView() {
   )
 }
 
+function findThread(project: ClientProjectDetail, type: 'ONBOARDING' | 'PROGRESS' | 'CANCELLATION') {
+  return project.requests?.find((r) => r.type === type) ?? null
+}
+
 function ProjectDetailView({
   project,
   onBack,
@@ -226,38 +247,49 @@ function ProjectDetailView({
   onBack: () => void
   onRefresh: () => Promise<void>
 }) {
-  const [changeTitle, setChangeTitle] = useState('')
-  const [changeDesc, setChangeDesc] = useState('')
   const [message, setMessage] = useState<string | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelling, setCancelling] = useState(false)
 
-  const canRequestChanges = project.status === 'ACTIVE'
+  const onboarding = findThread(project, 'ONBOARDING')
+  const progress = findThread(project, 'PROGRESS')
+  const cancellation = findThread(project, 'CANCELLATION')
+  const onboardingClosed = onboarding
+    ? ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(onboarding.status)
+    : false
+  const canCancel =
+    project.status === 'ACTIVE' || project.status === 'ON_HOLD'
 
-  const submitChange = async (e: FormEvent) => {
-    e.preventDefault()
-    const { createChangeRequest } = await import('@/lib/projects/fetch-projects-client')
-    const result = await createChangeRequest(project.id, {
-      title: changeTitle.trim(),
-      description: changeDesc.trim(),
-    })
-    if (!result.ok) {
-      setMessage(result.message)
+  const requestCancellation = async () => {
+    if (!window.confirm('Request to cancel this project? CoCreate will review and respond.')) {
       return
     }
-    setChangeTitle('')
-    setChangeDesc('')
-    setMessage('Change request submitted.')
+    setCancelling(true)
+    const result = await createCancellationRequest(project.id, cancelReason.trim() || undefined)
+    setCancelling(false)
+    if (!result.ok) {
+      setMessage(result.message ?? 'Could not submit cancellation request')
+      return
+    }
+    setCancelReason('')
+    setMessage('Cancellation request sent.')
     await onRefresh()
   }
 
-  const requestPhase = async (phase: string) => {
-    const { createPhaseApproval } = await import('@/lib/projects/fetch-projects-client')
-    const result = await createPhaseApproval(project.id, {
-      targetPhase: phase,
-      description: `Ready to move to ${phase}`,
-    })
-    setMessage(result.ok ? 'Phase approval submitted.' : result.message)
-    await onRefresh()
-  }
+  const threadProps = (req: NonNullable<typeof onboarding>) => ({
+    request: req,
+    viewerRole: 'CLIENT' as const,
+    onSendMessage: async (body: string) => {
+      const result = await sendRequestMessage(req.id, body)
+      if (result.ok) await onRefresh()
+      return { ok: result.ok, message: result.ok ? undefined : result.message }
+    },
+    onApproveCheckpoint: async (messageId: string) => {
+      const result = await approveCheckpointMessage(req.id, messageId)
+      if (result.ok) await onRefresh()
+      return { ok: result.ok, message: result.ok ? undefined : result.message }
+    },
+  })
 
   return (
     <div className="space-y-6">
@@ -301,77 +333,79 @@ function ProjectDetailView({
         </section>
       ) : null}
 
-      {canRequestChanges ? (
-        <>
-          <section className="portal-glass-card p-6">
-            <p className={`text-chambray ${bricolage_grot600.className}`}>Request changes</p>
-            <form className="mt-4 space-y-3" onSubmit={(e) => void submitChange(e)}>
-              <input
-                type="text"
-                required
-                value={changeTitle}
-                onChange={(e) => setChangeTitle(e.target.value)}
-                placeholder="Summary"
-                className="portal-input w-full"
-              />
-              <textarea
-                required
-                value={changeDesc}
-                onChange={(e) => setChangeDesc(e.target.value)}
-                placeholder="Describe the change you need"
-                rows={3}
-                className="portal-input w-full resize-y"
-              />
-              <button type="submit" className="portal-btn-primary text-sm">
-                Submit change request
-              </button>
-            </form>
-          </section>
-          <section className="portal-glass-card p-6">
-            <p className={`text-chambray ${bricolage_grot600.className}`}>Phase approval</p>
-            <p className="mt-1 text-sm text-slate-500">
-              Tell us when this project is ready for the next phase or delivery.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {(['CLIENT_REVIEW', 'READY_FOR_DELIVERY', 'DELIVERED'] as const).map((phase) => (
-                <button
-                  key={phase}
-                  type="button"
-                  onClick={() => void requestPhase(phase)}
-                  className="portal-btn-ghost text-sm"
-                >
-                  Ready for {phase.replace(/_/g, ' ').toLowerCase()}
-                </button>
-              ))}
-            </div>
-          </section>
-        </>
+      {onboarding ? (
+        <section className="portal-glass-card p-6">
+          <p className={`text-chambray ${bricolage_grot600.className}`}>
+            Onboarding conversation
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            {onboardingClosed
+              ? 'Closed after project was onboarded — kept for your records.'
+              : 'Discussion before your project is accepted.'}
+          </p>
+          <div className="mt-4">
+            <RequestMessageThread
+              {...threadProps(onboarding)}
+              readOnly={onboardingClosed}
+            />
+          </div>
+        </section>
       ) : null}
 
-      {project.requests && project.requests.length > 0 ? (
-        <section className="space-y-4">
-          <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>
-            Conversation history with CoCreate
+      {progress && project.status !== 'SUBMITTED' ? (
+        <section className="portal-glass-card p-6">
+          <p className={`text-chambray ${bricolage_grot600.className}`}>Project progress</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Updates, progress checks, and replies with CoCreate.
           </p>
-          {project.requests
-            .filter((req) => req.type === 'ADMIN_REVIEW')
-            .map((req) => (
-              <div key={req.id} className="portal-glass-card p-5">
-                <p className={`text-chambray ${bricolage_grot600.className}`}>{req.title}</p>
-                <p className="mt-1 text-xs text-slate-500">{req.status}</p>
-                <div className="mt-4">
-                  <RequestMessageThread
-                    request={req}
-                    viewerRole="CLIENT"
-                    onSendMessage={async (body) => {
-                      const result = await sendRequestMessage(req.id, body)
-                      if (result.ok) await onRefresh()
-                      return { ok: result.ok, message: result.ok ? undefined : result.message }
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
+          <div className="mt-4">
+            <RequestMessageThread {...threadProps(progress)} />
+          </div>
+        </section>
+      ) : null}
+
+      {cancellation ? (
+        <section className="portal-glass-card p-6">
+          <p className={`text-chambray ${bricolage_grot600.className}`}>Cancellation</p>
+          {cancellation.cancellationOutcome ? (
+            <p className="mt-1 text-sm text-slate-600">
+              Outcome: {cancellation.cancellationOutcome.replace(/_/g, ' ').toLowerCase()}
+              {cancellation.cancellationFeeAmount != null
+                ? ` · Fee: ${cancellation.cancellationFeeAmount}`
+                : ''}
+            </p>
+          ) : null}
+          <div className="mt-4">
+            <RequestMessageThread
+              {...threadProps(cancellation)}
+              readOnly={['RESOLVED', 'REJECTED'].includes(cancellation.status)}
+            />
+          </div>
+        </section>
+      ) : null}
+
+      {canCancel && !cancellation ? (
+        <section className="portal-glass-card border border-red-200/40 p-6">
+          <p className={`text-chambray ${bricolage_grot600.className}`}>Request cancellation</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Tell CoCreate you wish to end this project. We will confirm any fees before it is
+            cancelled.
+          </p>
+          <textarea
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder="Optional reason for cancellation…"
+            rows={3}
+            className="portal-textarea mt-4 w-full resize-y"
+          />
+          <button
+            type="button"
+            disabled={cancelling}
+            onClick={() => void requestCancellation()}
+            className="portal-btn-ghost mt-3 text-sm text-red-800 ring-red-200/60"
+          >
+            {cancelling ? 'Sending…' : 'Request project cancellation'}
+          </button>
         </section>
       ) : null}
     </div>

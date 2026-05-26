@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { UserRole, UserStatus } from '@cocreate/database'
+import { isAgencyAdminRole } from './admin-roles'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { PrismaService } from '../prisma/prisma.service'
 
@@ -86,7 +87,7 @@ export class AuthService {
     const email = this.normalizeEmail(authUser.email!)
 
     const user = await this.prisma.user.findUnique({ where: { email } })
-    if (!user || user.role !== UserRole.ADMIN) {
+    if (!user || !isAgencyAdminRole(user.role)) {
       throw new ForbiddenException('Admin access required')
     }
     if (user.status === UserStatus.SUSPENDED) {
@@ -211,7 +212,7 @@ export class AuthService {
     const normalized = this.normalizeEmail(email)
     const user = await this.prisma.user.findUnique({ where: { email: normalized } })
 
-    if (!user || user.role !== UserRole.ADMIN) {
+    if (!user || !isAgencyAdminRole(user.role)) {
       throw new ForbiddenException('This email is not registered as an admin')
     }
     if (user.status === UserStatus.SUSPENDED) {

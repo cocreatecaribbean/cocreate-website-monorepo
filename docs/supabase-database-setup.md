@@ -74,7 +74,13 @@ Admin client APIs: `POST /admin/clients/invite`, `GET /admin/clients`.
 pnpm --filter @cocreate/database seed:admin admin@yourdomain.com
 ```
 
-Sign in at Admin Center `/login` — magic link email via Supabase.
+Creates or updates the user as **`SUPER_ADMIN`** (main agency admin). Sign in at Admin Center `/login` — magic link email via Supabase.
+
+To promote an existing `ADMIN` account:
+
+```bash
+pnpm --filter @cocreate/database promote-super-admin admin@yourdomain.com
+```
 
 ## Redirect URLs (Supabase Dashboard)
 

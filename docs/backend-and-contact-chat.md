@@ -43,33 +43,76 @@ pnpm approve-builds
 
 ## Admin auth + client onboarding
 
-1. Seed first admin: `pnpm --filter @cocreate/database seed:admin you@agency.com`
+1. Seed first super admin: `pnpm --filter @cocreate/database seed:admin you@agency.com` (creates `SUPER_ADMIN`)
 2. Set Supabase keys in `apps/api/.env`, `apps/admin-center/.env.local`, `apps/client-portal/.env.local`
 3. In Supabase Dashboard → Authentication → URL Configuration, add redirect URLs:
    - `http://localhost:3002/auth/callback` (admin)
    - `http://localhost:3003/auth/callback` (client portal)
 4. Admin Center: http://localhost:3002/login (sign-in required when Supabase is configured)
-5. Additional admins: Admin Center → **Team** (or `POST /admin/admins/invite`)
-6. Client invite: Admin Center → **Clients**
+5. Additional admins: **Super admin** only — Admin Center → **Team** (or `POST /admin/admins/invite`)
+6. Client invite: Admin Center → **Clients** (any admin)
 
 Admin APIs: `GET/POST /admin/admins`, `GET /auth/admin/me`, `POST /admin/clients/invite`, `GET /admin/clients`, `PATCH .../brand24-project`. See [supabase-database-setup.md](./supabase-database-setup.md).
 
+### Agency roles: `SUPER_ADMIN` vs `ADMIN`
+
+| Role | Powers |
+|------|--------|
+| **SUPER_ADMIN** | Manage agency job-title list; invite/suspend admins; promote/demote between `SUPER_ADMIN` and `ADMIN` |
+| **ADMIN** | Day-to-day work (clients, projects, reviews); edit own profile (pick title/dept from lists) |
+
+Both roles pass `requireAdmin` (Nest) and can use most Admin Center APIs. Restricted routes use `SuperAdminGuard`.
+
+**Promotion rules**
+
+- Cannot suspend or demote the **last** `SUPER_ADMIN`.
+- Cannot demote yourself if you are the only super admin.
+- Regular `ADMIN` receives `403` on invite, suspend, role change, and profile-option CRUD.
+
+**Existing installs:** Re-run `seed:admin` for the primary email (updates role to `SUPER_ADMIN`), or:
+
+```bash
+pnpm --filter @cocreate/database promote-super-admin you@agency.com
+```
+
+### Profile option lists (`AgencyProfileOption`)
+
+Super admins maintain the agency job-title list (Admin Center → **Profile options**, or API below). All admins read active titles for their profile (multi-select).
+
+| Method | Path | Who |
+|--------|------|-----|
+| GET | `/auth/admin/profile-options` | `SUPER_ADMIN` or `ADMIN` |
+| GET/POST/PATCH/DELETE | `/admin/settings/profile-options` | `SUPER_ADMIN` only |
+
+Defaults (Project Manager, Account Lead, Account Manager, etc.) are inserted on first read if the table is empty.
+
 ### Admin profiles (project attribution)
 
-Each admin can set **display name**, **job title**, **department**, and an optional **avatar** under Admin Center → **Profile**. Clients see **name + job title** on onboarded/completed lines, timelines, and message threads. Until a profile is saved, the API falls back to a formatted email local-part.
+Each admin sets **display name**, one or more **job titles** (from the agency list), and an optional **avatar** under Admin Center → **Profile**. Clients see **name + job titles** (comma-separated) on onboarded/completed lines, timelines, and message threads. Until a profile is saved, the API falls back to a formatted email local-part.
 
 | Method | Path | Auth |
 |--------|------|------|
 | GET | `/auth/admin/profile` | Admin JWT |
-| PATCH | `/auth/admin/profile` | Admin — body: `displayName`, `jobTitle`, `department` |
+| PATCH | `/auth/admin/profile` | Admin — body: `displayName`, `jobTitleOptionIds` (array) |
 | POST | `/auth/admin/profile/avatar/upload-url` | Admin — signed Supabase upload |
 | PATCH | `/auth/admin/profile/avatar` | Admin — register `storagePath` after upload |
 
-`GET /auth/admin/me` includes nested `profile` (and `profileComplete`). Prisma model: `UserProfile` (1:1 with `User`). Storage bucket: `admin-avatars` (see [supabase-database-setup.md](./supabase-database-setup.md)).
+`PATCH` validates all IDs against **active** `AgencyProfileOption` rows; selections are stored in `UserProfileJobTitle` with a denormalized comma-separated `jobTitle` on `UserProfile` for serializers.
+
+`GET /auth/admin/me` returns `role` (`SUPER_ADMIN` \| `ADMIN`) plus nested `profile` (and `profileComplete`). Prisma: `UserProfile` (1:1 with `User`). Storage bucket: `admin-avatars` (see [supabase-database-setup.md](./supabase-database-setup.md)).
+
+### Team roster (super admin only for mutations)
+
+| Method | Path | Who |
+|--------|------|-----|
+| GET | `/admin/admins` | All admins (read roster + roles) |
+| POST | `/admin/admins/invite` | `SUPER_ADMIN` |
+| POST | `/admin/admins/:id/suspend` | `SUPER_ADMIN` |
+| PATCH | `/admin/admins/:id/role` | `SUPER_ADMIN` — body `{ "role": "SUPER_ADMIN" \| "ADMIN" }` |
 
 ### Admin Center: “Could not load clients/admins” (403)
 
-Supabase sign-in alone is not enough — the email must exist in Prisma with `role: ADMIN` and `status` not `SUSPENDED` (seed with `seed:admin` or Team invite). Admin Center middleware calls `GET /auth/admin/me` on page loads (not `/api/*` BFF routes). Expired sessions redirect through `/auth/signout` (clears cookies) then `/login?error=session_expired` to avoid redirect loops. List pages show the API error message (e.g. `Admin access required`) instead of a generic failure.
+Supabase sign-in alone is not enough — the email must exist in Prisma with `role: SUPER_ADMIN` or `ADMIN` and `status` not `SUSPENDED` (seed with `seed:admin` or super-admin Team invite). Admin Center middleware calls `GET /auth/admin/me` on page loads (not `/api/*` BFF routes). Expired sessions redirect through `/auth/signout` (clears cookies) then `/login?error=session_expired` to avoid redirect loops. List pages show the API error message (e.g. `Admin access required`) instead of a generic failure.
 
 **Admin vs Client Portal sessions:** Both apps share one Supabase project but use **separate auth cookies** (`sb-<ref>-admin-auth-token` vs `sb-<ref>-client-auth-token`) so localhost ports 3002/3003 do not overwrite each other. Client middleware also calls `GET /client-portal/me` and signs out non-client roles. After this change, sign in again on each portal once.
 
@@ -158,26 +201,40 @@ AUTH_EMAIL_FROM=no-reply@mail.cocreatecaribbean.com   # auth / invites only
 
 ## Client project workspace
 
-Multi-tenant projects, change requests, phase approvals, and agency review tickets. Data in Postgres (`ClientProject`, `ProjectRequest`, `ProjectAttachment`, `ProjectActivity`, `PortalNotification`).
+Multi-tenant projects with **three durable conversation threads** per project (`ProjectRequest` types `ONBOARDING`, `PROGRESS`, `CANCELLATION`). Progress work uses admin **checkpoints** (`messageKind=CHECKPOINT`) that the client can approve or reply to; approvals are recorded in `ClientApprovalRecord`. Data in Postgres (`ClientProject`, `ProjectRequest`, `ProjectRequestMessage`, `ClientApprovalRecord`, `ProjectAttachment`, `ProjectActivity`, `PortalNotification`).
+
+### Thread lifecycle
+
+| Phase | Thread | Behaviour |
+|-------|--------|-----------|
+| Client submits project | `ONBOARDING` opened | First message from project description |
+| Admin onboards (`SUBMITTED` → `ACTIVE`) | `ONBOARDING` resolved; `PROGRESS` opened | Onboarding archived (read-only in UI) |
+| Active work | `PROGRESS` | Admin sends checkpoints; client approves latest pending or replies with changes |
+| Client requests cancel | `CANCELLATION` | Admin resolves with outcome + optional fee; project → `CANCELLED` when approved |
+
+At most one pending checkpoint per progress thread (new admin checkpoint supersedes older pending ones). Change requests and phase gates are folded into the progress thread (client replies; admin sends a new checkpoint when ready).
 
 ### Client portal (`apps/client-portal`)
 
 | Method | Path | Auth |
 |--------|------|------|
 | GET | `/client-portal/projects` | Client JWT |
-| POST | `/client-portal/projects` | Client — creates `SUBMITTED` project |
+| POST | `/client-portal/projects` | Client — creates `SUBMITTED` project + onboarding thread |
 | GET | `/client-portal/projects/:id` | Client |
-| POST | `/client-portal/projects/:id/change-requests` | Client (active projects) |
-| POST | `/client-portal/projects/:id/phase-approvals` | Client |
+| POST | `/client-portal/projects/:id/cancellation-request` | Client — active/on-hold projects |
 | POST | `/client-portal/projects/:id/attachments/upload-url` | Client |
 | POST | `/client-portal/projects/:id/attachments` | Client |
-| GET | `/client-portal/projects/requests/open` | Client — open `ADMIN_REVIEW` tickets |
+| GET | `/client-portal/projects/requests/open` | Client — pending progress checkpoints |
+| GET | `/client-portal/approvals/history` | Client — `ClientApprovalRecord` list |
+| POST | `/client-portal/project-requests/:requestId/messages/:messageId/approve` | Client — approve latest checkpoint |
 | GET | `/client-portal/notifications` | Client |
 | PATCH | `/client-portal/notifications/:id/read` | Client |
 | GET | `/client-portal/project-requests/:id` | Client — thread + messages |
 | POST | `/client-portal/project-requests/:id/messages` | Client — reply in conversation |
 
-UI: Control Center → **Projects** / **Approvals**; `/attention` for unread notifications.
+Legacy paths (`change-requests`, `phase-approvals`) append messages on the progress thread.
+
+UI: Control Center → **Projects** (three thread sections per project), **Approvals** (active checkpoints + history); `/attention` for unread notifications (`CHECKPOINT_*`, `CANCELLATION_*` types).
 
 ### Admin Center (`apps/admin-center`)
 
@@ -186,9 +243,11 @@ Per-client workspace: `/clients/{organizationId}` (Projects, Inbox, Activity). G
 | Method | Path | Auth |
 |--------|------|------|
 | GET | `/admin/projects` | Admin |
-| POST | `/admin/clients/:orgId/projects/:projectId/approve` | Admin — `SUBMITTED` → `ACTIVE` |
-| POST | `/admin/projects/:id/review-requests` | Admin — notifies clients + email |
-| GET | `/admin/clients/:orgId/inbox` | Admin |
+| POST | `/admin/clients/:orgId/projects/:projectId/approve` | Admin — `SUBMITTED` → `ACTIVE`; closes onboarding, opens progress |
+| POST | `/admin/projects/:id/checkpoints` | Admin — progress checkpoint (supersedes prior pending) |
+| POST | `/admin/projects/:id/review-requests` | Admin — alias for checkpoints (deprecated) |
+| POST | `/admin/project-requests/:id/resolve-cancellation` | Admin — fee outcome + message |
+| GET | `/admin/clients/:orgId/inbox` | Admin — open requests (checkpoints, cancellations, onboarding) |
 | PATCH | `/admin/project-requests/:id` | Admin |
 | GET | `/admin/project-requests/:id` | Admin — thread + messages |
 | POST | `/admin/project-requests/:id/messages` | Admin — follow-up message |

@@ -31,9 +31,13 @@ type ClientRosterItem = {
 type TabId = 'overview' | 'projects' | 'inbox' | 'activity'
 
 const requestTypeLabel: Record<string, string> = {
-  CHANGE_REQUEST: 'Change request',
-  PHASE_APPROVAL: 'Phase approval',
-  ADMIN_REVIEW: 'Client review',
+  ONBOARDING: 'Onboarding',
+  PROGRESS: 'Progress',
+  CANCELLATION: 'Cancellation request',
+}
+
+function findThread(project: ClientProjectSummary, type: ProjectRequestItem['type']) {
+  return project.requests?.find((r) => r.type === type) ?? null
 }
 
 type ClientWorkspaceProps = {
@@ -52,11 +56,11 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const [success, setSuccess] = useState<string | null>(null)
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
-  const [reviewTitle, setReviewTitle] = useState('')
-  const [reviewDescription, setReviewDescription] = useState('')
-  const [submittingReview, setSubmittingReview] = useState(false)
+  const [checkpointTitle, setCheckpointTitle] = useState('')
+  const [checkpointBody, setCheckpointBody] = useState('')
+  const [checkpointPhase, setCheckpointPhase] = useState('')
+  const [submittingCheckpoint, setSubmittingCheckpoint] = useState(false)
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null)
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
   const [completingId, setCompletingId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -96,8 +100,6 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
     if (t === 'inbox' || t === 'overview' || t === 'activity' || t === 'projects') {
       setTab(t)
     }
-    const thread = params.get('thread')
-    if (thread) setActiveThreadId(thread)
   }, [])
 
   const refreshThread = async (requestId: string) => {
@@ -180,29 +182,54 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
     }
   }
 
-  const submitReviewRequest = async () => {
-    if (!selectedProjectId || !reviewTitle.trim()) return
-    setSubmittingReview(true)
+  const submitCheckpoint = async () => {
+    if (!selectedProjectId || !checkpointTitle.trim() || !checkpointBody.trim()) return
+    setSubmittingCheckpoint(true)
     setError(null)
     try {
-      await fetchAdminBff(`/api/projects/${selectedProjectId}/review-requests`, {
+      await fetchAdminBff(`/api/projects/${selectedProjectId}/checkpoints`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: reviewTitle.trim(),
-          description: reviewDescription.trim() || reviewTitle.trim(),
+          title: checkpointTitle.trim(),
+          body: checkpointBody.trim(),
+          ...(checkpointPhase ? { targetPhase: checkpointPhase } : {}),
         }),
       })
-      setSuccess('Review request sent to client.')
-      setReviewTitle('')
-      setReviewDescription('')
+      setSuccess('Progress check sent — client can approve or reply.')
+      setCheckpointTitle('')
+      setCheckpointBody('')
+      setCheckpointPhase('')
       setExpandedProjectId(selectedProjectId)
       setSelectedProjectId(null)
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not send review request')
+      setError(err instanceof Error ? err.message : 'Could not send progress check')
     } finally {
-      setSubmittingReview(false)
+      setSubmittingCheckpoint(false)
+    }
+  }
+
+  const resolveCancellation = async (
+    requestId: string,
+    payload: {
+      outcome: string
+      feeAmount?: number
+      feeNotes?: string
+      message?: string
+    },
+  ) => {
+    setError(null)
+    try {
+      await fetchAdminBff(`/api/project-requests/${requestId}/resolve-cancellation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      setSuccess('Cancellation resolved and client notified.')
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not resolve cancellation')
     }
   }
 
@@ -293,12 +320,13 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
               <p className="text-sm text-slate-500">No projects yet.</p>
             ) : (
               projects.map((project) => {
-                const reviewRequests =
-                  project.requests?.filter((r) => r.type === 'ADMIN_REVIEW') ?? []
+                const onboarding = findThread(project, 'ONBOARDING')
+                const progress = findThread(project, 'PROGRESS')
+                const cancellation = findThread(project, 'CANCELLATION')
                 const expanded = expandedProjectId === project.id
-                const hasUnread = reviewRequests.some(
-                  (r) => r.status === 'OPEN' || r.status === 'IN_PROGRESS',
-                )
+                const onboardingClosed = onboarding
+                  ? ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(onboarding.status)
+                  : false
 
                 return (
                   <section key={project.id} className="admin-glass-card overflow-hidden">
@@ -306,9 +334,9 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                       <div>
                         <p className={`text-chambray ${bricolage_grot600.className}`}>
                           {project.title}
-                          {hasUnread ? (
+                          {project.hasPendingCheckpoint ? (
                             <span className="ml-2 rounded-full bg-casablanca/25 px-2 py-0.5 text-xs">
-                              Awaiting client
+                              Awaiting client approval
                             </span>
                           ) : null}
                         </p>
@@ -320,20 +348,13 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {reviewRequests.length > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedProjectId(expanded ? null : project.id)
-                            }
-                            className="admin-btn-ghost text-sm"
-                          >
-                            {expanded ? 'Hide' : 'View'} conversation
-                            {reviewRequests.length > 1
-                              ? ` (${reviewRequests.length})`
-                              : ''}
-                          </button>
-                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => setExpandedProjectId(expanded ? null : project.id)}
+                          className="admin-btn-ghost text-sm"
+                        >
+                          {expanded ? 'Hide' : 'View'} threads
+                        </button>
                         {project.status === 'SUBMITTED' ? (
                           <button
                             type="button"
@@ -345,25 +366,27 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                           </button>
                         ) : null}
                         {project.status === 'ACTIVE' ? (
-                          <button
-                            type="button"
-                            disabled={completingId === project.id}
-                            onClick={() => void markProjectComplete(project.id)}
-                            className="admin-btn-primary text-sm"
-                          >
-                            Mark complete
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              disabled={completingId === project.id}
+                              onClick={() => void markProjectComplete(project.id)}
+                              className="admin-btn-primary text-sm"
+                            >
+                              Mark complete
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedProjectId(project.id)
+                                setExpandedProjectId(project.id)
+                              }}
+                              className="admin-btn-ghost text-sm"
+                            >
+                              Send progress check
+                            </button>
+                          </>
                         ) : null}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedProjectId(project.id)
-                            setExpandedProjectId(project.id)
-                          }}
-                          className="admin-btn-ghost text-sm"
-                        >
-                          Request review
-                        </button>
                       </div>
                     </div>
 
@@ -375,50 +398,38 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                             title="Project timeline (all actions)"
                           />
                         ) : null}
-                        {reviewRequests.length > 0 ? (
-                          <>
-                        <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>
-                          Messages with client
-                        </p>
-                        {reviewRequests.map((req) => (
-                          <div
-                            key={req.id}
-                            className={`rounded-xl border p-4 ${
-                              activeThreadId === req.id
-                                ? 'border-sanmarino/30 bg-sanmarino/5'
-                                : 'border-chambray/8'
-                            }`}
-                          >
-                            <p className="text-sm font-medium text-chambray">{req.title}</p>
-                            <p className="text-xs text-slate-500">{req.status}</p>
-                            <div className="mt-3">
-                              <RequestMessageThread
-                                request={req}
-                                viewerRole="ADMIN"
-                                showResolveActions
-                                onSendMessage={(body) => sendAdminMessage(req.id, body)}
-                                onResolve={async (status) => {
-                                  await fetchAdminBff(
-                                    `/api/project-requests/${req.id}`,
-                                    {
-                                      method: 'PATCH',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ status }),
-                                    },
-                                  )
-                                  setSuccess(
-                                    status === 'RESOLVED' ? 'Request resolved.' : 'Request rejected.',
-                                  )
-                                  await load()
-                                }}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                          </>
-                        ) : (
-                          <p className="text-sm text-slate-500">No open review threads.</p>
-                        )}
+                        {onboarding ? (
+                          <ThreadPanel
+                            title="Onboarding conversation"
+                            subtitle={
+                              onboardingClosed
+                                ? 'Closed — archived for records'
+                                : 'Before project is onboarded'
+                            }
+                            request={onboarding}
+                            readOnly={onboardingClosed}
+                            onSendMessage={(body) => sendAdminMessage(onboarding.id, body)}
+                          />
+                        ) : null}
+                        {progress && project.status !== 'SUBMITTED' ? (
+                          <ThreadPanel
+                            title="Project progress"
+                            subtitle="Progress checks and client replies"
+                            request={progress}
+                            onSendMessage={(body) => sendAdminMessage(progress.id, body)}
+                          />
+                        ) : null}
+                        {cancellation ? (
+                          <ThreadPanel
+                            title="Cancellation"
+                            subtitle={cancellation.cancellationOutcome ?? 'Open'}
+                            request={cancellation}
+                            onSendMessage={(body) => sendAdminMessage(cancellation.id, body)}
+                            cancellationResolve={(payload) =>
+                              resolveCancellation(cancellation.id, payload)
+                            }
+                          />
+                        ) : null}
                       </div>
                     ) : null}
                   </section>
@@ -428,26 +439,42 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
 
             {selectedProjectId ? (
               <section className="admin-glass-card max-w-lg space-y-4 p-6">
-                <p className={`text-chambray ${bricolage_grot600.className}`}>Request client review</p>
+                <p className={`text-chambray ${bricolage_grot600.className}`}>
+                  Send progress check
+                </p>
+                <p className="text-sm text-slate-500">
+                  Client can approve or reply with changes. New checks replace the previous
+                  pending approval.
+                </p>
                 <input
                   type="text"
-                  value={reviewTitle}
-                  onChange={(e) => setReviewTitle(e.target.value)}
-                  placeholder="Review title"
+                  value={checkpointTitle}
+                  onChange={(e) => setCheckpointTitle(e.target.value)}
+                  placeholder="Title (e.g. Approve phase 2 deliverables)"
                   className="admin-input w-full"
                 />
                 <textarea
-                  value={reviewDescription}
-                  onChange={(e) => setReviewDescription(e.target.value)}
+                  value={checkpointBody}
+                  onChange={(e) => setCheckpointBody(e.target.value)}
                   placeholder="What should the client review?"
                   rows={4}
-                  className="admin-input w-full resize-y"
+                  className="admin-textarea w-full resize-y"
                 />
+                <select
+                  value={checkpointPhase}
+                  onChange={(e) => setCheckpointPhase(e.target.value)}
+                  className="admin-input w-full"
+                >
+                  <option value="">No phase change</option>
+                  <option value="CLIENT_REVIEW">On approve → Client review</option>
+                  <option value="READY_FOR_DELIVERY">On approve → Ready for delivery</option>
+                  <option value="DELIVERED">On approve → Delivered</option>
+                </select>
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    disabled={submittingReview}
-                    onClick={() => void submitReviewRequest()}
+                    disabled={submittingCheckpoint}
+                    onClick={() => void submitCheckpoint()}
                     className="admin-btn-primary text-sm"
                   >
                     Send to client
@@ -479,12 +506,22 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                     <RequestMessageThread
                       request={item}
                       viewerRole="ADMIN"
-                      showResolveActions
+                      showResolveActions={item.type !== 'CANCELLATION'}
                       onSendMessage={(body) => sendAdminMessage(item.id, body)}
-                      onResolve={async (status) => {
-                        await resolveRequest(item.id, status)
-                      }}
+                      onResolve={
+                        item.type !== 'CANCELLATION'
+                          ? async (status) => {
+                              await resolveRequest(item.id, status)
+                            }
+                          : undefined
+                      }
                     />
+                    {item.type === 'CANCELLATION' &&
+                    !['RESOLVED', 'REJECTED'].includes(item.status) ? (
+                      <CancellationResolveForm
+                        onResolve={(payload) => resolveCancellation(item.id, payload)}
+                      />
+                    ) : null}
                   </div>
                 </section>
               ))
@@ -514,5 +551,116 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         )}
       </div>
     </main>
+  )
+}
+
+function ThreadPanel({
+  title,
+  subtitle,
+  request,
+  readOnly,
+  onSendMessage,
+  cancellationResolve,
+}: {
+  title: string
+  subtitle: string
+  request: ProjectRequestItem
+  readOnly?: boolean
+  onSendMessage: (body: string) => Promise<{ ok: boolean; message?: string }>
+  cancellationResolve?: (payload: {
+    outcome: string
+    feeAmount?: number
+    feeNotes?: string
+    message?: string
+  }) => Promise<void>
+}) {
+  return (
+    <div className="rounded-xl border border-chambray/8 p-4">
+      <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>{title}</p>
+      <p className="text-xs text-slate-500">{subtitle}</p>
+      <div className="mt-3">
+        <RequestMessageThread
+          request={request}
+          viewerRole="ADMIN"
+          readOnly={readOnly}
+          onSendMessage={onSendMessage}
+        />
+        {cancellationResolve &&
+        request.type === 'CANCELLATION' &&
+        !['RESOLVED', 'REJECTED'].includes(request.status) ? (
+          <CancellationResolveForm onResolve={cancellationResolve} />
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function CancellationResolveForm({
+  onResolve,
+}: {
+  onResolve: (payload: {
+    outcome: string
+    feeAmount?: number
+    feeNotes?: string
+    message?: string
+  }) => Promise<void>
+}) {
+  const [outcome, setOutcome] = useState('APPROVED_NO_FEE')
+  const [feeAmount, setFeeAmount] = useState('')
+  const [feeNotes, setFeeNotes] = useState('')
+  const [message, setMessage] = useState('')
+
+  return (
+    <div className="mt-4 space-y-3 rounded-lg border border-red-200/50 bg-red-50/30 p-4">
+      <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>Resolve cancellation</p>
+      <select
+        value={outcome}
+        onChange={(e) => setOutcome(e.target.value)}
+        className="admin-input w-full"
+      >
+        <option value="APPROVED_NO_FEE">Approve cancellation (no fee)</option>
+        <option value="APPROVED_WITH_FEE">Approve cancellation (with fee)</option>
+        <option value="DENIED">Deny cancellation</option>
+      </select>
+      {outcome === 'APPROVED_WITH_FEE' ? (
+        <input
+          type="number"
+          min={0}
+          step="0.01"
+          value={feeAmount}
+          onChange={(e) => setFeeAmount(e.target.value)}
+          placeholder="Fee amount"
+          className="admin-input w-full"
+        />
+      ) : null}
+      <input
+        type="text"
+        value={feeNotes}
+        onChange={(e) => setFeeNotes(e.target.value)}
+        placeholder="Fee notes (optional)"
+        className="admin-input w-full"
+      />
+      <textarea
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Message to client"
+        rows={2}
+        className="admin-textarea w-full resize-y"
+      />
+      <button
+        type="button"
+        className="admin-btn-primary text-sm"
+        onClick={() =>
+          void onResolve({
+            outcome,
+            feeAmount: feeAmount ? Number(feeAmount) : undefined,
+            feeNotes: feeNotes || undefined,
+            message: message || undefined,
+          })
+        }
+      >
+        Send resolution
+      </button>
+    </div>
   )
 }

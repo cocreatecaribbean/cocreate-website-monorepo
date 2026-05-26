@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { Menu } from 'lucide-react'
 import AdminSidebar from '@/components/admin-sidebar'
 import {
@@ -62,11 +62,24 @@ function AdminShellChrome({ children }: { children: React.ReactNode }) {
           ${menuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
-        <AdminSidebar
-          onNavigate={() => setMenuOpen(false)}
-          showClose
-          onClose={() => setMenuOpen(false)}
-        />
+        <Suspense
+          fallback={
+            <div className="flex h-full flex-col px-4 py-6 sm:px-6 sm:py-8" aria-hidden>
+              <div className="mb-8 h-10 w-40 rounded-lg bg-white/10" />
+              <div className="flex flex-1 flex-col gap-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-11 rounded-xl bg-white/10" />
+                ))}
+              </div>
+            </div>
+          }
+        >
+          <AdminSidebar
+            onNavigate={() => setMenuOpen(false)}
+            showClose
+            onClose={() => setMenuOpen(false)}
+          />
+        </Suspense>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

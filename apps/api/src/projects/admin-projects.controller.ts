@@ -11,7 +11,8 @@ import {
 } from '@nestjs/common'
 import { AdminAuthGuard } from '../auth/guards/admin-auth.guard'
 import type { AdminRequest } from '../auth/guards/admin-auth.guard'
-import { CreateReviewRequestDto } from './dto/create-review-request.dto'
+import { CreateCheckpointDto } from './dto/create-checkpoint.dto'
+import { ResolveCancellationDto } from './dto/resolve-cancellation.dto'
 import { CreateRequestMessageDto } from './dto/create-request-message.dto'
 import { RegisterAttachmentDto } from './dto/register-attachment.dto'
 import { UpdateProjectDto } from './dto/update-project.dto'
@@ -48,12 +49,22 @@ export class AdminProjectsController {
   createReviewRequest(
     @Req() req: AdminRequest,
     @Param('id') id: string,
-    @Body() dto: CreateReviewRequestDto,
+    @Body() dto: CreateCheckpointDto,
   ) {
     if (!req.adminUser) {
       throw new Error('Admin user required for review requests')
     }
-    return this.projects.createReviewRequest(req.adminUser, id, dto)
+    return this.projects.sendProgressCheckpoint(req.adminUser, id, dto)
+  }
+
+  @Post('projects/:id/checkpoints')
+  sendCheckpoint(
+    @Req() req: AdminRequest,
+    @Param('id') id: string,
+    @Body() dto: CreateCheckpointDto,
+  ) {
+    if (!req.adminUser) throw new UnauthorizedException('Admin session required')
+    return this.projects.sendProgressCheckpoint(req.adminUser, id, dto)
   }
 
   @Post('projects/:id/attachments/upload-url')
@@ -113,6 +124,16 @@ export class AdminProjectsController {
       throw new Error('Admin user required')
     }
     return this.projects.updateRequest(req.adminUser, requestId, dto)
+  }
+
+  @Post('project-requests/:requestId/resolve-cancellation')
+  resolveCancellation(
+    @Req() req: AdminRequest,
+    @Param('requestId') requestId: string,
+    @Body() dto: ResolveCancellationDto,
+  ) {
+    if (!req.adminUser) throw new UnauthorizedException('Admin session required')
+    return this.projects.resolveCancellation(req.adminUser, requestId, dto)
   }
 
   @Get('clients/:organizationId/projects')

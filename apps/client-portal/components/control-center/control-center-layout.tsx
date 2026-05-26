@@ -36,6 +36,9 @@ function ControlCenterLayoutInner({
       } else {
         params.set(CONTROL_CENTER_VIEW_QUERY, view)
       }
+      // Sidebar navigation should show section lists, not stale deep links.
+      params.delete('projectId')
+      params.delete('requestId')
       const query = params.toString()
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
     },
@@ -72,7 +75,7 @@ function ControlCenterLayoutInner({
                 aria-selected={selected}
                 onClick={() => setActiveView(item.id)}
                 className={`
-                  inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs whitespace-nowrap transition
+                  portal-sl-nav-item inline-flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-xs whitespace-nowrap transition
                   ${bricolage_grot600.className}
                   ${
                     selected

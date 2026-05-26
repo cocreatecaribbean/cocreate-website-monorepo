@@ -128,7 +128,7 @@ function ClientPortalDashboardContent({
                 onClick={() => setActiveTab(tab.id)}
                 id={`portal-tab-${tab.id}`}
                 className={`
-                  rounded-[1.25rem] px-4 py-2.5 text-sm transition sm:px-6
+                  portal-sl-nav-item rounded-[1.25rem] px-4 py-2.5 text-sm transition sm:px-6
                   ${bricolage_grot600.className}
                   ${
                     selected

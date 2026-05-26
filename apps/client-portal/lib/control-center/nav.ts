@@ -41,7 +41,7 @@ export const CONTROL_CENTER_NAV: ControlCenterNavItem[] = [
   {
     id: 'approvals',
     label: 'Approvals',
-    description: 'Items waiting for your sign-off',
+    description: 'Progress checks and approval history',
     icon: CheckCircle2,
   },
   {

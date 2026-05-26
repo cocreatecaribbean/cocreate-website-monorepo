@@ -12,7 +12,7 @@ export type ClientProjectPhase =
   | 'READY_FOR_DELIVERY'
   | 'DELIVERED'
 
-export type ProjectRequestType = 'CHANGE_REQUEST' | 'PHASE_APPROVAL' | 'ADMIN_REVIEW'
+export type ProjectRequestType = 'ONBOARDING' | 'PROGRESS' | 'CANCELLATION'
 
 export type ProjectRequestStatus =
   | 'OPEN'
@@ -30,6 +30,12 @@ export type ProjectRequestMessage = {
   authorJobTitle?: string | null
   authorRole: 'ADMIN' | 'CLIENT'
   body: string
+  messageKind?: 'CHAT' | 'CHECKPOINT'
+  checkpointTargetPhase?: ClientProjectPhase | null
+  requiresClientApproval?: boolean
+  clientApprovedAt?: string | null
+  supersededAt?: string | null
+  isPendingApproval?: boolean
   createdAt: string
 }
 
@@ -62,6 +68,8 @@ export type ClientProjectSummary = {
   completedAt?: string | null
   createdAt: string
   updatedAt: string
+  pendingCheckpointCount?: number
+  hasPendingCheckpoint?: boolean
   openAdminReviewCount?: number
   hasOpenAdminReview?: boolean
   activities?: ProjectActivity[]
@@ -86,9 +94,24 @@ export type ProjectRequestItem = {
   title: string
   description: string
   targetPhase: ClientProjectPhase | null
+  cancellationOutcome?: string | null
+  cancellationFeeAmount?: number | null
+  cancellationFeeNotes?: string | null
   createdAt: string
   messages?: ProjectRequestMessage[]
   messageCount?: number
+}
+
+export type ClientApprovalRecordItem = {
+  id: string
+  projectId: string
+  projectTitle?: string
+  requestId: string
+  messageId: string
+  title: string
+  summary: string | null
+  targetPhase: ClientProjectPhase | null
+  approvedAt: string
 }
 
 export type ClientProjectDetail = ClientProjectSummary & {

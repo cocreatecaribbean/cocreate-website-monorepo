@@ -3,7 +3,6 @@ import { formatActorEmail } from '../projects/project-labels'
 export type UserProfilePick = {
   displayName: string | null
   jobTitle: string | null
-  department?: string | null
   avatarStoragePath?: string | null
 }
 
@@ -19,7 +18,6 @@ export const userActorSelect = {
     select: {
       displayName: true,
       jobTitle: true,
-      department: true,
       avatarStoragePath: true,
     },
   },
@@ -36,7 +34,7 @@ export function resolveActorDisplayName(
   return formatActorEmail(user.email) ?? user.email ?? fallback
 }
 
-/** Name plus optional job title for client-facing copy. */
+/** Name plus optional job title(s) for client-facing copy. */
 export function resolveActorLabel(
   user: UserActorPick | null | undefined,
   opts?: { includeTitle?: boolean; fallback?: string },
@@ -51,9 +49,4 @@ export function resolveActorLabel(
 export function resolveActorJobTitle(user: UserActorPick | null | undefined): string | null {
   const title = user?.profile?.jobTitle?.trim()
   return title || null
-}
-
-export function resolveActorDepartment(user: UserActorPick | null | undefined): string | null {
-  const dept = user?.profile?.department?.trim()
-  return dept || null
 }

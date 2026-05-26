@@ -1,15 +1,21 @@
 'use client'
 
 import { FormEvent, useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { fetchAdminBff } from '@/lib/admin-api-fetch'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import { UserCircle } from 'lucide-react'
 import AdminToast from '@/components/admin-toast'
+import { useAdminSession } from '@/components/admin-session-provider'
+import { isSuperAdminSession } from '@/lib/admin-session'
 
-export type AdminProfile = {
+type ProfileOption = { id: string; label: string }
+
+type AdminProfile = {
   displayName: string | null
   jobTitle: string | null
-  department: string | null
+  jobTitleLabels: string[]
+  jobTitleOptionIds: string[]
   avatarUrl: string | null
   email: string
   profileComplete: boolean
@@ -17,10 +23,12 @@ export type AdminProfile = {
 }
 
 export default function AdminProfileForm() {
+  const { session } = useAdminSession()
+  const isSuperAdmin = isSuperAdminSession(session?.role ?? null)
   const [profile, setProfile] = useState<AdminProfile | null>(null)
+  const [jobTitleOptions, setJobTitleOptions] = useState<ProfileOption[]>([])
   const [displayName, setDisplayName] = useState('')
-  const [jobTitle, setJobTitle] = useState('')
-  const [department, setDepartment] = useState('')
+  const [selectedJobTitleIds, setSelectedJobTitleIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -29,14 +37,18 @@ export default function AdminProfileForm() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await fetchAdminBff<{ ok: boolean; profile?: AdminProfile }>(
-        '/api/profile',
-      )
-      if (data.profile) {
-        setProfile(data.profile)
-        setDisplayName(data.profile.displayName ?? '')
-        setJobTitle(data.profile.jobTitle ?? '')
-        setDepartment(data.profile.department ?? '')
+      const [profileRes, optionsRes] = await Promise.all([
+        fetchAdminBff<{ ok: boolean; profile?: AdminProfile }>('/api/profile'),
+        fetchAdminBff<{
+          ok: boolean
+          jobTitles?: ProfileOption[]
+        }>('/api/profile-options'),
+      ])
+      if (optionsRes.jobTitles) setJobTitleOptions(optionsRes.jobTitles)
+      if (profileRes.profile) {
+        setProfile(profileRes.profile)
+        setDisplayName(profileRes.profile.displayName ?? '')
+        setSelectedJobTitleIds(profileRes.profile.jobTitleOptionIds ?? [])
       }
     } catch {
       setToast('Could not load profile')
@@ -48,6 +60,12 @@ export default function AdminProfileForm() {
   useEffect(() => {
     void load()
   }, [load])
+
+  const toggleJobTitle = (id: string) => {
+    setSelectedJobTitleIds((current) =>
+      current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
+    )
+  }
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -61,13 +79,13 @@ export default function AdminProfileForm() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             displayName,
-            jobTitle,
-            department,
+            jobTitleOptionIds: selectedJobTitleIds,
           }),
         },
       )
       if (data.profile) {
         setProfile(data.profile)
+        setSelectedJobTitleIds(data.profile.jobTitleOptionIds ?? [])
         setToast('Profile saved')
       }
     } catch {
@@ -86,7 +104,6 @@ export default function AdminProfileForm() {
         ok: boolean
         storagePath?: string
         signedUrl?: string
-        token?: string
       }>('/api/profile/avatar/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -193,33 +210,41 @@ export default function AdminProfileForm() {
               className="admin-input mt-1.5 w-full"
             />
           </div>
-          <div>
-            <label className="text-sm font-medium text-chambray" htmlFor="jobTitle">
-              Job title
-            </label>
-            <input
-              id="jobTitle"
-              value={jobTitle}
-              onChange={(e) => setJobTitle(e.target.value)}
-              placeholder="Project Manager"
-              className="admin-input mt-1.5 w-full"
-            />
+          <fieldset>
+            <legend className="text-sm font-medium text-chambray">Job titles</legend>
             <p className="mt-1 text-xs text-slate-500">
-              Shown to clients next to your name on project actions
+              Select all that apply. Shown to clients next to your name on project actions.
             </p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-chambray" htmlFor="department">
-              Department
-            </label>
-            <input
-              id="department"
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-              placeholder="Client Services"
-              className="admin-input mt-1.5 w-full"
-            />
-          </div>
+            {jobTitleOptions.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-500">No job titles available yet.</p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {jobTitleOptions.map((option) => (
+                  <li key={option.id}>
+                    <label className="flex cursor-pointer items-center gap-3 text-sm text-chambray">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-chambray/30 text-chambray focus:ring-chambray/30"
+                        checked={selectedJobTitleIds.includes(option.id)}
+                        onChange={() => toggleJobTitle(option.id)}
+                      />
+                      {option.label}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {isSuperAdmin ? (
+              <p className="mt-3 text-xs">
+                <Link
+                  href="/settings/agency-profile"
+                  className="text-chambray underline underline-offset-2"
+                >
+                  Add or remove job titles for the agency
+                </Link>
+              </p>
+            ) : null}
+          </fieldset>
         </div>
 
         <button type="submit" disabled={saving} className="admin-btn-primary text-sm">

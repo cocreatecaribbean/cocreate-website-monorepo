@@ -5,6 +5,7 @@ import {
   UserRole,
   UserStatus,
 } from '@cocreate/database'
+import { isAgencyAdminRole } from '../auth/admin-roles'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectNotificationMailService } from './project-notification-mail.service'
 import { serializeNotification } from './projects.serializer'
@@ -37,7 +38,10 @@ export class ProjectNotificationsService {
       return configured.split(',').map((e) => e.trim()).filter(Boolean)
     }
     const admins = await this.prisma.user.findMany({
-      where: { role: UserRole.ADMIN, status: UserStatus.ACTIVE },
+      where: {
+        role: { in: [UserRole.SUPER_ADMIN, UserRole.ADMIN] },
+        status: UserStatus.ACTIVE,
+      },
       select: { email: true },
     })
     return admins.map((a) => a.email)
@@ -71,7 +75,10 @@ export class ProjectNotificationsService {
     }
   }) {
     const adminIds = await this.prisma.user.findMany({
-      where: { role: UserRole.ADMIN, status: { not: UserStatus.SUSPENDED } },
+      where: {
+        role: { in: [UserRole.SUPER_ADMIN, UserRole.ADMIN] },
+        status: { not: UserStatus.SUSPENDED },
+      },
       select: { id: true },
     })
 

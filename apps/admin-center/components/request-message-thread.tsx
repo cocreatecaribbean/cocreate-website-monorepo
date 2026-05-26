@@ -8,28 +8,16 @@ import { bricolage_grot600 } from '@/styles/fonts'
 type RequestMessageThreadProps = {
   request: ProjectRequestItem
   viewerRole: 'ADMIN' | 'CLIENT'
+  readOnly?: boolean
   onSendMessage: (body: string) => Promise<{ ok: boolean; message?: string }>
   onResolve?: (status: 'RESOLVED' | 'REJECTED') => Promise<void>
   showResolveActions?: boolean
 }
 
-function messageAuthorLabel(
-  msg: ProjectRequestMessage,
-  isMine: boolean,
-): string {
-  if (isMine) return 'You'
-  if (msg.authorRole === 'ADMIN') {
-    return (
-      formatActorWithTitle(
-        msg.authorDisplayName,
-        msg.authorJobTitle,
-        msg.authorEmail,
-      ) ?? 'CoCreate team'
-    )
-  }
-  return (
-    formatActorWithTitle(msg.authorDisplayName, null, msg.authorEmail) ?? 'Client'
-  )
+function initialAuthorRole(request: ProjectRequestItem): 'ADMIN' | 'CLIENT' {
+  if (request.type === 'ONBOARDING') return 'CLIENT'
+  if (request.type === 'CANCELLATION') return 'CLIENT'
+  return 'ADMIN'
 }
 
 export default function RequestMessageThread({
@@ -38,12 +26,13 @@ export default function RequestMessageThread({
   onSendMessage,
   onResolve,
   showResolveActions = false,
+  readOnly = false,
 }: RequestMessageThreadProps) {
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const messages =
+  const messages: ProjectRequestMessage[] =
     request.messages && request.messages.length > 0
       ? request.messages
       : request.description
@@ -53,15 +42,15 @@ export default function RequestMessageThread({
               requestId: request.id,
               authorUserId: '',
               authorEmail: null,
-              authorRole: (request.type === 'ADMIN_REVIEW' ? 'ADMIN' : 'CLIENT') as
-                | 'ADMIN'
-                | 'CLIENT',
+              authorRole: initialAuthorRole(request),
               body: request.description,
               createdAt: request.createdAt,
             },
           ]
         : []
+
   const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(request.status)
+  const canCompose = !readOnly && !isClosed
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -83,7 +72,7 @@ export default function RequestMessageThread({
         {messages.length === 0 ? (
           <p className="text-sm text-slate-500">No messages yet.</p>
         ) : (
-          messages.map((msg: ProjectRequestMessage) => {
+          messages.map((msg) => {
             const isMine =
               (viewerRole === 'ADMIN' && msg.authorRole === 'ADMIN') ||
               (viewerRole === 'CLIENT' && msg.authorRole === 'CLIENT')
@@ -93,21 +82,54 @@ export default function RequestMessageThread({
                 className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}
               >
                 <p className="text-[0.65rem] font-medium text-slate-500">
-                  {messageAuthorLabel(msg, isMine)}
-                  {msg.authorEmail && !isMine && msg.authorDisplayName !== msg.authorEmail
+                  {isMine
+                    ? 'You'
+                    : msg.authorRole === 'ADMIN'
+                      ? formatActorWithTitle(
+                          msg.authorDisplayName,
+                          msg.authorJobTitle,
+                          msg.authorEmail,
+                        ) ?? 'CoCreate team'
+                      : formatActorWithTitle(
+                          msg.authorDisplayName,
+                          null,
+                          msg.authorEmail,
+                        ) ?? 'Client'}
+                  {msg.authorEmail &&
+                  !isMine &&
+                  msg.authorDisplayName !== msg.authorEmail
                     ? ` (${msg.authorEmail})`
                     : ''}{' '}
-                  ·{' '}
-                  {new Date(msg.createdAt).toLocaleString()}
+                  · {new Date(msg.createdAt).toLocaleString()}
                 </p>
                 <p
-                  className={`mt-1 max-w-[90%] rounded-2xl px-3 py-2 text-sm ${
+                  className={`mt-1 max-w-[90%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
                     isMine
                       ? 'bg-sanmarino/15 text-chambray'
                       : 'bg-chambray/8 text-slate-800'
                   } ${bricolage_grot600.className}`}
                 >
+                  {msg.messageKind === 'CHECKPOINT' ? (
+                    <span className="mb-1 block text-[0.65rem] font-semibold uppercase tracking-wide text-sanmarino">
+                      Progress check
+                    </span>
+                  ) : null}
                   {msg.body}
+                  {msg.supersededAt ? (
+                    <span className="mt-2 block text-xs text-slate-500 italic">
+                      Superseded by a newer review
+                    </span>
+                  ) : null}
+                  {msg.clientApprovedAt ? (
+                    <span className="mt-2 block text-xs text-emerald-700">
+                      Client approved {new Date(msg.clientApprovedAt).toLocaleString()}
+                    </span>
+                  ) : null}
+                  {msg.isPendingApproval ? (
+                    <span className="mt-2 block text-xs text-amber-800">
+                      Awaiting client approval
+                    </span>
+                  ) : null}
                 </p>
               </div>
             )
@@ -115,7 +137,7 @@ export default function RequestMessageThread({
         )}
       </div>
 
-      {!isClosed ? (
+      {canCompose ? (
         <form onSubmit={(e) => void onSubmit(e)} className="space-y-2">
           <textarea
             value={reply}
@@ -126,7 +148,7 @@ export default function RequestMessageThread({
                 : 'Follow up with the client…'
             }
             rows={3}
-            className="admin-input w-full resize-y"
+            className="admin-textarea w-full resize-y"
           />
           {error ? <p className="text-sm text-red-700">{error}</p> : null}
           <div className="flex flex-wrap gap-2">
@@ -153,9 +175,11 @@ export default function RequestMessageThread({
             ) : null}
           </div>
         </form>
-      ) : (
+      ) : isClosed ? (
         <p className="text-sm text-slate-500">This conversation is closed ({request.status}).</p>
-      )}
+      ) : readOnly ? (
+        <p className="text-sm text-slate-500">Archived (read only).</p>
+      ) : null}
     </div>
   )
 }

@@ -58,6 +58,10 @@
     @apply min-h-11 min-w-0 rounded-full border border-chambray/12 bg-white/90 px-4 py-3 text-base shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sanmarino focus:ring-2 focus:ring-sanmarino/20 sm:px-5;
   }
 
+  .admin-textarea {
+    @apply min-h-[5.5rem] min-w-0 rounded-lg border border-chambray/12 bg-white/90 px-4 py-3 text-base shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sanmarino focus:ring-2 focus:ring-sanmarino/20;
+  }
+
   .admin-alert-success {
     @apply rounded-2xl bg-emerald-50/90 px-4 py-3 text-sm text-emerald-800 ring-1 ring-emerald-200/60;
   }

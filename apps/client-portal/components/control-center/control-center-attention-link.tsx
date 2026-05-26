@@ -18,7 +18,7 @@ export default function ControlCenterAttentionLink() {
   return (
     <Link
       href={ATTENTION_PAGE_PATH}
-      className={`mt-1.5 flex items-center gap-1.5 text-xs text-casablanca/90 transition hover:text-casablanca hover:underline ${bricolage_grot600.className}`}
+      className={`mt-1.5 flex cursor-pointer items-center gap-1.5 text-xs text-casablanca/90 transition hover:text-casablanca hover:underline ${bricolage_grot600.className}`}
     >
       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-casablanca" aria-hidden />
       {formatAttentionStatusLabel(count)}

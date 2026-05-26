@@ -3,10 +3,12 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import {
   FolderKanban,
   LayoutDashboard,
   LogOut,
+  Settings2,
   Shield,
   UserCircle,
   Users,
@@ -15,49 +17,79 @@ import {
 } from 'lucide-react'
 import { bricolage_grot600 } from '@/styles/fonts'
 import { useAdminSession } from '@/components/admin-session-provider'
+import { isSuperAdminSession } from '@/lib/admin-session'
+import {
+  getActiveAdminNavId,
+  normalizeAdminPathname,
+  type AdminNavId,
+} from '@/lib/admin-nav'
 
 type NavItem = {
+  id: AdminNavId
   label: string
   href: string
   icon: LucideIcon
-  match?: (pathname: string) => boolean
 }
 
 const navItems: NavItem[] = [
   {
+    id: 'dashboard',
     label: 'Dashboard',
     href: '/',
     icon: LayoutDashboard,
-    match: (pathname) => pathname === '/',
   },
   {
+    id: 'project-center',
     label: 'Project Center',
     href: '/project-center',
     icon: FolderKanban,
-    match: (pathname) => pathname.startsWith('/project-center'),
   },
   {
+    id: 'clients',
     label: 'Clients',
     href: '/client-access',
     icon: Users,
-    match: (pathname) => pathname.startsWith('/client-access'),
   },
   {
+    id: 'team',
     label: 'Team',
     href: '/team',
     icon: Shield,
-    match: (pathname) => pathname.startsWith('/team'),
   },
   {
+    id: 'profile',
     label: 'Profile',
     href: '/profile',
     icon: UserCircle,
-    match: (pathname) => pathname.startsWith('/profile'),
   },
 ]
 
-function isActive(item: NavItem, pathname: string) {
-  return item.match?.(pathname) ?? pathname === item.href
+const superAdminNavItems: NavItem[] = [
+  {
+    id: 'agency-profile',
+    label: 'Profile options',
+    href: '/settings/agency-profile',
+    icon: Settings2,
+  },
+]
+
+function resolvePathname(routerPathname: string | null): string {
+  if (routerPathname) return normalizeAdminPathname(routerPathname)
+  if (typeof window !== 'undefined') {
+    return normalizeAdminPathname(window.location.pathname)
+  }
+  return '/'
+}
+
+function useResolvedPathname(): string {
+  const routerPathname = usePathname()
+  const [pathname, setPathname] = useState(() => resolvePathname(routerPathname))
+
+  useEffect(() => {
+    setPathname(resolvePathname(routerPathname))
+  }, [routerPathname])
+
+  return pathname
 }
 
 type AdminSidebarProps = {
@@ -71,9 +103,14 @@ export default function AdminSidebar({
   showClose = false,
   onClose,
 }: AdminSidebarProps) {
-  const pathname = usePathname()
+  const pathname = useResolvedPathname()
+  const activeNavId = getActiveAdminNavId(pathname)
   const router = useRouter()
   const { session, loading: sessionLoading } = useAdminSession()
+  const items =
+    session?.mode === 'api_key' || isSuperAdminSession(session?.role ?? null)
+      ? [...navItems, ...superAdminNavItems]
+      : navItems
 
   const logout = async () => {
     router.push('/auth/signout')
@@ -110,15 +147,16 @@ export default function AdminSidebar({
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
-        {navItems.map((item) => {
-          const active = isActive(item, pathname)
+        {items.map((item) => {
+          const active = activeNavId === item.id
           const Icon = item.icon
 
           return (
             <Link
-              key={item.href}
+              key={item.id}
               href={item.href}
               onClick={onNavigate}
+              aria-current={active ? 'page' : undefined}
               className={`
                 group flex min-h-11 items-center gap-3 rounded-xl px-3 py-3 text-[15px] transition-all duration-200
                 ${

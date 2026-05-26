@@ -9,11 +9,14 @@ import {
   AdminApiFetchError,
   fetchAdminBff,
 } from '@/lib/admin-api-fetch'
+import { adminRoleLabel, isSuperAdminSession } from '@/lib/admin-session'
+import { useAdminSession } from '@/components/admin-session-provider'
 import { bricolage_grot600 } from '@/styles/fonts'
 
 type AdminRosterItem = {
   id: string
   email: string
+  role: 'SUPER_ADMIN' | 'ADMIN'
   status: 'INVITED' | 'ACTIVE' | 'SUSPENDED'
   createdAt: string
   updatedAt: string
@@ -26,6 +29,11 @@ const statusLabel: Record<string, string> = {
 }
 
 export default function AgencyAdminsManager() {
+  const { session } = useAdminSession()
+  const isSuper = isSuperAdminSession(
+    session?.mode === 'api_key' ? 'api_key' : session?.role ?? null,
+  )
+
   const [admins, setAdmins] = useState<AdminRosterItem[]>([])
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(true)
@@ -63,6 +71,7 @@ export default function AgencyAdminsManager() {
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isSuper) return
     setSubmitting(true)
     setError(null)
     setSuccess(null)
@@ -110,6 +119,28 @@ export default function AgencyAdminsManager() {
     }
   }
 
+  const setRole = async (userId: string, role: 'SUPER_ADMIN' | 'ADMIN') => {
+    setError(null)
+    setSuccess(null)
+    try {
+      await fetchAdminBff(`/api/admins/${userId}/role`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+      })
+      setSuccess(role === 'SUPER_ADMIN' ? 'Promoted to super admin' : 'Set to admin')
+      await loadAdmins({ silent: true })
+    } catch (err) {
+      setError(
+        err instanceof AdminApiFetchError
+          ? `${err.message} — ${adminFetchErrorHint(err.code)}`
+          : err instanceof Error
+            ? err.message
+            : 'Could not update role',
+      )
+    }
+  }
+
   return (
     <div className="space-y-5 sm:space-y-8">
       {success ? (
@@ -118,33 +149,42 @@ export default function AgencyAdminsManager() {
       {error ? (
         <AdminToast message={error} variant="error" onDismiss={() => setError(null)} />
       ) : null}
-      <form
-        onSubmit={onSubmit}
-        className="admin-glass-card flex flex-col gap-4 p-5 sm:p-6"
-      >
-        <div>
-          <p className="admin-eyebrow">Access</p>
-          <h2 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
-            Invite agency admin
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Only emails on this roster can request a magic link at Admin Center sign-in.
-            Your first admin is created with{' '}
-            <code className="rounded bg-chambray/5 px-1 text-xs">seed:admin</code>.
-          </p>
-        </div>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@cocreate.com"
-          className="admin-input"
-        />
-        <button type="submit" disabled={submitting} className="admin-btn-primary md:w-fit">
-          {submitting ? 'Sending…' : 'Invite admin'}
-        </button>
-      </form>
+
+      {isSuper ? (
+        <form
+          onSubmit={onSubmit}
+          className="admin-glass-card flex flex-col gap-4 p-5 sm:p-6"
+        >
+          <div>
+            <p className="admin-eyebrow">Access</p>
+            <h2 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
+              Invite agency admin
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              New invites join as standard admins. Promote to super admin from the roster below.
+              The first account is created with{' '}
+              <code className="rounded bg-chambray/5 px-1 text-xs">seed:admin</code> as super
+              admin.
+            </p>
+          </div>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@cocreate.com"
+            className="admin-input"
+          />
+          <button type="submit" disabled={submitting} className="admin-btn-primary md:w-fit">
+            {submitting ? 'Sending…' : 'Invite admin'}
+          </button>
+        </form>
+      ) : (
+        <p className="admin-glass-card p-5 text-sm text-slate-600">
+          Only super admins can invite or change team access. Contact your super admin if you
+          need someone added.
+        </p>
+      )}
 
       {devSignInUrl ? <DevSignInLink url={devSignInUrl} label="Open admin sign-in link" /> : null}
 
@@ -169,17 +209,36 @@ export default function AgencyAdminsManager() {
                 <div>
                   <p className={`text-chambray ${bricolage_grot600.className}`}>{admin.email}</p>
                   <p className="mt-1 text-xs text-slate-500">
-                    {statusLabel[admin.status] ?? admin.status}
+                    {adminRoleLabel(admin.role)} · {statusLabel[admin.status] ?? admin.status}
                   </p>
                 </div>
-                {admin.status !== 'SUSPENDED' ? (
-                  <button
-                    type="button"
-                    onClick={() => void suspend(admin.id)}
-                    className="admin-btn-ghost min-h-10 w-full sm:w-auto"
-                  >
-                    Suspend
-                  </button>
+                {isSuper && admin.status !== 'SUSPENDED' ? (
+                  <div className="flex flex-wrap gap-2">
+                    {admin.role === 'ADMIN' ? (
+                      <button
+                        type="button"
+                        onClick={() => void setRole(admin.id, 'SUPER_ADMIN')}
+                        className="admin-btn-ghost min-h-10 text-xs"
+                      >
+                        Make super admin
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void setRole(admin.id, 'ADMIN')}
+                        className="admin-btn-ghost min-h-10 text-xs"
+                      >
+                        Demote to admin
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void suspend(admin.id)}
+                      className="admin-btn-ghost min-h-10 text-xs"
+                    >
+                      Suspend
+                    </button>
+                  </div>
                 ) : null}
               </li>
             ))}

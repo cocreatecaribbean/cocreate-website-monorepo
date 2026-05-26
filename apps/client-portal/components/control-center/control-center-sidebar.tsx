@@ -36,7 +36,7 @@ function NavButton({
       aria-current={active ? 'page' : undefined}
       title={item.description}
       className={`
-        group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition
+        portal-sl-nav-item group flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition
         ${bricolage_grot600.className}
         ${
           active

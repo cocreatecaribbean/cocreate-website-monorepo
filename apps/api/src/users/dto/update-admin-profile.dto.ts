@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator'
+import { IsArray, IsOptional, IsString, MaxLength } from 'class-validator'
 
 export class UpdateAdminProfileDto {
   @IsOptional()
@@ -7,12 +7,7 @@ export class UpdateAdminProfileDto {
   displayName?: string
 
   @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  jobTitle?: string
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  department?: string
+  @IsArray()
+  @IsString({ each: true })
+  jobTitleOptionIds?: string[]
 }

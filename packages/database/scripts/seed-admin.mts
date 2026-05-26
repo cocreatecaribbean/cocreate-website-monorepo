@@ -46,11 +46,11 @@ try {
     where: { email },
     create: {
       email,
-      role: UserRole.ADMIN,
+      role: UserRole.SUPER_ADMIN,
       status: UserStatus.INVITED,
     },
     update: {
-      role: UserRole.ADMIN,
+      role: UserRole.SUPER_ADMIN,
       status: UserStatus.INVITED,
       organizationId: null,
     },

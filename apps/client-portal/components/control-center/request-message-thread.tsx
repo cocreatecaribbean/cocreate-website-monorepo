@@ -9,27 +9,39 @@ type RequestMessageThreadProps = {
   request: ProjectRequestItem
   viewerRole: 'ADMIN' | 'CLIENT'
   variant?: 'portal' | 'admin'
+  readOnly?: boolean
   onSendMessage: (body: string) => Promise<{ ok: boolean; message?: string }>
+  onApproveCheckpoint?: (messageId: string) => Promise<{ ok: boolean; message?: string }>
   onResolve?: (status: 'RESOLVED' | 'REJECTED') => Promise<void>
   showResolveActions?: boolean
+}
+
+function initialAuthorRole(request: ProjectRequestItem): 'ADMIN' | 'CLIENT' {
+  if (request.type === 'ONBOARDING') return 'CLIENT'
+  if (request.type === 'CANCELLATION') return 'CLIENT'
+  return 'ADMIN'
 }
 
 export default function RequestMessageThread({
   request,
   viewerRole,
   onSendMessage,
+  onApproveCheckpoint,
   onResolve,
   showResolveActions = false,
+  readOnly = false,
   variant = 'portal',
 }: RequestMessageThreadProps) {
-  const inputClass = variant === 'admin' ? 'admin-input w-full resize-y' : 'portal-input w-full resize-y'
+  const inputClass =
+    variant === 'admin' ? 'admin-textarea w-full resize-y' : 'portal-textarea w-full resize-y'
   const btnPrimary = variant === 'admin' ? 'admin-btn-primary text-sm' : 'portal-btn-primary text-sm'
   const btnGhost = variant === 'admin' ? 'admin-btn-ghost text-sm' : 'portal-btn-ghost text-sm'
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
+  const [approvingId, setApprovingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const messages =
+  const messages: ProjectRequestMessage[] =
     request.messages && request.messages.length > 0
       ? request.messages
       : request.description
@@ -39,15 +51,15 @@ export default function RequestMessageThread({
               requestId: request.id,
               authorUserId: '',
               authorEmail: null,
-              authorRole: (request.type === 'ADMIN_REVIEW' ? 'ADMIN' : 'CLIENT') as
-                | 'ADMIN'
-                | 'CLIENT',
+              authorRole: initialAuthorRole(request),
               body: request.description,
               createdAt: request.createdAt,
             },
           ]
         : []
+
   const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(request.status)
+  const canCompose = !readOnly && !isClosed
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -63,16 +75,31 @@ export default function RequestMessageThread({
     setSending(false)
   }
 
+  const onApprove = async (messageId: string) => {
+    if (!onApproveCheckpoint) return
+    setApprovingId(messageId)
+    setError(null)
+    const result = await onApproveCheckpoint(messageId)
+    if (!result.ok) setError(result.message ?? 'Could not approve')
+    setApprovingId(null)
+  }
+
   return (
     <div className="space-y-4">
       <div className="max-h-80 space-y-3 overflow-y-auto rounded-xl border border-chambray/8 bg-white/40 p-4">
         {messages.length === 0 ? (
           <p className="text-sm text-slate-500">No messages yet.</p>
         ) : (
-          messages.map((msg: ProjectRequestMessage) => {
+          messages.map((msg) => {
             const isMine =
               (viewerRole === 'ADMIN' && msg.authorRole === 'ADMIN') ||
               (viewerRole === 'CLIENT' && msg.authorRole === 'CLIENT')
+            const showApprove =
+              viewerRole === 'CLIENT' &&
+              msg.isPendingApproval &&
+              onApproveCheckpoint &&
+              !readOnly
+
             return (
               <div
                 key={msg.id}
@@ -97,25 +124,49 @@ export default function RequestMessageThread({
                   msg.authorDisplayName !== msg.authorEmail
                     ? ` (${msg.authorEmail})`
                     : ''}{' '}
-                  ·{' '}
-                  {new Date(msg.createdAt).toLocaleString()}
+                  · {new Date(msg.createdAt).toLocaleString()}
                 </p>
-                <p
-                  className={`mt-1 max-w-[90%] rounded-2xl px-3 py-2 text-sm ${
+                <div
+                  className={`mt-1 max-w-[90%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
                     isMine
                       ? 'bg-sanmarino/15 text-chambray'
                       : 'bg-chambray/8 text-slate-800'
                   } ${bricolage_grot600.className}`}
                 >
+                  {msg.messageKind === 'CHECKPOINT' ? (
+                    <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wide text-sanmarino">
+                      Progress check
+                    </p>
+                  ) : null}
                   {msg.body}
-                </p>
+                  {msg.supersededAt ? (
+                    <p className="mt-2 text-xs text-slate-500 italic">
+                      Superseded by a newer review from CoCreate
+                    </p>
+                  ) : null}
+                  {msg.clientApprovedAt ? (
+                    <p className="mt-2 text-xs text-emerald-700">
+                      Approved {new Date(msg.clientApprovedAt).toLocaleString()}
+                    </p>
+                  ) : null}
+                </div>
+                {showApprove ? (
+                  <button
+                    type="button"
+                    disabled={approvingId === msg.id}
+                    onClick={() => void onApprove(msg.id)}
+                    className={`${btnPrimary} mt-2`}
+                  >
+                    {approvingId === msg.id ? 'Approving…' : 'Approve'}
+                  </button>
+                ) : null}
               </div>
             )
           })
         )}
       </div>
 
-      {!isClosed ? (
+      {canCompose ? (
         <form onSubmit={(e) => void onSubmit(e)} className="space-y-2">
           <textarea
             value={reply}
@@ -153,9 +204,11 @@ export default function RequestMessageThread({
             ) : null}
           </div>
         </form>
-      ) : (
+      ) : isClosed ? (
         <p className="text-sm text-slate-500">This conversation is closed ({request.status}).</p>
-      )}
+      ) : readOnly ? (
+        <p className="text-sm text-slate-500">Archived conversation (read only).</p>
+      ) : null}
     </div>
   )
 }

@@ -1,16 +1,21 @@
 import {
+  BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { UserRole, UserStatus } from '@cocreate/database'
+import { isAgencyAdminRole, isSuperAdminRole } from '../auth/admin-roles'
+import type { AuthenticatedAdmin } from '../auth/auth.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { SupabaseAuthService } from '../clients/supabase-auth.service'
 
 export type AdminRosterItem = {
   id: string
   email: string
+  role: UserRole
   status: UserStatus
   createdAt: Date
   updatedAt: Date
@@ -24,34 +29,45 @@ export class AdminsService {
     private readonly config: ConfigService,
   ) {}
 
+  private assertSuperAdmin(actor: AuthenticatedAdmin) {
+    if (!isSuperAdminRole(actor.role)) {
+      throw new ForbiddenException('Super admin access required')
+    }
+  }
+
+  private agencyAdminWhere() {
+    return {
+      role: { in: [UserRole.SUPER_ADMIN, UserRole.ADMIN] as UserRole[] },
+    }
+  }
+
   normalizeEmail(email: string): string {
     return email.trim().toLowerCase()
   }
 
   async listAdmins(): Promise<AdminRosterItem[]> {
     const users = await this.prisma.user.findMany({
-      where: { role: UserRole.ADMIN },
-      orderBy: { createdAt: 'asc' },
+      where: this.agencyAdminWhere(),
+      orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
     })
-    return users.map((u) => ({
-      id: u.id,
-      email: u.email,
-      status: u.status,
-      createdAt: u.createdAt,
-      updatedAt: u.updatedAt,
-    }))
+    return users.map((u) => this.toRosterItem(u))
   }
 
-  async inviteAdmin(email: string): Promise<{
+  async inviteAdmin(
+    actor: AuthenticatedAdmin,
+    email: string,
+  ): Promise<{
     admin: AdminRosterItem
     message: string
     devSignInUrl?: string
   }> {
+    this.assertSuperAdmin(actor)
+
     const normalized = this.normalizeEmail(email)
     const existing = await this.prisma.user.findUnique({ where: { email: normalized } })
 
     if (existing) {
-      if (existing.role !== UserRole.ADMIN) {
+      if (!isAgencyAdminRole(existing.role)) {
         throw new ConflictException(
           'This email is already registered as a client. Use a different email for admin access.',
         )
@@ -84,13 +100,7 @@ export class AdminsService {
       { role: 'ADMIN' },
     )
 
-    const rosterItem = {
-      id: admin.id,
-      email: admin.email,
-      status: admin.status,
-      createdAt: admin.createdAt,
-      updatedAt: admin.updatedAt,
-    }
+    const rosterItem = this.toRosterItem(admin)
 
     if (result.status === 'dev_link' && result.devSignInUrl) {
       return {
@@ -106,10 +116,16 @@ export class AdminsService {
     }
   }
 
-  async suspendAdmin(userId: string): Promise<AdminRosterItem> {
+  async suspendAdmin(actor: AuthenticatedAdmin, userId: string): Promise<AdminRosterItem> {
+    this.assertSuperAdmin(actor)
+
     const user = await this.prisma.user.findUnique({ where: { id: userId } })
-    if (!user || user.role !== UserRole.ADMIN) {
+    if (!user || !isAgencyAdminRole(user.role)) {
       throw new NotFoundException('Admin user not found')
+    }
+
+    if (isSuperAdminRole(user.role)) {
+      await this.assertNotLastSuperAdmin(user.id)
     }
 
     const updated = await this.prisma.user.update({
@@ -117,12 +133,70 @@ export class AdminsService {
       data: { status: UserStatus.SUSPENDED },
     })
 
+    return this.toRosterItem(updated)
+  }
+
+  async updateAdminRole(
+    actor: AuthenticatedAdmin,
+    userId: string,
+    role: UserRole,
+  ): Promise<AdminRosterItem> {
+    this.assertSuperAdmin(actor)
+
+    if (role !== UserRole.SUPER_ADMIN && role !== UserRole.ADMIN) {
+      throw new BadRequestException('Role must be SUPER_ADMIN or ADMIN')
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } })
+    if (!user || !isAgencyAdminRole(user.role)) {
+      throw new NotFoundException('Admin user not found')
+    }
+
+    if (isSuperAdminRole(user.role) && role === UserRole.ADMIN) {
+      await this.assertNotLastSuperAdmin(user.id)
+      if (user.id === actor.id) {
+        throw new BadRequestException(
+          'You cannot demote yourself while you are the only super admin',
+        )
+      }
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { role },
+    })
+
+    return this.toRosterItem(updated)
+  }
+
+  private async assertNotLastSuperAdmin(excludeUserId?: string) {
+    const count = await this.prisma.user.count({
+      where: {
+        role: UserRole.SUPER_ADMIN,
+        status: { not: UserStatus.SUSPENDED },
+        ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+      },
+    })
+    if (count === 0) {
+      throw new BadRequestException('At least one active super admin is required')
+    }
+  }
+
+  private toRosterItem(user: {
+    id: string
+    email: string
+    role: UserRole
+    status: UserStatus
+    createdAt: Date
+    updatedAt: Date
+  }): AdminRosterItem {
     return {
-      id: updated.id,
-      email: updated.email,
-      status: updated.status,
-      createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt,
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     }
   }
 }

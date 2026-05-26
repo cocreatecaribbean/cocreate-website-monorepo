@@ -50,6 +50,10 @@
     @apply min-h-11 w-full rounded-xl border border-chambray/12 bg-white/80 px-4 py-2.5 text-sm text-chambray shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sanmarino/40 focus:ring-2 focus:ring-sanmarino/15;
   }
 
+  .portal-textarea {
+    @apply min-h-[5.5rem] w-full rounded-lg border border-chambray/12 bg-white/80 px-4 py-3 text-sm text-chambray shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sanmarino/40 focus:ring-2 focus:ring-sanmarino/15;
+  }
+
   .portal-btn-ghost {
     @apply inline-flex items-center justify-center gap-2 rounded-full border border-chambray/12 bg-white/80 px-4 py-2 text-sm font-medium text-chambray backdrop-blur-sm transition hover:border-sanmarino/40 hover:bg-white;
   }
@@ -99,6 +103,15 @@
 
   .portal-sl-sidebar {
     @apply rounded-l-[1.65rem] bg-linear-to-b from-chambray via-[#2f3678] to-[#252b63] text-white shadow-[inset_-1px_0_0_rgba(255,255,255,0.06)];
+  }
+
+  /* Nav items: pointer on hover (utility classes alone were not applying reliably). */
+  .portal-sl-nav-item {
+    cursor: pointer !important;
+  }
+
+  .portal-sl-nav-item:disabled {
+    cursor: not-allowed !important;
   }
 
   .portal-sl-mobile-nav {
@@ -167,6 +180,16 @@
     opacity: 1;
     transform: scale(1);
   }
+}
+
+/* Outside @layer so nav buttons always show pointer (fixes layer / preflight overrides). */
+aside.portal-sl-sidebar button[type='button']:not(:disabled),
+.portal-sl-mobile-nav button[type='button']:not(:disabled),
+button.portal-sl-nav-item:not(:disabled),
+[role='tablist'][aria-label='Portal sections'] button:not(:disabled),
+[role='tablist'][aria-label='Control center sections'] button:not(:disabled),
+[role='tablist'][aria-label='Social listening sections'] button:not(:disabled) {
+  cursor: pointer !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

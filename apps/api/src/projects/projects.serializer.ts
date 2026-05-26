@@ -1,7 +1,9 @@
 import type {
+  ClientApprovalRecord,
   ClientProject,
   ClientProjectPhase,
   ClientProjectStatus,
+  CancellationOutcome,
   Organization,
   ProjectActivity,
   ProjectAttachment,
@@ -10,6 +12,7 @@ import type {
   ProjectRequestStatus,
   ProjectRequestType,
   ProjectMessageAuthorRole,
+  ProjectMessageKind,
   PortalNotification,
   User,
   UserProfile,
@@ -25,7 +28,7 @@ import {
 type UserWithProfile = Pick<User, 'id' | 'email'> & {
   profile?: Pick<
     UserProfile,
-    'displayName' | 'jobTitle' | 'department' | 'avatarStoragePath'
+    'displayName' | 'jobTitle' | 'avatarStoragePath'
   > | null
 }
 
@@ -71,6 +74,12 @@ export function serializeMessage(
       ? serializeActorFields(message.author, 'ADMIN')
       : serializeActorFields(message.author, 'CLIENT')
 
+  const pendingApproval =
+    message.messageKind === 'CHECKPOINT' &&
+    message.requiresClientApproval &&
+    !message.supersededAt &&
+    !message.clientApprovedAt
+
   return {
     id: message.id,
     requestId: message.requestId,
@@ -80,20 +89,32 @@ export function serializeMessage(
     authorJobTitle: actor.jobTitle,
     authorRole: role,
     body: message.body,
+    messageKind: message.messageKind as ProjectMessageKind,
+    checkpointTargetPhase: message.checkpointTargetPhase as ClientProjectPhase | null,
+    requiresClientApproval: message.requiresClientApproval,
+    clientApprovedAt: message.clientApprovedAt?.toISOString() ?? null,
+    supersededAt: message.supersededAt?.toISOString() ?? null,
+    isPendingApproval: pendingApproval,
     createdAt: message.createdAt.toISOString(),
   }
 }
 
 type ProjectWithReviewMeta = ProjectWithRelations & {
-  openAdminReviewCount?: number
+  pendingCheckpointCount?: number
+  openCancellationCount?: number
 }
 
 export function serializeProject(project: ProjectWithReviewMeta) {
-  const openAdminReviewCount =
-    project.openAdminReviewCount ??
+  const pendingCheckpointCount =
+    project.pendingCheckpointCount ??
+    project.requests?.filter((r) => r.type === 'PROGRESS').length ??
+    0
+
+  const openCancellationCount =
+    project.openCancellationCount ??
     project.requests?.filter(
       (r) =>
-        r.type === 'ADMIN_REVIEW' &&
+        r.type === 'CANCELLATION' &&
         (r.status === 'OPEN' || r.status === 'IN_PROGRESS'),
     ).length ??
     0
@@ -124,8 +145,14 @@ export function serializeProject(project: ProjectWithReviewMeta) {
     completedAt: project.completedAt?.toISOString() ?? null,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
-    openAdminReviewCount,
-    hasOpenAdminReview: openAdminReviewCount > 0,
+    pendingCheckpointCount,
+    hasPendingCheckpoint: pendingCheckpointCount > 0,
+    openCancellationCount,
+    hasOpenCancellation: openCancellationCount > 0,
+    /** @deprecated use hasPendingCheckpoint */
+    openAdminReviewCount: pendingCheckpointCount,
+    /** @deprecated use hasPendingCheckpoint */
+    hasOpenAdminReview: pendingCheckpointCount > 0,
     requests:
       project.requests?.every((r) => 'title' in r && r.title !== undefined)
         ? project.requests.map((r) => serializeRequest(r as RequestWithRelations))
@@ -151,6 +178,12 @@ export function serializeRequest(request: RequestWithRelations) {
     createdByEmail: request.createdBy?.email ?? null,
     resolvedByUserId: request.resolvedByUserId,
     resolvedAt: request.resolvedAt?.toISOString() ?? null,
+    cancellationOutcome: (request.cancellationOutcome as CancellationOutcome | null) ?? null,
+    cancellationFeeAmount:
+      request.cancellationFeeAmount != null
+        ? Number(request.cancellationFeeAmount)
+        : null,
+    cancellationFeeNotes: request.cancellationFeeNotes ?? null,
     createdAt: request.createdAt.toISOString(),
     updatedAt: request.updatedAt.toISOString(),
     attachments: request.attachments?.map(serializeAttachment),
@@ -199,6 +232,20 @@ export function serializeActivity(
     ),
     metadata: activity.metadata,
     createdAt: activity.createdAt.toISOString(),
+  }
+}
+
+export function serializeApprovalRecord(record: ClientApprovalRecord) {
+  return {
+    id: record.id,
+    projectId: record.projectId,
+    requestId: record.requestId,
+    messageId: record.messageId,
+    title: record.title,
+    summary: record.summary,
+    targetPhase: record.targetPhase as ClientProjectPhase | null,
+    approvedAt: record.approvedAt.toISOString(),
+    approvedByUserId: record.approvedByUserId,
   }
 }
 

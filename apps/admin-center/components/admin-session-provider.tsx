@@ -19,6 +19,7 @@ type AdminSession = {
   mode: 'user' | 'api_key'
   email: string | null
   status: string | null
+  role: 'SUPER_ADMIN' | 'ADMIN' | null
   displayName?: string | null
   profileComplete?: boolean
 }
@@ -59,6 +60,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
         admin?: {
           email: string
           status: string
+          role?: 'SUPER_ADMIN' | 'ADMIN'
           profile?: {
             displayName?: string | null
             profileComplete?: boolean
@@ -67,7 +69,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
       }>('/api/session')
 
       if (data.mode === 'api_key') {
-        setSession({ mode: 'api_key', email: null, status: null })
+        setSession({ mode: 'api_key', email: null, status: null, role: null })
         return
       }
 
@@ -76,6 +78,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
           mode: 'user',
           email: data.admin.email,
           status: data.admin.status,
+          role: data.admin.role ?? 'ADMIN',
           displayName: data.admin.profile?.displayName ?? null,
           profileComplete: data.admin.profile?.profileComplete ?? false,
         })
