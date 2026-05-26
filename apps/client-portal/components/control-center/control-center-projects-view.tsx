@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useCallback, useEffect, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { ClientProjectDetail, ClientProjectSummary } from '@/lib/projects/api-types'
 import RequestMessageThread from '@/components/control-center/request-message-thread'
@@ -21,11 +21,14 @@ import {
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import { Bell, Calendar, ExternalLink, FolderKanban, Plus } from 'lucide-react'
 
+const SHOW_PROJECTS_LIST_KEY = 'cc-show-projects-list'
+
 export default function ControlCenterProjectsView() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const selectedId = searchParams.get('projectId')
+  const deepLinkHandled = useRef(false)
+  const [openedProjectId, setOpenedProjectId] = useState<string | null>(null)
   const [projects, setProjects] = useState<ClientProjectSummary[]>([])
   const [detail, setDetail] = useState<ClientProjectDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -47,30 +50,48 @@ export default function ControlCenterProjectsView() {
     void loadProjects()
   }, [loadProjects])
 
+  // Email / notification deep links use ?projectId= once; in-app navigation uses local state only.
   useEffect(() => {
-    if (!selectedId) {
-      setDetail(null)
+    if (deepLinkHandled.current) return
+    deepLinkHandled.current = true
+
+    if (typeof window !== 'undefined' && sessionStorage.getItem(SHOW_PROJECTS_LIST_KEY) === '1') {
+      sessionStorage.removeItem(SHOW_PROJECTS_LIST_KEY)
+      setOpenedProjectId(null)
+      const params = new URLSearchParams(searchParams.toString())
+      if (params.has('projectId')) {
+        params.delete('projectId')
+        const query = params.toString()
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+      }
       return
     }
-    void fetchProject(selectedId).then(setDetail)
-  }, [selectedId])
 
-  const openProject = useCallback(
-    (projectId: string) => {
-      const params = new URLSearchParams(searchParams.toString())
-      params.set('ccView', 'projects')
-      params.set('projectId', projectId)
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
-    },
-    [pathname, router, searchParams],
-  )
+    const deepLinkId = searchParams.get('projectId')
+    if (!deepLinkId) return
 
-  const closeProject = useCallback(() => {
+    setOpenedProjectId(deepLinkId)
     const params = new URLSearchParams(searchParams.toString())
     params.delete('projectId')
     const query = params.toString()
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
   }, [pathname, router, searchParams])
+
+  useEffect(() => {
+    if (!openedProjectId) {
+      setDetail(null)
+      return
+    }
+    void fetchProject(openedProjectId).then(setDetail)
+  }, [openedProjectId])
+
+  const openProject = useCallback((projectId: string) => {
+    setOpenedProjectId(projectId)
+  }, [])
+
+  const closeProject = useCallback(() => {
+    setOpenedProjectId(null)
+  }, [])
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -98,13 +119,13 @@ export default function ControlCenterProjectsView() {
     openProject(result.project.id)
   }
 
-  if (selectedId && detail) {
+  if (openedProjectId && detail) {
     return (
       <ProjectDetailView
         project={detail}
         onBack={closeProject}
         onRefresh={async () => {
-          const next = await fetchProject(selectedId)
+          const next = await fetchProject(openedProjectId)
           setDetail(next)
           await loadProjects()
         }}

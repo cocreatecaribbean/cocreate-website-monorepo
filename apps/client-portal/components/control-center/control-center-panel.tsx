@@ -38,7 +38,9 @@ export default function ControlCenterPanel({ organizationName }: ControlCenterPa
 
       <section className="portal-sl-frame portal-animate-in portal-animate-in-delay-1 overflow-hidden">
         <ControlCenterLayout organizationName={organizationName}>
-          {(activeView) => <ControlCenterContent activeView={activeView} />}
+          {(activeView, projectsListKey) => (
+            <ControlCenterContent activeView={activeView} projectsListKey={projectsListKey} />
+          )}
         </ControlCenterLayout>
       </section>
     </div>

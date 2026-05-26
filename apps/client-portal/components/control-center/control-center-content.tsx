@@ -69,14 +69,18 @@ const ACTIVITY = [
 
 type ControlCenterContentProps = {
   activeView: ControlCenterViewId
+  projectsListKey: number
 }
 
-export default function ControlCenterContent({ activeView }: ControlCenterContentProps) {
+export default function ControlCenterContent({
+  activeView,
+  projectsListKey,
+}: ControlCenterContentProps) {
   switch (activeView) {
     case 'overview':
       return <OverviewSection />
     case 'projects':
-      return <ControlCenterProjectsView />
+      return <ControlCenterProjectsView key={projectsListKey} />
     case 'approvals':
       return <ControlCenterApprovalsView />
     case 'files':

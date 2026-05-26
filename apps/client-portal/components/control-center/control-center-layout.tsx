@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, type ReactNode } from 'react'
+import { Suspense, useCallback, useState, type ReactNode } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import ControlCenterAttentionLink from '@/components/control-center/control-center-attention-link'
 import ControlCenterSidebar from '@/components/control-center/control-center-sidebar'
@@ -15,7 +15,7 @@ import Link from 'next/link'
 import { bricolage_grot600 } from '@/styles/fonts'
 
 type ControlCenterLayoutProps = {
-  children: (activeView: ControlCenterViewId) => ReactNode
+  children: (activeView: ControlCenterViewId, projectsListKey: number) => ReactNode
   organizationName?: string | null
 }
 
@@ -27,6 +27,7 @@ function ControlCenterLayoutInner({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const activeView = parseControlCenterView(searchParams.get(CONTROL_CENTER_VIEW_QUERY))
+  const [projectsListKey, setProjectsListKey] = useState(0)
 
   const setActiveView = useCallback(
     (view: ControlCenterViewId) => {
@@ -37,6 +38,12 @@ function ControlCenterLayoutInner({
         params.set(CONTROL_CENTER_VIEW_QUERY, view)
       }
       // Sidebar navigation should show section lists, not stale deep links.
+      if (view === 'projects') {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('cc-show-projects-list', '1')
+        }
+        setProjectsListKey((key) => key + 1)
+      }
       params.delete('projectId')
       params.delete('requestId')
       const query = params.toString()
@@ -105,7 +112,7 @@ function ControlCenterLayoutInner({
           <p className="portal-eyebrow">{activeMeta.label}</p>
           <p className="mt-1 text-sm text-slate-600">{activeMeta.description}</p>
         </header>
-        <div className="min-h-0 flex-1">{children(activeView)}</div>
+        <div className="min-h-0 flex-1">{children(activeView, projectsListKey)}</div>
       </div>
     </div>
   )
