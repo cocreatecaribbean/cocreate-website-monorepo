@@ -298,6 +298,7 @@ function ArcTile({
     return (
       <Link
         href={item.href}
+        scroll
         aria-label={`View ${item.projectName}`}
         aria-current={isActiveItem ? 'true' : undefined}
         className={shellClass}

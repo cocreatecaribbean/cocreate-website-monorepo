@@ -5,6 +5,7 @@ import { useLayoutEffect, useRef } from 'react'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { ScrollSmoother } from 'gsap/ScrollSmoother'
 import { markSpaNavigation } from '@/lib/scroll/navigation'
+import { scrollToDocumentTop } from '@/lib/scroll/scroll-to-document-top'
 
 const SMOOTH_DURATION = 0.85
 
@@ -28,6 +29,10 @@ export default function ScrollToTop() {
     sessionStorage.removeItem('lastScrollY')
     sessionStorage.removeItem('lastPath')
 
+    const resetNativeScroll = () => {
+      scrollToDocumentTop()
+    }
+
     const syncScroll = () => {
       const smoother = ScrollSmoother.get()
       if (smoother) {
@@ -38,12 +43,21 @@ export default function ScrollToTop() {
         smoother.smooth(prev > 0 ? prev : SMOOTH_DURATION)
         smoother.scrollTrigger?.refresh()
       } else {
-        window.scrollTo(0, 0)
+        resetNativeScroll()
       }
       ScrollTrigger.refresh()
     }
 
-    requestAnimationFrame(syncScroll)
+    if (!ScrollSmoother.get()) {
+      resetNativeScroll()
+    }
+
+    requestAnimationFrame(() => {
+      syncScroll()
+      if (!ScrollSmoother.get()) {
+        requestAnimationFrame(resetNativeScroll)
+      }
+    })
   }, [pathname])
 
   return null
