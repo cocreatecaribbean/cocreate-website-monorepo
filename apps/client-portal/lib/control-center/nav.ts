@@ -6,6 +6,7 @@ import {
   FolderKanban,
   LayoutDashboard,
   MessageSquare,
+  Users,
 } from 'lucide-react'
 import { PORTAL_SETTINGS } from '@/lib/portal/nav'
 
@@ -16,6 +17,7 @@ export type ControlCenterViewId =
   | 'files'
   | 'activity'
   | 'messages'
+  | 'team'
   | 'settings'
 
 export type ControlCenterNavItem = {
@@ -64,6 +66,21 @@ export const CONTROL_CENTER_NAV: ControlCenterNavItem[] = [
   },
 ]
 
+export const CONTROL_CENTER_TEAM: ControlCenterNavItem = {
+  id: 'team',
+  label: 'Team',
+  description: 'Organization members and project access',
+  icon: Users,
+}
+
+export function buildControlCenterNavItems(canAccessTeamHub: boolean): ControlCenterNavItem[] {
+  if (!canAccessTeamHub) return [...CONTROL_CENTER_NAV]
+  const items = [...CONTROL_CENTER_NAV]
+  const messagesIndex = items.findIndex((item) => item.id === 'messages')
+  items.splice(messagesIndex + 1, 0, CONTROL_CENTER_TEAM)
+  return items
+}
+
 export const CONTROL_CENTER_SETTINGS: ControlCenterNavItem = {
   id: PORTAL_SETTINGS.id,
   label: PORTAL_SETTINGS.label,
@@ -73,6 +90,7 @@ export const CONTROL_CENTER_SETTINGS: ControlCenterNavItem = {
 
 const VALID_VIEWS = new Set<string>([
   ...CONTROL_CENTER_NAV.map((item) => item.id),
+  CONTROL_CENTER_TEAM.id,
   CONTROL_CENTER_SETTINGS.id,
 ])
 

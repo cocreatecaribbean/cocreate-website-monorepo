@@ -27,6 +27,25 @@ enum UserStatus {
   SUSPENDED
 }
 
+/// Role within a client organization (CLIENT users only)
+enum ClientOrgRole {
+  OWNER
+  PROJECT_MANAGER
+  MEMBER
+}
+
+enum ClientProjectAccessLevel {
+  MANAGE
+  VIEW
+}
+
+enum ClientTeamInviteRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 /// Client company (tenant boundary for portal + premium features)
 model Organization {
   id                          String   @id @default(cuid())
@@ -44,8 +63,33 @@ model Organization {
   socialListeningSnapshots    SocialListeningSnapshot[]
   clientProjects              ClientProject[]
   portalNotifications         PortalNotification[]
+  teamInviteRequests          ClientTeamInviteRequest[]
 
   @@index([slug])
+}
+
+/// PM-requested org invite; CoCreate admin approves before Supabase invite
+model ClientTeamInviteRequest {
+  id                       String                        @id @default(cuid())
+  organizationId           String
+  organization             Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email                    String
+  requestedClientOrgRole     ClientOrgRole
+  canAccessSocialListening Boolean                       @default(false)
+  status                   ClientTeamInviteRequestStatus @default(PENDING)
+  requestedByUserId        String
+  requestedBy              User                          @relation("TeamInviteRequestedBy", fields: [requestedByUserId], references: [id])
+  reviewedByUserId         String?
+  reviewedBy               User?                         @relation("TeamInviteReviewedBy", fields: [reviewedByUserId], references: [id])
+  reviewedAt               DateTime?
+  rejectionReason          String?                       @db.Text
+  resultingUserId          String?
+  resultingUser            User?                         @relation("TeamInviteResultingUser", fields: [resultingUserId], references: [id])
+  createdAt                DateTime                      @default(now())
+  updatedAt                DateTime                      @updatedAt
+
+  @@index([organizationId, status])
+  @@index([requestedByUserId])
 }
 
 // ─── Client project workspace ───────────────────────────────────────────────
@@ -103,6 +147,7 @@ enum PortalNotificationType {
   CHECKPOINT_APPROVED
   CANCELLATION_REQUESTED
   CANCELLATION_RESOLVED
+  TEAM_INVITE_REQUEST
 }
 
 enum ProjectMessageAuthorRole {
@@ -134,10 +179,28 @@ model ClientProject {
   activities        ProjectActivity[]
   notifications     PortalNotification[]
   clientApprovals   ClientApprovalRecord[]
+  members           ClientProjectMember[]
 
   @@index([organizationId])
   @@index([organizationId, status])
   @@index([createdByUserId])
+}
+
+/// Per-project access for client team members (owners bypass via code)
+model ClientProjectMember {
+  id              String                   @id @default(cuid())
+  projectId       String
+  project         ClientProject            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User                     @relation("ProjectMembership", fields: [userId], references: [id], onDelete: Cascade)
+  access          ClientProjectAccessLevel
+  grantedByUserId String
+  grantedBy       User                     @relation("ProjectMembershipGrantedBy", fields: [grantedByUserId], references: [id])
+  createdAt       DateTime                 @default(now())
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@index([projectId])
 }
 
 /// Durable conversation thread per project (onboarding, progress, cancellation)
@@ -297,6 +360,10 @@ model User {
   organization            Organization?          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   role                    UserRole               @default(CLIENT)
   status                  UserStatus             @default(INVITED)
+  /// Client org role (null for agency admins)
+  clientOrgRole           ClientOrgRole?
+  /// User-level gate when org has social listening subscription
+  canAccessSocialListening Boolean               @default(false)
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
   projectsCreated         ClientProject[]        @relation("ProjectCreatedBy")
@@ -310,9 +377,15 @@ model User {
   requestMessages         ProjectRequestMessage[] @relation("RequestMessageAuthor")
   messagesApproved        ProjectRequestMessage[] @relation("MessageApprovedBy")
   clientApprovals         ClientApprovalRecord[]  @relation("ClientApprovalBy")
+  projectMemberships      ClientProjectMember[]   @relation("ProjectMembership")
+  projectMembershipsGranted ClientProjectMember[] @relation("ProjectMembershipGrantedBy")
+  teamInvitesRequested      ClientTeamInviteRequest[] @relation("TeamInviteRequestedBy")
+  teamInvitesReviewed       ClientTeamInviteRequest[] @relation("TeamInviteReviewedBy")
+  teamInvitesResulting      ClientTeamInviteRequest[] @relation("TeamInviteResultingUser")
   profile                 UserProfile?
 
   @@index([organizationId])
+  @@index([organizationId, clientOrgRole])
   @@index([email])
   @@index([status])
 }

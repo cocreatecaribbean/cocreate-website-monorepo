@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { UserRole, UserStatus } from '@cocreate/database'
 import { AuthService } from '../auth/auth.service'
+import { ClientAccessService } from '../auth/client-access.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { SupabaseAuthService } from '../clients/supabase-auth.service'
 
@@ -10,6 +11,7 @@ export class ClientPortalService {
     private readonly prisma: PrismaService,
     private readonly supabaseAuth: SupabaseAuthService,
     private readonly authService: AuthService,
+    private readonly clientAccess: ClientAccessService,
   ) {}
 
   private normalizeEmail(email: string) {
@@ -81,8 +83,22 @@ export class ClientPortalService {
         email: client.email,
         status: client.status,
         role: client.role,
+        clientOrgRole: client.clientOrgRole,
+        canAccessSocialListening: client.canAccessSocialListening,
       },
       organization: client.organization,
+      permissions: {
+        canManageOrgTeam: this.clientAccess.canManageOrgTeam(client),
+        canAccessTeamHub: this.clientAccess.canAccessTeamHub(client),
+        canManageOrgRoles: this.clientAccess.canManageOrgRoles(client),
+        canInviteOrgMemberImmediately:
+          this.clientAccess.canInviteOrgMemberImmediately(client),
+        canRequestOrgInvite: this.clientAccess.canRequestOrgInvite(client),
+        canToggleSocialListeningForTeam:
+          this.clientAccess.canToggleSocialListeningForTeam(client),
+        canCreateProject: this.clientAccess.canCreateProject(client),
+        canUseSocialListening: this.clientAccess.canUseSocialListening(client),
+      },
     }
   }
 

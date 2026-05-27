@@ -8,11 +8,12 @@ import {
   PORTAL_NOTIFICATIONS_REFRESH_EVENT,
 } from '@/lib/projects/fetch-projects-client'
 import {
-  CONTROL_CENTER_NAV,
+  buildControlCenterNavItems,
   CONTROL_CENTER_SETTINGS,
   type ControlCenterNavItem,
   type ControlCenterViewId,
 } from '@/lib/control-center/nav'
+import { usePortalPermissions } from '@/lib/team/use-portal-permissions'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 
 type ControlCenterSidebarProps = {
@@ -69,6 +70,8 @@ export default function ControlCenterSidebar({
   organizationName,
 }: ControlCenterSidebarProps) {
   const workspaceLabel = organizationName?.trim() || 'Workspace'
+  const { canAccessTeamHub } = usePortalPermissions()
+  const navItems = buildControlCenterNavItems(canAccessTeamHub)
   const [approvalsBadge, setApprovalsBadge] = useState<string | undefined>()
 
   const refreshApprovalsBadge = useCallback(() => {
@@ -111,7 +114,7 @@ export default function ControlCenterSidebar({
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
-        {CONTROL_CENTER_NAV.map((item) => (
+        {navItems.map((item) => (
           <NavButton
             key={item.id}
             item={item}

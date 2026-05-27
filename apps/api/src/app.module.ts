@@ -13,6 +13,7 @@ import { AdminsModule } from './admins/admins.module'
 import { NewsletterModule } from './newsletter/newsletter.module'
 import { ProjectsModule } from './projects/projects.module'
 import { UsersModule } from './users/users.module'
+import { DashboardModule } from './dashboard/dashboard.module'
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { UsersModule } from './users/users.module'
     NewsletterModule,
     ProjectsModule,
     UsersModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

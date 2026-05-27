@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { ScheduleModule } from '@nestjs/schedule'
+import { AuthModule } from '../auth/auth.module'
 import { Brand24Service } from './brand24.service'
 import { SocialListeningSnapshotScheduler } from './social-listening-snapshot.scheduler'
 import { SocialListeningSnapshotService } from './social-listening-snapshot.service'
@@ -7,7 +8,7 @@ import { SocialListeningReportService } from './social-listening-report.service'
 import { SocialListeningService } from './social-listening.service'
 
 @Module({
-  imports: [ScheduleModule.forRoot()],
+  imports: [ScheduleModule.forRoot(), AuthModule],
   providers: [
     Brand24Service,
     SocialListeningSnapshotService,

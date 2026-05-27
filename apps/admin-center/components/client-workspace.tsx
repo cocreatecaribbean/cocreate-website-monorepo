@@ -6,6 +6,7 @@ import RequestMessageThread from '@/components/request-message-thread'
 import ProjectStatusAttribution, { ProjectTimeline } from '@/components/project-status-attribution'
 import AdminToast from '@/components/admin-toast'
 import MarkInboxReadOnView from '@/components/mark-inbox-read-on-view'
+import ClientTeamPanel from '@/components/client-team-panel'
 import { useAdminSession } from '@/components/admin-session-provider'
 import {
   adminFetchErrorHint,
@@ -20,7 +21,7 @@ import type {
   ProjectRequestItem,
 } from '@/lib/projects/types'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
-import { ArrowLeft, CheckCircle2, FolderKanban, Inbox, LayoutGrid } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, FolderKanban, Inbox, LayoutGrid, Users } from 'lucide-react'
 
 type ClientRosterItem = {
   id: string
@@ -32,7 +33,7 @@ type ClientRosterItem = {
   primaryContact: { id: string; email: string; status: string } | null
 }
 
-type TabId = 'overview' | 'projects' | 'inbox' | 'activity'
+type TabId = 'overview' | 'projects' | 'inbox' | 'activity' | 'team'
 
 const requestTypeLabel: Record<string, string> = {
   ONBOARDING: 'Onboarding',
@@ -216,6 +217,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const [submittingCheckpoint, setSubmittingCheckpoint] = useState(false)
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null)
   const [completingId, setCompletingId] = useState<string | null>(null)
+  const [highlightInviteRequestId, setHighlightInviteRequestId] = useState<string | null>(null)
 
   const refreshUnreadCount = useCallback(async () => {
     if (!canTrackUnread) {
@@ -277,8 +279,19 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const t = params.get('tab')
-    if (t === 'inbox' || t === 'overview' || t === 'activity' || t === 'projects') {
+    if (
+      t === 'inbox' ||
+      t === 'overview' ||
+      t === 'activity' ||
+      t === 'projects' ||
+      t === 'team'
+    ) {
       setTab(t)
+    }
+    const inviteRequestId = params.get('inviteRequestId')
+    if (inviteRequestId) {
+      setHighlightInviteRequestId(inviteRequestId)
+      setTab('team')
     }
   }, [])
 
@@ -487,6 +500,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
             [
               { id: 'overview' as const, label: 'Overview', icon: LayoutGrid },
               { id: 'projects' as const, label: 'Projects', icon: FolderKanban },
+              { id: 'team' as const, label: 'Team', icon: Users },
               { id: 'inbox' as const, label: 'Inbox', icon: Inbox },
               { id: 'activity' as const, label: 'Activity', icon: CheckCircle2 },
             ] as const
@@ -543,26 +557,34 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         {loading ? (
           <p className="text-sm text-app-muted">Loading workspace…</p>
         ) : tab === 'overview' ? (
-          <section className="admin-glass-card max-w-2xl p-6">
-            <p className={`text-chambray ${bricolage_grot600.className}`}>Workspace summary</p>
-            <ul className="mt-4 space-y-2 text-sm text-app-muted">
-              <li>
-                <span className="font-medium text-chambray">{projects.length}</span> projects
-              </li>
-              <li>
-                <span className="font-medium text-chambray">
-                  {projects.filter((p) => p.status === 'SUBMITTED').length}
-                </span>{' '}
-                awaiting approval
-              </li>
-              <li>
-                <span className="font-medium text-chambray">{inbox.length}</span> open inbox items
-                {unreadCount > 0 ? (
-                  <span className="text-app-muted"> · {unreadCount} unread</span>
-                ) : null}
-              </li>
-            </ul>
-          </section>
+          <div className="space-y-6">
+            <section className="admin-glass-card max-w-2xl p-6">
+              <p className={`text-chambray ${bricolage_grot600.className}`}>Workspace summary</p>
+              <ul className="mt-4 space-y-2 text-sm text-app-muted">
+                <li>
+                  <span className="font-medium text-chambray">{projects.length}</span> projects
+                </li>
+                <li>
+                  <span className="font-medium text-chambray">
+                    {projects.filter((p) => p.status === 'SUBMITTED').length}
+                  </span>{' '}
+                  awaiting approval
+                </li>
+                <li>
+                  <span className="font-medium text-chambray">{inbox.length}</span> open inbox
+                  items
+                  {unreadCount > 0 ? (
+                    <span className="text-app-muted"> · {unreadCount} unread</span>
+                  ) : null}
+                </li>
+              </ul>
+            </section>
+          </div>
+        ) : tab === 'team' ? (
+          <ClientTeamPanel
+            organizationId={organizationId}
+            highlightInviteRequestId={highlightInviteRequestId}
+          />
         ) : tab === 'projects' ? (
           <div className="space-y-6">
             {projects.length === 0 ? (

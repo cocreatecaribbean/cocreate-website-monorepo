@@ -3,6 +3,7 @@
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type {
   ClientApprovalRecordItem,
+  ClientDashboardStats,
   ClientProjectDetail,
   ClientProjectSummary,
   PortalNotificationItem,
@@ -53,6 +54,11 @@ async function portalFetch<T>(
 export async function fetchProjects(): Promise<ClientProjectSummary[]> {
   const result = await portalFetch<ClientProjectSummary[]>('/client-portal/projects')
   return result.ok ? result.data : []
+}
+
+export async function fetchDashboardStats(): Promise<ClientDashboardStats | null> {
+  const result = await portalFetch<ClientDashboardStats>('/client-portal/dashboard/stats')
+  return result.ok ? result.data : null
 }
 
 export async function fetchProject(id: string): Promise<ClientProjectDetail | null> {

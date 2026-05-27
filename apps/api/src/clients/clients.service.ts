@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { UserRole, UserStatus } from '@cocreate/database'
+import { ClientOrgRole, UserRole, UserStatus } from '@cocreate/database'
 import { PrismaService } from '../prisma/prisma.service'
 import { uniqueSlug } from '../common/utils/slug.util'
 import { InviteClientDto } from './dto/invite-client.dto'
@@ -39,10 +39,13 @@ export class ClientsService {
       email: string
       role: UserRole
       status: UserStatus
+      clientOrgRole: ClientOrgRole | null
+      canAccessSocialListening: boolean
       createdAt: Date
       updatedAt: Date
     }[]
   }): ClientOrganizationRosterItem {
+    const primaryUser = this.pickPrimaryContactUser(org.users)
     return {
       id: org.id,
       name: org.name,
@@ -52,8 +55,19 @@ export class ClientsService {
       brand24ProjectId: org.brand24ProjectId,
       createdAt: org.createdAt,
       updatedAt: org.updatedAt,
-      primaryContact: org.users[0] ? this.mapPrimaryContact(org.users[0]) : null,
+      primaryContact: primaryUser ? this.mapPrimaryContact(primaryUser) : null,
     }
+  }
+
+  private pickPrimaryContactUser<
+    T extends {
+      clientOrgRole: ClientOrgRole | null
+      createdAt: Date
+    },
+  >(users: T[]): T | undefined {
+    if (users.length === 0) return undefined
+    const owner = users.find((u) => u.clientOrgRole === ClientOrgRole.OWNER)
+    return owner ?? users[0]
   }
 
   private mapPrimaryContact(user: {
@@ -61,6 +75,8 @@ export class ClientsService {
     email: string
     role: UserRole
     status: UserStatus
+    clientOrgRole: ClientOrgRole | null
+    canAccessSocialListening: boolean
     createdAt: Date
     updatedAt: Date
   }): ClientPrimaryContact {
@@ -69,6 +85,8 @@ export class ClientsService {
       email: user.email,
       role: user.role,
       status: user.status,
+      clientOrgRole: user.clientOrgRole,
+      canAccessSocialListening: user.canAccessSocialListening,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     }
@@ -110,6 +128,8 @@ export class ClientsService {
           organizationId: organization.id,
           role: UserRole.CLIENT,
           status: UserStatus.INVITED,
+          clientOrgRole: ClientOrgRole.OWNER,
+          canAccessSocialListening: enableSocialListening,
         },
       })
 
@@ -198,9 +218,27 @@ export class ClientsService {
       throw new NotFoundException('Organization not found')
     }
 
-    const updated = await this.prisma.organization.update({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.organization.update({
+        where: { id: organizationId },
+        data: { isSocialListeningSubscriber: enabled },
+      })
+
+      if (enabled) {
+        await tx.user.updateMany({
+          where: {
+            organizationId,
+            role: UserRole.CLIENT,
+            clientOrgRole: ClientOrgRole.OWNER,
+            status: { not: UserStatus.SUSPENDED },
+          },
+          data: { canAccessSocialListening: true },
+        })
+      }
+    })
+
+    const updated = await this.prisma.organization.findUniqueOrThrow({
       where: { id: organizationId },
-      data: { isSocialListeningSubscriber: enabled },
       include: {
         users: {
           where: { role: UserRole.CLIENT },

@@ -4,10 +4,15 @@ import { usePathname } from 'next/navigation'
 
 /**
  * Fade inner routes only.
- * Skip `/` and all `/work` routes (GSAP headings + ScrollSmoother — stacked fades cause invisible titles).
+ * Skip `/`, `/contact`, and all `/work` routes (GSAP headings + ScrollSmoother — stacked fades cause invisible titles).
  */
 function shouldSkipPageFade(pathname: string) {
-  return pathname === '/' || pathname === '/work' || pathname.startsWith('/work/')
+  return (
+    pathname === '/' ||
+    pathname === '/contact' ||
+    pathname === '/work' ||
+    pathname.startsWith('/work/')
+  )
 }
 
 const PageTransition: React.FC<{ children: React.ReactNode }> = ({ children }) => {

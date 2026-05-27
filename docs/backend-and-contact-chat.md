@@ -116,6 +116,30 @@ Supabase sign-in alone is not enough — the email must exist in Prisma with `ro
 
 **Admin vs Client Portal sessions:** Both apps share one Supabase project but use **separate auth cookies** (`sb-<ref>-admin-auth-token` vs `sb-<ref>-client-auth-token`) so localhost ports 3002/3003 do not overwrite each other. Client middleware also calls `GET /client-portal/me` and signs out non-client roles. After this change, sign in again on each portal once.
 
+**Client portal roles (`clientOrgRole`):**
+
+| Role | Team hub | Org roster | Invite new email | Project roster |
+|------|----------|------------|------------------|----------------|
+| `OWNER` | Yes | All members | Immediate (Supabase) | All org projects |
+| `PROJECT_MANAGER` | Yes | All except owner | Request → admin approval | Created projects + shared projects |
+| `MEMBER` | No | — | — | Projects they are added to |
+
+**Org owner (super user):** The first email on **Admin → Clients → Invite** is stored as `clientOrgRole: OWNER`. On the roster, use **Set as org owner** or **Manage team** to change roles or invite PMs/members. Role changes are stored on `User.clientOrgRole` and sync between Admin Center and the client portal (same API service).
+
+**Client portal Team hub:** Owners and project managers open **Control Center → Team** (`/?ccView=team`). Owners invite teammates immediately and choose which PMs/members **can view Social Listening** (when the company subscription is active). Project managers can promote existing members between `PROJECT_MANAGER` and `MEMBER`, and **request** a new email invite — that creates `ClientTeamInviteRequest` (pending) and notifies CoCreate admins (`TEAM_INVITE_REQUEST`). Approve or reject under **Admin → Clients → [org] → Team** (or `?tab=team&inviteRequestId=…` from the notification link); approval runs the normal Supabase invite.
+
+**API (client portal, bearer token):**
+
+| Method | Path | Who |
+|--------|------|-----|
+| GET | `/client-portal/team/hub` | Owner, project manager |
+| GET | `/client-portal/team` | Owner, project manager |
+| PATCH | `/client-portal/team/:userId` | Owner (full); PM (PM/Member only, not owner) |
+| POST | `/client-portal/team/invite` | Owner only |
+| POST | `/client-portal/team/invite-requests` | Project manager only |
+
+**API (admin):** `GET/POST …/organizations/:id/team/*` and `…/team/invite-requests/:id/approve|reject`.
+
 ### Local auth without email rate limits
 
 Supabase caps auth emails (~4/hour per address, project-wide). For local dev, the API uses **`AUTH_DEV_LINKS=true`** (default in development): sign-in URLs are generated via the service role and shown in the UI / API logs — **no email is sent**.
@@ -153,7 +177,17 @@ All use `RESEND_API_KEY` and a verified `mail.cocreatecaribbean.com` domain. Eac
 
 ### Client portal entitlements
 
-`Organization.isSocialListeningSubscriber` (set on invite or toggled per client in Admin → Clients roster) controls Social Listening access. The portal loads entitlements from `GET /client-portal/me` (Bearer JWT, server-side) — not from the UI alone. Paid subscriptions can flip the same flag via billing webhooks later (with optional expiry and renewal reminders).
+**Social Listening access** uses two layers (enforced in `ClientAccessService.canUseSocialListening` and `SocialListeningService.requireSubscriberOrg`):
+
+| Layer | Field | Who sets it | Effect |
+|-------|--------|-------------|--------|
+| Company subscription | `Organization.isSocialListeningSubscriber` | CoCreate admin only (Admin → Clients: **Company subscription (Social Listening)**; later billing webhooks) | Org is entitled to Social Listening |
+| Teammate visibility | `User.canAccessSocialListening` | Owner (Team hub) or admin (team panel) for PMs/members | That user may open the dashboard **if** the org is subscribed |
+| Owner | *(implicit)* | Org subscription | Owner **always** passes the gate when `isSocialListeningSubscriber` is true (no per-user toggle in Team UI) |
+
+When admin enables company subscription, active org **owners** also get `canAccessSocialListening: true` in the database for roster consistency; access does not depend on that flag for owners.
+
+`GET /client-portal/me` exposes `permissions.canUseSocialListening` (Bearer JWT, server-side) — not UI-only. Paid subscriptions can flip the org flag via billing webhooks later.
 
 The premium **Social Listening** tab loads data from **`GET /client-portal/social-listening/analytics`** (Bearer JWT, `ClientAuthGuard`). The API resolves **`organizationId` from the logged-in user only** — never from client-supplied org ids.
 

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import type { AuthenticatedClient } from '../auth/auth.service'
+import { ClientAccessService } from '../auth/client-access.service'
 import { Brand24Service } from './brand24.service'
 import { parseUtcDateOnly } from './social-listening-dates'
 import type { CreateListeningSetupDto } from './dto/create-listening-setup.dto'
@@ -26,12 +27,22 @@ export class SocialListeningService {
     private readonly prisma: PrismaService,
     private readonly brand24: Brand24Service,
     private readonly snapshots: SocialListeningSnapshotService,
+    private readonly clientAccess: ClientAccessService,
   ) {}
+
+  private assertSocialListeningUser(client: AuthenticatedClient) {
+    if (!this.clientAccess.canUseSocialListening(client)) {
+      throw new ForbiddenException(
+        'Social Listening is not enabled for your account',
+      )
+    }
+  }
 
   async getAnalyticsForClient(
     client: AuthenticatedClient,
     asOf?: string,
   ): Promise<SocialListeningAnalyticsResponse> {
+    this.assertSocialListeningUser(client)
     const organization = await this.requireSubscriberOrg(client)
     await this.snapshots.ensureDemoSnapshots(organization)
 
@@ -78,6 +89,7 @@ export class SocialListeningService {
     client: AuthenticatedClient,
     limit?: number,
   ): Promise<SocialListeningSnapshotDatesResponse> {
+    this.assertSocialListeningUser(client)
     const organization = await this.requireSubscriberOrg(client)
     await this.snapshots.ensureDemoSnapshots(organization)
     const parsedLimit = limit ? Number.parseInt(String(limit), 10) : 90
@@ -92,6 +104,7 @@ export class SocialListeningService {
     client: AuthenticatedClient,
     dto: CreateListeningSetupDto,
   ) {
+    this.assertSocialListeningUser(client)
     const organization = await this.requireSubscriberOrg(client)
     const { start, end } = validateListeningSetupDateRange(
       dto.startDate,
@@ -131,6 +144,7 @@ export class SocialListeningService {
     baseline: string,
     current?: string,
   ): Promise<SocialListeningCompareResponse> {
+    this.assertSocialListeningUser(client)
     const organization = await this.requireSubscriberOrg(client)
     await this.snapshots.ensureDemoSnapshots(organization)
 

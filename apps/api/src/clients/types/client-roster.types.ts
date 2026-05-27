@@ -1,10 +1,12 @@
-import type { UserRole, UserStatus } from '@cocreate/database'
+import type { ClientOrgRole, UserRole, UserStatus } from '@cocreate/database'
 
 export type ClientPrimaryContact = {
   id: string
   email: string
   role: UserRole
   status: UserStatus
+  clientOrgRole: ClientOrgRole | null
+  canAccessSocialListening: boolean
   createdAt: Date
   updatedAt: Date
 }

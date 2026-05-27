@@ -3,49 +3,41 @@ import {
   Bell,
   FolderKanban,
   Mail,
+  Radio,
   Sparkles,
-  TrendingUp,
   Users,
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import AdminPageHeader from '@/components/admin-page-header'
+import {
+  buildAdminDashboardKpis,
+  fetchAdminDashboardStats,
+} from '@/lib/dashboard/fetch-dashboard-stats'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 
-const stats = [
+const KPI_META = [
   {
-    label: 'Active clients',
-    value: '24',
-    change: '+3 this month',
     icon: Users,
     accentBar: 'from-sanmarino to-chambray',
     accent: 'bg-sanmarino/10 text-sanmarino',
   },
   {
-    label: 'Open projects',
-    value: '12',
-    change: '4 in review',
     icon: FolderKanban,
     accentBar: 'from-casablanca to-sanmarino',
     accent: 'bg-casablanca/15 text-chambray',
   },
   {
-    label: 'Portal invites',
-    value: '18',
-    change: '6 pending sign-in',
     icon: Mail,
     accentBar: 'from-chambray to-sanmarino',
     accent: 'bg-chambray/10 text-chambray',
   },
   {
-    label: 'Team capacity',
-    value: '86%',
-    change: 'Healthy load',
-    icon: TrendingUp,
+    icon: Radio,
     accentBar: 'from-emerald-400 to-sanmarino',
     accent: 'bg-emerald-500/10 text-emerald-700',
   },
-]
+] as const
 
 const recentActivity = [
   {
@@ -72,7 +64,9 @@ const KPI_STAGGER = [
   'admin-animate-in-delay-3',
 ] as const
 
-export default function AdminHomePage() {
+export default async function AdminHomePage() {
+  const stats = buildAdminDashboardKpis(await fetchAdminDashboardStats())
+
   return (
     <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.03]">
@@ -114,14 +108,15 @@ export default function AdminHomePage() {
       >
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {stats.map((stat, i) => {
-            const Icon = stat.icon
+            const meta = KPI_META[i]!
+            const Icon = meta.icon
             return (
               <article
                 key={stat.label}
                 className={`admin-glass-kpi admin-animate-in relative flex min-h-[7rem] flex-col justify-between p-5 ${KPI_STAGGER[i] ?? ''}`}
               >
                 <div
-                  className={`absolute inset-x-0 top-0 h-1 bg-linear-to-r ${stat.accentBar}`}
+                  className={`absolute inset-x-0 top-0 h-1 bg-linear-to-r ${meta.accentBar}`}
                   aria-hidden
                 />
                 <div className="flex items-start justify-between gap-3 pt-1">
@@ -135,7 +130,7 @@ export default function AdminHomePage() {
                       {stat.value}
                     </p>
                   </div>
-                  <div className={`shrink-0 rounded-xl p-2.5 ${stat.accent}`}>
+                  <div className={`shrink-0 rounded-xl p-2.5 ${meta.accent}`}>
                     <Icon className="h-5 w-5" strokeWidth={1.75} />
                   </div>
                 </div>

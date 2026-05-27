@@ -9,7 +9,11 @@ export default async function ClientWorkspacePage({ params, searchParams }: Page
   const { organizationId } = await params
   const { tab } = await searchParams
   const initialTab =
-    tab === 'inbox' || tab === 'overview' || tab === 'activity' || tab === 'projects'
+    tab === 'inbox' ||
+    tab === 'overview' ||
+    tab === 'activity' ||
+    tab === 'projects' ||
+    tab === 'team'
       ? tab
       : 'projects'
 

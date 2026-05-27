@@ -121,6 +121,14 @@ export type ClientProjectDetail = ClientProjectSummary & {
   activities?: ProjectActivity[]
 }
 
+export type ClientDashboardStats = {
+  activeProjects: number
+  activeProjectsAwaitingReview: number
+  pendingApprovals: number
+  sharedFiles: number
+  lastSharedFileAt: string | null
+}
+
 export type PortalNotificationItem = {
   id: string
   type: string

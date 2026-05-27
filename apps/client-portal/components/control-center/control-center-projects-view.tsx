@@ -27,6 +27,8 @@ import {
   sendRequestMessage,
   uploadProjectFiles,
 } from '@/lib/projects/fetch-projects-client'
+import ProjectAccessPanel from '@/components/project-access-panel'
+import { fetchPortalProfile } from '@/lib/team/fetch-team-client'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import { Bell, Calendar, ExternalLink, FolderKanban, Plus } from 'lucide-react'
 
@@ -37,6 +39,12 @@ export default function ControlCenterProjectsView() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const deepLinkHandled = useRef(false)
+
+  useEffect(() => {
+    void fetchPortalProfile().then((profile) => {
+      setCanCreateProject(profile?.permissions.canCreateProject ?? true)
+    })
+  }, [])
   const [openedProjectId, setOpenedProjectId] = useState<string | null>(null)
   const [projects, setProjects] = useState<ClientProjectSummary[]>([])
   const [detail, setDetail] = useState<ClientProjectDetail | null>(null)
@@ -48,6 +56,7 @@ export default function ControlCenterProjectsView() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [detailError, setDetailError] = useState<string | null>(null)
+  const [canCreateProject, setCanCreateProject] = useState(true)
 
   const loadProjects = useCallback(async () => {
     setLoading(true)
@@ -207,14 +216,16 @@ export default function ControlCenterProjectsView() {
         <p className={`text-sm text-app-muted ${bricolage_grot600.className}`}>
           Submit new work for agency review. Approved projects become active.
         </p>
-        <button
-          type="button"
-          onClick={() => setShowForm((v) => !v)}
-          className="portal-btn-primary gap-2 text-sm"
-        >
-          <Plus className="h-4 w-4" aria-hidden />
-          New project
-        </button>
+        {canCreateProject ? (
+          <button
+            type="button"
+            onClick={() => setShowForm((v) => !v)}
+            className="portal-btn-primary gap-2 text-sm"
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+            New project
+          </button>
+        ) : null}
       </div>
 
       {error ? (
@@ -397,6 +408,8 @@ function ProjectDetailView({
           <ProjectStatusAttribution project={project} variant="detail" />
         </div>
       </section>
+
+      <ProjectAccessPanel projectId={project.id} />
 
       {project.activities && project.activities.length > 0 ? (
         <ProjectTimeline activities={project.activities} />

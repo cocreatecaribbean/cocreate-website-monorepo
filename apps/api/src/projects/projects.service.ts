@@ -16,6 +16,7 @@ import {
   PortalNotificationType,
 } from '@cocreate/database'
 import type { AuthenticatedAdmin, AuthenticatedClient } from '../auth/auth.service'
+import { ClientAccessService } from '../auth/client-access.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectNotificationMailService } from './project-notification-mail.service'
 import { ProjectNotificationsService } from './project-notifications.service'
@@ -48,6 +49,7 @@ export class ProjectsService {
     private readonly storage: ProjectStorageService,
     private readonly notifications: ProjectNotificationsService,
     private readonly mail: ProjectNotificationMailService,
+    private readonly clientAccess: ClientAccessService,
   ) {}
 
   private async logActivity(
@@ -67,12 +69,15 @@ export class ProjectsService {
     return serializeActivity(row)
   }
 
-  private async getProjectForClient(client: AuthenticatedClient, projectId: string) {
-    const orgId = client.organization?.id
-    if (!orgId) throw new ForbiddenException('No organization linked to your account')
+  private async getProjectForClient(
+    client: AuthenticatedClient,
+    projectId: string,
+    required: 'VIEW' | 'MANAGE' = 'VIEW',
+  ) {
+    await this.clientAccess.assertProjectAccess(client, projectId, required)
 
-    const project = await this.prisma.clientProject.findFirst({
-      where: { id: projectId, organizationId: orgId },
+    const project = await this.prisma.clientProject.findUnique({
+      where: { id: projectId },
       include: {
         organization: { select: { id: true, name: true, slug: true } },
         createdBy: { select: userActorSelect },
@@ -201,9 +206,11 @@ export class ProjectsService {
     if (!request) throw new NotFoundException('Request not found')
 
     if ('organization' in actor && actor.organization) {
-      if (request.project.organizationId !== actor.organization.id) {
-        throw new ForbiddenException('Access denied')
-      }
+      await this.clientAccess.assertProjectAccess(
+        actor,
+        request.projectId,
+        'VIEW',
+      )
     }
 
     return request
@@ -212,11 +219,8 @@ export class ProjectsService {
   // ─── Client projects ────────────────────────────────────────────────────────
 
   async listForClient(client: AuthenticatedClient) {
-    const orgId = client.organization?.id
-    if (!orgId) throw new ForbiddenException('No organization linked to your account')
-
     const projects = await this.prisma.clientProject.findMany({
-      where: { organizationId: orgId },
+      where: this.clientAccess.accessibleProjectsWhere(client),
       orderBy: { updatedAt: 'desc' },
       include: this.projectListInclude(),
     })
@@ -224,6 +228,7 @@ export class ProjectsService {
   }
 
   async createForClient(client: AuthenticatedClient, dto: CreateProjectDto) {
+    await this.clientAccess.assertCanCreateProject(client)
     const org = client.organization
     if (!org) throw new ForbiddenException('No organization linked to your account')
 
@@ -290,11 +295,10 @@ export class ProjectsService {
   }
 
   async getForClient(client: AuthenticatedClient, projectId: string) {
-    const orgId = client.organization?.id
-    if (!orgId) throw new ForbiddenException('No organization linked to your account')
+    await this.clientAccess.assertProjectAccess(client, projectId, 'VIEW')
 
-    const project = await this.prisma.clientProject.findFirst({
-      where: { id: projectId, organizationId: orgId },
+    const project = await this.prisma.clientProject.findUnique({
+      where: { id: projectId },
       include: this.projectDetailInclude(),
     })
     if (!project) throw new NotFoundException('Project not found')
@@ -304,8 +308,8 @@ export class ProjectsService {
         projectId,
         project.approvedByUserId ?? project.createdByUserId,
       )
-      const refreshed = await this.prisma.clientProject.findFirst({
-        where: { id: projectId, organizationId: orgId },
+      const refreshed = await this.prisma.clientProject.findUnique({
+        where: { id: projectId },
         include: this.projectDetailInclude(),
       })
       return serializeProject(refreshed!)
@@ -351,13 +355,10 @@ export class ProjectsService {
   }
 
   async listPendingCheckpointsForClient(client: AuthenticatedClient) {
-    const orgId = client.organization?.id
-    if (!orgId) throw new ForbiddenException('No organization linked to your account')
-
     const requests = await this.prisma.projectRequest.findMany({
       where: {
         type: ProjectRequestType.PROGRESS,
-        project: { organizationId: orgId },
+        project: this.clientAccess.accessibleProjectsWhere(client),
         messages: {
           some: {
             requiresClientApproval: true,
@@ -378,11 +379,8 @@ export class ProjectsService {
   }
 
   async listApprovalHistoryForClient(client: AuthenticatedClient) {
-    const orgId = client.organization?.id
-    if (!orgId) throw new ForbiddenException('No organization linked to your account')
-
     const records = await this.prisma.clientApprovalRecord.findMany({
-      where: { project: { organizationId: orgId } },
+      where: { project: this.clientAccess.accessibleProjectsWhere(client) },
       orderBy: { approvedAt: 'desc' },
       include: {
         project: { select: { id: true, title: true } },
@@ -1291,9 +1289,11 @@ export class ProjectsService {
     if (!attachment) throw new NotFoundException('Attachment not found')
 
     if ('organization' in actor && actor.organization) {
-      if (attachment.project.organizationId !== actor.organization.id) {
-        throw new ForbiddenException('Access denied')
-      }
+      await this.clientAccess.assertProjectAccess(
+        actor,
+        attachment.projectId,
+        'VIEW',
+      )
     }
 
     const signed = await this.storage.createDownloadUrl(attachment.storagePath)
@@ -1315,56 +1315,74 @@ export class ProjectsService {
   }
 
   async unreadApprovalsCountForClient(client: AuthenticatedClient) {
-    const orgId = client.organization?.id
-    if (!orgId) throw new ForbiddenException('No organization linked to your account')
+    this.clientAccess.requireOrganizationId(client)
     const count = await this.notifications.unreadCheckpointApprovalsCountForClient(
       client.id,
-      orgId,
+      this.clientAccess.accessibleProjectsWhere(client),
     )
     return { count }
   }
 
   async markApprovalsReadForClient(client: AuthenticatedClient, requestId?: string) {
-    const orgId = client.organization?.id
-    if (!orgId) throw new ForbiddenException('No organization linked to your account')
+    this.clientAccess.requireOrganizationId(client)
+    if (requestId) {
+      const request = await this.prisma.projectRequest.findUnique({
+        where: { id: requestId },
+        select: { projectId: true },
+      })
+      if (request) {
+        await this.clientAccess.assertProjectAccess(client, request.projectId, 'VIEW')
+      }
+    }
     return this.notifications.markCheckpointApprovalsReadForClient(
       client.id,
-      orgId,
+      this.clientAccess.accessibleProjectsWhere(client),
       requestId,
     )
   }
 
   async unreadAttentionCountForClient(client: AuthenticatedClient) {
-    const orgId = client.organization?.id
-    if (!orgId) throw new ForbiddenException('No organization linked to your account')
-    const count = await this.notifications.unreadAttentionCountForClient(client.id, orgId)
+    this.clientAccess.requireOrganizationId(client)
+    const count = await this.notifications.unreadAttentionCountForClient(
+      client.id,
+      this.clientAccess.accessibleProjectsWhere(client),
+    )
     return { count }
   }
 
   async listAttentionForClient(client: AuthenticatedClient) {
-    const orgId = client.organization?.id
-    if (!orgId) throw new ForbiddenException('No organization linked to your account')
-    return this.notifications.listAttentionForClient(client.id, orgId)
+    this.clientAccess.requireOrganizationId(client)
+    return this.notifications.listAttentionForClient(
+      client.id,
+      this.clientAccess.accessibleProjectsWhere(client),
+    )
   }
 
   async markAttentionReadForClient(
     client: AuthenticatedClient,
     params: { requestId?: string; projectId?: string },
   ) {
-    const orgId = client.organization?.id
-    if (!orgId) throw new ForbiddenException('No organization linked to your account')
+    this.clientAccess.requireOrganizationId(client)
 
     if (params.requestId) {
+      const request = await this.prisma.projectRequest.findUnique({
+        where: { id: params.requestId },
+        select: { projectId: true },
+      })
+      if (!request) return { count: 0 }
+      await this.clientAccess.assertProjectAccess(client, request.projectId, 'VIEW')
       return this.notifications.markRequestNotificationsReadForClient(
         client.id,
-        orgId,
+        this.clientAccess.requireOrganizationId(client),
+        this.clientAccess.accessibleProjectsWhere(client),
         params.requestId,
       )
     }
     if (params.projectId) {
+      await this.clientAccess.assertProjectAccess(client, params.projectId, 'VIEW')
       return this.notifications.markProjectNotificationsReadForClient(
         client.id,
-        orgId,
+        this.clientAccess.accessibleProjectsWhere(client),
         params.projectId,
       )
     }

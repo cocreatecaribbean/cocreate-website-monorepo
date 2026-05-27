@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { FormEvent, useEffect, useState } from 'react'
 import AdminToast from '@/components/admin-toast'
+import ClientTeamPanel from '@/components/client-team-panel'
 import DevSignInLink from '@/components/dev-sign-in-link'
 import { getApiErrorMessage } from '@/lib/api-error'
 import {
@@ -11,6 +12,8 @@ import {
   fetchAdminBff,
 } from '@/lib/admin-api-fetch'
 import { bricolage_grot600 } from '@/styles/fonts'
+
+type ClientOrgRole = 'OWNER' | 'PROJECT_MANAGER' | 'MEMBER'
 
 type ClientRosterItem = {
   id: string
@@ -24,7 +27,37 @@ type ClientRosterItem = {
     id: string
     email: string
     status: 'INVITED' | 'ACTIVE' | 'SUSPENDED'
+    clientOrgRole: ClientOrgRole | null
+    canAccessSocialListening: boolean
   } | null
+}
+
+const orgRoleBadge: Record<ClientOrgRole, string> = {
+  OWNER: 'Owner',
+  PROJECT_MANAGER: 'Project manager',
+  MEMBER: 'Member',
+}
+
+function OrgRoleBadge({ role }: { role: ClientOrgRole | null }) {
+  if (!role) {
+    return (
+      <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+        Unassigned
+      </span>
+    )
+  }
+  const isOwner = role === 'OWNER'
+  return (
+    <span
+      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+        isOwner
+          ? 'bg-chambray/15 text-chambray'
+          : 'bg-sanmarino/10 text-sanmarino'
+      }`}
+    >
+      {orgRoleBadge[role]}
+    </span>
+  )
 }
 
 const statusLabel: Record<string, string> = {
@@ -51,6 +84,8 @@ export default function ClientAccessManager() {
   )
   const [savingBrand24Id, setSavingBrand24Id] = useState<string | null>(null)
   const [brand24Drafts, setBrand24Drafts] = useState<Record<string, string>>({})
+  const [expandedTeamOrgId, setExpandedTeamOrgId] = useState<string | null>(null)
+  const [settingOwnerUserId, setSettingOwnerUserId] = useState<string | null>(null)
 
   const loadClients = async (options?: { silent?: boolean }) => {
     if (!options?.silent) {
@@ -156,10 +191,12 @@ export default function ClientAccessManager() {
       if (payload.invitation?.devSignInUrl) {
         setDevSignInUrl(payload.invitation.devSignInUrl)
         setSuccess(
-          'Client created. Open the dev sign-in link below (no email sent).',
+          'Organization owner invited. Open the dev sign-in link below (no email sent).',
         )
       } else {
-        setSuccess('Invitation sent. The client will receive an email shortly.')
+        setSuccess(
+          'Organization owner invited. They will receive a sign-in email shortly.',
+        )
       }
       await loadClients({ silent: true })
     } catch (err) {
@@ -214,6 +251,30 @@ export default function ClientAccessManager() {
     }
   }
 
+  const setAsOrgOwner = async (organizationId: string, userId: string) => {
+    setError(null)
+    setSuccess(null)
+    setSettingOwnerUserId(userId)
+    try {
+      await fetchAdminBff(`/api/clients/${organizationId}/team/${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ clientOrgRole: 'OWNER' }),
+      })
+      setSuccess('Organization owner updated. They can manage portal team in the client portal.')
+      await loadClients({ silent: true })
+    } catch (err) {
+      setError(
+        err instanceof AdminApiFetchError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Could not set organization owner',
+      )
+    } finally {
+      setSettingOwnerUserId(null)
+    }
+  }
+
   const toggleSocialListening = async (organizationId: string, enabled: boolean) => {
     setError(null)
     setSuccess(null)
@@ -265,8 +326,11 @@ export default function ClientAccessManager() {
         <div>
           <p className="admin-eyebrow">Onboard</p>
           <h2 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
-            Invite a client
+            Invite client organization
           </h2>
+          <p className="mt-1 text-sm text-app-muted">
+            The email below becomes the org owner (super user) for this company.
+          </p>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           <input
@@ -335,14 +399,15 @@ export default function ClientAccessManager() {
         <DevSignInLink url={devSignInUrl} label="Open client sign-in link" />
       ) : null}
 
-      <section className="admin-glass-card p-5 sm:p-6">
+      <section className="admin-glass-card overflow-visible p-5 sm:p-6">
         <p className="admin-eyebrow">Roster</p>
         <h2 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
           Client roster
         </h2>
         <p className="mt-1 text-sm text-app-muted">
-          Turn Social Listening on for test runs or comps. Optional Brand24 project ID
-          is stored per client.
+          Set the org owner (super user) per client. Owners manage portal team; project
+          managers and members are assigned in the client portal. Optional Brand24 project
+          ID per subscriber.
         </p>
         {loading ? (
           <p className="mt-4 text-sm text-app-muted">Loading…</p>
@@ -351,10 +416,8 @@ export default function ClientAccessManager() {
         ) : (
           <ul className="mt-4 divide-y divide-chambray/6">
             {clients.map((client) => (
-              <li
-                key={client.id}
-                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
-              >
+              <li key={client.id} className="py-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
                   {client.logoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -380,8 +443,11 @@ export default function ClientAccessManager() {
                     >
                       {client.name}
                     </Link>
-                    <p className="text-sm text-app-muted">
-                      {client.primaryContact?.email ?? 'No contact'}
+                    <p className="flex flex-wrap items-center gap-2 text-sm text-app-muted">
+                      <span>{client.primaryContact?.email ?? 'No contact'}</span>
+                      {client.primaryContact ? (
+                        <OrgRoleBadge role={client.primaryContact.clientOrgRole} />
+                      ) : null}
                     </p>
                     <p className="mt-1 text-xs text-app-muted">
                       {client.primaryContact
@@ -420,21 +486,54 @@ export default function ClientAccessManager() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-                  <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-full border border-white/60 bg-white/50 px-4 py-2 text-sm text-app-primary backdrop-blur-sm">
-                    <input
-                      type="checkbox"
-                      checked={client.isSocialListeningSubscriber}
-                      disabled={updatingSocialListeningId === client.id}
-                      onChange={(event) =>
-                        void toggleSocialListening(client.id, event.target.checked)
+                  <div className="flex flex-col gap-1">
+                    <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-full border border-white/60 bg-white/50 px-4 py-2 text-sm text-app-primary backdrop-blur-sm">
+                      <input
+                        type="checkbox"
+                        checked={client.isSocialListeningSubscriber}
+                        disabled={updatingSocialListeningId === client.id}
+                        onChange={(event) =>
+                          void toggleSocialListening(client.id, event.target.checked)
+                        }
+                        className="h-4 w-4 rounded border-chambray/30 text-chambray focus:ring-sanmarino disabled:opacity-50"
+                      />
+                      <span>
+                        Company subscription (Social Listening)
+                        {updatingSocialListeningId === client.id ? '…' : ''}
+                      </span>
+                    </label>
+                    <p className="max-w-md text-xs text-app-muted">
+                      CoCreate enables when the client has paid. Controls whether the organization
+                      can use Social Listening; teammates still need individual access in Team.
+                    </p>
+                  </div>
+                  {client.primaryContact &&
+                  client.primaryContact.clientOrgRole !== 'OWNER' &&
+                  client.primaryContact.status !== 'SUSPENDED' ? (
+                    <button
+                      type="button"
+                      disabled={settingOwnerUserId === client.primaryContact.id}
+                      onClick={() =>
+                        void setAsOrgOwner(client.id, client.primaryContact!.id)
                       }
-                      className="h-4 w-4 rounded border-chambray/30 text-chambray focus:ring-sanmarino disabled:opacity-50"
-                    />
-                    <span>
-                      Social Listening
-                      {updatingSocialListeningId === client.id ? '…' : ''}
-                    </span>
-                  </label>
+                      className="admin-btn-ghost min-h-10 w-full sm:w-auto"
+                    >
+                      {settingOwnerUserId === client.primaryContact.id
+                        ? 'Setting…'
+                        : 'Set as org owner'}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedTeamOrgId((current) =>
+                        current === client.id ? null : client.id,
+                      )
+                    }
+                    className="admin-btn-ghost min-h-10 w-full sm:w-auto"
+                  >
+                    {expandedTeamOrgId === client.id ? 'Hide team' : 'Manage team'}
+                  </button>
                   <Link
                     href={`/clients/${client.id}`}
                     className="admin-btn-primary min-h-10 w-full text-center sm:w-auto"
@@ -452,6 +551,19 @@ export default function ClientAccessManager() {
                     </button>
                   ) : null}
                 </div>
+                </div>
+                {expandedTeamOrgId === client.id ? (
+                  <div className="mt-4 w-full min-w-0 border-t border-chambray/10 pt-4">
+                    <div className="ml-3 mr-1 rounded-xl border border-chambray/10 bg-chambray/[0.04] p-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.35)] sm:ml-6 sm:p-5 dark:border-white/10 dark:bg-white/[0.06]">
+                      <p className="text-[0.65rem] font-semibold tracking-[0.18em] text-app-muted uppercase">
+                        Portal team
+                      </p>
+                      <div className="mt-3 min-w-0">
+                        <ClientTeamPanel organizationId={client.id} embedded />
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>

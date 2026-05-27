@@ -6,16 +6,25 @@ import { ProjectNotificationMailService } from './project-notification-mail.serv
 import { ProjectNotificationsService } from './project-notifications.service'
 import { ProjectStorageService } from './project-storage.service'
 import { ProjectsService } from './projects.service'
+import { ClientTeamService } from './client-team.service'
+import { ClientTeamController } from './client-team.controller'
+import { AdminClientTeamController } from './admin-client-team.controller'
 
 @Module({
   imports: [AuthModule],
-  controllers: [ClientProjectsController, AdminProjectsController],
+  controllers: [
+    ClientProjectsController,
+    AdminProjectsController,
+    ClientTeamController,
+    AdminClientTeamController,
+  ],
   providers: [
     ProjectsService,
+    ClientTeamService,
     ProjectStorageService,
     ProjectNotificationsService,
     ProjectNotificationMailService,
   ],
-  exports: [ProjectsService],
+  exports: [ProjectsService, ClientTeamService],
 })
 export class ProjectsModule {}

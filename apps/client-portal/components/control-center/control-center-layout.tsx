@@ -5,12 +5,14 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import ControlCenterAttentionLink from '@/components/control-center/control-center-attention-link'
 import ControlCenterSidebar from '@/components/control-center/control-center-sidebar'
 import {
+  buildControlCenterNavItems,
   CONTROL_CENTER_NAV,
   CONTROL_CENTER_SETTINGS,
   CONTROL_CENTER_VIEW_QUERY,
   parseControlCenterView,
   type ControlCenterViewId,
 } from '@/lib/control-center/nav'
+import { usePortalPermissions } from '@/lib/team/use-portal-permissions'
 import Link from 'next/link'
 import { bricolage_grot600 } from '@/styles/fonts'
 
@@ -28,6 +30,8 @@ function ControlCenterLayoutInner({
   const searchParams = useSearchParams()
   const activeView = parseControlCenterView(searchParams.get(CONTROL_CENTER_VIEW_QUERY))
   const [projectsListKey, setProjectsListKey] = useState(0)
+  const { canAccessTeamHub } = usePortalPermissions()
+  const navItems = buildControlCenterNavItems(canAccessTeamHub)
 
   const setActiveView = useCallback(
     (view: ControlCenterViewId) => {
@@ -53,10 +57,10 @@ function ControlCenterLayoutInner({
   )
 
   const activeMeta =
-    [...CONTROL_CENTER_NAV, CONTROL_CENTER_SETTINGS].find((item) => item.id === activeView) ??
+    [...navItems, CONTROL_CENTER_SETTINGS].find((item) => item.id === activeView) ??
     CONTROL_CENTER_NAV[0]
 
-  const navItems = [...CONTROL_CENTER_NAV, CONTROL_CENTER_SETTINGS]
+  const mobileNavItems = [...navItems, CONTROL_CENTER_SETTINGS]
 
   return (
     <div className="portal-sl-shell flex min-h-[min(70vh,640px)] flex-col gap-4 lg:flex-row lg:gap-0">
@@ -71,7 +75,7 @@ function ControlCenterLayoutInner({
           role="tablist"
           aria-label="Control center sections"
         >
-          {navItems.map((item) => {
+          {mobileNavItems.map((item) => {
             const selected = activeView === item.id
             const Icon = item.icon
             return (

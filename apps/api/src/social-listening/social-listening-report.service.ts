@@ -13,6 +13,7 @@ import {
   type ReportTemplateId,
 } from '@cocreate/social-listening-reports'
 import type { AuthenticatedClient } from '../auth/auth.service'
+import { ClientAccessService } from '../auth/client-access.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { parseUtcDateOnly } from './social-listening-dates'
 import { SocialListeningSnapshotService } from './social-listening-snapshot.service'
@@ -28,6 +29,7 @@ export class SocialListeningReportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly snapshots: SocialListeningSnapshotService,
+    private readonly clientAccess: ClientAccessService,
   ) {}
 
   listTemplates(): ReportTemplatesListResponse {
@@ -44,6 +46,12 @@ export class SocialListeningReportService {
     const template = getReportTemplate(templateId)
     if (!template) {
       throw new BadRequestException(`Unknown report template: ${templateId}`)
+    }
+
+    if (!this.clientAccess.canUseSocialListening(client)) {
+      throw new ForbiddenException(
+        'Social Listening is not enabled for your account',
+      )
     }
 
     const organization = await this.requireSubscriberOrg(client)

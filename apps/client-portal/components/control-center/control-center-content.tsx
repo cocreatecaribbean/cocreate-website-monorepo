@@ -1,12 +1,19 @@
 'use client'
 
 import Link from 'next/link'
+import { useCallback, useEffect, useState } from 'react'
 import ControlCenterApprovalsView from '@/components/control-center/control-center-approvals-view'
 import ControlCenterProjectsView from '@/components/control-center/control-center-projects-view'
 import PortalSectionPlaceholder from '@/components/portal/section-placeholder'
 import PortalSettingsPanel from '@/components/portal-settings-panel'
+import PortalTeamHub from '@/components/portal-team-hub'
 import { ATTENTION_PAGE_PATH } from '@/lib/control-center/attention-items'
 import type { ControlCenterViewId } from '@/lib/control-center/nav'
+import { buildClientDashboardKpis } from '@/lib/dashboard/format-dashboard-stats'
+import {
+  fetchDashboardStats,
+  PORTAL_NOTIFICATIONS_REFRESH_EVENT,
+} from '@/lib/projects/fetch-projects-client'
 import { alkatra600, bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import {
   ArrowRight,
@@ -18,25 +25,19 @@ import {
   Sparkles,
 } from 'lucide-react'
 
-const STATS = [
+const KPI_META = [
   {
     label: 'Active projects',
-    value: '2',
-    hint: '1 awaiting your review',
     icon: FolderKanban,
     accent: 'bg-sanmarino/10 text-sanmarino',
   },
   {
     label: 'Pending approvals',
-    value: '3',
-    hint: 'Due this week',
     icon: CheckCircle2,
     accent: 'bg-casablanca/15 text-chambray',
   },
   {
     label: 'Shared files',
-    value: '14',
-    hint: 'Last upload yesterday',
     icon: FileText,
     accent: 'bg-chambray/10 text-chambray',
   },
@@ -89,6 +90,8 @@ export default function ControlCenterContent({
       return <ActivitySection />
     case 'messages':
       return <MessagesSection />
+    case 'team':
+      return <PortalTeamHub />
     case 'settings':
       return <SettingsSection />
     default:
@@ -96,35 +99,81 @@ export default function ControlCenterContent({
   }
 }
 
-function KpiGrid({ delayOffset = 0 }: { delayOffset?: number }) {
+function KpiGrid({
+  delayOffset = 0,
+  stats,
+  loading,
+}: {
+  delayOffset?: number
+  stats: ReturnType<typeof buildClientDashboardKpis> | null
+  loading: boolean
+}) {
   const delays = ['', 'portal-animate-in-delay-1', 'portal-animate-in-delay-2'] as const
+  const rows = stats ?? KPI_META.map((meta) => ({ ...meta, value: '—', hint: 'Loading…' }))
+
   return (
-    <section className="grid gap-4 sm:grid-cols-3">
-      {STATS.map((stat, i) => (
-        <article
-          key={stat.label}
-          className={`portal-glass-kpi portal-shine-hover portal-animate-in relative overflow-hidden p-5 ${delays[i + delayOffset] ?? ''}`}
-        >
-          <div
-            className="absolute inset-x-0 top-0 h-0.5 bg-linear-to-r from-sanmarino/60 to-chambray/40"
-            aria-hidden
-          />
-          <div className={`mt-1 inline-flex rounded-2xl p-2.5 ${stat.accent}`}>
-            <stat.icon className="h-5 w-5" aria-hidden />
-          </div>
-          <p className={`mt-4 text-2xl text-chambray ${bricolage_grot700.className}`}>{stat.value}</p>
-          <p className={`mt-1 text-sm text-app-primary ${bricolage_grot600.className}`}>{stat.label}</p>
-          <p className="mt-0.5 text-xs text-app-muted">{stat.hint}</p>
-        </article>
-      ))}
+    <section className="grid gap-4 sm:grid-cols-3" aria-busy={loading}>
+      {rows.map((stat, i) => {
+        const meta = KPI_META[i]!
+        const Icon = meta.icon
+        return (
+          <article
+            key={meta.label}
+            className={`portal-glass-kpi portal-shine-hover portal-animate-in relative overflow-hidden p-5 ${delays[i + delayOffset] ?? ''}`}
+          >
+            <div
+              className="absolute inset-x-0 top-0 h-0.5 bg-linear-to-r from-sanmarino/60 to-chambray/40"
+              aria-hidden
+            />
+            <div className={`mt-1 inline-flex rounded-2xl p-2.5 ${meta.accent}`}>
+              <Icon className="h-5 w-5" aria-hidden />
+            </div>
+            <p className={`mt-4 text-2xl text-chambray ${bricolage_grot700.className}`}>
+              {stat.value}
+            </p>
+            <p className={`mt-1 text-sm text-app-primary ${bricolage_grot600.className}`}>
+              {meta.label}
+            </p>
+            <p className="mt-0.5 text-xs text-app-muted">{stat.hint}</p>
+          </article>
+        )
+      })}
     </section>
   )
 }
 
 function OverviewSection() {
+  const [kpiStats, setKpiStats] = useState<ReturnType<typeof buildClientDashboardKpis> | null>(
+    null,
+  )
+  const [kpiLoading, setKpiLoading] = useState(true)
+
+  const loadKpis = useCallback(async () => {
+    setKpiLoading(true)
+    const data = await fetchDashboardStats()
+    setKpiStats(data ? buildClientDashboardKpis(data) : buildClientDashboardKpis({
+      activeProjects: 0,
+      activeProjectsAwaitingReview: 0,
+      pendingApprovals: 0,
+      sharedFiles: 0,
+      lastSharedFileAt: null,
+    }))
+    setKpiLoading(false)
+  }, [])
+
+  useEffect(() => {
+    void loadKpis()
+  }, [loadKpis])
+
+  useEffect(() => {
+    const onRefresh = () => void loadKpis()
+    window.addEventListener(PORTAL_NOTIFICATIONS_REFRESH_EVENT, onRefresh)
+    return () => window.removeEventListener(PORTAL_NOTIFICATIONS_REFRESH_EVENT, onRefresh)
+  }, [loadKpis])
+
   return (
     <div className="space-y-6">
-      <KpiGrid />
+      <KpiGrid stats={kpiStats} loading={kpiLoading} />
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="portal-glass-card portal-animate-in portal-animate-in-delay-3 p-6">
           <p className="portal-eyebrow">Quick actions</p>
@@ -162,7 +211,6 @@ function OverviewSection() {
           </ul>
         </section>
       </div>
-      <PreviewBanner />
     </div>
   )
 }

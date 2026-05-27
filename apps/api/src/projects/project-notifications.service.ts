@@ -275,6 +275,7 @@ export class ProjectNotificationsService {
   private clientApprovalsUnreadWhere(
     userId: string,
     organizationId: string,
+    accessibleProjects: Prisma.ClientProjectWhereInput,
   ): Prisma.PortalNotificationWhereInput {
     return {
       userId,
@@ -284,7 +285,7 @@ export class ProjectNotificationsService {
       requestId: { not: null },
       request: {
         type: ProjectRequestType.PROGRESS,
-        project: { organizationId },
+        project: accessibleProjects,
         messages: {
           some: {
             requiresClientApproval: true,
@@ -296,23 +297,51 @@ export class ProjectNotificationsService {
     }
   }
 
-  async unreadCheckpointApprovalsCountForClient(userId: string, organizationId: string) {
+  async unreadCheckpointApprovalsCountForClient(
+    userId: string,
+    accessibleProjects: Prisma.ClientProjectWhereInput,
+  ) {
+    const organizationId =
+      typeof accessibleProjects.organizationId === 'string'
+        ? accessibleProjects.organizationId
+        : undefined
+    if (!organizationId) return 0
+
     return this.prisma.portalNotification.count({
-      where: this.clientApprovalsUnreadWhere(userId, organizationId),
+      where: this.clientApprovalsUnreadWhere(
+        userId,
+        organizationId,
+        accessibleProjects,
+      ),
     })
   }
 
   async markCheckpointApprovalsReadForClient(
     userId: string,
-    organizationId: string,
+    accessibleProjects: Prisma.ClientProjectWhereInput,
     requestId?: string,
   ) {
+    const organizationId =
+      typeof accessibleProjects.organizationId === 'string'
+        ? accessibleProjects.organizationId
+        : undefined
+    if (!organizationId) return { count: 0 }
+
     if (requestId) {
-      return this.markRequestNotificationsReadForClient(userId, organizationId, requestId)
+      return this.markRequestNotificationsReadForClient(
+        userId,
+        organizationId,
+        accessibleProjects,
+        requestId,
+      )
     }
 
     const result = await this.prisma.portalNotification.updateMany({
-      where: this.clientApprovalsUnreadWhere(userId, organizationId),
+      where: this.clientApprovalsUnreadWhere(
+        userId,
+        organizationId,
+        accessibleProjects,
+      ),
       data: { readAt: new Date() },
     })
     return { count: result.count }
@@ -321,6 +350,7 @@ export class ProjectNotificationsService {
   private clientAttentionUnreadWhere(
     userId: string,
     organizationId: string,
+    accessibleProjects: Prisma.ClientProjectWhereInput,
   ): Prisma.PortalNotificationWhereInput {
     const openStatuses = ProjectNotificationsService.openInboxRequestStatuses
     return {
@@ -333,7 +363,7 @@ export class ProjectNotificationsService {
           requestId: { not: null },
           request: {
             type: ProjectRequestType.PROGRESS,
-            project: { organizationId },
+            project: accessibleProjects,
             messages: {
               some: {
                 requiresClientApproval: true,
@@ -348,7 +378,7 @@ export class ProjectNotificationsService {
           requestId: { not: null },
           request: {
             status: { in: openStatuses },
-            project: { organizationId },
+            project: accessibleProjects,
           },
         },
         {
@@ -359,21 +389,47 @@ export class ProjectNotificationsService {
               PortalNotificationType.CANCELLATION_RESOLVED,
             ],
           },
-          project: { organizationId },
+          project: accessibleProjects,
         },
       ],
     }
   }
 
-  async unreadAttentionCountForClient(userId: string, organizationId: string) {
+  async unreadAttentionCountForClient(
+    userId: string,
+    accessibleProjects: Prisma.ClientProjectWhereInput,
+  ) {
+    const organizationId =
+      typeof accessibleProjects.organizationId === 'string'
+        ? accessibleProjects.organizationId
+        : undefined
+    if (!organizationId) return 0
+
     return this.prisma.portalNotification.count({
-      where: this.clientAttentionUnreadWhere(userId, organizationId),
+      where: this.clientAttentionUnreadWhere(
+        userId,
+        organizationId,
+        accessibleProjects,
+      ),
     })
   }
 
-  async listAttentionForClient(userId: string, organizationId: string) {
+  async listAttentionForClient(
+    userId: string,
+    accessibleProjects: Prisma.ClientProjectWhereInput,
+  ) {
+    const organizationId =
+      typeof accessibleProjects.organizationId === 'string'
+        ? accessibleProjects.organizationId
+        : undefined
+    if (!organizationId) return []
+
     const rows = await this.prisma.portalNotification.findMany({
-      where: this.clientAttentionUnreadWhere(userId, organizationId),
+      where: this.clientAttentionUnreadWhere(
+        userId,
+        organizationId,
+        accessibleProjects,
+      ),
       orderBy: { createdAt: 'desc' },
       take: 50,
     })
@@ -383,12 +439,13 @@ export class ProjectNotificationsService {
   async markRequestNotificationsReadForClient(
     userId: string,
     organizationId: string,
+    accessibleProjects: Prisma.ClientProjectWhereInput,
     requestId: string,
   ) {
     const request = await this.prisma.projectRequest.findFirst({
       where: {
         id: requestId,
-        project: { organizationId },
+        project: accessibleProjects,
       },
       select: { id: true },
     })
@@ -408,11 +465,17 @@ export class ProjectNotificationsService {
 
   async markProjectNotificationsReadForClient(
     userId: string,
-    organizationId: string,
+    accessibleProjects: Prisma.ClientProjectWhereInput,
     projectId: string,
   ) {
+    const organizationId =
+      typeof accessibleProjects.organizationId === 'string'
+        ? accessibleProjects.organizationId
+        : undefined
+    if (!organizationId) return { count: 0 }
+
     const project = await this.prisma.clientProject.findFirst({
-      where: { id: projectId, organizationId },
+      where: { id: projectId, ...accessibleProjects },
       select: { id: true },
     })
     if (!project) return { count: 0 }

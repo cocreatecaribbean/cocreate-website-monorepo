@@ -2,7 +2,10 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import CoCreateLogo from '@/components/cocreate-logo'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { fetchClientPortalProfile } from '@/lib/client-session'
+import {
+  fetchClientPortalProfile,
+  resolveCanUseSocialListening,
+} from '@/lib/client-session'
 import { fetchSocialListeningAnalytics } from '@/lib/social-listening/fetch-analytics-server'
 import ClientPortalShell from '@/components/client-portal-shell'
 import ClientPortalDashboard from '@/components/client-portal-dashboard'
@@ -56,9 +59,7 @@ export default async function ClientPortalHomePage() {
   }
 
   const displayEmail = profile.user.email
-  const hasSocialListening = Boolean(
-    profile.organization?.isSocialListeningSubscriber,
-  )
+  const hasSocialListening = resolveCanUseSocialListening(profile)
   const socialListeningAnalytics = hasSocialListening
     ? await fetchSocialListeningAnalytics()
     : null

@@ -4,7 +4,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { UserRole, UserStatus } from '@cocreate/database'
+import { ClientOrgRole, UserRole, UserStatus } from '@cocreate/database'
 import { isAgencyAdminRole } from './admin-roles'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { PrismaService } from '../prisma/prisma.service'
@@ -23,6 +23,8 @@ export type AuthenticatedClient = {
   role: UserRole
   status: UserStatus
   supabaseAuthId: string | null
+  clientOrgRole: ClientOrgRole | null
+  canAccessSocialListening: boolean
   organization: {
     id: string
     name: string
@@ -179,6 +181,8 @@ export class AuthService {
       role: user.role,
       status: user.status,
       supabaseAuthId: authUser.id,
+      clientOrgRole: user.clientOrgRole,
+      canAccessSocialListening: user.canAccessSocialListening,
       organization: this.mapClientOrganization(user.organization),
     }
   }
@@ -203,6 +207,8 @@ export class AuthService {
         email: updated.email,
         status: updated.status,
         role: updated.role,
+        clientOrgRole: updated.clientOrgRole,
+        canAccessSocialListening: updated.canAccessSocialListening,
       },
       organization: this.mapClientOrganization(updated.organization),
     }
