@@ -9,6 +9,7 @@ import { useGSAP } from "@gsap/react";
 import { CustomEase } from "gsap/CustomEase";
 import * as fonts from "@/styles/fonts";
 import BackgroundVideo from "@/components/background_video";
+import MuxBackgroundVideo from "@/components/media/mux-background-video";
 import WhatWeDoAccordions from "@/components/what-we-do-accordions";
 import EmblaCarousel from "@/components/emblaCarousel";
 import { philosophies } from "@/site-info/home-page-data";
@@ -81,7 +82,13 @@ function progressToFrameIndex(progress: number) {
   return Math.min(Math.max(val, 1), FRAME_COUNT);
 }
 
-export default function HomeHeroSection() {
+export default function HomeHeroSection({
+  heroReelPlaybackId = null,
+  fallbackVideoSrc = '/videos/cocreate-2026-reel-web-v1.mp4',
+}: {
+  heroReelPlaybackId?: string | null
+  fallbackVideoSrc?: string
+}) {
   const mainRef = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const brand_elem = useRef<HTMLDivElement>(null);
@@ -593,7 +600,11 @@ export default function HomeHeroSection() {
           ref={vid_container}
           className="w-screen h-full col-span-1 col-start-1 row-span-1 row-start-1 self-start scale-0 overflow-hidden will-change-transform"
         >
-          <BackgroundVideo src="/videos/cocreate-2026-reel-web-v1.mp4" />
+          {heroReelPlaybackId ? (
+            <MuxBackgroundVideo playbackId={heroReelPlaybackId} />
+          ) : (
+            <BackgroundVideo src={fallbackVideoSrc} />
+          )}
         </div>
       </section>
 

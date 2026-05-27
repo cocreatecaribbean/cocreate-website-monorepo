@@ -15,6 +15,7 @@ export default function ClientPortalLoginOverlay() {
   const isOverlayVisible = isClientPortalActive && !isSearchOpen
   const inputRef = useRef<HTMLInputElement>(null)
   const dialogId = useId()
+  const headingId = `${dialogId}-heading`
   const labelId = `${dialogId}-label`
   const [mounted, setMounted] = useState(false)
   const [email, setEmail] = useState('')
@@ -113,7 +114,7 @@ export default function ClientPortalLoginOverlay() {
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby={labelId}
+        aria-labelledby={headingId}
         className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-y-auto px-6 py-16"
       >
         <div
@@ -124,6 +125,17 @@ export default function ClientPortalLoginOverlay() {
             transition: `opacity 520ms ${EASE}, transform 520ms ${EASE}`,
           }}
         >
+          <h2
+            id={headingId}
+            className={`
+              max-w-[min(92vw,36rem)] text-balance text-center text-white
+              text-[clamp(1.35rem,4.5vw,2.25rem)] leading-tight tracking-tight
+              ${fonts.bricolage_grot600.className}
+            `}
+          >
+            Sign-in to your client portal
+          </h2>
+
           <p
             className={`text-center text-sm text-white/85 ${fonts.bricolage_grot400.className}`}
           >

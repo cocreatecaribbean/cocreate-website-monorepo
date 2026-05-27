@@ -1,37 +1,38 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import WorkProjectPage from '@/components/work/work-project-page'
-import { toWorkProjectDetail } from '@/lib/work-project-detail'
-import {
-  getAllWorkProjectSlugs,
-  getWorkProjectBySlug,
-} from '@/lib/search/static-search'
+import { fetchWorkProjectBySlug, fetchWorkProjectSlugs } from '@/lib/cms/work-projects'
 
 type WorkProjectRouteProps = {
   params: Promise<{ slug: string }>
 }
 
 export async function generateStaticParams() {
-  return getAllWorkProjectSlugs().map((slug) => ({ slug }))
+  const slugs = await fetchWorkProjectSlugs()
+  return slugs.map((slug) => ({ slug }))
 }
 
 export async function generateMetadata({
   params,
 }: WorkProjectRouteProps): Promise<Metadata> {
   const { slug } = await params
-  const project = getWorkProjectBySlug(slug)
+  const project = await fetchWorkProjectBySlug(slug)
   if (!project) return { title: 'Project not found' }
 
+  const title =
+    project.seo?.metaTitle ??
+    `${project.projectName} | ${project.clientName} | CoCreate Caribbean`
+
   return {
-    title: `${project.projectName} | ${project.clientName} | CoCreate Caribbean`,
-    description: project.summary,
+    title,
+    description: project.seo?.metaDescription ?? project.summary,
   }
 }
 
 export default async function WorkProjectRoute({ params }: WorkProjectRouteProps) {
   const { slug } = await params
-  const project = getWorkProjectBySlug(slug)
+  const project = await fetchWorkProjectBySlug(slug)
   if (!project) notFound()
 
-  return <WorkProjectPage project={toWorkProjectDetail(project)} />
+  return <WorkProjectPage project={project} />
 }

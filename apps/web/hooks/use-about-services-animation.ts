@@ -11,7 +11,8 @@ import {
 
 gsap.registerPlugin(ScrollTrigger, useGSAP)
 
-const ITEM_STAGGER = 0.1
+const ITEM_STAGGER = 0.18
+const ITEM_REVEAL_DURATION = 0.78
 const ITEM_HIDE_STAGGER = 0.06
 const EASE_IN = 'power2.in'
 const EASE_OUT = 'power2.out'
@@ -120,13 +121,13 @@ export function useAboutServicesAnimation({ scope }: UseAboutServicesAnimationOp
             {
               autoAlpha: 1,
               y: 0,
-              duration: 0.56,
+              duration: ITEM_REVEAL_DURATION,
               stagger: {
                 each: ITEM_STAGGER,
                 from: 'start',
               },
             },
-            '-=0.28',
+            '-=0.2',
           )
           .to(
             decor,

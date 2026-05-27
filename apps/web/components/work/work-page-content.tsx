@@ -1,27 +1,23 @@
 'use client'
 
 import './work-tiles.css'
-import { useMemo, useRef } from 'react'
+import { useRef } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useWorkPageAnimation } from '@/hooks/use-work-page-animation'
 import WorkMasonryGrid from '@/components/work/work-masonry-grid'
 import WorkPageHeader from '@/components/work/work-page-header'
-import {
-  getCategoryDisplayName,
-  getClientDisplayName,
-  getWorkProjectsForCategory,
-  getWorkProjectsForClient,
-  workProjects,
-} from '@/lib/search/static-search'
+import type { ProjectPreview, WorkProjectCategory } from '@cocreate/types'
 
 type WorkPageContentProps = {
-  clientSlug?: string
-  categorySlug?: string
+  items: ProjectPreview[]
+  clientName?: string | null
+  categoryName?: WorkProjectCategory | null
 }
 
 export default function WorkPageContent({
-  clientSlug,
-  categorySlug,
+  items,
+  clientName = null,
+  categoryName = null,
 }: WorkPageContentProps) {
   const sectionRef = useRef<HTMLElement>(null)
   const pathname = usePathname()
@@ -29,30 +25,7 @@ export default function WorkPageContent({
   const revealKey = `${pathname}?${searchParams.toString()}`
   useWorkPageAnimation({ scope: sectionRef, revealKey })
 
-  const { items, clientName, categoryName } = useMemo(() => {
-    if (clientSlug) {
-      return {
-        items: getWorkProjectsForClient(clientSlug),
-        clientName: getClientDisplayName(clientSlug),
-        categoryName: null as string | null,
-      }
-    }
-    if (categorySlug) {
-      const category = getCategoryDisplayName(categorySlug)
-      return {
-        items: getWorkProjectsForCategory(categorySlug),
-        clientName: null as string | null,
-        categoryName: category,
-      }
-    }
-    return {
-      items: workProjects,
-      clientName: null as string | null,
-      categoryName: null as string | null,
-    }
-  }, [clientSlug, categorySlug])
-
-  const isFiltered = Boolean(clientSlug || categorySlug)
+  const isFiltered = Boolean(clientName || categoryName)
 
   return (
     <section ref={sectionRef} className="work-page-content">

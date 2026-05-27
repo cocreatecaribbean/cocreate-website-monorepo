@@ -2,7 +2,6 @@
 
 import { useRef } from 'react'
 import Image from 'next/image'
-import { galleryProjectPreviews } from '@/site-info/gallery-data'
 import type { ProjectPreview } from '@cocreate/types'
 import * as fonts from '@/styles/fonts'
 import { useWorkMasonryPagination } from '@/hooks/use-work-masonry-pagination'
@@ -84,7 +83,7 @@ function WorkMasonryTile({
 }
 
 export default function WorkMasonryGrid({
-  items = galleryProjectPreviews,
+  items = [],
 }: WorkMasonryGridProps) {
   const gridRef = useRef<HTMLElement>(null)
   const { sentinelRef, visibleItems, visibleCount, totalCount, hasMore } =

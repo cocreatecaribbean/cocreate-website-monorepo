@@ -1,5 +1,6 @@
+import { blockContent } from './blockContent'
 import { client } from './client'
 import { original } from './original'
 import { workProject } from './workProject'
 
-export const schemaTypes = [client, workProject, original]
+export const schemaTypes = [blockContent, client, workProject, original]

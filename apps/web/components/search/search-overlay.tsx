@@ -14,6 +14,8 @@ export default function SearchOverlay() {
   const { isOpen, closeSearch } = useSearch()
   const inputRef = useRef<HTMLInputElement>(null)
   const dialogId = useId()
+  const headingId = `${dialogId}-heading`
+  const subtextId = `${dialogId}-subtext`
   const labelId = `${dialogId}-label`
   const [mounted, setMounted] = useState(false)
   const [query, setQuery] = useState('')
@@ -122,7 +124,8 @@ export default function SearchOverlay() {
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby={labelId}
+        aria-labelledby={headingId}
+        aria-describedby={subtextId}
         className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-y-auto px-6 py-16"
       >
         <div
@@ -133,6 +136,28 @@ export default function SearchOverlay() {
             transition: `opacity 520ms ${EASE}, transform 520ms ${EASE}`,
           }}
         >
+          <h2
+            id={headingId}
+            className={`
+              max-w-[min(92vw,36rem)] text-balance text-center text-white
+              text-[clamp(1.35rem,4.5vw,2.25rem)] leading-tight tracking-tight
+              ${fonts.bricolage_grot600.className}
+            `}
+          >
+            Search
+          </h2>
+
+          <p
+            id={subtextId}
+            className={`
+              max-w-[min(92vw,36rem)] text-balance text-center text-white/85
+              text-[clamp(0.8125rem,2.5vw,1rem)] leading-snug
+              ${fonts.bricolage_grot400.className}
+            `}
+          >
+            Search projects, clients and project categories.
+          </p>
+
           <p
             className={`
               text-center text-sm text-white/85

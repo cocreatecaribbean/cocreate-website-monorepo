@@ -1,4 +1,7 @@
 import { defineField, defineType } from 'sanity'
+import { YouTubeVideoIdInput } from '../components/YouTubeVideoIdInput'
+
+const YOUTUBE_ID_PATTERN = /^[a-zA-Z0-9_-]{11}$/
 
 export const original = defineType({
   name: 'original',
@@ -26,6 +29,20 @@ export const original = defineType({
       validation: (rule) => rule.required(),
     }),
     defineField({
+      name: 'youtubeVideoId',
+      title: 'YouTube video',
+      description: 'Paste a YouTube link or 11-character ID — stored as ID only',
+      type: 'string',
+      components: { input: YouTubeVideoIdInput },
+      validation: (rule) =>
+        rule.custom((value) => {
+          if (!value) return true
+          return YOUTUBE_ID_PATTERN.test(value)
+            ? true
+            : 'Must be a valid 11-character YouTube video ID'
+        }),
+    }),
+    defineField({
       name: 'description',
       title: 'Description',
       type: 'text',
@@ -47,6 +64,7 @@ export const original = defineType({
     defineField({
       name: 'publishedAt',
       title: 'Published at',
+      description: 'Leave empty to keep as draft. Only published originals appear on the site.',
       type: 'datetime',
     }),
   ],
@@ -58,6 +76,13 @@ export const original = defineType({
     },
   ],
   preview: {
-    select: { title: 'title', subtitle: 'format', media: 'coverImage' },
+    select: { title: 'title', subtitle: 'format', media: 'coverImage', publishedAt: 'publishedAt' },
+    prepare({ title, subtitle, media, publishedAt }) {
+      return {
+        title,
+        subtitle: publishedAt ? subtitle : `${subtitle ?? 'Original'} · Draft`,
+        media,
+      }
+    },
   },
 })

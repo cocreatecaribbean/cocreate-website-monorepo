@@ -1,26 +1,26 @@
-import HomeHeroSection from "@/components/homeHeroSection";
-import LogoTickerWrapper from "@/components/logoTickerWrapper";
-import ArcGallerySection from "@/components/arc-gallery-section";
-import BentoGallery from "@/components/bento-gallery";
+import HomeHeroSection from '@/components/homeHeroSection'
+import LogoTickerWrapper from '@/components/logoTickerWrapper'
+import ArcGallerySection from '@/components/arc-gallery-section'
+import {
+  fetchFeaturedHeroReelPlaybackId,
+  fetchHomeGalleryPreviews,
+} from '@/lib/cms/work-projects'
 
-export default function Home() {
+export default async function Home() {
+  const [galleryItems, heroReelPlaybackId] = await Promise.all([
+    fetchHomeGalleryPreviews(),
+    fetchFeaturedHeroReelPlaybackId(),
+  ])
+
   return (
     <main className="overflow-x-clip">
-      {/* This client component handles all refs, effects, 
-          and GSAP animations which require a browser environment.
-      */}
-      <HomeHeroSection />
+      <HomeHeroSection heroReelPlaybackId={heroReelPlaybackId} />
 
-      {/* This server component reads the file system 
-          and passes the data into the ticker.
-      */}
       <section className="pb-4 md:pb-6">
         <LogoTickerWrapper />
       </section>
 
-      {/* <BentoGallery /> */}
-
-      <ArcGallerySection />
+      <ArcGallerySection items={galleryItems} />
     </main>
-  );
+  )
 }
