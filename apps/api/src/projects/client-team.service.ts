@@ -306,6 +306,7 @@ export class ClientTeamService {
     organizationId: string,
     dto: InviteTeamMemberDto,
     invitedByUserId: string,
+    projectInvite?: { projectTitle: string; organizationName: string },
   ) {
     if (dto.clientOrgRole === ClientOrgRole.OWNER) {
       const existingOwners = await this.prisma.user.count({
@@ -359,6 +360,13 @@ export class ClientTeamService {
         organizationId: organization.id,
         organizationSlug: organization.slug,
         redirectTo: this.portalCallbackUrl(),
+        ...(projectInvite
+          ? {
+              projectTitle: projectInvite.projectTitle,
+              organizationName: projectInvite.organizationName,
+              inviteContext: 'new_project' as const,
+            }
+          : {}),
       })
     } catch (err) {
       await this.prisma.user.delete({ where: { id: user.id } })
@@ -409,8 +417,14 @@ export class ClientTeamService {
     _admin: AuthenticatedAdmin,
     organizationId: string,
     dto: InviteTeamMemberDto,
+    projectInvite?: { projectTitle: string; organizationName: string },
   ) {
-    return this.inviteToOrganization(organizationId, dto, _admin.id)
+    return this.inviteToOrganization(
+      organizationId,
+      dto,
+      _admin.id,
+      projectInvite,
+    )
   }
 
   async updateTeamMemberAsClient(

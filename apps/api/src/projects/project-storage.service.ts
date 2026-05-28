@@ -86,6 +86,18 @@ export class ProjectStorageService {
     return `${organizationId}/${projectId}/cover/${randomUUID()}-${safeName}`
   }
 
+  buildBrandStoragePath(organizationId: string, fileName: string) {
+    const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200)
+    return `${organizationId}/brand/${randomUUID()}-${safeName}`
+  }
+
+  assertPathBelongsToOrganizationBrand(storagePath: string, organizationId: string) {
+    const prefix = `${organizationId}/brand/`
+    if (!storagePath.startsWith(prefix)) {
+      throw new BadRequestException('Invalid storage path for this organization brand asset')
+    }
+  }
+
   assertCoverPathBelongsToProject(
     storagePath: string,
     organizationId: string,
@@ -105,6 +117,41 @@ export class ProjectStorageService {
     const prefix = `${organizationId}/${projectId}/`
     if (!storagePath.startsWith(prefix)) {
       throw new BadRequestException('Invalid storage path for this project')
+    }
+  }
+
+  async createBrandUploadUrl(params: {
+    organizationId: string
+    fileName: string
+    mimeType: string
+    sizeBytes: number
+  }) {
+    if (!this.client) {
+      throw new ServiceUnavailableException(
+        'File storage is not configured (Supabase)',
+      )
+    }
+
+    await this.ensureBucketExists()
+
+    const storagePath = this.buildBrandStoragePath(params.organizationId, params.fileName)
+
+    const { data, error } = await this.client.storage
+      .from(BUCKET)
+      .createSignedUploadUrl(storagePath)
+
+    if (error || !data) {
+      this.logger.error(`Brand upload URL failed: ${error?.message}`)
+      throw new BadRequestException(
+        this.formatStorageError(error?.message ?? 'Could not create upload URL'),
+      )
+    }
+
+    return {
+      storagePath,
+      signedUrl: data.signedUrl,
+      token: data.token,
+      expiresIn: UPLOAD_TTL_SEC,
     }
   }
 

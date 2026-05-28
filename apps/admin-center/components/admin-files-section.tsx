@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import BrandGuidelinesSection from '@/components/brand-guidelines-section'
 import FilePreviewModal from '@/components/file-preview-modal'
 import type {
   ClientFilesLibrary,
@@ -269,6 +270,8 @@ export default function AdminFilesSection({
 
   return (
     <div className="space-y-4">
+      <BrandGuidelinesSection organizationId={organizationId} />
+
       <section className="admin-glass-card p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row">
           <label className="relative flex-1">

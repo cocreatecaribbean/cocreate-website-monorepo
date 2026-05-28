@@ -18,7 +18,11 @@ type ProjectGroup = {
   projects: ClientProjectSummary[]
 }
 
-export default function ProjectCenterList() {
+type ProjectCenterListProps = {
+  refreshToken?: number
+}
+
+export default function ProjectCenterList({ refreshToken = 0 }: ProjectCenterListProps) {
   const [projects, setProjects] = useState<ClientProjectSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -75,7 +79,7 @@ export default function ProjectCenterList() {
         setLoading(false)
       }
     })()
-  }, [])
+  }, [refreshToken])
 
   return (
     <section className="admin-glass-card admin-animate-in overflow-hidden">

@@ -37,6 +37,8 @@ export function getActivitySummary(
   switch (action) {
     case 'project.submitted':
       return 'Project submitted for agency review'
+    case 'project.created_by_admin':
+      return `${who} created this project`
     case 'project.approved':
       return `${who} onboarded this project`
     case 'project.completed':
@@ -92,7 +94,7 @@ export function getActivityHref(
       ? metadata.requestId
       : null
 
-  if (action === 'project.submitted') {
+  if (action === 'project.submitted' || action === 'project.created_by_admin') {
     return `${base}?tab=projects`
   }
 

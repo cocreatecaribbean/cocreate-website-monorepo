@@ -6,6 +6,7 @@ import { ProjectNotificationMailService } from './project-notification-mail.serv
 import { ProjectNotificationsService } from './project-notifications.service'
 import { ProjectRealtimeService } from './project-realtime.service'
 import { ProjectStorageService } from './project-storage.service'
+import { OrganizationBrandAssetsService } from './organization-brand-assets.service'
 import { ProjectsService } from './projects.service'
 import { ClientTeamService } from './client-team.service'
 import { ClientTeamController } from './client-team.controller'
@@ -21,6 +22,7 @@ import { AdminClientTeamController } from './admin-client-team.controller'
   ],
   providers: [
     ProjectsService,
+    OrganizationBrandAssetsService,
     ClientTeamService,
     ProjectStorageService,
     ProjectRealtimeService,

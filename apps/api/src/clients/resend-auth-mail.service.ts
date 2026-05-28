@@ -62,6 +62,9 @@ export class ResendAuthMailService implements OnModuleInit {
     to: string
     actionLink: string
     kind: AuthEmailKind
+    projectTitle?: string
+    organizationName?: string
+    inviteContext?: 'new_project' | 'invite_reminder'
   }): Promise<void> {
     const key = this.getApiKey()
     if (!key) {
@@ -72,15 +75,27 @@ export class ResendAuthMailService implements OnModuleInit {
     }
 
     const from = this.getFromAddress()
-    const subject =
-      params.kind === 'invite'
-        ? 'You’re invited to the CoCreate client portal'
-        : 'Your CoCreate sign-in link'
+    const orgSuffix = params.organizationName
+      ? ` for ${params.organizationName}`
+      : ''
 
-    const intro =
-      params.kind === 'invite'
-        ? 'You’ve been invited to access your CoCreate client portal.'
-        : 'Use the link below to sign in to your CoCreate client portal.'
+    let subject: string
+    let intro: string
+
+    if (params.projectTitle && params.inviteContext) {
+      subject = `Accept your invite to view “${params.projectTitle}”`
+      if (params.inviteContext === 'new_project') {
+        intro = `You’ve been invited to the CoCreate client portal${orgSuffix}. Accept your invite to sign in and view the new project “${params.projectTitle}”.`
+      } else {
+        intro = `Your CoCreate portal invite is still pending${orgSuffix}. Accept your invite to sign in and view the new project “${params.projectTitle}”.`
+      }
+    } else if (params.kind === 'invite') {
+      subject = 'You’re invited to the CoCreate client portal'
+      intro = `You’ve been invited to access your CoCreate client portal${orgSuffix}.`
+    } else {
+      subject = 'Your CoCreate sign-in link'
+      intro = 'Use the link below to sign in to your CoCreate client portal.'
+    }
 
     const { error } = await this.client.emails.send({
       from,

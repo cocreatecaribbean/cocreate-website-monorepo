@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -16,16 +17,22 @@ import { CreateCheckpointDto } from './dto/create-checkpoint.dto'
 import { ResolveCancellationDto } from './dto/resolve-cancellation.dto'
 import { CreateRequestMessageDto } from './dto/create-request-message.dto'
 import { RegisterAttachmentDto } from './dto/register-attachment.dto'
+import { RegisterBrandAssetDto } from './dto/register-brand-asset.dto'
+import { OrganizationBrandAssetsService } from './organization-brand-assets.service'
 import { UpdateProjectDto } from './dto/update-project.dto'
 import { MarkInboxReadDto } from './dto/mark-inbox-read.dto'
 import { UpdateRequestDto } from './dto/update-request.dto'
 import { UploadUrlDto } from './dto/upload-url.dto'
+import { CreateProjectForAdminDto } from './dto/create-project-for-admin.dto'
 import { ProjectsService } from './projects.service'
 
 @Controller('admin')
 @UseGuards(AdminAuthGuard)
 export class AdminProjectsController {
-  constructor(private readonly projects: ProjectsService) {}
+  constructor(
+    private readonly projects: ProjectsService,
+    private readonly brandAssets: OrganizationBrandAssetsService,
+  ) {}
 
   @Get('projects')
   listAllProjects() {
@@ -84,6 +91,39 @@ export class AdminProjectsController {
       throw new Error('Admin user required')
     }
     return this.projects.registerAttachmentForAdmin(req.adminUser, id, dto)
+  }
+
+  @Get('organizations/:organizationId/brand-assets')
+  listBrandAssets(@Param('organizationId') organizationId: string) {
+    return this.brandAssets.listForOrganization(organizationId)
+  }
+
+  @Post('organizations/:organizationId/brand-assets/upload-url')
+  brandAssetUploadUrl(
+    @Param('organizationId') organizationId: string,
+    @Body() dto: UploadUrlDto,
+  ) {
+    return this.brandAssets.createUploadUrl(organizationId, dto)
+  }
+
+  @Post('organizations/:organizationId/brand-assets')
+  registerBrandAsset(
+    @Req() req: AdminRequest,
+    @Param('organizationId') organizationId: string,
+    @Body() dto: RegisterBrandAssetDto,
+  ) {
+    if (!req.adminUser) throw new UnauthorizedException('Admin session required')
+    return this.brandAssets.register(req.adminUser, organizationId, dto)
+  }
+
+  @Get('brand-assets/:assetId/download')
+  downloadBrandAsset(@Param('assetId') assetId: string) {
+    return this.brandAssets.getDownloadUrl(assetId)
+  }
+
+  @Delete('brand-assets/:assetId')
+  deleteBrandAsset(@Param('assetId') assetId: string) {
+    return this.brandAssets.delete(assetId)
   }
 
   @Get('organizations/:organizationId/files/library')
@@ -177,9 +217,24 @@ export class AdminProjectsController {
     return this.projects.resolveCancellation(req.adminUser, requestId, dto)
   }
 
+  @Get('clients/:organizationId/portal-status')
+  getPortalStatus(@Param('organizationId') organizationId: string) {
+    return this.projects.resolveOrganizationPortalState(organizationId)
+  }
+
   @Get('clients/:organizationId/projects')
   listOrgProjects(@Param('organizationId') organizationId: string) {
     return this.projects.listForOrganization(organizationId)
+  }
+
+  @Post('clients/:organizationId/projects')
+  createOrgProject(
+    @Req() req: AdminRequest,
+    @Param('organizationId') organizationId: string,
+    @Body() dto: CreateProjectForAdminDto,
+  ) {
+    if (!req.adminUser) throw new UnauthorizedException('Admin session required')
+    return this.projects.createForAdmin(req.adminUser, organizationId, dto)
   }
 
   @Get('clients/:organizationId/inbox')

@@ -8,6 +8,7 @@ import ProjectStatusAttribution, { ProjectTimeline } from '@/components/project-
 import AdminToast from '@/components/admin-toast'
 import MarkInboxReadOnView from '@/components/mark-inbox-read-on-view'
 import ClientTeamPanel from '@/components/client-team-panel'
+import CreateProjectModal from '@/components/create-project-modal'
 import { useAdminSession } from '@/components/admin-session-provider'
 import {
   adminFetchErrorHint,
@@ -227,6 +228,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null)
   const [completingId, setCompletingId] = useState<string | null>(null)
   const [highlightInviteRequestId, setHighlightInviteRequestId] = useState<string | null>(null)
+  const [createProjectOpen, setCreateProjectOpen] = useState(false)
   const deepLinkAppliedRef = useRef(false)
 
   const refreshUnreadCount = useCallback(async () => {
@@ -643,9 +645,21 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
           <AdminFilesSection organizationId={organizationId} projects={projects} />
         ) : tab === 'projects' ? (
           <div className="space-y-6">
-            {projects.length === 0 ? (
-              <p className="text-sm text-app-muted">No projects yet.</p>
-            ) : (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-app-muted">
+                {projects.length === 0
+                  ? 'No projects yet — create one to start collaboration.'
+                  : `${projects.length} project${projects.length === 1 ? '' : 's'}`}
+              </p>
+              <button
+                type="button"
+                onClick={() => setCreateProjectOpen(true)}
+                className="admin-btn-primary text-sm"
+              >
+                Create project
+              </button>
+            </div>
+            {projects.length === 0 ? null : (
               projects.map((project) => {
                 const onboarding = findThread(project, 'ONBOARDING')
                 const progress = findThread(project, 'PROGRESS')
@@ -883,6 +897,16 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
           </ul>
         )}
       </div>
+
+      <CreateProjectModal
+        open={createProjectOpen}
+        organizationId={organizationId}
+        onClose={() => setCreateProjectOpen(false)}
+        onCreated={(summary) => {
+          setSuccess(summary)
+          void load()
+        }}
+      />
     </main>
   )
 }

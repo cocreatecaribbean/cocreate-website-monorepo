@@ -20,6 +20,9 @@ export type SupabaseInvitePayload = {
   organizationId: string
   organizationSlug: string
   redirectTo?: string
+  projectTitle?: string
+  organizationName?: string
+  inviteContext?: 'new_project' | 'invite_reminder'
 }
 
 export type SupabaseInviteResult = {
@@ -165,6 +168,11 @@ export class SupabaseAuthService implements OnModuleInit {
     redirectTo: string,
     userMetadata: Record<string, unknown> | undefined,
     kinds: AuthEmailKind[],
+    inviteCopy?: {
+      projectTitle?: string
+      organizationName?: string
+      inviteContext?: 'new_project' | 'invite_reminder'
+    },
   ): Promise<{ userId: string }> {
     const { signInUrl, userId, kind } = await this.generateAuthLink(
       email,
@@ -178,6 +186,9 @@ export class SupabaseAuthService implements OnModuleInit {
         to: email,
         actionLink: signInUrl,
         kind,
+        projectTitle: inviteCopy?.projectTitle,
+        organizationName: inviteCopy?.organizationName,
+        inviteContext: inviteCopy?.inviteContext,
       })
       return { userId }
     }
@@ -237,11 +248,20 @@ export class SupabaseAuthService implements OnModuleInit {
     }
 
     if (this.useResendApi() && redirectTo) {
+      const inviteCopy =
+        payload.projectTitle && payload.inviteContext
+          ? {
+              projectTitle: payload.projectTitle,
+              organizationName: payload.organizationName,
+              inviteContext: payload.inviteContext,
+            }
+          : undefined
       const { userId } = await this.sendAuthEmail(
         payload.email,
         redirectTo,
         metadata,
         ['invite', 'magiclink'],
+        inviteCopy,
       )
       return { invitationId: userId, status: 'sent' }
     }

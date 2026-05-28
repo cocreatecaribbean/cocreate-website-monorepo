@@ -1,24 +1,26 @@
+import { NextRequest } from 'next/server'
 import { adminApiHeaders } from '@/lib/admin-api-headers'
 import { proxyAdminApi } from '@/lib/admin-api-proxy'
 
 export async function GET(
-  _request: Request,
+  _request: NextRequest,
   { params }: { params: Promise<{ organizationId: string }> },
 ) {
   const { organizationId } = await params
   const headers = await adminApiHeaders(true)
-  return proxyAdminApi(`/admin/clients/${organizationId}/projects`, headers)
+  return proxyAdminApi(`/admin/organizations/${organizationId}/brand-assets`, headers)
 }
 
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ organizationId: string }> },
 ) {
   const { organizationId } = await params
   const headers = await adminApiHeaders(true)
-  const body = await request.text()
-  return proxyAdminApi(`/admin/clients/${organizationId}/projects`, headers, {
+  const body = await request.json()
+  return proxyAdminApi(`/admin/organizations/${organizationId}/brand-assets`, headers, {
     method: 'POST',
-    body,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
   })
 }

@@ -64,8 +64,25 @@ model Organization {
   clientProjects              ClientProject[]
   portalNotifications         PortalNotification[]
   teamInviteRequests          ClientTeamInviteRequest[]
+  brandAssets                 OrganizationBrandAsset[]
 
   @@index([slug])
+}
+
+/// Admin-only brand guidelines per client (style guides, logos, PDFs)
+model OrganizationBrandAsset {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  storagePath      String
+  fileName         String
+  mimeType         String
+  sizeBytes        Int
+  uploadedByUserId String
+  uploadedBy       User         @relation("BrandAssetUploadedBy", fields: [uploadedByUserId], references: [id])
+  createdAt        DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
 }
 
 /// PM-requested org invite; CoCreate admin approves before Supabase invite
@@ -389,6 +406,7 @@ model User {
   requestsCreated         ProjectRequest[]       @relation("RequestCreatedBy")
   requestsResolved        ProjectRequest[]       @relation("RequestResolvedBy")
   attachmentsUploaded     ProjectAttachment[]    @relation("AttachmentUploadedBy")
+  brandAssetsUploaded     OrganizationBrandAsset[] @relation("BrandAssetUploadedBy")
   projectActivities       ProjectActivity[]      @relation("ActivityActor")
   portalNotifications     PortalNotification[]
   requestMessages         ProjectRequestMessage[] @relation("RequestMessageAuthor")

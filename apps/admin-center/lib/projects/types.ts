@@ -129,6 +129,18 @@ export type ProjectAttachment = {
   createdAt: string
 }
 
+export type OrganizationBrandAsset = {
+  id: string
+  organizationId: string
+  fileName: string
+  mimeType: string
+  sizeBytes: number
+  uploadedByUserId: string
+  uploadedByEmail: string | null
+  uploadedByName: string | null
+  createdAt: string
+}
+
 export type ProjectActivityItem = {
   id: string
   projectId: string

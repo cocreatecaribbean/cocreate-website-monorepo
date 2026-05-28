@@ -130,6 +130,48 @@ export class ProjectNotificationsService {
     const clients = await this.activeClientUserIds(params.organizationId)
     if (clients.length === 0) return
 
+    await this.notifyClientUsers({
+      organizationId: params.organizationId,
+      userIds: clients.map((c) => c.id),
+      type: params.type,
+      title: params.title,
+      body: params.body,
+      href: params.href,
+      projectId: params.projectId,
+      requestId: params.requestId,
+      email: params.email,
+    })
+  }
+
+  async notifyClientUsers(params: {
+    organizationId: string
+    userIds: string[]
+    type: PortalNotificationType
+    title: string
+    body: string
+    href?: string
+    projectId?: string
+    requestId?: string
+    email?: {
+      subject: string
+      html: string
+      text: string
+      actionLink?: string
+    }
+  }) {
+    if (params.userIds.length === 0) return
+
+    const clients = await this.prisma.user.findMany({
+      where: {
+        id: { in: params.userIds },
+        organizationId: params.organizationId,
+        role: UserRole.CLIENT,
+        status: UserStatus.ACTIVE,
+      },
+      select: { id: true, email: true },
+    })
+    if (clients.length === 0) return
+
     await this.prisma.portalNotification.createMany({
       data: clients.map((client) => ({
         userId: client.id,

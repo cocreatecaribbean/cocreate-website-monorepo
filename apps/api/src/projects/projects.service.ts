@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common'
 import {
   CancellationOutcome,
+  ClientOrgRole,
   ClientProjectPhase,
   ClientProjectStatus,
   Prisma,
@@ -15,6 +16,8 @@ import {
   ProjectRequestStatus,
   ProjectRequestType,
   PortalNotificationType,
+  UserRole,
+  UserStatus,
 } from '@cocreate/database'
 import type { AuthenticatedAdmin, AuthenticatedClient } from '../auth/auth.service'
 import { ClientAccessService } from '../auth/client-access.service'
@@ -28,6 +31,9 @@ import type { CreateCancellationRequestDto } from './dto/create-cancellation-req
 import type { CreateChangeRequestDto } from './dto/create-change-request.dto'
 import type { CreatePhaseApprovalDto } from './dto/create-phase-approval.dto'
 import type { CreateProjectDto } from './dto/create-project.dto'
+import type { CreateProjectForAdminDto } from './dto/create-project-for-admin.dto'
+import { ClientTeamService } from './client-team.service'
+import { SupabaseAuthService } from '../clients/supabase-auth.service'
 import type { ResolveCancellationDto } from './dto/resolve-cancellation.dto'
 import type { RegisterAttachmentDto } from './dto/register-attachment.dto'
 import type { UpdateProjectDto } from './dto/update-project.dto'
@@ -59,7 +65,14 @@ export class ProjectsService {
     private readonly mail: ProjectNotificationMailService,
     private readonly clientAccess: ClientAccessService,
     private readonly realtime: ProjectRealtimeService,
+    private readonly clientTeam: ClientTeamService,
+    private readonly supabaseAuth: SupabaseAuthService,
   ) {}
+
+  private portalCallbackUrl() {
+    const portalBase = process.env.CLIENT_PORTAL_URL ?? 'http://localhost:3003'
+    return `${portalBase}/auth/callback`
+  }
 
   private async notifyThreadUpdate(
     requestId: string,
@@ -898,6 +911,243 @@ export class ProjectsService {
       actorEmail: a.actor.email,
       projectTitle: a.project.title,
     }))
+  }
+
+  async resolveOrganizationPortalState(organizationId: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true },
+    })
+    if (!org) throw new NotFoundException('Organization not found')
+
+    const clients = await this.prisma.user.findMany({
+      where: {
+        organizationId,
+        role: UserRole.CLIENT,
+        status: { not: UserStatus.SUSPENDED },
+      },
+      select: {
+        id: true,
+        email: true,
+        status: true,
+        clientOrgRole: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    const activeUsers = clients.filter((u) => u.status === UserStatus.ACTIVE)
+    const invitedUsers = clients
+      .filter((u) => u.status === UserStatus.INVITED)
+      .map((u) => ({ id: u.id, email: u.email }))
+
+    const suggestedOwner = clients.find(
+      (u) => u.status === UserStatus.INVITED && u.clientOrgRole === ClientOrgRole.OWNER,
+    )
+    const suggestedContactEmail =
+      suggestedOwner?.email ?? invitedUsers[0]?.email ?? null
+
+    const hasActiveUsers = activeUsers.length > 0
+    const hasPortalUsers = hasActiveUsers || invitedUsers.length > 0
+
+    const portalUsers = clients.map((u) => ({
+      id: u.id,
+      email: u.email,
+      status: u.status,
+      clientOrgRole: u.clientOrgRole,
+    }))
+
+    return {
+      hasActiveUsers,
+      hasPortalUsers,
+      needsInvite: !hasPortalUsers,
+      activeUserCount: activeUsers.length,
+      invitedUsers,
+      suggestedContactEmail,
+      portalUsers,
+    }
+  }
+
+  async createForAdmin(
+    admin: AuthenticatedAdmin,
+    organizationId: string,
+    dto: CreateProjectForAdminDto,
+  ) {
+    const recipientUserIds = [...new Set(dto.recipientUserIds ?? [])]
+    const inviteEmails = [
+      ...new Set(
+        [...(dto.inviteEmails ?? []), ...(dto.contactEmail ? [dto.contactEmail] : [])]
+          .map((e) => e.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    ]
+
+    if (recipientUserIds.length + inviteEmails.length < 1) {
+      throw new BadRequestException('At least one recipient is required.')
+    }
+
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true, name: true, slug: true },
+    })
+    if (!organization) throw new NotFoundException('Organization not found')
+
+    const recipientUsers =
+      recipientUserIds.length > 0
+        ? await this.prisma.user.findMany({
+            where: {
+              id: { in: recipientUserIds },
+              organizationId,
+              role: UserRole.CLIENT,
+              status: { not: UserStatus.SUSPENDED },
+            },
+            select: { id: true, email: true, status: true },
+          })
+        : []
+
+    if (recipientUsers.length !== recipientUserIds.length) {
+      throw new BadRequestException(
+        'One or more selected recipients are invalid for this client.',
+      )
+    }
+
+    const title = dto.title.trim()
+    const description = dto.description.trim()
+    const now = new Date()
+
+    const project = await this.prisma.clientProject.create({
+      data: {
+        organizationId,
+        title,
+        description,
+        status: ClientProjectStatus.ACTIVE,
+        phase: ClientProjectPhase.DISCOVERY,
+        createdByUserId: admin.id,
+        approvedAt: now,
+        approvedByUserId: admin.id,
+      },
+      include: {
+        organization: { select: { id: true, name: true, slug: true } },
+        createdBy: { select: userActorSelect },
+        approvedBy: { select: userActorSelect },
+      },
+    })
+
+    await this.logActivity(project.id, admin.id, 'project.created_by_admin', {
+      title: project.title,
+      adminEmail: admin.email,
+    })
+
+    await this.prisma.projectRequest.create({
+      data: {
+        projectId: project.id,
+        type: ProjectRequestType.ONBOARDING,
+        title,
+        description,
+        createdByUserId: admin.id,
+        status: ProjectRequestStatus.RESOLVED,
+        resolvedAt: now,
+        resolvedByUserId: admin.id,
+        messages: {
+          create: {
+            authorUserId: admin.id,
+            authorRole: ProjectMessageAuthorRole.ADMIN,
+            body: 'Project created by CoCreate team.',
+            messageKind: ProjectMessageKind.CHAT,
+          },
+        },
+      },
+    })
+
+    await this.ensureProgressThread(project.id, admin.id)
+
+    const portalActions = {
+      notifiedActiveCount: 0,
+      inviteRemindersSent: 0,
+      newInvitesSent: 0,
+      invitedEmails: [] as string[],
+    }
+
+    const portalLink = this.notifications.clientProjectLink(project.id)
+    const emailContent = this.mail.buildProjectApprovedEmail({
+      projectTitle: title,
+      portalLink,
+    })
+
+    const activeRecipientIds = recipientUsers
+      .filter((u) => u.status === UserStatus.ACTIVE)
+      .map((u) => u.id)
+
+    if (activeRecipientIds.length > 0) {
+      await this.notifications.notifyClientUsers({
+        organizationId,
+        userIds: activeRecipientIds,
+        type: PortalNotificationType.PROJECT_APPROVED,
+        title: `New project ready: ${title}`,
+        body: `A new project "${title}" is ready in your portal.`,
+        href: portalLink,
+        projectId: project.id,
+        email: {
+          ...emailContent,
+          subject: `New project ready: ${title}`,
+        },
+      })
+      portalActions.notifiedActiveCount = activeRecipientIds.length
+    }
+
+    const invitedRecipients = recipientUsers.filter(
+      (u) => u.status === UserStatus.INVITED,
+    )
+    const redirectTo = this.portalCallbackUrl()
+    const projectInviteCopy = {
+      projectTitle: title,
+      organizationName: organization.name,
+    }
+
+    for (const invited of invitedRecipients) {
+      try {
+        await this.supabaseAuth.inviteUserByEmail({
+          email: invited.email,
+          organizationId: organization.id,
+          organizationSlug: organization.slug,
+          redirectTo,
+          projectTitle: title,
+          organizationName: organization.name,
+          inviteContext: 'invite_reminder',
+        })
+        portalActions.inviteRemindersSent += 1
+      } catch (err) {
+        this.logger.warn(
+          `Failed to resend portal invite to ${invited.email}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        )
+      }
+    }
+
+    for (const email of inviteEmails) {
+      await this.clientTeam.inviteToOrganizationAsAdmin(
+        admin,
+        organizationId,
+        {
+          email,
+          clientOrgRole: ClientOrgRole.OWNER,
+        },
+        projectInviteCopy,
+      )
+      portalActions.newInvitesSent += 1
+      portalActions.invitedEmails.push(email)
+    }
+
+    const full = await this.prisma.clientProject.findUnique({
+      where: { id: project.id },
+      include: this.projectDetailInclude(),
+    })
+
+    return {
+      project: await this.serializeProjectWithCover(full!),
+      portalActions,
+    }
   }
 
   async listRecentActivityForAdmin(limit = 15) {
