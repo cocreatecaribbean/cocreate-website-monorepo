@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import AdminFilesSection from '@/components/admin-files-section'
 import RequestMessageThread from '@/components/request-message-thread'
 import ProjectStatusAttribution, { ProjectTimeline } from '@/components/project-status-attribution'
@@ -227,6 +227,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null)
   const [completingId, setCompletingId] = useState<string | null>(null)
   const [highlightInviteRequestId, setHighlightInviteRequestId] = useState<string | null>(null)
+  const deepLinkAppliedRef = useRef(false)
 
   const refreshUnreadCount = useCallback(async () => {
     if (!canTrackUnread) {
@@ -293,7 +294,8 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
       t === 'overview' ||
       t === 'activity' ||
       t === 'projects' ||
-      t === 'team'
+      t === 'team' ||
+      t === 'files'
     ) {
       setTab(t)
     }
@@ -303,6 +305,36 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
       setTab('team')
     }
   }, [])
+
+  useEffect(() => {
+    if (loading || projects.length === 0 || deepLinkAppliedRef.current) return
+
+    const params = new URLSearchParams(window.location.search)
+    const threadId = params.get('thread')
+    const projectId = params.get('projectId')
+    if (!threadId && !projectId) return
+
+    deepLinkAppliedRef.current = true
+    setTab('projects')
+
+    if (projectId) {
+      setExpandedProjectId(projectId)
+    }
+
+    if (threadId) {
+      const project = projects.find((p) => p.requests?.some((r) => r.id === threadId))
+      if (project) {
+        setExpandedProjectId(project.id)
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        requestAnimationFrame(() => {
+          document.getElementById(`thread-panel-${threadId}`)?.scrollIntoView({
+            behavior: reducedMotion ? 'auto' : 'smooth',
+            block: 'nearest',
+          })
+        })
+      }
+    }
+  }, [loading, projects])
 
   useEffect(() => {
     if (!selectedProjectId) return
@@ -887,7 +919,7 @@ function ThreadPanel({
   }) => Promise<void>
 }) {
   return (
-    <div className="rounded-xl border border-chambray/8 p-4">
+    <div id={`thread-panel-${request.id}`} className="rounded-xl border border-chambray/8 p-4">
       <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>{title}</p>
       <p className="text-xs text-app-muted">{subtitle}</p>
       <div className="mt-3">

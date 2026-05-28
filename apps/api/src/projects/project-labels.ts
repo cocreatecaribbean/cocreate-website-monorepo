@@ -55,9 +55,57 @@ export function getActivitySummary(
       return `${who} updated a request (${String(metadata?.status ?? 'updated')})`
     case 'attachment.uploaded':
       return `${who} uploaded a file`
+    case 'checkpoint.sent':
+      return `${who} sent a checkpoint for client review`
+    case 'checkpoint.approved':
+      return `${who} approved a checkpoint`
+    case 'request.cancellation_requested':
+      return 'Client requested project cancellation'
     case 'cover.updated':
       return metadata?.removed ? `${who} removed the project cover` : `${who} updated the project cover`
     default:
       return `${who}: ${action}`
   }
+}
+
+/** High-signal workspace events for admin dashboard feed (excludes routine chat). */
+export const RECENT_ACTIVITY_ACTIONS = [
+  'project.submitted',
+  'project.approved',
+  'project.completed',
+  'project.updated',
+  'checkpoint.sent',
+  'checkpoint.approved',
+  'request.cancellation_requested',
+  'request.updated',
+  'attachment.uploaded',
+] as const
+
+export function getActivityHref(
+  action: string,
+  organizationId: string,
+  metadata?: Record<string, unknown> | null,
+): string {
+  const base = `/clients/${organizationId}`
+  const requestId =
+    typeof metadata?.requestId === 'string' && metadata.requestId.length > 0
+      ? metadata.requestId
+      : null
+
+  if (action === 'project.submitted') {
+    return `${base}?tab=projects`
+  }
+
+  const threadActions = new Set([
+    'checkpoint.sent',
+    'checkpoint.approved',
+    'request.cancellation_requested',
+    'request.updated',
+    'attachment.uploaded',
+  ])
+  if (requestId && (threadActions.has(action) || action.startsWith('request.'))) {
+    return `${base}?tab=projects&thread=${requestId}`
+  }
+
+  return `${base}?tab=activity`
 }

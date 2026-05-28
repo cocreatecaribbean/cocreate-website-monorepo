@@ -10,6 +10,8 @@ import {
 import Image from 'next/image'
 import Link from 'next/link'
 import AdminPageHeader from '@/components/admin-page-header'
+import AdminRecentUpdates from '@/components/admin-recent-updates'
+import { fetchAdminRecentActivity } from '@/lib/dashboard/fetch-dashboard-activity'
 import {
   buildAdminDashboardKpis,
   fetchAdminDashboardStats,
@@ -39,24 +41,6 @@ const KPI_META = [
   },
 ] as const
 
-const recentActivity = [
-  {
-    title: 'Portal access granted',
-    detail: 'makeba@provengroup.com added to client portal',
-    time: '2 hours ago',
-  },
-  {
-    title: 'Project brief uploaded',
-    detail: 'Cancara rebrand — phase 2 assets',
-    time: 'Yesterday',
-  },
-  {
-    title: 'Client check-in scheduled',
-    detail: 'UDC — Friday 10:00 AM',
-    time: '2 days ago',
-  },
-]
-
 const KPI_STAGGER = [
   '',
   'admin-animate-in-delay-1',
@@ -65,7 +49,11 @@ const KPI_STAGGER = [
 ] as const
 
 export default async function AdminHomePage() {
-  const stats = buildAdminDashboardKpis(await fetchAdminDashboardStats())
+  const [dashboardStats, recentActivity] = await Promise.all([
+    fetchAdminDashboardStats(),
+    fetchAdminRecentActivity(15),
+  ])
+  const stats = buildAdminDashboardKpis(dashboardStats)
 
   return (
     <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -204,27 +192,14 @@ export default async function AdminHomePage() {
             </div>
           </article>
 
-          <article className="admin-glass-card admin-animate-in admin-animate-in-delay-2 p-5 sm:p-6">
+          <article className="admin-glass-card admin-animate-in admin-animate-in-delay-2 flex flex-col p-5 sm:p-6">
             <p className="admin-eyebrow">Activity</p>
             <h2 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
               Recent updates
             </h2>
             <p className="mt-1 text-sm text-app-muted">Latest updates across the admin center.</p>
 
-            <ul className="mt-5 divide-y divide-chambray/6">
-              {recentActivity.map((item) => (
-                <li
-                  key={item.title}
-                  className="border-b border-chambray/6 py-4 first:pt-0 last:border-0 last:pb-0"
-                >
-                  <p className={`text-app-primary ${bricolage_grot600.className}`}>{item.title}</p>
-                  <p className="mt-1 text-sm wrap-break-word text-app-muted">{item.detail}</p>
-                  <p className="mt-2 text-xs font-medium tracking-wide text-sanmarino">
-                    {item.time}
-                  </p>
-                </li>
-              ))}
-            </ul>
+            <AdminRecentUpdates items={recentActivity} />
           </article>
         </section>
       </div>

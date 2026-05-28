@@ -45,6 +45,7 @@ import {
   serializeRequest,
 } from './projects.serializer'
 import { resolveActorLabel, userActorSelect } from '../users/display-name'
+import { getActivityHref, RECENT_ACTIVITY_ACTIONS } from './project-labels'
 
 @Injectable()
 export class ProjectsService {
@@ -897,6 +898,43 @@ export class ProjectsService {
       actorEmail: a.actor.email,
       projectTitle: a.project.title,
     }))
+  }
+
+  async listRecentActivityForAdmin(limit = 15) {
+    const capped = Math.min(25, Math.max(1, limit))
+    const activities = await this.prisma.projectActivity.findMany({
+      where: { action: { in: [...RECENT_ACTIVITY_ACTIONS] } },
+      orderBy: { createdAt: 'desc' },
+      take: capped,
+      include: {
+        actor: { select: userActorSelect },
+        project: {
+          select: {
+            id: true,
+            title: true,
+            organizationId: true,
+            organization: { select: { id: true, name: true } },
+          },
+        },
+      },
+    })
+
+    return activities.map((a) => {
+      const serialized = serializeActivity(a)
+      const metadata =
+        a.metadata && typeof a.metadata === 'object' && !Array.isArray(a.metadata)
+          ? (a.metadata as Record<string, unknown>)
+          : null
+      const organizationId = a.project.organizationId
+      return {
+        ...serialized,
+        actorEmail: a.actor.email,
+        projectTitle: a.project.title,
+        organizationId,
+        organizationName: a.project.organization.name,
+        href: getActivityHref(a.action, organizationId, metadata),
+      }
+    })
   }
 
   async approveProject(admin: AuthenticatedAdmin, organizationId: string, projectId: string) {
