@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useArcGalleryLayout } from '@/hooks/use-arc-gallery-layout'
 import { useCarouselDrag } from '@/hooks/use-carousel-drag'
-import { homeGalleryProjectPreviews } from '@/site-info/gallery-data'
 import type { ProjectPreview } from '@cocreate/types'
 import { getArcTileStyle, getWrappedOffset } from '@/utils/arc-gallery-math'
 import * as fonts from '@/styles/fonts'
@@ -25,9 +24,7 @@ type ArcGalleryProps = {
   items?: ProjectPreview[]
 }
 
-export default function ArcGallery({
-  items = homeGalleryProjectPreviews,
-}: ArcGalleryProps) {
+export default function ArcGallery({ items = [] }: ArcGalleryProps) {
   const stageRef = useRef<HTMLDivElement>(null)
   const layout = useArcGalleryLayout(stageRef)
   const [isMobile, setIsMobile] = useState(false)
@@ -82,6 +79,10 @@ export default function ArcGallery({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [step])
+
+  if (items.length === 0) {
+    return null
+  }
 
   return (
     <div className="relative w-full min-w-0">

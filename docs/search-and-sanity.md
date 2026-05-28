@@ -14,9 +14,9 @@ Run studio: `pnpm dev` (includes studio) or from `apps/cocreate-webapp-studio`: 
 
 GROQ query stubs live in `apps/web/sanity/lib/queries.ts` for when Work/Originals fetch from Sanity.
 
-## Static search (current)
+## Site search (current)
 
-- Index: `apps/web/lib/search/static-search.ts` (work from `gallery-data.ts`, originals from `originals-data.ts`)
+- Index: `apps/web/lib/search/site-search.ts` (work and originals from Sanity via `fetchWorkProjectPreviews` / `fetchOriginalPreviews`; empty when Sanity is unavailable or has no published documents)
 - API: `GET /api/search?q=...&limit=12`
 - UI: search overlay with live results (categories, clients, work projects, originals)
 - Project pages: `/work/[slug]` with sidebar headline layout
@@ -28,8 +28,8 @@ GROQ query stubs live in `apps/web/sanity/lib/queries.ts` for when Work/Original
 - Slug derived from client display name (`toClientSlug` in `apps/web/lib/client-slug.ts`)
 - Clicking a **client** result in search opens all projects for that client
 
-## Next step (Sanity-backed search)
+## Content sources
 
-1. Fetch work/originals with `WORK_PROJECTS_QUERY` / `ORIGINALS_QUERY`
-2. Replace `searchSite()` body with GROQ or map Sanity payloads into `SearchResult`
-3. Keep the same overlay UI and `/work?client=` behavior
+- **Work** (`/work`, `/work/[slug]`, homepage arc gallery): `WORK_PROJECTS_QUERY` and related queries in `apps/web/lib/cms/work-projects.ts`
+- **Originals** (`/originals`): `ORIGINALS_QUERY` in `apps/web/lib/cms/originals.ts`
+- Search maps the same preview payloads into `SearchResult`; overlay UI and `/work?client=` behavior unchanged

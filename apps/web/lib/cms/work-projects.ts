@@ -14,22 +14,25 @@ import {
   mapSanityWorkProjectToPreview,
 } from '@/sanity/lib/mappers'
 import { enrichProjectPreviews } from '@/lib/project-preview'
-import { galleryProjectPreviews } from '@/site-info/gallery-data'
+import { HOME_GALLERY_PREVIEW_COUNT } from '@/site-info/home-gallery-config'
 
 export const fetchWorkProjectPreviews = cache(async (): Promise<ProjectPreview[]> => {
   const client = getSanityClient()
   if (!client) {
-    return galleryProjectPreviews
+    return []
   }
 
   try {
     const rows = await client.fetch(WORK_PROJECTS_QUERY)
     if (!rows?.length) {
-      return galleryProjectPreviews
+      return []
     }
     return enrichProjectPreviews(rows.map(mapSanityWorkProjectToPreview))
-  } catch {
-    return galleryProjectPreviews
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[fetchWorkProjectPreviews] Sanity fetch failed:', error)
+    }
+    return []
   }
 })
 
@@ -39,32 +42,20 @@ export const fetchWorkProjectBySlug = cache(
 
     const client = getSanityClient()
     if (!client) {
-      const fallback = galleryProjectPreviews.find(
-        (project) => (project.slug ?? project.id).toLowerCase() === key,
-      )
-      if (!fallback) return null
-      const { toWorkProjectDetail } = await import('@/lib/work-project-detail')
-      return toWorkProjectDetail(fallback)
+      return null
     }
 
     try {
       const row = await client.fetch(WORK_PROJECT_BY_SLUG_QUERY, { slug: key })
       if (!row) {
-        const fallback = galleryProjectPreviews.find(
-          (project) => (project.slug ?? project.id).toLowerCase() === key,
-        )
-        if (!fallback) return null
-        const { toWorkProjectDetail } = await import('@/lib/work-project-detail')
-        return toWorkProjectDetail(fallback)
+        return null
       }
       return mapSanityWorkProjectToDetail(row)
-    } catch {
-      const fallback = galleryProjectPreviews.find(
-        (project) => (project.slug ?? project.id).toLowerCase() === key,
-      )
-      if (!fallback) return null
-      const { toWorkProjectDetail } = await import('@/lib/work-project-detail')
-      return toWorkProjectDetail(fallback)
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[fetchWorkProjectBySlug] Sanity fetch failed:', error)
+      }
+      return null
     }
   },
 )
@@ -72,17 +63,20 @@ export const fetchWorkProjectBySlug = cache(
 export const fetchWorkProjectSlugs = cache(async (): Promise<string[]> => {
   const client = getSanityClient()
   if (!client) {
-    return galleryProjectPreviews.map((project) => project.slug ?? project.id)
+    return []
   }
 
   try {
     const rows = await client.fetch(WORK_PROJECT_SLUGS_QUERY)
     if (!rows?.length) {
-      return galleryProjectPreviews.map((project) => project.slug ?? project.id)
+      return []
     }
     return rows.map((row: { slug: string }) => row.slug).filter(Boolean)
-  } catch {
-    return galleryProjectPreviews.map((project) => project.slug ?? project.id)
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[fetchWorkProjectSlugs] Sanity fetch failed:', error)
+    }
+    return []
   }
 })
 
@@ -100,6 +94,5 @@ export const fetchFeaturedHeroReelPlaybackId = cache(async (): Promise<string | 
 
 export const fetchHomeGalleryPreviews = cache(async (): Promise<ProjectPreview[]> => {
   const projects = await fetchWorkProjectPreviews()
-  const { HOME_GALLERY_PREVIEW_COUNT } = await import('@/site-info/gallery-data')
   return projects.slice(0, HOME_GALLERY_PREVIEW_COUNT)
 })

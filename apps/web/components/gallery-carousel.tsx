@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useCarouselDrag } from '@/hooks/use-carousel-drag'
 import { useCarouselLayout } from '@/hooks/use-carousel-layout'
-import { galleryProjectPreviews } from '@/site-info/gallery-data'
 import type { ProjectPreview } from '@cocreate/types'
 import {
   getCylinderTileStyle,
@@ -19,9 +18,7 @@ type GalleryCarouselProps = {
   items?: ProjectPreview[]
 }
 
-export default function GalleryCarousel({
-  items = galleryProjectPreviews,
-}: GalleryCarouselProps) {
+export default function GalleryCarousel({ items = [] }: GalleryCarouselProps) {
   const stageRef = useRef<HTMLDivElement>(null)
   const layout = useCarouselLayout(stageRef)
   const router = useRouter()
