@@ -270,6 +270,37 @@ export async function fetchAttachmentDownloadUrl(
   return result.ok ? result.data.download.signedUrl : null
 }
 
+export async function requestProjectCoverUploadUrl(
+  projectId: string,
+  file: { fileName: string; mimeType: string; sizeBytes: number },
+) {
+  return portalFetch<{
+    storagePath: string
+    signedUrl: string
+    token: string
+    expiresIn: number
+  }>(`/client-portal/projects/${projectId}/cover/upload-url`, {
+    method: 'POST',
+    body: JSON.stringify(file),
+  })
+}
+
+export async function registerProjectCover(
+  projectId: string,
+  payload: { storagePath: string },
+) {
+  return portalFetch<ClientProjectDetail>(`/client-portal/projects/${projectId}/cover`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function removeProjectCover(projectId: string) {
+  return portalFetch<ClientProjectDetail>(`/client-portal/projects/${projectId}/cover`, {
+    method: 'DELETE',
+  })
+}
+
 export async function uploadProjectFiles(
   projectId: string,
   files: File[],

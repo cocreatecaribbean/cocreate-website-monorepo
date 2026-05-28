@@ -68,6 +68,7 @@ export type ClientProjectSummary = {
   completedAt?: string | null
   createdAt: string
   updatedAt: string
+  coverImageUrl?: string | null
   pendingCheckpointCount?: number
   hasPendingCheckpoint?: boolean
   openAdminReviewCount?: number

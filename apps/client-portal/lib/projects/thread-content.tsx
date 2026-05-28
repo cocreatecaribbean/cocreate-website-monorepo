@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { ExternalLink, FileText } from 'lucide-react'
+import ImageLightbox from '@/components/image-lightbox'
 
 const URL_PATTERN = /https?:\/\/[^\s<>"']+/gi
 
@@ -161,6 +162,7 @@ function AttachmentItem({
   variant: 'portal' | 'admin'
 }) {
   const [url, setUrl] = useState<string | null>(null)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const isImage = attachment.mimeType.startsWith('image/')
 
   useEffect(() => {
@@ -170,7 +172,15 @@ function AttachmentItem({
 
   const openFile = async () => {
     const downloadUrl = url ?? (await fetchDownloadUrl(attachment.id))
-    if (downloadUrl) window.open(downloadUrl, '_blank', 'noopener,noreferrer')
+    if (!downloadUrl) return
+
+    if (isImage) {
+      setUrl(downloadUrl)
+      setLightboxOpen(true)
+      return
+    }
+
+    window.open(downloadUrl, '_blank', 'noopener,noreferrer')
   }
 
   const cardClass =
@@ -181,14 +191,27 @@ function AttachmentItem({
   return (
     <div className={cardClass}>
       {isImage && url ? (
-        <button type="button" onClick={() => void openFile()} className="block w-full text-left">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+        <>
+          <button
+            type="button"
+            onClick={() => void openFile()}
+            className="block w-full cursor-zoom-in text-left"
+            aria-label={`View ${attachment.fileName} full size`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={url}
+              alt={attachment.fileName}
+              className="max-h-64 w-full rounded-lg object-contain"
+            />
+          </button>
+          <ImageLightbox
+            open={lightboxOpen}
             src={url}
             alt={attachment.fileName}
-            className="max-h-64 w-full rounded-lg object-contain"
+            onClose={() => setLightboxOpen(false)}
           />
-        </button>
+        </>
       ) : (
         <button
           type="button"

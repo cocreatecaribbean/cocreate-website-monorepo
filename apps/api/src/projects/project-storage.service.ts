@@ -81,6 +81,22 @@ export class ProjectStorageService {
     return `${organizationId}/${projectId}/${randomUUID()}-${safeName}`
   }
 
+  buildCoverStoragePath(organizationId: string, projectId: string, fileName: string) {
+    const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200)
+    return `${organizationId}/${projectId}/cover/${randomUUID()}-${safeName}`
+  }
+
+  assertCoverPathBelongsToProject(
+    storagePath: string,
+    organizationId: string,
+    projectId: string,
+  ) {
+    const prefix = `${organizationId}/${projectId}/cover/`
+    if (!storagePath.startsWith(prefix)) {
+      throw new BadRequestException('Invalid cover path for this project')
+    }
+  }
+
   assertPathBelongsToProject(
     storagePath: string,
     organizationId: string,
@@ -152,5 +168,65 @@ export class ProjectStorageService {
     }
 
     return { signedUrl: data.signedUrl, expiresIn: DOWNLOAD_TTL_SEC }
+  }
+
+  async deleteObject(storagePath: string): Promise<void> {
+    if (!this.client) return
+
+    await this.ensureBucketExists()
+
+    const { error } = await this.client.storage.from(BUCKET).remove([storagePath])
+    if (error) {
+      this.logger.warn(`Failed to delete ${storagePath}: ${error.message}`)
+    }
+  }
+
+  async createCoverUploadUrl(params: {
+    organizationId: string
+    projectId: string
+    fileName: string
+    mimeType: string
+    sizeBytes: number
+  }) {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp']
+    if (!allowed.includes(params.mimeType)) {
+      throw new BadRequestException('Cover must be a JPEG, PNG, or WebP image')
+    }
+
+    if (params.sizeBytes > 5 * 1024 * 1024) {
+      throw new BadRequestException('Cover image must be 5 MB or smaller')
+    }
+
+    if (!this.client) {
+      throw new ServiceUnavailableException(
+        'File storage is not configured (Supabase)',
+      )
+    }
+
+    await this.ensureBucketExists()
+
+    const storagePath = this.buildCoverStoragePath(
+      params.organizationId,
+      params.projectId,
+      params.fileName,
+    )
+
+    const { data, error } = await this.client.storage
+      .from(BUCKET)
+      .createSignedUploadUrl(storagePath)
+
+    if (error || !data) {
+      this.logger.error(`Cover upload URL failed: ${error?.message}`)
+      throw new BadRequestException(
+        this.formatStorageError(error?.message ?? 'Could not create upload URL'),
+      )
+    }
+
+    return {
+      storagePath,
+      signedUrl: data.signedUrl,
+      token: data.token,
+      expiresIn: UPLOAD_TTL_SEC,
+    }
   }
 }

@@ -35,6 +35,12 @@ export type ProjectMember = {
   createdAt: string
 }
 
+export type AssignableProjectMember = {
+  userId: string
+  email: string
+  clientOrgRole: ClientOrgRole | null
+}
+
 export type { PortalPermissions }
 
 export type TeamHubPermissions = {
@@ -51,6 +57,7 @@ export type ProjectTeamCard = {
   phase: string
   creatorUserId: string
   creatorEmail: string
+  coverImageUrl?: string | null
   canManage: boolean
   members: ProjectMember[]
 }
@@ -171,6 +178,7 @@ export async function fetchProjectMembers(projectId: string) {
     projectId: string
     creator: { userId: string; email: string; implicitAccess: 'MANAGE' }
     members: ProjectMember[]
+    assignableMembers: AssignableProjectMember[]
     canManage: boolean
   }>(`/client-portal/projects/${projectId}/members`)
 }

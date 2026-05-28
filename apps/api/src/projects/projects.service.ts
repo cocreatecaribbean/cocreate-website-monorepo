@@ -32,6 +32,7 @@ import type { UpdateProjectDto } from './dto/update-project.dto'
 import type { CreateRequestMessageDto } from './dto/create-request-message.dto'
 import type { UpdateRequestDto } from './dto/update-request.dto'
 import type { UploadUrlDto } from './dto/upload-url.dto'
+import type { RegisterCoverDto } from './dto/register-cover.dto'
 import {
   serializeActivity,
   serializeApprovalRecord,
@@ -67,6 +68,34 @@ export class ProjectsService {
       },
     })
     return serializeActivity(row)
+  }
+
+  private async resolveCoverImageUrl(
+    coverStoragePath: string | null | undefined,
+  ): Promise<string | null> {
+    if (!coverStoragePath || !this.storage.isConfigured) return null
+    try {
+      const signed = await this.storage.createDownloadUrl(coverStoragePath)
+      return signed.signedUrl
+    } catch {
+      return null
+    }
+  }
+
+  private async serializeProjectWithCover(
+    project: Parameters<typeof serializeProject>[0],
+  ) {
+    const base = serializeProject(project)
+    const coverImageUrl = await this.resolveCoverImageUrl(
+      (project as { coverStoragePath?: string | null }).coverStoragePath,
+    )
+    return { ...base, coverImageUrl }
+  }
+
+  private serializeProjectsWithCover(
+    projects: Parameters<typeof serializeProject>[0][],
+  ) {
+    return Promise.all(projects.map((p) => this.serializeProjectWithCover(p)))
   }
 
   private async getProjectForClient(
@@ -224,7 +253,7 @@ export class ProjectsService {
       orderBy: { updatedAt: 'desc' },
       include: this.projectListInclude(),
     })
-    return projects.map(serializeProject)
+    return this.serializeProjectsWithCover(projects)
   }
 
   async createForClient(client: AuthenticatedClient, dto: CreateProjectDto) {
@@ -291,7 +320,7 @@ export class ProjectsService {
       where: { id: project.id },
       include: this.projectDetailInclude(),
     })
-    return serializeProject(full!)
+    return this.serializeProjectWithCover(full!)
   }
 
   async getForClient(client: AuthenticatedClient, projectId: string) {
@@ -312,10 +341,10 @@ export class ProjectsService {
         where: { id: projectId },
         include: this.projectDetailInclude(),
       })
-      return serializeProject(refreshed!)
+      return this.serializeProjectWithCover(refreshed!)
     }
 
-    return serializeProject(project)
+    return this.serializeProjectWithCover(project)
   }
 
   async createChangeRequest(
@@ -579,7 +608,7 @@ export class ProjectsService {
       orderBy: { updatedAt: 'desc' },
       include: this.projectListInclude(),
     })
-    return projects.map(serializeProject)
+    return this.serializeProjectsWithCover(projects)
   }
 
   async listForOrganization(organizationId: string) {
@@ -602,7 +631,7 @@ export class ProjectsService {
         },
       },
     })
-    return projects.map(serializeProject)
+    return this.serializeProjectsWithCover(projects)
   }
 
   async getForAdmin(projectId: string) {
@@ -611,7 +640,7 @@ export class ProjectsService {
       include: this.projectDetailInclude(),
     })
     if (!project) throw new NotFoundException('Project not found')
-    return serializeProject(project)
+    return this.serializeProjectWithCover(project)
   }
 
   async unreadInboxCountForAdmin(admin: AuthenticatedAdmin, organizationId: string) {
@@ -737,7 +766,7 @@ export class ProjectsService {
       email: emailContent,
     })
 
-    return serializeProject(updated)
+    return this.serializeProjectWithCover(updated)
   }
 
   async updateProject(admin: AuthenticatedAdmin, projectId: string, dto: UpdateProjectDto) {
@@ -795,7 +824,7 @@ export class ProjectsService {
       })
     }
 
-    return serializeProject(updated)
+    return this.serializeProjectWithCover(updated)
   }
 
   async createReviewRequest(
@@ -1298,6 +1327,77 @@ export class ProjectsService {
 
     const signed = await this.storage.createDownloadUrl(attachment.storagePath)
     return { ...serializeAttachment(attachment), download: signed }
+  }
+
+  // ─── Project cover ──────────────────────────────────────────────────────────
+
+  async createCoverUploadUrlForClient(
+    client: AuthenticatedClient,
+    projectId: string,
+    dto: UploadUrlDto,
+  ) {
+    const project = await this.getProjectForClient(client, projectId, 'MANAGE')
+    return this.storage.createCoverUploadUrl({
+      organizationId: project.organizationId,
+      projectId: project.id,
+      fileName: dto.fileName,
+      mimeType: dto.mimeType,
+      sizeBytes: dto.sizeBytes,
+    })
+  }
+
+  async registerCoverForClient(
+    client: AuthenticatedClient,
+    projectId: string,
+    dto: RegisterCoverDto,
+  ) {
+    const project = await this.getProjectForClient(client, projectId, 'MANAGE')
+    this.storage.assertCoverPathBelongsToProject(
+      dto.storagePath,
+      project.organizationId,
+      project.id,
+    )
+
+    const previousPath = project.coverStoragePath
+
+    const updated = await this.prisma.clientProject.update({
+      where: { id: project.id },
+      data: { coverStoragePath: dto.storagePath },
+      include: this.projectDetailInclude(),
+    })
+
+    if (previousPath && previousPath !== dto.storagePath) {
+      await this.storage.deleteObject(previousPath)
+    }
+
+    await this.logActivity(project.id, client.id, 'cover.updated', {})
+
+    return this.serializeProjectWithCover(updated)
+  }
+
+  async removeCoverForClient(client: AuthenticatedClient, projectId: string) {
+    const project = await this.getProjectForClient(client, projectId, 'MANAGE')
+
+    if (!project.coverStoragePath) {
+      const current = await this.prisma.clientProject.findUnique({
+        where: { id: project.id },
+        include: this.projectDetailInclude(),
+      })
+      return this.serializeProjectWithCover(current!)
+    }
+
+    const previousPath = project.coverStoragePath
+
+    const updated = await this.prisma.clientProject.update({
+      where: { id: project.id },
+      data: { coverStoragePath: null },
+      include: this.projectDetailInclude(),
+    })
+
+    await this.storage.deleteObject(previousPath)
+    await this.logActivity(project.id, client.id, 'cover.updated', { removed: true })
+
+    return this.serializeProjectWithCover(updated)
   }
 
   // ─── Notifications (client) ───────────────────────────────────────────────

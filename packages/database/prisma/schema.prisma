@@ -172,6 +172,7 @@ model ClientProject {
   completedByUserId String?
   completedBy       User?               @relation("ProjectCompletedBy", fields: [completedByUserId], references: [id])
   completedAt       DateTime?
+  coverStoragePath  String?
   createdAt         DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
   requests          ProjectRequest[]

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -21,6 +22,7 @@ import { MarkAttentionReadDto } from './dto/mark-attention-read.dto'
 import { MarkInboxReadDto } from './dto/mark-inbox-read.dto'
 import { UpdateRequestDto } from './dto/update-request.dto'
 import { UploadUrlDto } from './dto/upload-url.dto'
+import { RegisterCoverDto } from './dto/register-cover.dto'
 import { ProjectsService } from './projects.service'
 
 @Controller('client-portal')
@@ -103,6 +105,29 @@ export class ClientProjectsController {
     @Body() dto: CreateCancellationRequestDto,
   ) {
     return this.projects.createCancellationRequest(req.clientUser!, id, dto)
+  }
+
+  @Post('projects/:id/cover/upload-url')
+  coverUploadUrl(
+    @Req() req: ClientPortalRequest,
+    @Param('id') id: string,
+    @Body() dto: UploadUrlDto,
+  ) {
+    return this.projects.createCoverUploadUrlForClient(req.clientUser!, id, dto)
+  }
+
+  @Patch('projects/:id/cover')
+  registerCover(
+    @Req() req: ClientPortalRequest,
+    @Param('id') id: string,
+    @Body() dto: RegisterCoverDto,
+  ) {
+    return this.projects.registerCoverForClient(req.clientUser!, id, dto)
+  }
+
+  @Delete('projects/:id/cover')
+  removeCover(@Req() req: ClientPortalRequest, @Param('id') id: string) {
+    return this.projects.removeCoverForClient(req.clientUser!, id)
   }
 
   @Post('projects/:id/attachments/upload-url')

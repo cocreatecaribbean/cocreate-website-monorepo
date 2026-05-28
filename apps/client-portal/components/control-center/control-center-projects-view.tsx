@@ -27,7 +27,10 @@ import {
   sendRequestMessage,
   uploadProjectFiles,
 } from '@/lib/projects/fetch-projects-client'
-import ProjectAccessPanel from '@/components/project-access-panel'
+import ProjectCover from '@/components/project-cover'
+import ProjectCoverEditor from '@/components/project-cover-editor'
+import ProjectTeamAside from '@/components/project-team-aside'
+import { useProjectMembers } from '@/lib/team/use-project-members'
 import { fetchPortalProfile } from '@/lib/team/fetch-team-client'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import { Bell, Calendar, ExternalLink, FolderKanban, Plus } from 'lucide-react'
@@ -287,8 +290,15 @@ export default function ControlCenterProjectsView() {
           {projects.map((project) => (
             <article
               key={project.id}
-              className="portal-glass-card portal-shine-hover flex flex-col p-6"
+              className="portal-glass-card portal-shine-hover flex flex-col overflow-hidden p-0"
             >
+              <ProjectCover
+                coverImageUrl={project.coverImageUrl}
+                alt={project.title}
+                variant="card"
+                className="rounded-none"
+              />
+              <div className="flex flex-col p-6">
               <div className="flex items-start justify-between gap-2">
                 <h3 className={`text-base text-chambray ${bricolage_grot600.className}`}>
                   {project.title}
@@ -321,6 +331,7 @@ export default function ControlCenterProjectsView() {
                   Approval needed
                 </button>
               ) : null}
+              </div>
             </article>
           ))}
           {projects.length === 0 ? (
@@ -350,6 +361,14 @@ function ProjectDetailView({
   const [message, setMessage] = useState<string | null>(null)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelling, setCancelling] = useState(false)
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(
+    project.coverImageUrl ?? null,
+  )
+  const { canManage, loading: membersLoading } = useProjectMembers(project.id)
+
+  useEffect(() => {
+    setCoverImageUrl(project.coverImageUrl ?? null)
+  }, [project.coverImageUrl, project.id])
 
   const onboarding = findThread(project, 'ONBOARDING')
   const progress = findThread(project, 'PROGRESS')
@@ -396,21 +415,46 @@ function ProjectDetailView({
       <button type="button" onClick={onBack} className="portal-btn-ghost text-sm">
         ← All projects
       </button>
-      <section className="portal-glass-card p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="portal-eyebrow">Project</p>
-            <h3 className={`mt-1 text-xl text-chambray ${bricolage_grot700.className}`}>
-              {project.title}
-            </h3>
-            <p className="mt-2 text-sm text-app-muted">{project.description}</p>
+      <section className="portal-glass-card overflow-hidden p-0">
+        {canManage && !membersLoading ? (
+          <ProjectCoverEditor
+            projectId={project.id}
+            coverImageUrl={coverImageUrl}
+            title={project.title}
+            onUpdated={(url) => {
+              setCoverImageUrl(url)
+              void onRefresh()
+            }}
+          />
+        ) : (
+          <ProjectCover
+            coverImageUrl={coverImageUrl}
+            alt={project.title}
+            variant="hero"
+            className="rounded-none sm:rounded-t-xl"
+          />
+        )}
+        <div className="p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="portal-eyebrow">Project</p>
+              <h3 className={`mt-1 text-xl text-chambray ${bricolage_grot700.className}`}>
+                {project.title}
+              </h3>
+              <p className="mt-2 text-sm text-app-muted">{project.description}</p>
+            </div>
+            <ProjectStatusAttribution project={project} variant="detail" />
           </div>
-          <ProjectStatusAttribution project={project} variant="detail" />
         </div>
       </section>
 
-      <ProjectAccessPanel projectId={project.id} />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
+        <ProjectTeamAside
+          projectId={project.id}
+          className="order-1 lg:order-2 lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1"
+        />
 
+        <div className="order-2 space-y-6 lg:order-1 lg:col-start-1">
       {project.activities && project.activities.length > 0 ? (
         <ProjectTimeline activities={project.activities} />
       ) : null}
@@ -510,6 +554,8 @@ function ProjectDetailView({
           </button>
         </section>
       ) : null}
+        </div>
+      </div>
     </div>
   )
 }

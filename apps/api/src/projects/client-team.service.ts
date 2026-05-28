@@ -23,6 +23,7 @@ import type { AddProjectMemberDto } from './dto/add-project-member.dto'
 import type { RequestTeamInviteDto } from './dto/request-team-invite.dto'
 import type { RejectTeamInviteDto } from './dto/reject-team-invite.dto'
 import { ProjectNotificationsService } from './project-notifications.service'
+import { ProjectStorageService } from './project-storage.service'
 
 export type TeamMemberSummary = {
   id: string
@@ -44,6 +45,12 @@ export type ProjectMemberSummary = {
   createdAt: Date
 }
 
+export type AssignableProjectMemberSummary = {
+  userId: string
+  email: string
+  clientOrgRole: ClientOrgRole | null
+}
+
 export type TeamHubPermissions = {
   canManageOrgRoles: boolean
   canInviteImmediately: boolean
@@ -58,6 +65,7 @@ export type ProjectTeamCard = {
   phase: string
   creatorUserId: string
   creatorEmail: string
+  coverImageUrl: string | null
   canManage: boolean
   members: ProjectMemberSummary[]
 }
@@ -79,7 +87,20 @@ export class ClientTeamService {
     private readonly supabaseAuth: SupabaseAuthService,
     private readonly clientAccess: ClientAccessService,
     private readonly notifications: ProjectNotificationsService,
+    private readonly storage: ProjectStorageService,
   ) {}
+
+  private async resolveCoverImageUrl(
+    coverStoragePath: string | null | undefined,
+  ): Promise<string | null> {
+    if (!coverStoragePath || !this.storage.isConfigured) return null
+    try {
+      const signed = await this.storage.createDownloadUrl(coverStoragePath)
+      return signed.signedUrl
+    } catch {
+      return null
+    }
+  }
 
   private normalizeEmail(email: string) {
     return email.trim().toLowerCase()
@@ -159,6 +180,7 @@ export class ClientTeamService {
         title: true,
         status: true,
         phase: true,
+        coverStoragePath: true,
         createdByUserId: true,
         createdBy: { select: { email: true } },
       },
@@ -201,6 +223,7 @@ export class ClientTeamService {
       phase: project.phase,
       creatorUserId: project.createdByUserId,
       creatorEmail: project.createdBy.email,
+      coverImageUrl: await this.resolveCoverImageUrl(project.coverStoragePath),
       canManage: await this.clientAccess.canManageProjectMembership(client, project.id),
       members: membersByProject.get(project.id) ?? [],
     })
@@ -549,6 +572,7 @@ export class ClientTeamService {
       where: { id: projectId },
       select: {
         id: true,
+        organizationId: true,
         createdByUserId: true,
         createdBy: {
           select: {
@@ -628,6 +652,12 @@ export class ClientTeamService {
 
     if (targetUser.id === project.createdByUserId) {
       throw new BadRequestException('Project creator already has access')
+    }
+
+    if (targetUser.clientOrgRole === ClientOrgRole.OWNER) {
+      throw new BadRequestException(
+        'Organization owners already have access to all projects',
+      )
     }
 
     const row = await this.prisma.clientProjectMember.upsert({

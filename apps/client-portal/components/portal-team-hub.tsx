@@ -1,7 +1,8 @@
 'use client'
 
 import { FormEvent, useCallback, useEffect, useState } from 'react'
-import ProjectAccessPanel from '@/components/project-access-panel'
+import ProjectCover from '@/components/project-cover'
+import ProjectTeamAside from '@/components/project-team-aside'
 import {
   fetchTeamHub,
   inviteTeamMember,
@@ -364,21 +365,34 @@ function ProjectSection({
         <p className={`mt-2 text-sm text-app-muted ${bricolage_grot500.className}`}>{description}</p>
       </div>
       {projects.map((project) => (
-        <article key={project.id} className="portal-glass-card p-6 sm:p-8">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h4 className={`text-base text-chambray ${bricolage_grot600.className}`}>
-              {project.title}
-            </h4>
-            <p className="text-xs text-app-muted capitalize">
-              {project.status.toLowerCase().replace('_', ' ')} · {project.phase.toLowerCase().replace('_', ' ')}
-            </p>
+        <article
+          key={project.id}
+          className="portal-glass-card grid gap-6 p-6 sm:grid-cols-[minmax(0,1fr)_280px] sm:items-start sm:p-8"
+        >
+          <div className="min-w-0">
+            <ProjectCover
+              coverImageUrl={project.coverImageUrl}
+              alt={project.title}
+              variant="hero"
+              className="mb-4"
+            />
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h4 className={`text-base text-chambray ${bricolage_grot600.className}`}>
+                {project.title}
+              </h4>
+              <p className="text-xs text-app-muted capitalize">
+                {project.status.toLowerCase().replace('_', ' ')} ·{' '}
+                {project.phase.toLowerCase().replace('_', ' ')}
+              </p>
+            </div>
+            {project.creatorEmail ? (
+              <p className="mt-1 text-xs text-app-muted">Created by {project.creatorEmail}</p>
+            ) : null}
           </div>
-          {project.creatorEmail ? (
-            <p className="mt-1 text-xs text-app-muted">Created by {project.creatorEmail}</p>
-          ) : null}
-          <div className="mt-4">
-            <ProjectAccessPanel projectId={project.id} />
-          </div>
+          <ProjectTeamAside
+            projectId={project.id}
+            className="border border-chambray/8 bg-chambray/[0.02] shadow-none dark:border-white/8 dark:bg-white/[0.03]"
+          />
         </article>
       ))}
     </section>

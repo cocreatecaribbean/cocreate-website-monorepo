@@ -55,6 +55,8 @@ export function getActivitySummary(
       return `${who} updated a request (${String(metadata?.status ?? 'updated')})`
     case 'attachment.uploaded':
       return `${who} uploaded a file`
+    case 'cover.updated':
+      return metadata?.removed ? `${who} removed the project cover` : `${who} updated the project cover`
     default:
       return `${who}: ${action}`
   }
