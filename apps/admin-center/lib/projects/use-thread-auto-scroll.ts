@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 
 type MessageLike = { id: string }
 
-const NEAR_BOTTOM_THRESHOLD = 80
+const NEAR_BOTTOM_THRESHOLD = 120
+const PIN_BOTTOM_MS = 3000
 
 function isNearBottom(panel: HTMLDivElement) {
   return panel.scrollHeight - panel.scrollTop - panel.clientHeight < NEAR_BOTTOM_THRESHOLD
@@ -16,30 +17,40 @@ function scrollPanelAfterLayout(panel: HTMLDivElement, behavior: ScrollBehavior)
     scroll()
     requestAnimationFrame(scroll)
   })
+  setTimeout(scroll, 0)
 }
 
-export function useThreadAutoScroll(messages: MessageLike[]) {
+export function useThreadAutoScroll(messages: MessageLike[], threadKey?: string) {
   const panelRef = useRef<HTMLDivElement>(null)
   const prevSignatureRef = useRef('')
   const nearBottomRef = useRef(true)
   const hasInitialScrollRef = useRef(false)
+  const pinBottomUntilRef = useRef(0)
+  const prevThreadKeyRef = useRef(threadKey)
 
-  const lastId = messages[messages.length - 1]?.id ?? ''
-  const signature = `${messages.length}:${lastId}`
+  const signature = messages.map((m) => m.id).join('|')
 
-  const scrollToBottom = useCallback(
-    (force = false) => {
-      const panel = panelRef.current
-      if (!panel) return
+  const scrollToBottom = useCallback((force = false) => {
+    const panel = panelRef.current
+    if (!panel) return
 
-      const nearBottom = isNearBottom(panel)
-      if (force || nearBottom || messages.length <= 1) {
-        nearBottomRef.current = true
-        scrollPanelAfterLayout(panel, 'smooth')
-      }
-    },
-    [messages.length],
-  )
+    const atBottom = isNearBottom(panel)
+    if (force || atBottom || messages.length <= 1) {
+      nearBottomRef.current = true
+      pinBottomUntilRef.current = Date.now() + PIN_BOTTOM_MS
+      scrollPanelAfterLayout(panel, force ? 'smooth' : 'auto')
+    }
+  }, [messages.length])
+
+  useLayoutEffect(() => {
+    if (threadKey !== undefined && threadKey !== prevThreadKeyRef.current) {
+      prevThreadKeyRef.current = threadKey
+      hasInitialScrollRef.current = false
+      prevSignatureRef.current = ''
+      pinBottomUntilRef.current = 0
+      nearBottomRef.current = true
+    }
+  }, [threadKey])
 
   useEffect(() => {
     const panel = panelRef.current
@@ -53,8 +64,10 @@ export function useThreadAutoScroll(messages: MessageLike[]) {
     panel.addEventListener('scroll', updateNearBottom, { passive: true })
 
     const observer = new ResizeObserver(() => {
-      if (nearBottomRef.current) {
+      const pinned = Date.now() < pinBottomUntilRef.current
+      if (nearBottomRef.current || pinned) {
         panel.scrollTo({ top: panel.scrollHeight, behavior: 'auto' })
+        if (pinned) nearBottomRef.current = true
       }
       updateNearBottom()
     })
@@ -66,21 +79,31 @@ export function useThreadAutoScroll(messages: MessageLike[]) {
     }
   }, [])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const panel = panelRef.current
+    if (!panel || messages.length === 0) return
+
     const prev = prevSignatureRef.current
     const isNew = prev !== '' && signature !== prev
     prevSignatureRef.current = signature
 
-    if (!hasInitialScrollRef.current && messages.length > 0) {
+    if (!hasInitialScrollRef.current) {
       hasInitialScrollRef.current = true
-      scrollToBottom(true)
+      nearBottomRef.current = true
+      pinBottomUntilRef.current = Date.now() + PIN_BOTTOM_MS
+      scrollPanelAfterLayout(panel, 'auto')
       return
     }
 
-    if (isNew) {
-      scrollToBottom(false)
+    if (!isNew) return
+
+    const atBottom = isNearBottom(panel)
+    if (atBottom || messages.length <= 1) {
+      nearBottomRef.current = true
+      pinBottomUntilRef.current = Date.now() + PIN_BOTTOM_MS
+      scrollPanelAfterLayout(panel, 'auto')
     }
-  }, [messages.length, signature, scrollToBottom])
+  }, [signature, messages.length])
 
   return { panelRef, scrollToBottom }
 }

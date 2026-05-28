@@ -73,7 +73,7 @@ export default function RequestMessageThread({
   const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(request.status)
   const canCompose = !readOnly && !isClosed
   const attachmentsByMessage = indexAttachmentsByMessage(messages, request.attachments)
-  const { panelRef, scrollToBottom } = useThreadAutoScroll(messages)
+  const { panelRef, scrollToBottom } = useThreadAutoScroll(messages, request.id)
   const fetchDownloadUrl = useCallback(
     (attachmentId: string) => fetchAttachmentDownloadUrl(attachmentId),
     [],

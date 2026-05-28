@@ -111,3 +111,61 @@ export function getActivityHref(
 
   return `${base}?tab=activity`
 }
+
+/** High-signal events for client portal dashboard (excludes routine chat / internal admin noise). */
+export const CLIENT_RECENT_ACTIVITY_ACTIONS = [
+  'project.created_by_admin',
+  'project.approved',
+  'project.completed',
+  'project.submitted',
+  'checkpoint.sent',
+  'checkpoint.approved',
+  'attachment.uploaded',
+] as const
+
+export function getClientActivitySummary(
+  action: string,
+  actorLabel: string,
+  metadata?: Record<string, unknown> | null,
+): string {
+  const team = 'CoCreate team'
+  const who = actorLabel && actorLabel !== 'Someone' ? actorLabel : team
+  switch (action) {
+    case 'project.submitted':
+      return 'Project submitted for agency review'
+    case 'project.created_by_admin':
+      return `${team} added a new project for you`
+    case 'project.approved':
+      return 'Your project was onboarded and is active'
+    case 'project.completed':
+      return `${team} marked this project complete`
+    case 'checkpoint.sent':
+      return 'Progress check ready for your review'
+    case 'checkpoint.approved':
+      return metadata?.approvedByClient
+        ? 'You approved a progress check'
+        : `${who} approved a progress check`
+    case 'attachment.uploaded':
+      return `${who} shared a file on this project`
+    default:
+      return getActivitySummary(action, who, metadata)
+  }
+}
+
+export function getClientActivityHref(
+  action: string,
+  projectId: string,
+  metadata?: Record<string, unknown> | null,
+): string {
+  const requestId =
+    typeof metadata?.requestId === 'string' && metadata.requestId.length > 0
+      ? metadata.requestId
+      : null
+
+  const checkpointActions = new Set(['checkpoint.sent', 'checkpoint.approved'])
+  if (requestId && checkpointActions.has(action)) {
+    return `/?ccView=approvals&requestId=${encodeURIComponent(requestId)}`
+  }
+
+  return `/?ccView=projects&projectId=${encodeURIComponent(projectId)}`
+}

@@ -1,6 +1,7 @@
 'use client'
 
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import type { ClientRecentActivityItem } from '@/lib/dashboard/types'
 import type {
   ClientApprovalRecordItem,
   ClientDashboardStats,
@@ -62,6 +63,15 @@ export async function fetchProjects(): Promise<ClientProjectSummary[]> {
 export async function fetchDashboardStats(): Promise<ClientDashboardStats | null> {
   const result = await portalFetch<ClientDashboardStats>('/client-portal/dashboard/stats')
   return result.ok ? result.data : null
+}
+
+export async function fetchClientRecentActivity(
+  limit = 15,
+): Promise<ClientRecentActivityItem[]> {
+  const result = await portalFetch<ClientRecentActivityItem[]>(
+    `/client-portal/dashboard/recent-activity?limit=${encodeURIComponent(String(limit))}`,
+  )
+  return result.ok ? result.data : []
 }
 
 export async function fetchProject(id: string): Promise<ClientProjectDetail | null> {

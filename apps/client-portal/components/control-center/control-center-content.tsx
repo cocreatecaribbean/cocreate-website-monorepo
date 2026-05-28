@@ -5,12 +5,14 @@ import { useCallback, useEffect, useState } from 'react'
 import ControlCenterApprovalsView from '@/components/control-center/control-center-approvals-view'
 import ControlCenterFilesSection from '@/components/control-center/control-center-files-section'
 import ControlCenterProjectsView from '@/components/control-center/control-center-projects-view'
+import ClientPortalRecentUpdates from '@/components/client-portal-recent-updates'
 import PortalSectionPlaceholder from '@/components/portal/section-placeholder'
 import PortalSettingsPanel from '@/components/portal-settings-panel'
 import PortalTeamHub from '@/components/portal-team-hub'
 import { ATTENTION_PAGE_PATH } from '@/lib/control-center/attention-items'
 import type { ControlCenterViewId } from '@/lib/control-center/nav'
 import { buildClientDashboardKpis } from '@/lib/dashboard/format-dashboard-stats'
+import { useClientRecentActivity } from '@/lib/dashboard/use-client-recent-activity'
 import {
   fetchDashboardStats,
   PORTAL_NOTIFICATIONS_REFRESH_EVENT,
@@ -40,24 +42,6 @@ const KPI_META = [
     label: 'Shared files',
     icon: FileText,
     accent: 'bg-chambray/10 text-chambray',
-  },
-] as const
-
-const ACTIVITY = [
-  {
-    title: 'Brand guidelines v2 ready for review',
-    project: 'cancara',
-    time: '2 hours ago',
-  },
-  {
-    title: 'Portmore park uploaded',
-    project: 'udc',
-    time: 'Yesterday',
-  },
-  {
-    title: 'Kickoff notes and timeline shared',
-    project: 'Portal onboarding',
-    time: '3 days ago',
   },
 ] as const
 
@@ -136,6 +120,7 @@ function KpiGrid({
 }
 
 function OverviewSection() {
+  const { items: recentActivity, loading: activityLoading } = useClientRecentActivity(8)
   const [kpiStats, setKpiStats] = useState<ReturnType<typeof buildClientDashboardKpis> | null>(
     null,
   )
@@ -188,20 +173,19 @@ function OverviewSection() {
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
         </section>
-        <section className="portal-glass-card portal-animate-in portal-animate-in-delay-4 p-6">
+        <section className="portal-glass-card portal-animate-in portal-animate-in-delay-4 flex flex-col p-6">
           <p className="portal-eyebrow">Latest activity</p>
           <h3 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
             Recent updates
           </h3>
-          <ul className="mt-5 space-y-4">
-            {ACTIVITY.map((item) => (
-              <li key={item.title} className="border-b border-chambray/6 pb-4 last:border-0 last:pb-0">
-                <p className={`text-sm text-app-primary ${bricolage_grot600.className}`}>{item.title}</p>
-                <p className="text-xs text-sanmarino">{item.project}</p>
-                <p className="mt-1 text-xs text-app-muted">{item.time}</p>
-              </li>
-            ))}
-          </ul>
+          <p className="mt-1 text-sm text-app-muted">
+            What changed recently across your projects.
+          </p>
+          {activityLoading ? (
+            <p className="mt-5 text-sm text-app-muted">Loading activity…</p>
+          ) : (
+            <ClientPortalRecentUpdates items={recentActivity} compact />
+          )}
         </section>
       </div>
     </div>
@@ -209,25 +193,23 @@ function OverviewSection() {
 }
 
 function ActivitySection() {
+  const { items, loading } = useClientRecentActivity(25)
+
   return (
     <div className="space-y-6">
       <section className="portal-surface-solid portal-animate-in p-6 sm:p-8">
-        <ul className="divide-y divide-chambray/6">
-          {ACTIVITY.map((item) => (
-            <li
-              key={item.title}
-              className="flex flex-col gap-1 py-5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div>
-                <p className={`text-app-primary ${bricolage_grot600.className}`}>{item.title}</p>
-                <p className="text-sm text-sanmarino">{item.project}</p>
-              </div>
-              <p className="text-xs text-app-muted sm:text-sm">{item.time}</p>
-            </li>
-          ))}
-        </ul>
+        <p className="portal-eyebrow">Activity</p>
+        <h3 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
+          All recent updates
+        </h3>
+        {loading ? (
+          <p className="mt-5 text-sm text-app-muted">Loading activity…</p>
+        ) : (
+          <div className="mt-5">
+            <ClientPortalRecentUpdates items={items} />
+          </div>
+        )}
       </section>
-      <PreviewBanner />
     </div>
   )
 }

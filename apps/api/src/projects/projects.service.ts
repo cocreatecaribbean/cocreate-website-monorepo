@@ -51,7 +51,13 @@ import {
   serializeRequest,
 } from './projects.serializer'
 import { resolveActorLabel, userActorSelect } from '../users/display-name'
-import { getActivityHref, RECENT_ACTIVITY_ACTIONS } from './project-labels'
+import {
+  CLIENT_RECENT_ACTIVITY_ACTIONS,
+  getActivityHref,
+  getClientActivityHref,
+  getClientActivitySummary,
+  RECENT_ACTIVITY_ACTIONS,
+} from './project-labels'
 
 @Injectable()
 export class ProjectsService {
@@ -1183,6 +1189,46 @@ export class ProjectsService {
         organizationId,
         organizationName: a.project.organization.name,
         href: getActivityHref(a.action, organizationId, metadata),
+      }
+    })
+  }
+
+  async listRecentActivityForClient(client: AuthenticatedClient, limit = 15) {
+    const capped = Math.min(25, Math.max(1, limit))
+    const projectIds = await this.clientAccess.listAccessibleProjectIds(client)
+    if (projectIds.length === 0) return []
+
+    const activities = await this.prisma.projectActivity.findMany({
+      where: {
+        action: { in: [...CLIENT_RECENT_ACTIVITY_ACTIONS] },
+        projectId: { in: projectIds },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: capped,
+      include: {
+        actor: { select: userActorSelect },
+        project: { select: { id: true, title: true } },
+      },
+    })
+
+    return activities.map((a) => {
+      const serialized = serializeActivity(a)
+      const metadata =
+        a.metadata && typeof a.metadata === 'object' && !Array.isArray(a.metadata)
+          ? (a.metadata as Record<string, unknown>)
+          : null
+      const actorLabel = serialized.actorLabel ?? 'CoCreate team'
+      return {
+        id: serialized.id,
+        projectId: serialized.projectId,
+        projectTitle: a.project.title,
+        action: serialized.action,
+        actorEmail: serialized.actorEmail,
+        actorName: serialized.actorName,
+        actorLabel,
+        summary: getClientActivitySummary(serialized.action, actorLabel, metadata),
+        createdAt: serialized.createdAt,
+        href: getClientActivityHref(serialized.action, a.projectId, metadata),
       }
     })
   }
