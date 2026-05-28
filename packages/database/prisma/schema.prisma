@@ -253,8 +253,23 @@ model ProjectRequestMessage {
   supersededAt           DateTime?
   createdAt              DateTime               @default(now())
   approvalRecords        ClientApprovalRecord[]
+  attachmentLinks        ProjectRequestMessageAttachment[]
 
   @@index([requestId, createdAt])
+}
+
+/// Links project library files to specific thread messages (reusable across messages)
+model ProjectRequestMessageAttachment {
+  id           String                @id @default(cuid())
+  messageId    String
+  message      ProjectRequestMessage   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  attachmentId String
+  attachment   ProjectAttachment       @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime                @default(now())
+
+  @@unique([messageId, attachmentId])
+  @@index([messageId])
+  @@index([attachmentId])
 }
 
 /// Client-approved progress checkpoints (Approvals history)
@@ -291,6 +306,7 @@ model ProjectAttachment {
   uploadedByUserId String
   uploadedBy       User            @relation("AttachmentUploadedBy", fields: [uploadedByUserId], references: [id])
   createdAt        DateTime        @default(now())
+  messageLinks     ProjectRequestMessageAttachment[]
 
   @@index([projectId])
   @@index([requestId])

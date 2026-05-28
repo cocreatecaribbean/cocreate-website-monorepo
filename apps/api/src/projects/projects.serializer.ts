@@ -50,6 +50,9 @@ type RequestWithRelations = ProjectRequest & {
   attachments?: ProjectAttachment[]
   messages?: (ProjectRequestMessage & {
     author?: UserWithProfile
+    attachmentLinks?: Array<{
+      attachment: ProjectAttachment
+    }>
   })[]
   project?: Pick<ClientProject, 'id' | 'title' | 'organizationId'> & {
     organization?: Pick<Organization, 'id' | 'name'>
@@ -98,7 +101,10 @@ function serializeActorFields(user: UserActorPick | null | undefined, role: 'ADM
 }
 
 export function serializeMessage(
-  message: ProjectRequestMessage & { author?: UserWithProfile },
+  message: ProjectRequestMessage & {
+    author?: UserWithProfile
+    attachmentLinks?: Array<{ attachment: ProjectAttachment }>
+  },
 ) {
   const role = message.authorRole as ProjectMessageAuthorRole
   const actor =
@@ -124,7 +130,40 @@ export function serializeMessage(
     supersededAt: message.supersededAt?.toISOString() ?? null,
     isPendingApproval: pendingApproval,
     createdAt: message.createdAt.toISOString(),
+    attachmentIds:
+      message.attachmentLinks?.map((link) => link.attachment.id) ?? [],
+    attachments:
+      message.attachmentLinks?.map((link) => serializeAttachment(link.attachment)) ??
+      [],
   }
+}
+
+export function serializeAttachmentWithUsage(
+  attachment: ProjectAttachment & {
+    messageLinks?: Array<{ createdAt: Date }>
+  },
+) {
+  const messageRefsCount = attachment.messageLinks?.length ?? 0
+  const lastUsedAt =
+    attachment.messageLinks?.length
+      ? attachment.messageLinks
+          .map((link) => link.createdAt.getTime())
+          .reduce((max, value) => Math.max(max, value), 0)
+      : null
+
+  return {
+    ...serializeAttachment(attachment),
+    usedInThreads: messageRefsCount > 0,
+    messageRefsCount,
+    lastUsedAt: lastUsedAt ? new Date(lastUsedAt).toISOString() : null,
+  }
+}
+
+export type ProjectFilesGroup = {
+  projectId: string
+  projectTitle: string
+  libraryUploads: ReturnType<typeof serializeAttachmentWithUsage>[]
+  usedInThreads: ReturnType<typeof serializeAttachmentWithUsage>[]
 }
 
 type ProjectWithReviewMeta = ProjectWithRelations & {

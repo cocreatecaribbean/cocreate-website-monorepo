@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import ControlCenterApprovalsView from '@/components/control-center/control-center-approvals-view'
+import ControlCenterFilesSection from '@/components/control-center/control-center-files-section'
 import ControlCenterProjectsView from '@/components/control-center/control-center-projects-view'
 import PortalSectionPlaceholder from '@/components/portal/section-placeholder'
 import PortalSettingsPanel from '@/components/portal-settings-panel'
@@ -18,7 +19,6 @@ import { alkatra600, bricolage_grot600, bricolage_grot700 } from '@/styles/fonts
 import {
   ArrowRight,
   CheckCircle2,
-  Download,
   FileText,
   FolderKanban,
   MessageSquare,
@@ -41,13 +41,6 @@ const KPI_META = [
     icon: FileText,
     accent: 'bg-chambray/10 text-chambray',
   },
-] as const
-
-const FILES = [
-  { name: 'Brand-Guidelines-v2.pdf', project: 'Island Fresh', size: '4.2 MB', updated: '2h ago' },
-  { name: 'Q2-Storyboard-FINAL.fig', project: 'Tourism board', size: '18 MB', updated: 'Yesterday' },
-  { name: 'Kickoff-Timeline.xlsx', project: 'Portal onboarding', size: '890 KB', updated: '3d ago' },
-  { name: 'Hero-Photography-Select.zip', project: 'Island Fresh', size: '124 MB', updated: '1w ago' },
 ] as const
 
 const ACTIVITY = [
@@ -85,7 +78,7 @@ export default function ControlCenterContent({
     case 'approvals':
       return <ControlCenterApprovalsView />
     case 'files':
-      return <FilesSection />
+      return <ControlCenterFilesSection />
     case 'activity':
       return <ActivitySection />
     case 'messages':
@@ -211,53 +204,6 @@ function OverviewSection() {
           </ul>
         </section>
       </div>
-    </div>
-  )
-}
-
-function FilesSection() {
-  return (
-    <div className="space-y-6">
-      <section className="portal-glass-card portal-animate-in overflow-hidden">
-        <div className="hidden border-b border-chambray/8 bg-chambray/[0.03] px-5 py-3 text-xs font-medium tracking-wide text-app-muted uppercase dark:border-white/10 dark:bg-white/5 sm:grid sm:grid-cols-[1fr_140px_100px_80px] sm:gap-4">
-          <span>File</span>
-          <span>Project</span>
-          <span>Updated</span>
-          <span className="text-right">Size</span>
-        </div>
-        <ul>
-          {FILES.map((file, i) => (
-            <li
-              key={file.name}
-              className={`flex flex-col gap-3 border-b border-chambray/6 px-5 py-4 last:border-0 sm:grid sm:grid-cols-[1fr_140px_100px_80px] sm:items-center sm:gap-4 ${
-                i % 2 === 1 ? 'bg-chambray/[0.02]' : ''
-              }`}
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sanmarino/10 text-sanmarino">
-                  <FileText className="h-5 w-5" aria-hidden />
-                </div>
-                <p className={`truncate text-sm text-chambray ${bricolage_grot600.className}`}>
-                  {file.name}
-                </p>
-              </div>
-              <p className="text-sm text-sanmarino sm:truncate">{file.project}</p>
-              <p className="text-xs text-app-muted">{file.updated}</p>
-              <div className="flex items-center justify-between gap-2 sm:justify-end">
-                <span className="text-xs text-app-muted">{file.size}</span>
-                <button
-                  type="button"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sanmarino transition hover:bg-chambray/8 hover:text-chambray"
-                  aria-label={`Download ${file.name}`}
-                >
-                  <Download className="h-4 w-4" aria-hidden />
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
-      <PreviewBanner />
     </div>
   )
 }

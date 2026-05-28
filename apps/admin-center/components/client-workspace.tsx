@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
+import AdminFilesSection from '@/components/admin-files-section'
 import RequestMessageThread from '@/components/request-message-thread'
 import ProjectStatusAttribution, { ProjectTimeline } from '@/components/project-status-attribution'
 import AdminToast from '@/components/admin-toast'
@@ -21,7 +22,15 @@ import type {
   ProjectRequestItem,
 } from '@/lib/projects/types'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
-import { ArrowLeft, CheckCircle2, FolderKanban, Inbox, LayoutGrid, Users } from 'lucide-react'
+import {
+  ArrowLeft,
+  CheckCircle2,
+  FileText,
+  FolderKanban,
+  Inbox,
+  LayoutGrid,
+  Users,
+} from 'lucide-react'
 
 type ClientRosterItem = {
   id: string
@@ -33,7 +42,7 @@ type ClientRosterItem = {
   primaryContact: { id: string; email: string; status: string } | null
 }
 
-type TabId = 'overview' | 'projects' | 'inbox' | 'activity' | 'team'
+type TabId = 'overview' | 'projects' | 'files' | 'inbox' | 'activity' | 'team'
 
 const requestTypeLabel: Record<string, string> = {
   ONBOARDING: 'Onboarding',
@@ -329,7 +338,10 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
     resetCheckpointForm()
   }, [resetCheckpointForm])
 
-  const refreshThread = async (requestId: string) => {
+  const refreshThread = async (
+    requestId: string,
+    options?: { reloadWorkspace?: boolean },
+  ) => {
     const thread = await fetchAdminBff<ProjectRequestItem>(
       `/api/project-requests/${requestId}`,
     )
@@ -339,15 +351,24 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         requests: p.requests?.map((r) => (r.id === requestId ? { ...r, ...thread } : r)),
       })),
     )
-    await load()
+    if (options?.reloadWorkspace) {
+      await load()
+    }
   }
 
-  const sendAdminMessage = async (requestId: string, body: string) => {
+  const sendAdminMessage = async (
+    requestId: string,
+    body: string,
+    attachmentIds?: string[],
+  ) => {
     try {
       await fetchAdminBff(`/api/project-requests/${requestId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({
+          body,
+          attachmentIds: attachmentIds?.length ? attachmentIds : undefined,
+        }),
       })
       await refreshThread(requestId)
       return { ok: true }
@@ -500,6 +521,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
             [
               { id: 'overview' as const, label: 'Overview', icon: LayoutGrid },
               { id: 'projects' as const, label: 'Projects', icon: FolderKanban },
+              { id: 'files' as const, label: 'Files', icon: FileText },
               { id: 'team' as const, label: 'Team', icon: Users },
               { id: 'inbox' as const, label: 'Inbox', icon: Inbox },
               { id: 'activity' as const, label: 'Activity', icon: CheckCircle2 },
@@ -585,6 +607,8 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
             organizationId={organizationId}
             highlightInviteRequestId={highlightInviteRequestId}
           />
+        ) : tab === 'files' ? (
+          <AdminFilesSection organizationId={organizationId} projects={projects} />
         ) : tab === 'projects' ? (
           <div className="space-y-6">
             {projects.length === 0 ? (
@@ -712,7 +736,10 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                             organizationId={organizationId}
                             markReadEnabled={canTrackUnread}
                             onInboxMarked={() => void refreshUnreadCount()}
-                            onSendMessage={(body) => sendAdminMessage(onboarding.id, body)}
+                            onSendMessage={(body, attachmentIds) =>
+                              sendAdminMessage(onboarding.id, body, attachmentIds)
+                            }
+                            onThreadUpdate={() => void refreshThread(onboarding.id)}
                           />
                         ) : null}
                         {progress && project.status !== 'SUBMITTED' ? (
@@ -723,7 +750,10 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                             organizationId={organizationId}
                             markReadEnabled={canTrackUnread}
                             onInboxMarked={() => void refreshUnreadCount()}
-                            onSendMessage={(body) => sendAdminMessage(progress.id, body)}
+                            onSendMessage={(body, attachmentIds) =>
+                              sendAdminMessage(progress.id, body, attachmentIds)
+                            }
+                            onThreadUpdate={() => void refreshThread(progress.id)}
                           />
                         ) : null}
                         {cancellation ? (
@@ -734,7 +764,10 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                             organizationId={organizationId}
                             markReadEnabled={canTrackUnread}
                             onInboxMarked={() => void refreshUnreadCount()}
-                            onSendMessage={(body) => sendAdminMessage(cancellation.id, body)}
+                            onSendMessage={(body, attachmentIds) =>
+                              sendAdminMessage(cancellation.id, body, attachmentIds)
+                            }
+                            onThreadUpdate={() => void refreshThread(cancellation.id)}
                             cancellationResolve={(payload) =>
                               resolveCancellation(cancellation.id, payload)
                             }
@@ -772,7 +805,10 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                       request={item}
                       viewerRole="ADMIN"
                       showResolveActions={item.type !== 'CANCELLATION'}
-                      onSendMessage={(body) => sendAdminMessage(item.id, body)}
+                      onSendMessage={(body, attachmentIds) =>
+                        sendAdminMessage(item.id, body, attachmentIds)
+                      }
+                      onThreadUpdate={() => void refreshThread(item.id)}
                       onResolve={
                         item.type !== 'CANCELLATION'
                           ? async (status) => {
@@ -828,6 +864,7 @@ function ThreadPanel({
   markReadEnabled,
   onInboxMarked,
   onSendMessage,
+  onThreadUpdate,
   cancellationResolve,
 }: {
   title: string
@@ -837,7 +874,11 @@ function ThreadPanel({
   organizationId: string
   markReadEnabled?: boolean
   onInboxMarked?: () => void
-  onSendMessage: (body: string) => Promise<{ ok: boolean; message?: string }>
+  onSendMessage: (
+    body: string,
+    attachmentIds?: string[],
+  ) => Promise<{ ok: boolean; message?: string }>
+  onThreadUpdate?: () => void
   cancellationResolve?: (payload: {
     outcome: string
     feeAmount?: number
@@ -863,6 +904,7 @@ function ThreadPanel({
           viewerRole="ADMIN"
           readOnly={readOnly}
           onSendMessage={onSendMessage}
+          onThreadUpdate={onThreadUpdate}
         />
         {cancellationResolve &&
         request.type === 'CANCELLATION' &&

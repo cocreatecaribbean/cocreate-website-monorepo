@@ -37,6 +37,34 @@ export type ProjectRequestMessage = {
   supersededAt?: string | null
   isPendingApproval?: boolean
   createdAt: string
+  attachmentIds?: string[]
+  attachments?: ProjectAttachment[]
+}
+
+export type ProjectAttachmentWithUsage = ProjectAttachment & {
+  usedInThreads: boolean
+  messageRefsCount: number
+  lastUsedAt: string | null
+}
+
+export type ProjectFilesGroup = {
+  projectId: string
+  projectTitle: string
+  libraryUploads: ProjectAttachmentWithUsage[]
+  usedInThreads: ProjectAttachmentWithUsage[]
+}
+
+export type ClientFilesLibrary = {
+  projects: ProjectFilesGroup[]
+  files?: Array<ProjectAttachmentWithUsage & { projectTitle: string }>
+  nextCursor?: string | null
+}
+
+export type FilesQuery = {
+  projectId?: string
+  q?: string
+  cursor?: string
+  limit?: number
 }
 
 export type ProjectActivity = {

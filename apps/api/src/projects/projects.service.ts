@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common'
 import {
@@ -20,6 +21,7 @@ import { ClientAccessService } from '../auth/client-access.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectNotificationMailService } from './project-notification-mail.service'
 import { ProjectNotificationsService } from './project-notifications.service'
+import { ProjectRealtimeService } from './project-realtime.service'
 import { ProjectStorageService } from './project-storage.service'
 import type { CreateCheckpointDto } from './dto/create-checkpoint.dto'
 import type { CreateCancellationRequestDto } from './dto/create-cancellation-request.dto'
@@ -37,6 +39,7 @@ import {
   serializeActivity,
   serializeApprovalRecord,
   serializeAttachment,
+  serializeAttachmentWithUsage,
   serializeMessage,
   serializeProject,
   serializeRequest,
@@ -45,13 +48,36 @@ import { resolveActorLabel, userActorSelect } from '../users/display-name'
 
 @Injectable()
 export class ProjectsService {
+  private readonly logger = new Logger(ProjectsService.name)
+  private warnedMissingMessageAttachmentTable = false
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: ProjectStorageService,
     private readonly notifications: ProjectNotificationsService,
     private readonly mail: ProjectNotificationMailService,
     private readonly clientAccess: ClientAccessService,
+    private readonly realtime: ProjectRealtimeService,
   ) {}
+
+  private async notifyThreadUpdate(
+    requestId: string,
+    reason: 'message' | 'checkpoint' | 'status' | 'attachment',
+    messageId?: string,
+  ) {
+    await this.realtime.publishThreadUpdate(requestId, { reason, messageId })
+  }
+
+  async authorizeThreadRealtime(
+    actor: AuthenticatedAdmin | AuthenticatedClient,
+    requestId: string,
+  ) {
+    await this.getRequestForActor(requestId, actor)
+    return {
+      enabled: this.realtime.isConfigured,
+      channel: this.realtime.channelName(requestId),
+    }
+  }
 
   private async logActivity(
     projectId: string,
@@ -137,8 +163,168 @@ export class ProjectsService {
       attachments: true,
       messages: {
         orderBy: { createdAt: 'asc' as const },
-        include: { author: { select: userActorSelect } },
+        include: {
+          author: { select: userActorSelect },
+          attachmentLinks: { include: { attachment: true } },
+        },
       },
+    }
+  }
+
+  private async linkAttachmentsToMessage(
+    messageId: string,
+    projectId: string,
+    attachmentIds: string[] | undefined,
+  ) {
+    const ids = [...new Set(attachmentIds ?? [])]
+    if (ids.length === 0) return
+
+    const attachments = await this.prisma.projectAttachment.findMany({
+      where: { id: { in: ids }, projectId },
+      select: { id: true },
+    })
+    if (attachments.length !== ids.length) {
+      throw new BadRequestException(
+        'One or more attachments are invalid for this project',
+      )
+    }
+
+    await this.prisma.projectRequestMessageAttachment.createMany({
+      data: ids.map((attachmentId) => ({ messageId, attachmentId })),
+      skipDuplicates: true,
+    })
+  }
+
+  private groupProjectAttachments(
+    projectId: string,
+    projectTitle: string,
+    attachments: Array<{
+      messageLinks: Array<{ createdAt: Date }>
+    } & Parameters<typeof serializeAttachmentWithUsage>[0]>,
+  ) {
+    const serialized = attachments.map((row) =>
+      serializeAttachmentWithUsage(row),
+    )
+    return {
+      projectId,
+      projectTitle,
+      libraryUploads: serialized.filter((file) => !file.usedInThreads),
+      usedInThreads: serialized.filter((file) => file.usedInThreads),
+    }
+  }
+
+  private normalizeFileQuery(input?: {
+    projectId?: string
+    q?: string
+    cursor?: string
+    limit?: number
+  }) {
+    const q = input?.q?.trim()
+    const limit = Math.max(1, Math.min(100, input?.limit ?? 100))
+    return {
+      projectId: input?.projectId?.trim() || undefined,
+      q: q && q.length > 0 ? q : undefined,
+      cursor: input?.cursor?.trim() || undefined,
+      limit,
+    }
+  }
+
+  private async listFilesForProjects(
+    projects: Array<{ id: string; title: string }>,
+    options?: { projectId?: string; q?: string; cursor?: string; limit?: number },
+  ) {
+    const query = this.normalizeFileQuery(options)
+    const requestedProjectIds = projects.map((project) => project.id)
+    if (requestedProjectIds.length === 0) {
+      return { projects: [], files: [], nextCursor: null as string | null }
+    }
+
+    if (query.projectId && !requestedProjectIds.includes(query.projectId)) {
+      throw new BadRequestException('Invalid project filter for this organization')
+    }
+
+    const projectIds = query.projectId ? [query.projectId] : requestedProjectIds
+    const where: Prisma.ProjectAttachmentWhereInput = {
+      projectId: { in: projectIds },
+      ...(query.cursor ? { id: { lt: query.cursor } } : {}),
+      ...(query.q
+        ? {
+            OR: [
+              { fileName: { contains: query.q, mode: 'insensitive' } },
+              { mimeType: { contains: query.q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    }
+
+    let rows: Array<
+      Parameters<typeof serializeAttachmentWithUsage>[0] & {
+        messageLinks: Array<{ createdAt: Date }>
+      }
+    >
+    try {
+      rows = await this.prisma.projectAttachment.findMany({
+        where,
+        include: { messageLinks: { select: { createdAt: true } } },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: query.limit + 1,
+      })
+    } catch (error) {
+      const isMissingMessageLinksTable =
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2021' &&
+        String(error.meta?.driverAdapterError ?? '').includes(
+          'ProjectRequestMessageAttachment',
+        )
+
+      if (!isMissingMessageLinksTable) throw error
+
+      if (!this.warnedMissingMessageAttachmentTable) {
+        this.warnedMissingMessageAttachmentTable = true
+        this.logger.warn(
+          'ProjectRequestMessageAttachment table is missing. Files endpoints are using compatibility fallback. Run DB migrations to enable full thread-link file metadata.',
+        )
+      }
+
+      const fallbackRows = await this.prisma.projectAttachment.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: query.limit + 1,
+      })
+      rows = fallbackRows.map((row) => ({ ...row, messageLinks: [] }))
+    }
+
+    const hasMore = rows.length > query.limit
+    const pageRows = hasMore ? rows.slice(0, query.limit) : rows
+    const grouped = new Map<string, typeof pageRows>()
+    for (const row of pageRows) {
+      const bucket = grouped.get(row.projectId) ?? []
+      bucket.push(row)
+      grouped.set(row.projectId, bucket)
+    }
+
+    const projectTitleById = new Map(
+      projects.map((project) => [project.id, project.title]),
+    )
+    const filteredProjects = query.projectId
+      ? projects.filter((project) => project.id === query.projectId)
+      : projects
+    const groupedProjects = filteredProjects.map((project) =>
+      this.groupProjectAttachments(
+        project.id,
+        project.title,
+        grouped.get(project.id) ?? [],
+      ),
+    )
+    const files = pageRows.map((row) => ({
+      ...serializeAttachmentWithUsage(row),
+      projectTitle: projectTitleById.get(row.projectId) ?? '',
+    }))
+
+    return {
+      projects: groupedProjects,
+      files,
+      nextCursor: hasMore ? pageRows[pageRows.length - 1]!.id : null,
     }
   }
 
@@ -593,12 +779,14 @@ export class ProjectsService {
       requestId,
     })
 
-    return serializeMessage(
+    const approved = serializeMessage(
       (await this.prisma.projectRequestMessage.findUnique({
         where: { id: messageId },
         include: { author: { select: userActorSelect } },
       }))!,
     )
+    await this.notifyThreadUpdate(requestId, 'checkpoint', messageId)
+    return approved
   }
 
   // ─── Admin ──────────────────────────────────────────────────────────────────
@@ -938,6 +1126,7 @@ export class ProjectsService {
         },
       },
     })
+    await this.notifyThreadUpdate(progress.id, 'checkpoint', message.id)
     return serializeRequest(full!)
   }
 
@@ -1029,6 +1218,7 @@ export class ProjectsService {
         },
       },
     })
+    await this.notifyThreadUpdate(requestId, 'status')
     return serializeRequest(updated!)
   }
 
@@ -1059,8 +1249,28 @@ export class ProjectsService {
         authorRole,
         body: dto.body.trim(),
       },
-      include: { author: { select: userActorSelect } },
+      include: {
+        author: { select: userActorSelect },
+        attachmentLinks: { include: { attachment: true } },
+      },
     })
+
+    await this.linkAttachmentsToMessage(
+      message.id,
+      request.projectId,
+      dto.attachmentIds,
+    )
+
+    const messageWithAttachments =
+      dto.attachmentIds?.length
+        ? await this.prisma.projectRequestMessage.findUnique({
+            where: { id: message.id },
+            include: {
+              author: { select: userActorSelect },
+              attachmentLinks: { include: { attachment: true } },
+            },
+          })
+        : message
 
     if (request.status === ProjectRequestStatus.OPEN) {
       await this.prisma.projectRequest.update({
@@ -1120,7 +1330,11 @@ export class ProjectsService {
       )
     }
 
-    return serializeMessage(message)
+    if (dto.attachmentIds?.length) {
+      await this.notifyThreadUpdate(requestId, 'attachment')
+    }
+    await this.notifyThreadUpdate(requestId, 'message', message.id)
+    return serializeMessage(messageWithAttachments ?? message)
   }
 
   async updateRequest(
@@ -1200,6 +1414,7 @@ export class ProjectsService {
       })
     }
 
+    await this.notifyThreadUpdate(requestId, 'status')
     return serializeRequest(updated)
   }
 
@@ -1266,6 +1481,10 @@ export class ProjectsService {
       fileName: dto.fileName,
     })
 
+    if (dto.requestId) {
+      await this.notifyThreadUpdate(dto.requestId, 'attachment')
+    }
+
     return serializeAttachment(row)
   }
 
@@ -1304,7 +1523,60 @@ export class ProjectsService {
       fileName: dto.fileName,
     })
 
+    if (dto.requestId) {
+      await this.notifyThreadUpdate(dto.requestId, 'attachment')
+    }
+
     return serializeAttachment(row)
+  }
+
+  async listFilesLibraryForClient(
+    client: AuthenticatedClient,
+    options?: { projectId?: string; q?: string; cursor?: string; limit?: number },
+  ) {
+    const accessibleProjects = this.clientAccess.accessibleProjectsWhere(client)
+
+    const projects = await this.prisma.clientProject.findMany({
+      where: accessibleProjects,
+      select: { id: true, title: true },
+      orderBy: { updatedAt: 'desc' },
+    })
+    return this.listFilesForProjects(projects, options)
+  }
+
+  async listFilesForProjectClient(
+    client: AuthenticatedClient,
+    projectId: string,
+    options?: { q?: string; cursor?: string; limit?: number },
+  ) {
+    const project = await this.getProjectForClient(client, projectId)
+    return this.listFilesForProjects(
+      [{ id: project.id, title: project.title }],
+      { ...options, projectId: project.id },
+    )
+  }
+
+  async listFilesLibraryForAdmin(
+    organizationId: string,
+    options?: { projectId?: string; q?: string; cursor?: string; limit?: number },
+  ) {
+    const projects = await this.prisma.clientProject.findMany({
+      where: { organizationId },
+      select: { id: true, title: true },
+      orderBy: { updatedAt: 'desc' },
+    })
+    return this.listFilesForProjects(projects, options)
+  }
+
+  async listFilesForProjectAdmin(
+    projectId: string,
+    options?: { q?: string; cursor?: string; limit?: number },
+  ) {
+    const project = await this.getProjectById(projectId)
+    return this.listFilesForProjects(
+      [{ id: project.id, title: project.title }],
+      { ...options, projectId: project.id },
+    )
   }
 
   async getAttachmentDownloadUrl(

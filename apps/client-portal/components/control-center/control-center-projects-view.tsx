@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { ClientProjectDetail, ClientProjectSummary } from '@/lib/projects/api-types'
+import FilePreviewModal from '@/components/file-preview-modal'
 import RequestMessageThread from '@/components/control-center/request-message-thread'
 import ProjectStatusAttribution, {
   ProjectStatusBadge,
@@ -20,11 +21,13 @@ import {
   dispatchPortalNotificationsRefresh,
   fetchProject,
   fetchProjects,
+  fetchRequestThread,
   approveCheckpointMessage,
   createCancellationRequest,
   markAttentionRead,
   navigateToApprovals,
   sendRequestMessage,
+  fetchAttachmentDownloadUrl,
   uploadProjectFiles,
 } from '@/lib/projects/fetch-projects-client'
 import ProjectCover from '@/components/project-cover'
@@ -33,7 +36,7 @@ import ProjectTeamAside from '@/components/project-team-aside'
 import { useProjectMembers } from '@/lib/team/use-project-members'
 import { fetchPortalProfile } from '@/lib/team/fetch-team-client'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
-import { Bell, Calendar, ExternalLink, FolderKanban, Plus } from 'lucide-react'
+import { Bell, Calendar, Download, ExternalLink, FileText, FolderKanban, Plus } from 'lucide-react'
 
 const SHOW_PROJECTS_LIST_KEY = 'cc-show-projects-list'
 
@@ -145,6 +148,20 @@ export default function ControlCenterProjectsView() {
     setOpenedProjectId(null)
   }, [])
 
+  const refreshThreadInDetail = useCallback(async (requestId: string) => {
+    const result = await fetchRequestThread(requestId)
+    if (!result.ok) return
+    setDetail((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        requests: prev.requests?.map((r) =>
+          r.id === requestId ? result.data : r,
+        ),
+      }
+    })
+  }, [])
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
@@ -204,6 +221,7 @@ export default function ControlCenterProjectsView() {
       <ProjectDetailView
         project={detail}
         onBack={closeProject}
+        onRefreshThread={refreshThreadInDetail}
         onRefresh={async () => {
           const next = await fetchProject(openedProjectId!)
           setDetail(next)
@@ -353,14 +371,22 @@ function ProjectDetailView({
   project,
   onBack,
   onRefresh,
+  onRefreshThread,
 }: {
   project: ClientProjectDetail
   onBack: () => void
   onRefresh: () => Promise<void>
+  onRefreshThread: (requestId: string) => Promise<void>
 }) {
   const [message, setMessage] = useState<string | null>(null)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelling, setCancelling] = useState(false)
+  const [previewFile, setPreviewFile] = useState<{
+    fileName: string
+    mimeType: string
+    url: string | null
+  } | null>(null)
+  const [attachmentUrlCache, setAttachmentUrlCache] = useState<Record<string, string>>({})
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(
     project.coverImageUrl ?? null,
   )
@@ -398,17 +424,31 @@ function ProjectDetailView({
   const threadProps = (req: NonNullable<typeof onboarding>) => ({
     request: req,
     viewerRole: 'CLIENT' as const,
-    onSendMessage: async (body: string) => {
-      const result = await sendRequestMessage(req.id, body)
-      if (result.ok) await onRefresh()
+    onThreadUpdate: () => void onRefreshThread(req.id),
+    onSendMessage: async (body: string, attachmentIds?: string[]) => {
+      const result = await sendRequestMessage(req.id, body, attachmentIds)
+      if (result.ok) await onRefreshThread(req.id)
       return { ok: result.ok, message: result.ok ? undefined : result.message }
     },
     onApproveCheckpoint: async (messageId: string) => {
       const result = await approveCheckpointMessage(req.id, messageId)
-      if (result.ok) await onRefresh()
+      if (result.ok) await onRefreshThread(req.id)
       return { ok: result.ok, message: result.ok ? undefined : result.message }
     },
   })
+
+  const getAttachmentUrl = useCallback(
+    async (attachmentId: string) => {
+      const cached = attachmentUrlCache[attachmentId]
+      if (cached) return cached
+      const url = await fetchAttachmentDownloadUrl(attachmentId)
+      if (url) {
+        setAttachmentUrlCache((prev) => ({ ...prev, [attachmentId]: url }))
+      }
+      return url
+    },
+    [attachmentUrlCache],
+  )
 
   return (
     <div className="space-y-6">
@@ -470,14 +510,63 @@ function ProjectDetailView({
           <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>Files</p>
           <ul className="mt-3 space-y-2 text-sm text-app-muted">
             {project.attachments.map((f) => (
-              <li key={f.id} className="flex items-center gap-2">
-                <FolderKanban className="h-4 w-4 text-sanmarino" aria-hidden />
-                {f.fileName}
+              <li key={f.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 hover:bg-chambray/5">
+                <button
+                  type="button"
+                  className="group flex min-w-0 items-center gap-2 text-left"
+                  onClick={async () => {
+                    const url = await getAttachmentUrl(f.id)
+                    setPreviewFile({
+                      fileName: f.fileName,
+                      mimeType: f.mimeType,
+                      url,
+                    })
+                  }}
+                  aria-label={`Preview ${f.fileName}`}
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-sanmarino/10 text-sanmarino">
+                    {f.mimeType.startsWith('image/') && attachmentUrlCache[f.id] ? (
+                      <img
+                        src={attachmentUrlCache[f.id]}
+                        alt={f.fileName}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <FileText className="h-4 w-4" aria-hidden />
+                    )}
+                  </span>
+                  <span className="truncate text-chambray underline-offset-4 group-hover:underline">
+                    {f.fileName}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const url = await getAttachmentUrl(f.id)
+                    if (!url) return
+                    const anchor = document.createElement('a')
+                    anchor.href = url
+                    anchor.download = f.fileName
+                    anchor.rel = 'noopener noreferrer'
+                    anchor.click()
+                  }}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sanmarino transition hover:bg-chambray/8 hover:text-chambray"
+                  aria-label={`Download ${f.fileName}`}
+                >
+                  <Download className="h-4 w-4" aria-hidden />
+                </button>
               </li>
             ))}
           </ul>
         </section>
       ) : null}
+      <FilePreviewModal
+        open={Boolean(previewFile)}
+        fileName={previewFile?.fileName ?? ''}
+        mimeType={previewFile?.mimeType ?? ''}
+        url={previewFile?.url ?? null}
+        onClose={() => setPreviewFile(null)}
+      />
 
       {onboarding ? (
         <section className="portal-glass-card p-6">

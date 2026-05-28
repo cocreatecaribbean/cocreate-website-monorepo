@@ -1,19 +1,30 @@
 'use client'
 
-import { FormEvent, useCallback, useState } from 'react'
+import { FormEvent, useCallback, useRef, useState } from 'react'
+import EmojiPickerButton from '@/components/emoji-picker-button'
+import MessageAttachmentComposer, {
+  resolvePendingMessageAttachments,
+} from '@/components/message-attachment-composer'
+import { insertAtTextareaCursor } from '@/lib/insert-at-textarea-cursor'
+import { useThreadAutoScroll } from '@/lib/projects/use-thread-auto-scroll'
 import type { ProjectRequestItem, ProjectRequestMessage } from '@/lib/projects/types'
 import { formatActorWithTitle } from '@/lib/projects/project-display'
 import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-project-files'
 import { LinkifiedBody, indexAttachmentsByMessage, RequestAttachments } from '@/lib/projects/thread-content'
+import { useRequestThreadRealtime } from '@/lib/projects/use-request-thread-realtime'
 import { bricolage_grot600 } from '@/styles/fonts'
 
 type RequestMessageThreadProps = {
   request: ProjectRequestItem
   viewerRole: 'ADMIN' | 'CLIENT'
   readOnly?: boolean
-  onSendMessage: (body: string) => Promise<{ ok: boolean; message?: string }>
+  onSendMessage: (
+    body: string,
+    attachmentIds?: string[],
+  ) => Promise<{ ok: boolean; message?: string }>
   onResolve?: (status: 'RESOLVED' | 'REJECTED') => Promise<void>
   showResolveActions?: boolean
+  onThreadUpdate?: () => void
 }
 
 function initialAuthorRole(request: ProjectRequestItem): 'ADMIN' | 'CLIENT' {
@@ -29,8 +40,16 @@ export default function RequestMessageThread({
   onResolve,
   showResolveActions = false,
   readOnly = false,
+  onThreadUpdate,
 }: RequestMessageThreadProps) {
+  useRequestThreadRealtime(request.id, () => onThreadUpdate?.(), {
+    enabled: Boolean(onThreadUpdate),
+  })
+
   const [reply, setReply] = useState('')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<string[]>([])
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -54,6 +73,7 @@ export default function RequestMessageThread({
   const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(request.status)
   const canCompose = !readOnly && !isClosed
   const attachmentsByMessage = indexAttachmentsByMessage(messages, request.attachments)
+  const { panelRef, scrollToBottom } = useThreadAutoScroll(messages)
   const fetchDownloadUrl = useCallback(
     (attachmentId: string) => fetchAttachmentDownloadUrl(attachmentId),
     [],
@@ -64,18 +84,34 @@ export default function RequestMessageThread({
     if (!reply.trim()) return
     setSending(true)
     setError(null)
-    const result = await onSendMessage(reply.trim())
+    const uploaded = await resolvePendingMessageAttachments(
+      request.projectId,
+      pendingFiles,
+    )
+    if (!uploaded.ok) {
+      setError(uploaded.message ?? 'Could not upload attachments')
+      setSending(false)
+      return
+    }
+
+    const attachmentIds = [
+      ...new Set([...selectedAttachmentIds, ...uploaded.attachmentIds]),
+    ]
+    const result = await onSendMessage(reply.trim(), attachmentIds)
     if (!result.ok) {
       setError(result.message ?? 'Could not send message')
     } else {
       setReply('')
+      setSelectedAttachmentIds([])
+      setPendingFiles([])
+      scrollToBottom(true)
     }
     setSending(false)
   }
 
   return (
     <div className="space-y-4">
-      <div className="admin-thread-panel">
+      <div ref={panelRef} className="admin-thread-panel">
         {messages.length === 0 ? (
           <p className="text-sm text-app-muted">No messages yet.</p>
         ) : (
@@ -154,19 +190,37 @@ export default function RequestMessageThread({
 
       {canCompose ? (
         <form onSubmit={(e) => void onSubmit(e)} className="space-y-2">
-          <textarea
-            value={reply}
-            onChange={(e) => setReply(e.target.value)}
-            placeholder={
-              viewerRole === 'CLIENT'
-                ? 'Write your response to CoCreate…'
-                : 'Follow up with the client…'
-            }
-            rows={3}
-            className="admin-textarea w-full resize-y"
+          <div className="relative">
+            <textarea
+              ref={textareaRef}
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+              placeholder={
+                viewerRole === 'CLIENT'
+                  ? 'Write your response to CoCreate…'
+                  : 'Follow up with the client…'
+              }
+              rows={3}
+              className="admin-textarea w-full resize-y"
+            />
+          </div>
+          <MessageAttachmentComposer
+            projectId={request.projectId}
+            disabled={sending}
+            selectedIds={selectedAttachmentIds}
+            pendingFiles={pendingFiles}
+            onSelectedIdsChange={setSelectedAttachmentIds}
+            onPendingFilesChange={setPendingFiles}
           />
           {error ? <p className="text-sm text-red-700">{error}</p> : null}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <EmojiPickerButton
+              variant="admin"
+              disabled={sending}
+              onSelect={(emoji) =>
+                insertAtTextareaCursor(textareaRef.current, emoji, reply, setReply)
+              }
+            />
             <button type="submit" disabled={sending} className="admin-btn-primary text-sm">
               {sending ? 'Sending…' : 'Send message'}
             </button>

@@ -99,6 +99,15 @@ export default function ControlCenterApprovalsView() {
     }
   }, [selectedId, items])
 
+  const refreshSelectedThreadOnly = useCallback(async () => {
+    if (!selectedId) return
+    const listItem = items.find((item) => item.id === selectedId)
+    const thread = await fetchRequestThread(selectedId)
+    if (thread.ok) {
+      setSelected(mergeThreadWithListItem(thread.data, listItem))
+    }
+  }, [selectedId, items])
+
   const refreshSelected = async () => {
     const pending = await load()
     if (selectedId) {
@@ -251,14 +260,18 @@ export default function ControlCenterApprovalsView() {
               <RequestMessageThread
                 request={selected}
                 viewerRole="CLIENT"
-                onSendMessage={async (body) => {
-                  const result = await sendRequestMessage(selected.id, body)
-                  if (result.ok) await refreshSelected()
+                onThreadUpdate={() => void refreshSelectedThreadOnly()}
+                onSendMessage={async (body, attachmentIds) => {
+                  const result = await sendRequestMessage(selected.id, body, attachmentIds)
+                  if (result.ok) await refreshSelectedThreadOnly()
                   return { ok: result.ok, message: result.ok ? undefined : result.message }
                 }}
                 onApproveCheckpoint={async (messageId) => {
                   const result = await approveCheckpointMessage(selected.id, messageId)
-                  if (result.ok) await refreshSelected()
+                  if (result.ok) {
+                    await refreshSelectedThreadOnly()
+                    void load()
+                  }
                   return { ok: result.ok, message: result.ok ? undefined : result.message }
                 }}
               />

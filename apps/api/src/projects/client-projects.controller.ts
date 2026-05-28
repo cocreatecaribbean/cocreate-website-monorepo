@@ -148,6 +148,37 @@ export class ClientProjectsController {
     return this.projects.registerAttachmentForClient(req.clientUser!, id, dto)
   }
 
+  @Get('files/library')
+  listFilesLibrary(
+    @Req() req: ClientPortalRequest,
+    @Query('projectId') projectId?: string,
+    @Query('q') q?: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.projects.listFilesLibraryForClient(req.clientUser!, {
+      projectId,
+      q,
+      cursor,
+      limit: limit ? Number(limit) : undefined,
+    })
+  }
+
+  @Get('projects/:id/files')
+  listProjectFiles(
+    @Req() req: ClientPortalRequest,
+    @Param('id') id: string,
+    @Query('q') q?: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.projects.listFilesForProjectClient(req.clientUser!, id, {
+      q,
+      cursor,
+      limit: limit ? Number(limit) : undefined,
+    })
+  }
+
   @Get('attachments/:attachmentId/download')
   downloadAttachment(
     @Req() req: ClientPortalRequest,
@@ -162,6 +193,14 @@ export class ClientProjectsController {
     @Param('requestId') requestId: string,
   ) {
     return this.projects.getRequestThread(req.clientUser!, requestId)
+  }
+
+  @Get('project-requests/:requestId/realtime')
+  authorizeThreadRealtime(
+    @Req() req: ClientPortalRequest,
+    @Param('requestId') requestId: string,
+  ) {
+    return this.projects.authorizeThreadRealtime(req.clientUser!, requestId)
   }
 
   @Post('project-requests/:requestId/messages')

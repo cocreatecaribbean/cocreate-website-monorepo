@@ -82,7 +82,7 @@ export function LinkifiedBody({
 
   return (
     <div className="space-y-3">
-      <p className="whitespace-pre-wrap">
+      <p className="whitespace-pre-wrap [font-family:var(--font-brico-600),system-ui,sans-serif,'Apple_Color_Emoji','Segoe_UI_Emoji','Noto_Color_Emoji']">
         {parts.map((part, i) =>
           part.type === 'link' ? (
             <a
@@ -122,15 +122,34 @@ type RequestAttachmentsProps = {
   className?: string
 }
 
-/** Buckets request-level attachments under the message they were sent with (by createdAt). */
+type MessageWithAttachments = {
+  createdAt: string
+  attachments?: ThreadAttachment[]
+}
+
+/** Prefer explicit message attachment links; fall back to legacy request-level bucketing. */
 export function indexAttachmentsByMessage(
-  messages: { createdAt: string }[],
+  messages: MessageWithAttachments[],
   attachments?: ThreadAttachment[],
 ): Map<number, ThreadAttachment[]> {
   const map = new Map<number, ThreadAttachment[]>()
-  if (!attachments?.length || messages.length === 0) return map
+  if (messages.length === 0) return map
 
-  for (const attachment of attachments) {
+  messages.forEach((message, index) => {
+    if (message.attachments?.length) {
+      map.set(index, message.attachments)
+    }
+  })
+
+  if (!attachments?.length) return map
+
+  const linkedIds = new Set(
+    [...map.values()].flat().map((attachment) => attachment.id),
+  )
+  const unlinked = attachments.filter((attachment) => !linkedIds.has(attachment.id))
+  if (!unlinked.length) return map
+
+  for (const attachment of unlinked) {
     const at = attachment.createdAt
       ? new Date(attachment.createdAt).getTime()
       : new Date(messages[messages.length - 1]!.createdAt).getTime()

@@ -4,6 +4,7 @@ import { AdminProjectsController } from './admin-projects.controller'
 import { ClientProjectsController } from './client-projects.controller'
 import { ProjectNotificationMailService } from './project-notification-mail.service'
 import { ProjectNotificationsService } from './project-notifications.service'
+import { ProjectRealtimeService } from './project-realtime.service'
 import { ProjectStorageService } from './project-storage.service'
 import { ProjectsService } from './projects.service'
 import { ClientTeamService } from './client-team.service'
@@ -22,6 +23,7 @@ import { AdminClientTeamController } from './admin-client-team.controller'
     ProjectsService,
     ClientTeamService,
     ProjectStorageService,
+    ProjectRealtimeService,
     ProjectNotificationsService,
     ProjectNotificationMailService,
   ],

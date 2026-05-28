@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UnauthorizedException,
   UseGuards,
@@ -85,6 +86,36 @@ export class AdminProjectsController {
     return this.projects.registerAttachmentForAdmin(req.adminUser, id, dto)
   }
 
+  @Get('organizations/:organizationId/files/library')
+  listFilesLibrary(
+    @Param('organizationId') organizationId: string,
+    @Query('projectId') projectId?: string,
+    @Query('q') q?: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.projects.listFilesLibraryForAdmin(organizationId, {
+      projectId,
+      q,
+      cursor,
+      limit: limit ? Number(limit) : undefined,
+    })
+  }
+
+  @Get('projects/:id/files')
+  listProjectFiles(
+    @Param('id') id: string,
+    @Query('q') q?: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.projects.listFilesForProjectAdmin(id, {
+      q,
+      cursor,
+      limit: limit ? Number(limit) : undefined,
+    })
+  }
+
   @Get('attachments/:attachmentId/download')
   downloadAttachment(
     @Req() req: AdminRequest,
@@ -103,6 +134,15 @@ export class AdminProjectsController {
   ) {
     if (!req.adminUser) throw new UnauthorizedException('Admin session required')
     return this.projects.getRequestThread(req.adminUser, requestId)
+  }
+
+  @Get('project-requests/:requestId/realtime')
+  authorizeThreadRealtime(
+    @Req() req: AdminRequest,
+    @Param('requestId') requestId: string,
+  ) {
+    if (!req.adminUser) throw new UnauthorizedException('Admin session required')
+    return this.projects.authorizeThreadRealtime(req.adminUser, requestId)
   }
 
   @Post('project-requests/:requestId/messages')

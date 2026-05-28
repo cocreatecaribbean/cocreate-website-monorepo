@@ -7,6 +7,9 @@ import type {
   ClientProjectDetail,
   ClientProjectSummary,
   PortalNotificationItem,
+  ClientFilesLibrary,
+  FilesQuery,
+  ProjectAttachment,
   ProjectRequestItem,
   ProjectRequestMessage,
 } from '@/lib/projects/api-types'
@@ -156,11 +159,54 @@ export async function fetchRequestThread(requestId: string) {
   return portalFetch<ProjectRequestItem>(`/client-portal/project-requests/${requestId}`)
 }
 
-export async function sendRequestMessage(requestId: string, body: string) {
+export async function authorizeRequestThreadRealtime(requestId: string) {
+  return portalFetch<{ enabled: boolean; channel: string }>(
+    `/client-portal/project-requests/${requestId}/realtime`,
+  )
+}
+
+export async function sendRequestMessage(
+  requestId: string,
+  body: string,
+  attachmentIds?: string[],
+) {
   return portalFetch<ProjectRequestMessage>(
     `/client-portal/project-requests/${requestId}/messages`,
-    { method: 'POST', body: JSON.stringify({ body }) },
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        body,
+        attachmentIds: attachmentIds?.length ? attachmentIds : undefined,
+      }),
+    },
   )
+}
+
+function buildFilesQuery(query?: FilesQuery): string {
+  const params = new URLSearchParams()
+  if (query?.projectId) params.set('projectId', query.projectId)
+  if (query?.q) params.set('q', query.q)
+  if (query?.cursor) params.set('cursor', query.cursor)
+  if (query?.limit != null) params.set('limit', String(query.limit))
+  const text = params.toString()
+  return text ? `?${text}` : ''
+}
+
+export async function fetchFilesLibrary(query?: FilesQuery): Promise<ClientFilesLibrary> {
+  const result = await portalFetch<ClientFilesLibrary>(
+    `/client-portal/files/library${buildFilesQuery(query)}`,
+  )
+  return result.ok ? result.data : { projects: [], files: [], nextCursor: null }
+}
+
+export async function fetchProjectFiles(
+  projectId: string,
+  query?: Omit<FilesQuery, 'projectId'>,
+): Promise<ClientFilesLibrary | null> {
+  const result = await portalFetch<ClientFilesLibrary>(
+    `/client-portal/projects/${projectId}/files${buildFilesQuery(query)}`,
+  )
+  return result.ok ? result.data : null
 }
 
 export async function resolveRequest(requestId: string, status: 'RESOLVED' | 'REJECTED') {
@@ -255,7 +301,7 @@ export async function registerAttachment(
     requestId?: string
   },
 ) {
-  return portalFetch(`/client-portal/projects/${projectId}/attachments`, {
+  return portalFetch<ProjectAttachment>(`/client-portal/projects/${projectId}/attachments`, {
     method: 'POST',
     body: JSON.stringify(payload),
   })
@@ -305,7 +351,8 @@ export async function uploadProjectFiles(
   projectId: string,
   files: File[],
   requestId?: string,
-): Promise<{ ok: boolean; message?: string }> {
+): Promise<{ ok: boolean; message?: string; attachmentIds?: string[] }> {
+  const attachmentIds: string[] = []
   for (const file of files) {
     const urlResult = await requestUploadUrl(projectId, {
       fileName: file.name,
@@ -337,6 +384,7 @@ export async function uploadProjectFiles(
     if (!reg.ok) {
       return { ok: false, message: reg.message }
     }
+    attachmentIds.push(reg.data.id)
   }
-  return { ok: true }
+  return { ok: true, attachmentIds }
 }

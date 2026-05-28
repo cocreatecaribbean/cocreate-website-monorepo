@@ -106,6 +106,33 @@
     background-color: var(--app-bg);
     background-image: var(--app-bg-image);
   }
+
+  a[href],
+  button,
+  [role='button'],
+  label[for],
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled='true'] {
+    cursor: not-allowed;
+  }
+
+  a[href]:hover,
+  button:hover,
+  [role='button']:hover,
+  summary:hover {
+    filter: brightness(1.02);
+  }
+
+  .dark a[href]:hover,
+  .dark button:hover,
+  .dark [role='button']:hover,
+  .dark summary:hover {
+    filter: brightness(1.08);
+  }
 }
 
 @layer components {
