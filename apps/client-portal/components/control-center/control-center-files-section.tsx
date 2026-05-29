@@ -179,7 +179,7 @@ function ProjectFilesBlock({
       </div>
 
       {error ? (
-        <p className="px-5 py-3 text-sm text-red-700">{error}</p>
+        <p className="portal-alert-error mx-5 my-3">{error}</p>
       ) : null}
 
       {totalCount === 0 ? (
@@ -277,7 +277,7 @@ export default function ControlCenterFilesSection() {
 
   if (error) {
     return (
-      <p className="portal-glass-card p-6 text-sm text-red-700">{error}</p>
+      <p className="portal-glass-card portal-alert-error p-5 sm:p-6">{error}</p>
     )
   }
 

@@ -171,13 +171,13 @@ export default function PortalTeamHub() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="colleague@company.com"
-              className="portal-input w-full rounded-full px-5 py-3"
+              className="portal-input w-full"
             />
             <div className="flex flex-wrap gap-3">
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as ClientOrgRole)}
-                className="portal-input rounded-full px-4 py-2 text-sm"
+                className="portal-input text-sm"
               >
                 <option value="PROJECT_MANAGER">Project manager</option>
                 <option value="MEMBER">Member</option>
@@ -210,12 +210,12 @@ export default function PortalTeamHub() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="colleague@company.com"
-              className="portal-input w-full rounded-full px-5 py-3"
+              className="portal-input w-full"
             />
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as ClientOrgRole)}
-              className="portal-input rounded-full px-4 py-2 text-sm"
+              className="portal-input text-sm"
             >
               <option value="PROJECT_MANAGER">Project manager</option>
               <option value="MEMBER">Member</option>

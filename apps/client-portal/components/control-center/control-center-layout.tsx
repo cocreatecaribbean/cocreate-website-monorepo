@@ -12,6 +12,7 @@ import {
   parseControlCenterView,
   type ControlCenterViewId,
 } from '@/lib/control-center/nav'
+import { PROJECT_TAB_QUERY } from '@/lib/control-center/project-workspace'
 import { usePortalPermissions } from '@/lib/team/use-portal-permissions'
 import Link from 'next/link'
 import { bricolage_grot600 } from '@/styles/fonts'
@@ -49,6 +50,7 @@ function ControlCenterLayoutInner({
         setProjectsListKey((key) => key + 1)
       }
       params.delete('projectId')
+      params.delete(PROJECT_TAB_QUERY)
       params.delete('requestId')
       const query = params.toString()
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })

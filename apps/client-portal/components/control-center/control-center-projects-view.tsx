@@ -10,11 +10,9 @@ import {
 } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { ClientProjectDetail, ClientProjectSummary } from '@/lib/projects/api-types'
-import FilePreviewModal from '@/components/file-preview-modal'
-import RequestMessageThread from '@/components/control-center/request-message-thread'
+import PortalProjectWorkspace from '@/components/control-center/portal-project-workspace'
 import ProjectStatusAttribution, {
   ProjectStatusBadge,
-  ProjectTimeline,
 } from '@/components/project-status-attribution'
 import {
   createProject,
@@ -22,21 +20,19 @@ import {
   fetchProject,
   fetchProjects,
   fetchRequestThread,
-  approveCheckpointMessage,
-  createCancellationRequest,
   markAttentionRead,
   navigateToApprovals,
-  sendRequestMessage,
-  fetchAttachmentDownloadUrl,
   uploadProjectFiles,
 } from '@/lib/projects/fetch-projects-client'
+import {
+  parsePortalProjectTab,
+  PROJECT_TAB_QUERY,
+  type PortalProjectTabId,
+} from '@/lib/control-center/project-workspace'
 import ProjectCover from '@/components/project-cover'
-import ProjectCoverEditor from '@/components/project-cover-editor'
-import ProjectTeamAside from '@/components/project-team-aside'
-import { useProjectMembers } from '@/lib/team/use-project-members'
 import { fetchPortalProfile } from '@/lib/team/fetch-team-client'
-import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
-import { Bell, Calendar, Download, ExternalLink, FileText, FolderKanban, Plus } from 'lucide-react'
+import { bricolage_grot600 } from '@/styles/fonts'
+import { Bell, Calendar, ExternalLink, Plus } from 'lucide-react'
 
 const SHOW_PROJECTS_LIST_KEY = 'cc-show-projects-list'
 
@@ -63,6 +59,7 @@ export default function ControlCenterProjectsView() {
   const [error, setError] = useState<string | null>(null)
   const [detailError, setDetailError] = useState<string | null>(null)
   const [canCreateProject, setCanCreateProject] = useState(true)
+  const [initialProjectTab, setInitialProjectTab] = useState<PortalProjectTabId>('overview')
 
   const loadProjects = useCallback(async () => {
     setLoading(true)
@@ -86,6 +83,7 @@ export default function ControlCenterProjectsView() {
       const params = new URLSearchParams(searchParams.toString())
       if (params.has('projectId')) {
         params.delete('projectId')
+        params.delete(PROJECT_TAB_QUERY)
         const query = params.toString()
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
       }
@@ -95,9 +93,11 @@ export default function ControlCenterProjectsView() {
     const deepLinkId = searchParams.get('projectId')
     if (!deepLinkId) return
 
+    setInitialProjectTab(parsePortalProjectTab(searchParams.get(PROJECT_TAB_QUERY)))
     setOpenedProjectId(deepLinkId)
     const params = new URLSearchParams(searchParams.toString())
     params.delete('projectId')
+    params.delete(PROJECT_TAB_QUERY)
     const query = params.toString()
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
   }, [pathname, router, searchParams])
@@ -140,12 +140,14 @@ export default function ControlCenterProjectsView() {
     }
   }, [openedProjectId, detail])
 
-  const openProject = useCallback((projectId: string) => {
+  const openProject = useCallback((projectId: string, tab: PortalProjectTabId = 'overview') => {
+    setInitialProjectTab(tab)
     setOpenedProjectId(projectId)
   }, [])
 
   const closeProject = useCallback(() => {
     setOpenedProjectId(null)
+    setInitialProjectTab('overview')
   }, [])
 
   const refreshThreadInDetail = useCallback(async (requestId: string) => {
@@ -195,7 +197,7 @@ export default function ControlCenterProjectsView() {
   if (openedProjectId && detailError) {
     return (
       <div className="space-y-4">
-        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
+        <p className="portal-alert-error">
           {detailError}
         </p>
         <button type="button" onClick={closeProject} className="portal-btn-ghost text-sm">
@@ -218,8 +220,10 @@ export default function ControlCenterProjectsView() {
 
   if (detailReady && detail) {
     return (
-      <ProjectDetailView
+      <PortalProjectWorkspace
+        key={detail.id}
         project={detail}
+        initialTab={initialProjectTab}
         onBack={closeProject}
         onRefreshThread={refreshThreadInDetail}
         onRefresh={async () => {
@@ -232,7 +236,7 @@ export default function ControlCenterProjectsView() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className={`text-sm text-app-muted ${bricolage_grot600.className}`}>
           Submit new work for agency review. Approved projects become active.
@@ -250,7 +254,7 @@ export default function ControlCenterProjectsView() {
       </div>
 
       {error ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <p className="portal-alert-error">
           {error}
         </p>
       ) : null}
@@ -359,292 +363,6 @@ export default function ControlCenterProjectsView() {
           ) : null}
         </div>
       )}
-    </div>
-  )
-}
-
-function findThread(project: ClientProjectDetail, type: 'ONBOARDING' | 'PROGRESS' | 'CANCELLATION') {
-  return project.requests?.find((r) => r.type === type) ?? null
-}
-
-function ProjectDetailView({
-  project,
-  onBack,
-  onRefresh,
-  onRefreshThread,
-}: {
-  project: ClientProjectDetail
-  onBack: () => void
-  onRefresh: () => Promise<void>
-  onRefreshThread: (requestId: string) => Promise<void>
-}) {
-  const [message, setMessage] = useState<string | null>(null)
-  const [cancelReason, setCancelReason] = useState('')
-  const [cancelling, setCancelling] = useState(false)
-  const [previewFile, setPreviewFile] = useState<{
-    fileName: string
-    mimeType: string
-    url: string | null
-  } | null>(null)
-  const [attachmentUrlCache, setAttachmentUrlCache] = useState<Record<string, string>>({})
-  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(
-    project.coverImageUrl ?? null,
-  )
-  const { canManage, loading: membersLoading } = useProjectMembers(project.id)
-
-  useEffect(() => {
-    setCoverImageUrl(project.coverImageUrl ?? null)
-  }, [project.coverImageUrl, project.id])
-
-  const onboarding = findThread(project, 'ONBOARDING')
-  const progress = findThread(project, 'PROGRESS')
-  const cancellation = findThread(project, 'CANCELLATION')
-  const onboardingClosed = onboarding
-    ? ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(onboarding.status)
-    : false
-  const canCancel =
-    project.status === 'ACTIVE' || project.status === 'ON_HOLD'
-
-  const requestCancellation = async () => {
-    if (!window.confirm('Request to cancel this project? CoCreate will review and respond.')) {
-      return
-    }
-    setCancelling(true)
-    const result = await createCancellationRequest(project.id, cancelReason.trim() || undefined)
-    setCancelling(false)
-    if (!result.ok) {
-      setMessage(result.message ?? 'Could not submit cancellation request')
-      return
-    }
-    setCancelReason('')
-    setMessage('Cancellation request sent.')
-    await onRefresh()
-  }
-
-  const threadProps = (req: NonNullable<typeof onboarding>) => ({
-    request: req,
-    viewerRole: 'CLIENT' as const,
-    onThreadUpdate: () => void onRefreshThread(req.id),
-    onSendMessage: async (body: string, attachmentIds?: string[]) => {
-      const result = await sendRequestMessage(req.id, body, attachmentIds)
-      if (result.ok) await onRefreshThread(req.id)
-      return { ok: result.ok, message: result.ok ? undefined : result.message }
-    },
-    onApproveCheckpoint: async (messageId: string) => {
-      const result = await approveCheckpointMessage(req.id, messageId)
-      if (result.ok) await onRefreshThread(req.id)
-      return { ok: result.ok, message: result.ok ? undefined : result.message }
-    },
-  })
-
-  const getAttachmentUrl = useCallback(
-    async (attachmentId: string) => {
-      const cached = attachmentUrlCache[attachmentId]
-      if (cached) return cached
-      const url = await fetchAttachmentDownloadUrl(attachmentId)
-      if (url) {
-        setAttachmentUrlCache((prev) => ({ ...prev, [attachmentId]: url }))
-      }
-      return url
-    },
-    [attachmentUrlCache],
-  )
-
-  return (
-    <div className="space-y-6">
-      <button type="button" onClick={onBack} className="portal-btn-ghost text-sm">
-        ← All projects
-      </button>
-      <section className="portal-glass-card overflow-hidden p-0">
-        {canManage && !membersLoading ? (
-          <ProjectCoverEditor
-            projectId={project.id}
-            coverImageUrl={coverImageUrl}
-            title={project.title}
-            onUpdated={(url) => {
-              setCoverImageUrl(url)
-              void onRefresh()
-            }}
-          />
-        ) : (
-          <ProjectCover
-            coverImageUrl={coverImageUrl}
-            alt={project.title}
-            variant="hero"
-            className="rounded-none sm:rounded-t-xl"
-          />
-        )}
-        <div className="p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="portal-eyebrow">Project</p>
-              <h3 className={`mt-1 text-xl text-chambray ${bricolage_grot700.className}`}>
-                {project.title}
-              </h3>
-              <p className="mt-2 text-sm text-app-muted">{project.description}</p>
-            </div>
-            <ProjectStatusAttribution project={project} variant="detail" />
-          </div>
-        </div>
-      </section>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
-        <ProjectTeamAside
-          projectId={project.id}
-          className="order-1 lg:order-2 lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1"
-        />
-
-        <div className="order-2 space-y-6 lg:order-1 lg:col-start-1">
-      {project.activities && project.activities.length > 0 ? (
-        <ProjectTimeline activities={project.activities} />
-      ) : null}
-
-      {message ? (
-        <p className="rounded-xl border border-sanmarino/20 bg-sanmarino/5 px-4 py-3 text-sm text-chambray">
-          {message}
-        </p>
-      ) : null}
-
-      {project.attachments && project.attachments.length > 0 ? (
-        <section className="portal-glass-card p-6">
-          <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>Files</p>
-          <ul className="mt-3 space-y-2 text-sm text-app-muted">
-            {project.attachments.map((f) => (
-              <li key={f.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 hover:bg-chambray/5">
-                <button
-                  type="button"
-                  className="group flex min-w-0 items-center gap-2 text-left"
-                  onClick={async () => {
-                    const url = await getAttachmentUrl(f.id)
-                    setPreviewFile({
-                      fileName: f.fileName,
-                      mimeType: f.mimeType,
-                      url,
-                    })
-                  }}
-                  aria-label={`Preview ${f.fileName}`}
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-sanmarino/10 text-sanmarino">
-                    {f.mimeType.startsWith('image/') && attachmentUrlCache[f.id] ? (
-                      <img
-                        src={attachmentUrlCache[f.id]}
-                        alt={f.fileName}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <FileText className="h-4 w-4" aria-hidden />
-                    )}
-                  </span>
-                  <span className="truncate text-chambray underline-offset-4 group-hover:underline">
-                    {f.fileName}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const url = await getAttachmentUrl(f.id)
-                    if (!url) return
-                    const anchor = document.createElement('a')
-                    anchor.href = url
-                    anchor.download = f.fileName
-                    anchor.rel = 'noopener noreferrer'
-                    anchor.click()
-                  }}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sanmarino transition hover:bg-chambray/8 hover:text-chambray"
-                  aria-label={`Download ${f.fileName}`}
-                >
-                  <Download className="h-4 w-4" aria-hidden />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-      <FilePreviewModal
-        open={Boolean(previewFile)}
-        fileName={previewFile?.fileName ?? ''}
-        mimeType={previewFile?.mimeType ?? ''}
-        url={previewFile?.url ?? null}
-        onClose={() => setPreviewFile(null)}
-      />
-
-      {onboarding ? (
-        <section className="portal-glass-card p-6">
-          <p className={`text-chambray ${bricolage_grot600.className}`}>
-            Onboarding conversation
-          </p>
-          <p className="mt-1 text-xs text-app-muted">
-            {onboardingClosed
-              ? 'Closed after project was onboarded — kept for your records.'
-              : 'Discussion before your project is accepted.'}
-          </p>
-          <div className="mt-4">
-            <RequestMessageThread
-              {...threadProps(onboarding)}
-              readOnly={onboardingClosed}
-            />
-          </div>
-        </section>
-      ) : null}
-
-      {progress && project.status !== 'SUBMITTED' ? (
-        <section className="portal-glass-card p-6">
-          <p className={`text-chambray ${bricolage_grot600.className}`}>Project progress</p>
-          <p className="mt-1 text-xs text-app-muted">
-            Updates, progress checks, and replies with CoCreate.
-          </p>
-          <div className="mt-4">
-            <RequestMessageThread {...threadProps(progress)} />
-          </div>
-        </section>
-      ) : null}
-
-      {cancellation ? (
-        <section className="portal-glass-card p-6">
-          <p className={`text-chambray ${bricolage_grot600.className}`}>Cancellation</p>
-          {cancellation.cancellationOutcome ? (
-            <p className="mt-1 text-sm text-app-muted">
-              Outcome: {cancellation.cancellationOutcome.replace(/_/g, ' ').toLowerCase()}
-              {cancellation.cancellationFeeAmount != null
-                ? ` · Fee: ${cancellation.cancellationFeeAmount}`
-                : ''}
-            </p>
-          ) : null}
-          <div className="mt-4">
-            <RequestMessageThread
-              {...threadProps(cancellation)}
-              readOnly={['RESOLVED', 'REJECTED'].includes(cancellation.status)}
-            />
-          </div>
-        </section>
-      ) : null}
-
-      {canCancel && !cancellation ? (
-        <section className="portal-glass-card border border-red-200/40 p-6">
-          <p className={`text-chambray ${bricolage_grot600.className}`}>Request cancellation</p>
-          <p className="mt-1 text-sm text-app-muted">
-            Tell CoCreate you wish to end this project. We will confirm any fees before it is
-            cancelled.
-          </p>
-          <textarea
-            value={cancelReason}
-            onChange={(e) => setCancelReason(e.target.value)}
-            placeholder="Optional reason for cancellation…"
-            rows={3}
-            className="portal-textarea mt-4 w-full resize-y"
-          />
-          <button
-            type="button"
-            disabled={cancelling}
-            onClick={() => void requestCancellation()}
-            className="portal-btn-ghost mt-3 text-sm text-red-800 ring-red-200/60"
-          >
-            {cancelling ? 'Sending…' : 'Request project cancellation'}
-          </button>
-        </section>
-      ) : null}
-        </div>
-      </div>
     </div>
   )
 }

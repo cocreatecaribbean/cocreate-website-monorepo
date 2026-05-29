@@ -342,7 +342,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                     ? `Inbox (${unreadCount} unread)`
                     : item.label
                 }
-                className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition ${bricolage_grot600.className} ${
+                className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm transition ${bricolage_grot600.className} ${
                   active
                     ? 'bg-chambray text-white'
                     : 'bg-chambray/8 text-chambray hover:bg-chambray/12'
@@ -363,7 +363,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
 
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
         {error ? (
-          <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <p className="admin-alert-error mb-4">
             {error}
           </p>
         ) : null}

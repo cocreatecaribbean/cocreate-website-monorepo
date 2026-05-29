@@ -32,10 +32,7 @@ export default function MessageAttachmentComposer({
   const [library, setLibrary] = useState<ClientFilesLibrary | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const btnClass =
-    variant === 'admin'
-      ? 'admin-btn-ghost inline-flex items-center gap-2 text-sm'
-      : 'portal-btn-ghost inline-flex items-center gap-2 text-sm'
+  const btnClass = `${variant === 'admin' ? 'admin-btn-ghost' : 'portal-btn-ghost'} inline-flex items-center gap-2 text-sm`
 
   useEffect(() => {
     if (!open) return

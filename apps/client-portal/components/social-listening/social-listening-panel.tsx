@@ -162,7 +162,7 @@ export default function SocialListeningPanel({
       ) : null}
 
       {error ? (
-        <div className="portal-glass-card rounded-xl border border-red-200/80 bg-red-50/80 px-4 py-3 text-sm text-red-800">
+        <div className="portal-alert-error">
           {error}
         </div>
       ) : null}

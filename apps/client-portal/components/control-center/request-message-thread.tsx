@@ -17,7 +17,6 @@ import { bricolage_grot600 } from '@/styles/fonts'
 type RequestMessageThreadProps = {
   request: ProjectRequestItem
   viewerRole: 'ADMIN' | 'CLIENT'
-  variant?: 'portal' | 'admin'
   readOnly?: boolean
   onSendMessage: (
     body: string,
@@ -43,17 +42,15 @@ export default function RequestMessageThread({
   onResolve,
   showResolveActions = false,
   readOnly = false,
-  variant = 'portal',
   onThreadUpdate,
 }: RequestMessageThreadProps) {
   useRequestThreadRealtime(request.id, () => onThreadUpdate?.(), {
     enabled: Boolean(onThreadUpdate),
   })
 
-  const inputClass =
-    variant === 'admin' ? 'admin-textarea w-full resize-y' : 'portal-textarea w-full resize-y'
-  const btnPrimary = variant === 'admin' ? 'admin-btn-primary text-sm' : 'portal-btn-primary text-sm'
-  const btnGhost = variant === 'admin' ? 'admin-btn-ghost text-sm' : 'portal-btn-ghost text-sm'
+  const inputClass = 'portal-textarea w-full resize-y'
+  const btnPrimary = 'portal-btn-primary text-sm'
+  const btnGhost = 'portal-btn-ghost text-sm'
   const [reply, setReply] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<string[]>([])
@@ -235,17 +232,17 @@ export default function RequestMessageThread({
           </div>
           <MessageAttachmentComposer
             projectId={request.projectId}
-            variant={variant === 'admin' ? 'admin' : 'portal'}
+            variant="portal"
             disabled={sending}
             selectedIds={selectedAttachmentIds}
             pendingFiles={pendingFiles}
             onSelectedIdsChange={setSelectedAttachmentIds}
             onPendingFilesChange={setPendingFiles}
           />
-          {error ? <p className="text-sm text-red-700">{error}</p> : null}
+          {error ? <p className="portal-alert-error">{error}</p> : null}
           <div className="flex flex-wrap items-center gap-2">
             <EmojiPickerButton
-              variant={variant === 'admin' ? 'admin' : 'portal'}
+              variant="portal"
               disabled={sending}
               onSelect={(emoji) =>
                 insertAtTextareaCursor(textareaRef.current, emoji, reply, setReply)

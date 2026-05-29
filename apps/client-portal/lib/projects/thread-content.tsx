@@ -203,9 +203,7 @@ function AttachmentItem({
   }
 
   const cardClass =
-    variant === 'admin'
-      ? 'rounded-xl border border-chambray/10 bg-white/40 p-3 dark:border-white/10 dark:bg-white/5'
-      : 'rounded-xl border border-chambray/10 bg-white/30 p-3 dark:border-white/10 dark:bg-white/5'
+    'rounded-xl border border-chambray/10 bg-white/30 p-3 dark:border-white/10 dark:bg-white/5'
 
   return (
     <div className={cardClass}>

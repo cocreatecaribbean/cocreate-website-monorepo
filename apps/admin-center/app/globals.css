@@ -1,432 +1,40 @@
 @import 'tailwindcss';
+@import '@cocreate/app-ui/styles.css';
 
 @custom-variant dark (&:where(.dark, .dark *));
-
-@theme {
-  --color-chambray: #39419a;
-  --color-sanmarino: #406eb5;
-  --color-casablanca: #f6b03f;
-}
-
-:root {
-  --app-bg: #eef1f8;
-  --app-bg-image:
-    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(64, 110, 181, 0.22), transparent 55%),
-    radial-gradient(ellipse 60% 45% at 95% 5%, rgba(246, 176, 63, 0.14), transparent 50%),
-    radial-gradient(ellipse 70% 60% at 50% 100%, rgba(57, 65, 154, 0.08), transparent 55%),
-    linear-gradient(165deg, #f4f6fb 0%, #eef1f8 42%, #fafbff 100%);
-  --text-primary: #0f172a;
-  --text-muted: #475569;
-  --text-heading: #39419a;
-  --surface-border: rgba(255, 255, 255, 0.55);
-  --surface-card: rgba(255, 255, 255, 0.55);
-  --surface-card-solid: rgba(255, 255, 255, 0.9);
-  --surface-header: rgba(255, 255, 255, 0.7);
-  --surface-input: rgba(255, 255, 255, 0.9);
-  --surface-thread: rgba(255, 255, 255, 0.4);
-  --shadow-card: 0 10px 40px rgba(57, 65, 154, 0.08);
-  --shine-gradient: rgba(255, 255, 255, 0.35);
-  --msg-mine-bg: rgba(64, 110, 181, 0.15);
-  --msg-theirs-bg: rgba(57, 65, 154, 0.08);
-  --msg-mine-text: #39419a;
-  --msg-theirs-text: #1e293b;
-  --text-info-accent: #065f46;
-}
-
-.dark {
-  --app-bg: #0f1428;
-  --app-bg-image:
-    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(64, 110, 181, 0.18), transparent 55%),
-    radial-gradient(ellipse 60% 45% at 95% 5%, rgba(246, 176, 63, 0.08), transparent 50%),
-    radial-gradient(ellipse 70% 60% at 50% 100%, rgba(57, 65, 154, 0.12), transparent 55%),
-    linear-gradient(165deg, #12182e 0%, #0f1428 42%, #0c1020 100%);
-  --text-primary: #f1f5f9;
-  --text-muted: #cbd5e1;
-  --text-heading: #f8fafc;
-  --surface-border: rgba(255, 255, 255, 0.1);
-  --surface-card: rgba(30, 38, 72, 0.72);
-  --surface-card-solid: rgba(24, 30, 58, 0.95);
-  --surface-header: rgba(20, 26, 50, 0.85);
-  --surface-input: rgba(24, 30, 58, 0.9);
-  --surface-thread: rgba(20, 26, 50, 0.5);
-  --shadow-card: 0 10px 40px rgba(0, 0, 0, 0.35);
-  --shine-gradient: rgba(255, 255, 255, 0.08);
-  --msg-mine-bg: rgba(64, 110, 181, 0.35);
-  --msg-theirs-bg: rgba(255, 255, 255, 0.08);
-  --msg-mine-text: #e8ecf8;
-  --msg-theirs-text: #e2e8f0;
-  /* Pastel casablanca for metadata / attribution info lines only */
-  --text-info-accent: #d4bc8a;
-}
-
-@layer base {
-  html {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  body {
-    margin: 0;
-    min-height: 100vh;
-    color: var(--text-primary);
-    background-color: var(--app-bg);
-    background-image: var(--app-bg-image);
-  }
-
-  a[href],
-  button,
-  [role='button'],
-  label[for],
-  summary {
-    cursor: pointer;
-  }
-
-  button:disabled,
-  [aria-disabled='true'] {
-    cursor: not-allowed;
-  }
-
-  a[href]:hover,
-  button:hover,
-  [role='button']:hover,
-  summary:hover {
-    filter: brightness(1.02);
-  }
-
-  .dark a[href]:hover,
-  .dark button:hover,
-  .dark [role='button']:hover,
-  .dark summary:hover {
-    filter: brightness(1.08);
-  }
-}
-
-@layer components {
-  .text-app-primary {
-    color: var(--text-primary);
-  }
-
-  .text-app-muted {
-    color: var(--text-muted);
-  }
-
-  .text-app-heading {
-    color: var(--text-heading);
-  }
-
-  .border-app {
-    border-color: var(--surface-border);
-  }
-
-  .bg-app-input {
-    background-color: var(--surface-input);
-  }
-
-  .admin-eyebrow {
-    @apply text-xs font-medium uppercase tracking-[0.2em] text-sanmarino;
-  }
-
-  .admin-display {
-    @apply font-[family-name:var(--font-alkatra-600)] text-2xl leading-tight sm:text-3xl lg:text-4xl;
-    color: var(--text-heading);
-  }
-
-  .admin-surface {
-    border-bottom: 1px solid var(--surface-border);
-    background-color: var(--surface-header);
-    box-shadow: 0 4px 24px rgba(57, 65, 154, 0.06);
-    @apply backdrop-blur-xl;
-  }
-
-  .dark .admin-surface {
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
-  }
-
-  .admin-glass-card {
-    @apply overflow-hidden rounded-[1.75rem] backdrop-blur-2xl;
-    border: 1px solid var(--surface-border);
-    background-color: var(--surface-card);
-    box-shadow: var(--shadow-card);
-    @apply ring-1 ring-inset;
-    --tw-ring-color: var(--surface-border);
-  }
-
-  .admin-glass-kpi {
-    @apply overflow-hidden rounded-[1.75rem] backdrop-blur-xl;
-    border: 1px solid var(--surface-border);
-    background-color: var(--surface-card);
-    box-shadow: 0 6px 24px rgba(64, 110, 181, 0.08);
-  }
-
-  .dark .admin-glass-kpi {
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
-  }
-
-  .admin-btn-primary {
-    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-chambray px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-sanmarino focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sanmarino disabled:opacity-60;
-  }
-
-  .admin-btn-ghost {
-    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-chambray/12 px-4 py-2 text-sm font-medium text-chambray backdrop-blur-sm transition hover:border-sanmarino/40;
-    background-color: var(--surface-input);
-  }
-
-  .dark .admin-btn-ghost {
-    @apply border-white/15 text-white hover:border-casablanca/50 hover:bg-white/10 hover:text-casablanca;
-  }
-
-  .dark .admin-eyebrow {
-    @apply text-casablanca;
-  }
-
-  .admin-input {
-    @apply min-h-11 min-w-0 rounded-full border border-chambray/12 px-4 py-3 text-base shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sanmarino focus:ring-2 focus:ring-sanmarino/20 sm:px-5;
-    background-color: var(--surface-input);
-    color: var(--text-primary);
-  }
-
-  .dark .admin-input {
-    @apply border-white/12 placeholder:text-slate-500;
-  }
-
-  .admin-textarea {
-    @apply min-h-[5.5rem] min-w-0 rounded-lg border border-chambray/12 px-4 py-3 text-base shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sanmarino focus:ring-2 focus:ring-sanmarino/20;
-    background-color: var(--surface-input);
-    color: var(--text-primary);
-  }
-
-  .dark .admin-textarea {
-    @apply border-white/12 placeholder:text-slate-500;
-  }
-
-  .admin-alert-success {
-    @apply rounded-2xl px-4 py-3 text-sm ring-1;
-    background-color: rgba(16, 185, 129, 0.12);
-    color: #047857;
-    ring-color: rgba(16, 185, 129, 0.35);
-  }
-
-  .dark .admin-alert-success {
-    background-color: rgba(16, 185, 129, 0.15);
-    color: #6ee7b7;
-    ring-color: rgba(16, 185, 129, 0.3);
-  }
-
-  .admin-alert-error {
-    @apply rounded-2xl px-4 py-3 text-sm ring-1;
-    background-color: rgba(239, 68, 68, 0.1);
-    color: #b91c1c;
-    ring-color: rgba(239, 68, 68, 0.35);
-  }
-
-  .dark .admin-alert-error {
-    background-color: rgba(239, 68, 68, 0.15);
-    color: #fca5a5;
-    ring-color: rgba(239, 68, 68, 0.3);
-  }
-
-  .admin-alert-warn {
-    @apply rounded-2xl px-4 py-3 text-sm ring-1;
-    background-color: rgba(245, 158, 11, 0.12);
-    color: #92400e;
-    ring-color: rgba(245, 158, 11, 0.35);
-  }
-
-  .dark .admin-alert-warn {
-    background-color: rgba(245, 158, 11, 0.15);
-    color: #fcd34d;
-    ring-color: rgba(245, 158, 11, 0.3);
-  }
-
-  /* Floating toasts — solid backgrounds so page content does not show through */
-  .admin-toast-panel {
-    @apply rounded-2xl px-4 py-3.5 text-sm ring-1 shadow-lg;
-  }
-
-  .admin-toast-panel-success {
-    background-color: #ecfdf5;
-    color: #047857;
-    ring-color: rgba(16, 185, 129, 0.35);
-  }
-
-  .dark .admin-toast-panel-success {
-    background-color: #064e3b;
-    color: #6ee7b7;
-    ring-color: rgba(16, 185, 129, 0.35);
-  }
-
-  .admin-toast-panel-error {
-    background-color: #fef2f2;
-    color: #991b1b;
-    ring-color: rgba(239, 68, 68, 0.4);
-  }
-
-  .dark .admin-toast-panel-error {
-    background-color: #450a0a;
-    color: #fecaca;
-    ring-color: rgba(239, 68, 68, 0.4);
-  }
-
-  .admin-toast-panel-warn {
-    background-color: #fffbeb;
-    color: #92400e;
-    ring-color: rgba(245, 158, 11, 0.35);
-  }
-
-  .dark .admin-toast-panel-warn {
-    background-color: #451a03;
-    color: #fcd34d;
-    ring-color: rgba(245, 158, 11, 0.35);
-  }
-
-  .admin-action-tile {
-    @apply flex min-h-[4.5rem] items-center justify-between gap-3 rounded-2xl border px-4 py-4 shadow-sm backdrop-blur-sm transition hover:border-sanmarino/25 hover:shadow-md active:scale-[0.99];
-    border-color: var(--surface-border);
-    background-color: var(--surface-card);
-  }
-
-  .dark .admin-action-tile {
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
-  }
-
-  .dark .admin-action-tile:hover {
-    border-color: rgba(246, 176, 63, 0.28);
-    box-shadow:
-      0 8px 28px rgba(0, 0, 0, 0.4),
-      0 0 0 1px rgba(64, 110, 181, 0.35);
-  }
-
-  .admin-thread-panel {
-    @apply max-h-80 space-y-3 overflow-y-auto rounded-xl border border-chambray/8 p-4;
-    background-color: var(--surface-thread);
-  }
-
-  .dark .admin-thread-panel {
-    @apply border-white/10;
-  }
-
-  .admin-msg-mine {
-    background-color: var(--msg-mine-bg);
-    color: var(--msg-mine-text);
-  }
-
-  .admin-msg-theirs {
-    background-color: var(--msg-theirs-bg);
-    color: var(--msg-theirs-text);
-  }
-
-  .admin-info-text {
-    color: var(--text-info-accent);
-  }
-
-  .admin-shine-hover {
-    @apply relative overflow-hidden;
-  }
-
-  .admin-shine-hover::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      105deg,
-      transparent 40%,
-      var(--shine-gradient) 50%,
-      transparent 60%
-    );
-    transform: translateX(-100%);
-    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-    pointer-events: none;
-  }
-
-  .admin-shine-hover:hover::after {
-    transform: translateX(100%);
-  }
-}
 
 @layer utilities {
   .admin-animate-in {
     animation: admin-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
-  .admin-animate-in-delay-1 {
-    animation-delay: 0.07s;
-  }
-  .admin-animate-in-delay-2 {
-    animation-delay: 0.14s;
-  }
-  .admin-animate-in-delay-3 {
-    animation-delay: 0.21s;
-  }
-  .admin-animate-in-delay-4 {
-    animation-delay: 0.28s;
-  }
+  .admin-animate-in-delay-1 { animation-delay: 0.07s; }
+  .admin-animate-in-delay-2 { animation-delay: 0.14s; }
+  .admin-animate-in-delay-3 { animation-delay: 0.21s; }
+  .admin-animate-in-delay-4 { animation-delay: 0.28s; }
 
-  /* Brand blue text → white (primary) or casablanca (accent) in dark mode */
-  .dark .text-chambray {
-    color: #f8fafc;
-  }
-
-  .dark .text-sanmarino {
-    color: var(--color-casablanca);
-  }
-
-  /* Metadata / attribution lines — pastel casablanca in dark mode */
+  .dark .text-chambray { color: #f8fafc; }
+  .dark .text-sanmarino { color: var(--color-casablanca); }
   .dark .text-emerald-700,
-  .dark .text-emerald-800 {
-    color: var(--text-info-accent);
-  }
-
-  .dark .hover\:text-chambray:hover {
-    color: var(--color-casablanca);
-  }
-
-  .dark .hover\:text-sanmarino:hover {
-    color: #f8fafc;
-  }
-
-  .dark .group:hover .group-hover\:text-chambray {
-    color: var(--color-casablanca);
-  }
-
+  .dark .text-emerald-800 { color: var(--text-info-accent); }
+  .dark .hover\:text-chambray:hover { color: var(--color-casablanca); }
+  .dark .hover\:text-sanmarino:hover { color: #f8fafc; }
+  .dark .group:hover .group-hover\:text-chambray { color: var(--color-casablanca); }
   .dark .brand-gradient-text {
-    background-image: linear-gradient(
-      to right,
-      #f8fafc,
-      var(--color-casablanca),
-      #f8fafc
-    );
+    background-image: linear-gradient(to right, #f8fafc, var(--color-casablanca), #f8fafc);
   }
-
-  /* Readable labels on yellow chips */
   .dark .bg-casablanca\/10.text-chambray,
   .dark .bg-casablanca\/15.text-chambray,
-  .dark .bg-casablanca\/20.text-chambray {
-    color: #1e293b;
-  }
-
-  .dark .text-chambray\/40 {
-    color: rgb(248 250 252 / 0.4);
-  }
-
+  .dark .bg-casablanca\/20.text-chambray { color: #1e293b; }
+  .dark .text-chambray\/40 { color: rgb(248 250 252 / 0.4); }
   .dark .text-slate-600,
-  .dark .text-slate-500 {
-    color: #e2e8f0;
-  }
-
-  .dark .text-slate-400 {
-    color: #cbd5e1;
-  }
+  .dark .text-slate-500 { color: #e2e8f0; }
+  .dark .text-slate-400 { color: #cbd5e1; }
 }
 
 @keyframes admin-rise {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -440,8 +48,5 @@
     opacity: 1;
     transform: none;
   }
-
-  .admin-shine-hover::after {
-    display: none;
-  }
+  .admin-shine-hover::after { display: none; }
 }

@@ -1,0 +1,198 @@
+@layer components {
+  .text-app-primary { color: var(--text-primary); }
+  .text-app-muted { color: var(--text-muted); }
+  .text-app-heading { color: var(--text-heading); }
+  .border-app { border-color: var(--surface-border); }
+  .bg-app-input { background-color: var(--surface-input); }
+
+  .portal-eyebrow,
+  .admin-eyebrow,
+  .cc-eyebrow { @apply text-xs font-medium uppercase tracking-[0.2em] text-sanmarino; }
+  .dark .portal-eyebrow,
+  .dark .admin-eyebrow,
+  .dark .cc-eyebrow { @apply text-casablanca; }
+  .portal-display,
+  .cc-display { @apply font-[family-name:var(--font-alkatra-600)] text-3xl leading-tight sm:text-4xl; color: var(--text-heading); }
+  .admin-display,
+  .cc-display-compact { @apply font-[family-name:var(--font-alkatra-600)] text-2xl leading-tight sm:text-3xl lg:text-4xl; color: var(--text-heading); }
+
+  .portal-surface,
+  .portal-surface-solid,
+  .cc-surface {
+    border-radius: var(--radius-card);
+    @apply backdrop-blur-xl border;
+    border-color: var(--surface-border);
+    background-color: var(--surface-card-solid);
+    box-shadow: var(--shadow-card);
+  }
+
+  .admin-surface,
+  .cc-surface-header {
+    border-bottom: 1px solid var(--surface-border);
+    background-color: var(--surface-header);
+    box-shadow: 0 4px 24px rgba(57, 65, 154, 0.06);
+    @apply backdrop-blur-xl;
+  }
+  .dark .admin-surface,
+  .dark .cc-surface-header { box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25); }
+
+  .portal-glass-card,
+  .admin-glass-card,
+  .cc-glass-card {
+    border-radius: var(--radius-card);
+    @apply overflow-hidden backdrop-blur-2xl border ring-1 ring-inset;
+    border-color: var(--surface-border);
+    background-color: var(--surface-card);
+    box-shadow: var(--shadow-card);
+    --tw-ring-color: var(--surface-border);
+  }
+
+  .portal-glass-kpi,
+  .admin-glass-kpi,
+  .cc-glass-kpi {
+    border-radius: var(--radius-card);
+    @apply overflow-hidden backdrop-blur-xl border;
+    border-color: var(--surface-border);
+    background-color: var(--surface-card);
+    box-shadow: 0 6px 24px rgba(64, 110, 181, 0.08);
+  }
+  .dark .portal-glass-kpi,
+  .dark .admin-glass-kpi,
+  .dark .cc-glass-kpi { box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25); }
+
+  .portal-btn-primary,
+  .admin-btn-primary,
+  .cc-btn-primary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-chambray px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-sanmarino focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sanmarino disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .portal-btn-ghost,
+  .admin-btn-ghost,
+  .cc-btn-ghost {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-chambray/12 px-4 py-2 text-sm font-medium backdrop-blur-sm transition hover:border-sanmarino/40;
+    background-color: var(--surface-input);
+    color: var(--text-heading);
+  }
+  .dark .portal-btn-ghost,
+  .dark .admin-btn-ghost,
+  .dark .cc-btn-ghost { @apply border-white/15 text-white hover:border-casablanca/50 hover:bg-white/10 hover:text-casablanca; }
+
+  .portal-input,
+  .admin-input,
+  .cc-input {
+    border-radius: var(--radius-panel);
+    @apply min-h-11 min-w-0 w-full border border-chambray/12 px-4 py-2.5 text-sm shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sanmarino/40 focus:ring-2 focus:ring-sanmarino/15;
+    background-color: var(--surface-input);
+    color: var(--text-primary);
+  }
+  .dark .portal-input,
+  .dark .admin-input,
+  .dark .cc-input { @apply border-white/12 placeholder:text-slate-500; }
+
+  .portal-textarea,
+  .admin-textarea,
+  .cc-textarea {
+    border-radius: var(--radius-control);
+    @apply min-h-[5.5rem] min-w-0 w-full border border-chambray/12 px-4 py-3 text-sm shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sanmarino/40 focus:ring-2 focus:ring-sanmarino/15;
+    background-color: var(--surface-input);
+    color: var(--text-primary);
+  }
+  .dark .portal-textarea,
+  .dark .admin-textarea,
+  .dark .cc-textarea { @apply border-white/12 placeholder:text-slate-500; }
+
+  .portal-alert-success,
+  .admin-alert-success,
+  .cc-alert-success { border-radius: var(--radius-modal); @apply px-4 py-3 text-sm ring-1; background-color: rgba(16,185,129,0.12); color: #047857; --tw-ring-color: rgba(16,185,129,0.35); }
+  .dark .portal-alert-success,
+  .dark .admin-alert-success,
+  .dark .cc-alert-success { background-color: rgba(16,185,129,0.15); color: #6ee7b7; --tw-ring-color: rgba(16,185,129,0.3); }
+  .portal-alert-error,
+  .admin-alert-error,
+  .cc-alert-error { border-radius: var(--radius-modal); @apply px-4 py-3 text-sm ring-1; background-color: rgba(239,68,68,0.1); color: #b91c1c; --tw-ring-color: rgba(239,68,68,0.35); }
+  .dark .portal-alert-error,
+  .dark .admin-alert-error,
+  .dark .cc-alert-error { background-color: rgba(239,68,68,0.15); color: #fca5a5; --tw-ring-color: rgba(239,68,68,0.3); }
+  .portal-alert-warn,
+  .admin-alert-warn,
+  .cc-alert-warn { border-radius: var(--radius-modal); @apply px-4 py-3 text-sm ring-1; background-color: rgba(245,158,11,0.12); color: #92400e; --tw-ring-color: rgba(245,158,11,0.35); }
+  .dark .portal-alert-warn,
+  .dark .admin-alert-warn,
+  .dark .cc-alert-warn { background-color: rgba(245,158,11,0.15); color: #fcd34d; --tw-ring-color: rgba(245,158,11,0.3); }
+
+  .portal-toast-panel,
+  .admin-toast-panel,
+  .cc-toast-panel { border-radius: var(--radius-modal); @apply px-4 py-3.5 text-sm ring-1 shadow-lg; }
+  .portal-toast-panel-success,
+  .admin-toast-panel-success,
+  .cc-toast-panel-success { background-color: #ecfdf5; color: #047857; --tw-ring-color: rgba(16,185,129,0.35); }
+  .dark .portal-toast-panel-success,
+  .dark .admin-toast-panel-success,
+  .dark .cc-toast-panel-success { background-color: #064e3b; color: #6ee7b7; }
+  .portal-toast-panel-error,
+  .admin-toast-panel-error,
+  .cc-toast-panel-error { background-color: #fef2f2; color: #991b1b; --tw-ring-color: rgba(239,68,68,0.4); }
+  .dark .portal-toast-panel-error,
+  .dark .admin-toast-panel-error,
+  .dark .cc-toast-panel-error { background-color: #450a0a; color: #fecaca; }
+  .portal-toast-panel-warn,
+  .admin-toast-panel-warn,
+  .cc-toast-panel-warn { background-color: #fffbeb; color: #92400e; --tw-ring-color: rgba(245,158,11,0.35); }
+  .dark .portal-toast-panel-warn,
+  .dark .admin-toast-panel-warn,
+  .dark .cc-toast-panel-warn { background-color: #451a03; color: #fcd34d; }
+
+  .portal-action-tile,
+  .admin-action-tile,
+  .cc-action-tile {
+    border-radius: var(--radius-modal);
+    @apply flex min-h-[4.5rem] items-center justify-between gap-3 border px-4 py-4 shadow-sm backdrop-blur-sm transition hover:border-sanmarino/25 hover:shadow-md active:scale-[0.99];
+    border-color: var(--surface-border);
+    background-color: var(--surface-card);
+  }
+  .dark .portal-action-tile,
+  .dark .admin-action-tile,
+  .dark .cc-action-tile { box-shadow: 0 4px 24px rgba(0,0,0,0.35); }
+  .dark .portal-action-tile:hover,
+  .dark .admin-action-tile:hover,
+  .dark .cc-action-tile:hover { border-color: rgba(246,176,63,0.28); box-shadow: 0 8px 28px rgba(0,0,0,0.4), 0 0 0 1px rgba(64,110,181,0.35); }
+
+  .portal-thread-panel,
+  .admin-thread-panel,
+  .cc-thread-panel {
+    border-radius: var(--radius-panel);
+    @apply max-h-80 space-y-3 overflow-y-auto border border-chambray/8 p-4;
+    background-color: var(--surface-thread);
+  }
+  .dark .portal-thread-panel,
+  .dark .admin-thread-panel,
+  .dark .cc-thread-panel { @apply border-white/10; }
+
+  .portal-msg-mine,
+  .admin-msg-mine,
+  .cc-msg-mine { background-color: var(--msg-mine-bg); color: var(--msg-mine-text); }
+  .portal-msg-theirs,
+  .admin-msg-theirs,
+  .cc-msg-theirs { background-color: var(--msg-theirs-bg); color: var(--msg-theirs-text); }
+  .portal-info-text,
+  .admin-info-text,
+  .cc-info-text { color: var(--text-info-accent); }
+
+  .portal-shine-hover,
+  .admin-shine-hover,
+  .cc-shine-hover { @apply relative overflow-hidden; }
+  .portal-shine-hover::after,
+  .admin-shine-hover::after,
+  .cc-shine-hover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 40%, var(--shine-gradient) 50%, transparent 60%);
+    transform: translateX(-100%);
+    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+  .portal-shine-hover:hover::after,
+  .admin-shine-hover:hover::after,
+  .cc-shine-hover:hover::after { transform: translateX(100%); }
+}

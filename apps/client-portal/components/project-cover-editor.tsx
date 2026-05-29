@@ -14,6 +14,7 @@ type ProjectCoverEditorProps = {
   coverImageUrl?: string | null
   title: string
   onUpdated: (coverImageUrl: string | null) => void
+  variant?: 'hero' | 'compact'
 }
 
 export default function ProjectCoverEditor({
@@ -21,6 +22,7 @@ export default function ProjectCoverEditor({
   coverImageUrl,
   title,
   onUpdated,
+  variant = 'hero',
 }: ProjectCoverEditorProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -87,10 +89,68 @@ export default function ProjectCoverEditor({
 
   const busy = uploading || removing
 
+  const controls = (
+    <>
+      <label
+        className={`cursor-pointer rounded-full border border-chambray/12 bg-white/95 px-3 py-1.5 text-xs font-medium text-chambray shadow-sm hover:bg-white dark:border-white/15 dark:bg-white/10 dark:text-white ${bricolage_grot500.className}`}
+      >
+        {uploading ? 'Uploading…' : 'Change cover'}
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="sr-only"
+          disabled={busy}
+          onChange={(e) => void onFileChange(e)}
+        />
+      </label>
+      {coverImageUrl ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void onRemove()}
+          className="portal-btn-ghost text-xs"
+        >
+          {removing ? 'Removing…' : 'Remove cover'}
+        </button>
+      ) : null}
+    </>
+  )
+
+  if (variant === 'compact') {
+    return (
+      <section className="portal-glass-card p-5 sm:p-6">
+        <p className={`text-sm text-chambray ${bricolage_grot500.className}`}>List cover image</p>
+        <p className="mt-1 text-xs text-app-muted">
+          Shown on your project card in the projects list.
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          <ProjectCover
+            coverImageUrl={coverImageUrl}
+            alt={title}
+            variant="card"
+            className="h-20 w-32 shrink-0 rounded-lg"
+          />
+          <div className="flex flex-wrap items-center gap-2">{controls}</div>
+        </div>
+        {error ? (
+          <p className="portal-alert-error mt-3" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </section>
+    )
+  }
+
   return (
     <div className="relative">
-      <ProjectCover coverImageUrl={coverImageUrl} alt={title} variant="hero" className="rounded-none sm:rounded-t-xl" />
-      <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-end gap-2 bg-gradient-to-t from-chambray/70 to-transparent p-3 pt-10">
+      <ProjectCover
+        coverImageUrl={coverImageUrl}
+        alt={title}
+        variant="hero"
+        className="rounded-none sm:rounded-t-xl"
+      />
+      <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-end gap-2 bg-linear-to-t from-chambray/70 to-transparent p-3 pt-10">
         <label
           className={`cursor-pointer rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-chambray shadow-sm hover:bg-white ${bricolage_grot500.className}`}
         >

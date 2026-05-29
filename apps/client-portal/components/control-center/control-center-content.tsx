@@ -150,10 +150,10 @@ function OverviewSection() {
   }, [loadKpis])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <KpiGrid stats={kpiStats} loading={kpiLoading} />
       <div className="grid gap-5 lg:grid-cols-2">
-        <section className="portal-glass-card portal-animate-in portal-animate-in-delay-3 p-6">
+        <section className="portal-glass-card portal-animate-in portal-animate-in-delay-3 p-5 sm:p-6">
           <p className="portal-eyebrow">Quick actions</p>
           <h3 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
             What needs you today
@@ -173,7 +173,7 @@ function OverviewSection() {
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
         </section>
-        <section className="portal-glass-card portal-animate-in portal-animate-in-delay-4 flex flex-col p-6">
+        <section className="portal-glass-card portal-animate-in portal-animate-in-delay-4 flex flex-col p-5 sm:p-6">
           <p className="portal-eyebrow">Latest activity</p>
           <h3 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
             Recent updates

@@ -113,7 +113,7 @@ export default function ProjectTeamAside({ projectId, className = '' }: ProjectT
             value={selectedEmail}
             onChange={(e) => setSelectedEmail(e.target.value)}
             disabled={assignableMembers.length === 0}
-            className="portal-input w-full rounded-full px-3 py-2 text-sm"
+            className="portal-input w-full text-sm"
           >
             <option value="">
               {assignableMembers.length === 0
@@ -132,7 +132,7 @@ export default function ProjectTeamAside({ projectId, className = '' }: ProjectT
               onChange={(e) =>
                 setAccess(e.target.value as 'VIEW' | 'MANAGE')
               }
-              className="portal-input min-w-0 flex-1 rounded-full px-3 py-2 text-sm"
+              className="portal-input min-w-0 flex-1 text-sm"
             >
               <option value="VIEW">View</option>
               <option value="MANAGE">Manage</option>

@@ -119,7 +119,7 @@ export default function CollaborateProjectView({ projectId }: CollaborateProject
                   key={item.id}
                   type="button"
                   onClick={() => setActiveThread(item.id)}
-                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition ${bricolage_grot600.className} ${
+                  className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm transition ${bricolage_grot600.className} ${
                     active
                       ? 'bg-chambray text-white'
                       : 'bg-chambray/8 text-chambray hover:bg-chambray/12'

@@ -75,7 +75,7 @@ export default function ClientPortalLoginForm() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="you@company.com"
-            className="portal-input rounded-full px-5 py-3 text-base"
+            className="portal-input text-base"
           />
           <button
             type="submit"

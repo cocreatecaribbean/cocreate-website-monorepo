@@ -20,10 +20,7 @@ export default function EmojiPickerButton({
   const rootRef = useRef<HTMLDivElement>(null)
   const { resolvedTheme } = useTheme()
 
-  const btnClass =
-    variant === 'admin'
-      ? 'admin-btn-ghost inline-flex items-center justify-center p-2'
-      : 'portal-btn-ghost inline-flex items-center justify-center p-2'
+  const btnClass = `${variant === 'admin' ? 'admin-btn-ghost' : 'portal-btn-ghost'} inline-flex items-center justify-center p-2`
 
   useEffect(() => {
     if (!open) return
