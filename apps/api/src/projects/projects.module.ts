@@ -11,6 +11,9 @@ import { ProjectsService } from './projects.service'
 import { ClientTeamService } from './client-team.service'
 import { ClientTeamController } from './client-team.controller'
 import { AdminClientTeamController } from './admin-client-team.controller'
+import { AdminAgencyCollaboratorsController } from './admin-agency-collaborators.controller'
+import { AdminCollaboratorsController } from './admin-collaborators.controller'
+import { AgencyCollaboratorsService } from './agency-collaborators.service'
 
 @Module({
   imports: [AuthModule],
@@ -19,9 +22,12 @@ import { AdminClientTeamController } from './admin-client-team.controller'
     AdminProjectsController,
     ClientTeamController,
     AdminClientTeamController,
+    AdminAgencyCollaboratorsController,
+    AdminCollaboratorsController,
   ],
   providers: [
     ProjectsService,
+    AgencyCollaboratorsService,
     OrganizationBrandAssetsService,
     ClientTeamService,
     ProjectStorageService,

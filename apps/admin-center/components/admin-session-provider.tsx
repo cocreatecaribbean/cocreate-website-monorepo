@@ -14,12 +14,14 @@ import {
   AdminApiFetchError,
   fetchAdminBff,
 } from '@/lib/admin-api-fetch'
+import type { AdminPortalRole } from '@/lib/admin-session'
 
 type AdminSession = {
   mode: 'user' | 'api_key'
+  userId: string | null
   email: string | null
   status: string | null
-  role: 'SUPER_ADMIN' | 'ADMIN' | null
+  role: AdminPortalRole | null
   displayName?: string | null
   profileComplete?: boolean
 }
@@ -58,9 +60,10 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
         ok?: boolean
         mode?: 'user' | 'api_key'
         admin?: {
+          id: string
           email: string
           status: string
-          role?: 'SUPER_ADMIN' | 'ADMIN'
+          role?: AdminPortalRole
           profile?: {
             displayName?: string | null
             profileComplete?: boolean
@@ -69,13 +72,14 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
       }>('/api/session')
 
       if (data.mode === 'api_key') {
-        setSession({ mode: 'api_key', email: null, status: null, role: null })
+        setSession({ mode: 'api_key', userId: null, email: null, status: null, role: null })
         return
       }
 
       if (data.admin?.email) {
         setSession({
           mode: 'user',
+          userId: data.admin.id,
           email: data.admin.email,
           status: data.admin.status,
           role: data.admin.role ?? 'ADMIN',

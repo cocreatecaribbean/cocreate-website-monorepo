@@ -12,7 +12,7 @@ const options = [
 ] as const
 
 type ThemeToggleProps = {
-  variant?: 'sidebar' | 'settings'
+  variant?: 'sidebar' | 'settings' | 'header'
 }
 
 export default function ThemeToggle({ variant = 'sidebar' }: ThemeToggleProps) {
@@ -21,11 +21,79 @@ export default function ThemeToggle({ variant = 'sidebar' }: ThemeToggleProps) {
 
   useEffect(() => setMounted(true), [])
 
+  const isSidebar = variant === 'sidebar'
+  const isHeader = variant === 'header'
+
   if (!mounted) {
-    return <div className="h-9 rounded-xl bg-white/5" aria-hidden />
+    return (
+      <div
+        className={
+          isHeader
+            ? 'h-9 w-[7.5rem] rounded-xl border border-chambray/10 bg-chambray/4 dark:border-white/10 dark:bg-white/5'
+            : isSidebar
+              ? 'h-9 rounded-xl bg-white/5'
+              : 'h-9 rounded-xl border border-app bg-app-input'
+        }
+        aria-hidden
+      />
+    )
   }
 
-  const isSidebar = variant === 'sidebar'
+  const control = (
+    <div
+      className={`flex gap-1 rounded-xl p-1 ${
+        isSidebar
+          ? 'bg-white/8'
+          : isHeader
+            ? 'border border-chambray/10 bg-chambray/[0.04] dark:border-white/10 dark:bg-white/5'
+            : 'border border-app bg-app-input'
+      }`}
+      role="group"
+      aria-label="Color theme"
+    >
+      {options.map(({ value, label, icon: Icon }) => {
+        const active = theme === value
+        return (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setTheme(value)}
+            title={label}
+            className={`
+              flex items-center justify-center gap-1.5 rounded-lg text-xs transition
+              ${bricolage_grot600.className}
+              ${
+                isHeader
+                  ? `h-8 w-8 sm:h-auto sm:w-auto sm:flex-1 sm:px-2 sm:py-2 ${
+                      active
+                        ? 'bg-chambray/15 text-chambray dark:bg-white/12 dark:text-casablanca'
+                        : 'text-app-muted hover:bg-chambray/5 dark:hover:bg-white/8'
+                    }`
+                  : `flex flex-1 px-2 py-2 ${
+                      isSidebar
+                        ? active
+                          ? 'bg-white/18 text-casablanca'
+                          : 'text-white/70 hover:bg-white/10 hover:text-white'
+                        : active
+                          ? 'bg-chambray/15 text-chambray dark:bg-white/12 dark:text-casablanca dark:ring-1 dark:ring-casablanca/30'
+                          : 'text-app-muted hover:bg-chambray/5 dark:hover:bg-white/8'
+                    }`
+              }
+            `}
+            aria-pressed={active}
+            aria-label={label}
+          >
+            <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span className={isSidebar || isHeader ? 'sr-only sm:not-sr-only' : ''}>{label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+
+  if (isHeader) {
+    return control
+  }
 
   return (
     <div className={isSidebar ? 'space-y-2' : 'space-y-3'}>
@@ -40,39 +108,7 @@ export default function ThemeToggle({ variant = 'sidebar' }: ThemeToggleProps) {
           Appearance
         </p>
       )}
-      <div
-        className={`flex gap-1 rounded-xl p-1 ${isSidebar ? 'bg-white/8' : 'border border-app bg-app-input'}`}
-        role="group"
-        aria-label="Color theme"
-      >
-        {options.map(({ value, label, icon: Icon }) => {
-          const active = theme === value
-          return (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setTheme(value)}
-              className={`
-                flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs transition
-                ${bricolage_grot600.className}
-                ${
-                  isSidebar
-                    ? active
-                      ? 'bg-white/18 text-casablanca'
-                      : 'text-white/70 hover:bg-white/10 hover:text-white'
-                    : active
-                      ? 'bg-chambray/15 text-chambray dark:bg-white/12 dark:text-casablanca dark:ring-1 dark:ring-casablanca/30'
-                      : 'text-app-muted hover:bg-chambray/5 dark:hover:bg-white/8'
-                }
-              `}
-              aria-pressed={active}
-            >
-              <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span className={isSidebar ? 'sr-only sm:not-sr-only' : ''}>{label}</span>
-            </button>
-          )
-        })}
-      </div>
+      {control}
     </div>
   )
 }

@@ -17,6 +17,9 @@ import { bricolage_grot600 } from '@/styles/fonts'
 type RequestMessageThreadProps = {
   request: ProjectRequestItem
   viewerRole: 'ADMIN' | 'CLIENT'
+  currentUserId?: string | null
+  libraryVisibility?: 'CLIENT' | 'INTERNAL'
+  uploadVisibility?: 'CLIENT' | 'INTERNAL'
   readOnly?: boolean
   onSendMessage: (
     body: string,
@@ -33,9 +36,38 @@ function initialAuthorRole(request: ProjectRequestItem): 'ADMIN' | 'CLIENT' {
   return 'ADMIN'
 }
 
+function messageIsMine(
+  msg: ProjectRequestMessage,
+  viewerRole: 'ADMIN' | 'CLIENT',
+  currentUserId?: string | null,
+): boolean {
+  if (viewerRole === 'CLIENT') {
+    return msg.authorRole === 'CLIENT'
+  }
+  if (currentUserId && msg.authorUserId) {
+    return msg.authorUserId === currentUserId
+  }
+  return msg.authorRole === 'ADMIN'
+}
+
+function messageAuthorLabel(msg: ProjectRequestMessage, isMine: boolean): string {
+  if (isMine) return 'You'
+  if (msg.authorRole === 'ADMIN' || msg.authorRole === 'COLLABORATOR') {
+    return (
+      formatActorWithTitle(msg.authorDisplayName, msg.authorJobTitle, msg.authorEmail) ??
+      msg.authorEmail ??
+      (msg.authorRole === 'COLLABORATOR' ? 'Collaborator' : 'CoCreate team')
+    )
+  }
+  return formatActorWithTitle(msg.authorDisplayName, null, msg.authorEmail) ?? 'Client'
+}
+
 export default function RequestMessageThread({
   request,
   viewerRole,
+  currentUserId,
+  libraryVisibility,
+  uploadVisibility,
   onSendMessage,
   onResolve,
   showResolveActions = false,
@@ -87,6 +119,7 @@ export default function RequestMessageThread({
     const uploaded = await resolvePendingMessageAttachments(
       request.projectId,
       pendingFiles,
+      uploadVisibility ? { visibility: uploadVisibility } : undefined,
     )
     if (!uploaded.ok) {
       setError(uploaded.message ?? 'Could not upload attachments')
@@ -117,31 +150,19 @@ export default function RequestMessageThread({
         ) : (
           messages.map((msg, messageIndex) => {
             const messageAttachments = attachmentsByMessage.get(messageIndex)
-            const isMine =
-              (viewerRole === 'ADMIN' && msg.authorRole === 'ADMIN') ||
-              (viewerRole === 'CLIENT' && msg.authorRole === 'CLIENT')
+            const isMine = messageIsMine(msg, viewerRole, currentUserId)
+            const authorLabel = messageAuthorLabel(msg, isMine)
             return (
               <div
                 key={msg.id}
                 className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}
               >
                 <p className="text-[0.65rem] font-medium text-app-muted">
-                  {isMine
-                    ? 'You'
-                    : msg.authorRole === 'ADMIN'
-                      ? formatActorWithTitle(
-                          msg.authorDisplayName,
-                          msg.authorJobTitle,
-                          msg.authorEmail,
-                        ) ?? 'CoCreate team'
-                      : formatActorWithTitle(
-                          msg.authorDisplayName,
-                          null,
-                          msg.authorEmail,
-                        ) ?? 'Client'}
+                  {authorLabel}
                   {msg.authorEmail &&
                   !isMine &&
-                  msg.authorDisplayName !== msg.authorEmail
+                  msg.authorDisplayName !== msg.authorEmail &&
+                  !authorLabel.includes(msg.authorEmail)
                     ? ` (${msg.authorEmail})`
                     : ''}{' '}
                   · {new Date(msg.createdAt).toLocaleString()}
@@ -198,7 +219,9 @@ export default function RequestMessageThread({
               placeholder={
                 viewerRole === 'CLIENT'
                   ? 'Write your response to CoCreate…'
-                  : 'Follow up with the client…'
+                  : request.type === 'INTERNAL'
+                    ? 'Message the team…'
+                    : 'Follow up with the client…'
               }
               rows={3}
               className="admin-textarea w-full resize-y"
@@ -207,6 +230,7 @@ export default function RequestMessageThread({
           <MessageAttachmentComposer
             projectId={request.projectId}
             disabled={sending}
+            libraryVisibility={libraryVisibility}
             selectedIds={selectedAttachmentIds}
             pendingFiles={pendingFiles}
             onSelectedIdsChange={setSelectedAttachmentIds}

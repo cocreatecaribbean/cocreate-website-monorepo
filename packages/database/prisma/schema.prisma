@@ -15,6 +15,8 @@ datasource db {
 enum UserRole {
   SUPER_ADMIN
   ADMIN
+  /// Agency freelancer — project-scoped access via AgencyProjectMember
+  COLLABORATOR
   CLIENT
 }
 
@@ -131,6 +133,8 @@ enum ProjectRequestType {
   ONBOARDING
   PROGRESS
   CANCELLATION
+  /// CoCreate team-only review (not visible in client portal)
+  INTERNAL
 }
 
 enum ProjectMessageKind {
@@ -169,7 +173,13 @@ enum PortalNotificationType {
 
 enum ProjectMessageAuthorRole {
   ADMIN
+  COLLABORATOR
   CLIENT
+}
+
+enum ProjectAttachmentVisibility {
+  CLIENT
+  INTERNAL
 }
 
 /// Client-initiated engagement; agency approves SUBMITTED → ACTIVE
@@ -198,6 +208,7 @@ model ClientProject {
   notifications     PortalNotification[]
   clientApprovals   ClientApprovalRecord[]
   members           ClientProjectMember[]
+  agencyMembers     AgencyProjectMember[]
 
   @@index([organizationId])
   @@index([organizationId, status])
@@ -215,6 +226,22 @@ model ClientProjectMember {
   grantedByUserId String
   grantedBy       User                     @relation("ProjectMembershipGrantedBy", fields: [grantedByUserId], references: [id])
   createdAt       DateTime                 @default(now())
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@index([projectId])
+}
+
+/// Per-project access for agency collaborators (freelancers)
+model AgencyProjectMember {
+  id              String        @id @default(cuid())
+  projectId       String
+  project         ClientProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User          @relation("AgencyProjectMembership", fields: [userId], references: [id], onDelete: Cascade)
+  grantedByUserId String
+  grantedBy       User          @relation("AgencyProjectMembershipGrantedBy", fields: [grantedByUserId], references: [id])
+  createdAt       DateTime      @default(now())
 
   @@unique([projectId, userId])
   @@index([userId])
@@ -320,6 +347,7 @@ model ProjectAttachment {
   fileName         String
   mimeType         String
   sizeBytes        Int
+  visibility       ProjectAttachmentVisibility @default(CLIENT)
   uploadedByUserId String
   uploadedBy       User            @relation("AttachmentUploadedBy", fields: [uploadedByUserId], references: [id])
   createdAt        DateTime        @default(now())
@@ -327,6 +355,7 @@ model ProjectAttachment {
 
   @@index([projectId])
   @@index([requestId])
+  @@index([projectId, visibility])
 }
 
 /// Append-only audit log per project
@@ -414,6 +443,8 @@ model User {
   clientApprovals         ClientApprovalRecord[]  @relation("ClientApprovalBy")
   projectMemberships      ClientProjectMember[]   @relation("ProjectMembership")
   projectMembershipsGranted ClientProjectMember[] @relation("ProjectMembershipGrantedBy")
+  agencyProjectMemberships AgencyProjectMember[]  @relation("AgencyProjectMembership")
+  agencyProjectMembershipsGranted AgencyProjectMember[] @relation("AgencyProjectMembershipGrantedBy")
   teamInvitesRequested      ClientTeamInviteRequest[] @relation("TeamInviteRequestedBy")
   teamInvitesReviewed       ClientTeamInviteRequest[] @relation("TeamInviteReviewedBy")
   teamInvitesResulting      ClientTeamInviteRequest[] @relation("TeamInviteResultingUser")

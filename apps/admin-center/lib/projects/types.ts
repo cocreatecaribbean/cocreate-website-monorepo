@@ -12,7 +12,7 @@ export type ClientProjectPhase =
   | 'READY_FOR_DELIVERY'
   | 'DELIVERED'
 
-export type ProjectRequestType = 'ONBOARDING' | 'PROGRESS' | 'CANCELLATION'
+export type ProjectRequestType = 'ONBOARDING' | 'PROGRESS' | 'CANCELLATION' | 'INTERNAL'
 
 export type ProjectRequestStatus =
   | 'OPEN'
@@ -28,7 +28,7 @@ export type ProjectRequestMessage = {
   authorEmail: string | null
   authorDisplayName?: string | null
   authorJobTitle?: string | null
-  authorRole: 'ADMIN' | 'CLIENT'
+  authorRole: 'ADMIN' | 'CLIENT' | 'COLLABORATOR'
   body: string
   messageKind?: 'CHAT' | 'CHECKPOINT'
   checkpointTargetPhase?: ClientProjectPhase | null
@@ -65,6 +65,7 @@ export type FilesQuery = {
   q?: string
   cursor?: string
   limit?: number
+  visibility?: 'CLIENT' | 'INTERNAL'
 }
 
 export type ClientProjectSummary = {

@@ -28,7 +28,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={fontVariables} suppressHydrationWarning>
-      <body className={`${bricolage_grot400.className} antialiased`}>
+      <body
+        className={`${bricolage_grot400.className} antialiased`}
+        suppressHydrationWarning
+      >
         <ThemeProvider>
           <AdminShell>{children}</AdminShell>
         </ThemeProvider>

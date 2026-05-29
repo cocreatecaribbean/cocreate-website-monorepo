@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { AuthService } from './auth.service'
+import { isAgencyAdminRole } from './admin-roles'
 import { AdminAuthGuard, type AdminRequest } from './guards/admin-auth.guard'
 import { SupabaseAuthService } from '../clients/supabase-auth.service'
 import { AdminProfileService } from '../users/admin-profile.service'
@@ -19,7 +20,10 @@ export class AdminAuthController {
   @UseGuards(AdminAuthGuard)
   async me(@Req() request: AdminRequest) {
     if (request.adminUser) {
-      const profile = await this.adminProfiles.getProfile(request.adminUser)
+      const isAdmin = isAgencyAdminRole(request.adminUser.role)
+      const profile = isAdmin
+        ? await this.adminProfiles.getProfile(request.adminUser)
+        : null
       return {
         ok: true as const,
         mode: 'user' as const,

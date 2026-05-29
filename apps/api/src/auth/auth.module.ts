@@ -1,5 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common'
 import { AdminAuthController } from './admin-auth.controller'
+import { CollaboratorAuthController } from './collaborator-auth.controller'
+import { AgencyAccessService } from './agency-access.service'
 import { AuthService } from './auth.service'
 import { ClientAccessService } from './client-access.service'
 import { AdminAuthGuard } from './guards/admin-auth.guard'
@@ -13,10 +15,11 @@ import { UsersModule } from '../users/users.module'
 
 @Module({
   imports: [forwardRef(() => UsersModule)],
-  controllers: [AdminAuthController],
+  controllers: [AdminAuthController, CollaboratorAuthController],
   providers: [
     AuthService,
     ClientAccessService,
+    AgencyAccessService,
     AdminAuthGuard,
     SuperAdminGuard,
     ClientAuthGuard,
@@ -28,6 +31,7 @@ import { UsersModule } from '../users/users.module'
   exports: [
     AuthService,
     ClientAccessService,
+    AgencyAccessService,
     AdminAuthGuard,
     SuperAdminGuard,
     ClientAuthGuard,

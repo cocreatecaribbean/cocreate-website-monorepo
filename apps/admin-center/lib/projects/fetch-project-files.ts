@@ -78,6 +78,7 @@ export async function uploadProjectFilesForRequest(
   projectId: string,
   requestId: string,
   files: File[],
+  options?: { visibility?: 'CLIENT' | 'INTERNAL' },
 ): Promise<{ ok: boolean; message?: string }> {
   try {
     const staged = await stageProjectFiles(projectId, files)
@@ -88,6 +89,7 @@ export async function uploadProjectFilesForRequest(
         body: JSON.stringify({
           ...attachment,
           requestId,
+          visibility: options?.visibility,
         }),
       })
     }
@@ -103,6 +105,7 @@ export async function uploadProjectFilesForRequest(
 export async function uploadProjectFiles(
   projectId: string,
   files: File[],
+  options?: { visibility?: 'CLIENT' | 'INTERNAL' },
 ): Promise<{ ok: boolean; message?: string; attachmentIds?: string[] }> {
   try {
     const staged = await stageProjectFiles(projectId, files)
@@ -113,7 +116,10 @@ export async function uploadProjectFiles(
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(attachment),
+          body: JSON.stringify({
+            ...attachment,
+            visibility: options?.visibility,
+          }),
         },
       )
       attachmentIds.push(created.id)
@@ -135,6 +141,7 @@ export async function fetchProjectFiles(
   if (query?.q) params.set('q', query.q)
   if (query?.cursor) params.set('cursor', query.cursor)
   if (query?.limit != null) params.set('limit', String(query.limit))
+  if (query?.visibility) params.set('visibility', query.visibility)
   const suffix = params.toString() ? `?${params.toString()}` : ''
   try {
     return await fetchAdminBff<ClientFilesLibrary>(

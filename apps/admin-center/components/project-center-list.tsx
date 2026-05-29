@@ -148,10 +148,10 @@ export default function ProjectCenterList({ refreshToken = 0 }: ProjectCenterLis
                                 <ProjectStatusAttribution project={project} />
                                 {project.organizationId ? (
                                   <Link
-                                    href={`/clients/${project.organizationId}`}
+                                    href={`/clients/${project.organizationId}/projects/${project.id}`}
                                     className="admin-btn-ghost text-sm"
                                   >
-                                    Open workspace
+                                    Open project
                                   </Link>
                                 ) : null}
                               </div>

@@ -110,7 +110,9 @@ export function serializeMessage(
   const actor =
     role === 'ADMIN'
       ? serializeActorFields(message.author, 'ADMIN')
-      : serializeActorFields(message.author, 'CLIENT')
+      : role === 'COLLABORATOR'
+        ? serializeActorFields(message.author, 'ADMIN')
+        : serializeActorFields(message.author, 'CLIENT')
 
   const pendingApproval = isPendingCheckpointMessage(message)
 

@@ -9,7 +9,7 @@ import type { Request } from 'express'
 import { AuthService } from '../auth.service'
 
 export type AdminRequest = Request & {
-  adminUser?: Awaited<ReturnType<AuthService['requireAdmin']>>
+  adminUser?: Awaited<ReturnType<AuthService['requireAgencyUser']>>
 }
 
 @Injectable()
@@ -24,7 +24,7 @@ export class AdminAuthGuard implements CanActivate {
 
     const bearer = request.headers.authorization
     if (bearer?.startsWith('Bearer ')) {
-      request.adminUser = await this.authService.requireAdmin(bearer.slice(7))
+      request.adminUser = await this.authService.requireAgencyUser(bearer.slice(7))
       return true
     }
 

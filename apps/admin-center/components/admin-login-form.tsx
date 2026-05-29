@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useState } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import CoCreateLogo from '@/components/cocreate-logo'
 import DevSignInLink from '@/components/dev-sign-in-link'
@@ -129,6 +130,12 @@ export default function AdminLoginForm() {
 
         <p className="mt-6 text-xs text-app-muted">
           After signing in you&apos;ll return to {next === '/' ? 'the dashboard' : next}.
+        </p>
+        <p className="mt-4 text-center text-xs text-app-muted">
+          Freelancer or project collaborator?{' '}
+          <Link href="/collaborate/login" className="text-sanmarino underline">
+            Collaborator sign-in
+          </Link>
         </p>
       </div>
     </main>

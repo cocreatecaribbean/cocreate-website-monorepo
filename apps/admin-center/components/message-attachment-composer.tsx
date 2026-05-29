@@ -11,6 +11,7 @@ import { FileText, Paperclip, X } from 'lucide-react'
 type MessageAttachmentComposerProps = {
   projectId: string
   disabled?: boolean
+  libraryVisibility?: 'CLIENT' | 'INTERNAL'
   selectedIds: string[]
   pendingFiles: File[]
   onSelectedIdsChange: (ids: string[]) => void
@@ -20,6 +21,7 @@ type MessageAttachmentComposerProps = {
 export default function MessageAttachmentComposer({
   projectId,
   disabled = false,
+  libraryVisibility,
   selectedIds,
   pendingFiles,
   onSelectedIdsChange,
@@ -33,10 +35,13 @@ export default function MessageAttachmentComposer({
   useEffect(() => {
     if (!open) return
     setLoading(true)
-    void fetchProjectFiles(projectId)
+    void fetchProjectFiles(
+      projectId,
+      libraryVisibility ? { visibility: libraryVisibility } : undefined,
+    )
       .then(setLibrary)
       .finally(() => setLoading(false))
-  }, [open, projectId])
+  }, [open, projectId, libraryVisibility])
 
   const libraryFiles: ProjectAttachment[] =
     library?.projects.flatMap((project) => [
@@ -160,9 +165,10 @@ export default function MessageAttachmentComposer({
 export async function resolvePendingMessageAttachments(
   projectId: string,
   pendingFiles: File[],
+  options?: { visibility?: 'CLIENT' | 'INTERNAL' },
 ): Promise<{ ok: boolean; attachmentIds: string[]; message?: string }> {
   if (!pendingFiles.length) return { ok: true, attachmentIds: [] }
-  const result = await uploadProjectFiles(projectId, pendingFiles)
+  const result = await uploadProjectFiles(projectId, pendingFiles, options)
   if (!result.ok) return { ok: false, attachmentIds: [], message: result.message }
   return { ok: true, attachmentIds: result.attachmentIds ?? [] }
 }

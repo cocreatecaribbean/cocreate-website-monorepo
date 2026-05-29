@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { ClientOrgRole, UserRole, UserStatus } from '@cocreate/database'
-import { isAgencyAdminRole } from './admin-roles'
+import { isAgencyAdminRole, isAgencyStaffRole, isCollaboratorRole } from './admin-roles'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { PrismaService } from '../prisma/prisma.service'
 
@@ -16,6 +16,9 @@ export type AuthenticatedAdmin = {
   status: UserStatus
   supabaseAuthId: string | null
 }
+
+/** Core admin or project-scoped collaborator (Admin Center). */
+export type AuthenticatedAgencyUser = AuthenticatedAdmin
 
 export type AuthenticatedClient = {
   id: string
@@ -84,16 +87,16 @@ export class AuthService {
     return data.user
   }
 
-  async requireAdmin(accessToken: string): Promise<AuthenticatedAdmin> {
+  async requireAgencyUser(accessToken: string): Promise<AuthenticatedAgencyUser> {
     const authUser = await this.getSupabaseUserFromToken(accessToken)
     const email = this.normalizeEmail(authUser.email!)
 
     const user = await this.prisma.user.findUnique({ where: { email } })
-    if (!user || !isAgencyAdminRole(user.role)) {
-      throw new ForbiddenException('Admin access required')
+    if (!user || !isAgencyStaffRole(user.role)) {
+      throw new ForbiddenException('Agency access required')
     }
     if (user.status === UserStatus.SUSPENDED) {
-      throw new ForbiddenException('Admin account is suspended')
+      throw new ForbiddenException('Account is suspended')
     }
 
     if (user.supabaseAuthId !== authUser.id) {
@@ -125,6 +128,14 @@ export class AuthService {
       status: refreshed.status,
       supabaseAuthId: refreshed.supabaseAuthId,
     }
+  }
+
+  async requireAdmin(accessToken: string): Promise<AuthenticatedAdmin> {
+    const agencyUser = await this.requireAgencyUser(accessToken)
+    if (!isAgencyAdminRole(agencyUser.role)) {
+      throw new ForbiddenException('Admin access required')
+    }
+    return agencyUser
   }
 
   private mapClientOrganization(
@@ -223,6 +234,27 @@ export class AuthService {
     }
     if (user.status === UserStatus.SUSPENDED) {
       throw new ForbiddenException('Admin account is suspended')
+    }
+
+    return user
+  }
+
+  async assertCollaboratorEmailAllowed(email: string) {
+    const normalized = this.normalizeEmail(email)
+    const user = await this.prisma.user.findUnique({ where: { email: normalized } })
+
+    if (!user || !isCollaboratorRole(user.role)) {
+      throw new ForbiddenException('This email is not registered as a project collaborator')
+    }
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new ForbiddenException('Collaborator account is suspended')
+    }
+
+    const membership = await this.prisma.agencyProjectMember.findFirst({
+      where: { userId: user.id },
+    })
+    if (!membership) {
+      throw new ForbiddenException('No project access assigned to this account')
     }
 
     return user

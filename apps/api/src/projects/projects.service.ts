@@ -11,6 +11,7 @@ import {
   ClientProjectPhase,
   ClientProjectStatus,
   Prisma,
+  ProjectAttachmentVisibility,
   ProjectMessageAuthorRole,
   ProjectMessageKind,
   ProjectRequestStatus,
@@ -19,7 +20,13 @@ import {
   UserRole,
   UserStatus,
 } from '@cocreate/database'
-import type { AuthenticatedAdmin, AuthenticatedClient } from '../auth/auth.service'
+import type {
+  AuthenticatedAdmin,
+  AuthenticatedAgencyUser,
+  AuthenticatedClient,
+} from '../auth/auth.service'
+import { AgencyAccessService } from '../auth/agency-access.service'
+import { isCollaboratorRole } from '../auth/admin-roles'
 import { ClientAccessService } from '../auth/client-access.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectNotificationMailService } from './project-notification-mail.service'
@@ -70,6 +77,7 @@ export class ProjectsService {
     private readonly notifications: ProjectNotificationsService,
     private readonly mail: ProjectNotificationMailService,
     private readonly clientAccess: ClientAccessService,
+    private readonly agencyAccess: AgencyAccessService,
     private readonly realtime: ProjectRealtimeService,
     private readonly clientTeam: ClientTeamService,
     private readonly supabaseAuth: SupabaseAuthService,
@@ -89,7 +97,7 @@ export class ProjectsService {
   }
 
   async authorizeThreadRealtime(
-    actor: AuthenticatedAdmin | AuthenticatedClient,
+    actor: AuthenticatedAgencyUser | AuthenticatedClient,
     requestId: string,
   ) {
     await this.getRequestForActor(requestId, actor)
@@ -125,6 +133,16 @@ export class ProjectsService {
       return signed.signedUrl
     } catch {
       return null
+    }
+  }
+
+  private stripInternalFromProject<T extends { requests?: Array<{ type: string }> }>(
+    project: T,
+  ): T {
+    if (!project.requests?.length) return project
+    return {
+      ...project,
+      requests: project.requests.filter((r) => r.type !== ProjectRequestType.INTERNAL),
     }
   }
 
@@ -195,6 +213,7 @@ export class ProjectsService {
     messageId: string,
     projectId: string,
     attachmentIds: string[] | undefined,
+    requestType?: ProjectRequestType,
   ) {
     const ids = [...new Set(attachmentIds ?? [])]
     if (ids.length === 0) return
@@ -213,6 +232,13 @@ export class ProjectsService {
       data: ids.map((attachmentId) => ({ messageId, attachmentId })),
       skipDuplicates: true,
     })
+
+    if (requestType === ProjectRequestType.INTERNAL) {
+      await this.prisma.projectAttachment.updateMany({
+        where: { id: { in: ids }, projectId },
+        data: { visibility: ProjectAttachmentVisibility.INTERNAL },
+      })
+    }
   }
 
   private groupProjectAttachments(
@@ -251,7 +277,13 @@ export class ProjectsService {
 
   private async listFilesForProjects(
     projects: Array<{ id: string; title: string }>,
-    options?: { projectId?: string; q?: string; cursor?: string; limit?: number },
+    options?: {
+      projectId?: string
+      q?: string
+      cursor?: string
+      limit?: number
+      visibility?: ProjectAttachmentVisibility
+    },
   ) {
     const query = this.normalizeFileQuery(options)
     const requestedProjectIds = projects.map((project) => project.id)
@@ -266,6 +298,7 @@ export class ProjectsService {
     const projectIds = query.projectId ? [query.projectId] : requestedProjectIds
     const where: Prisma.ProjectAttachmentWhereInput = {
       projectId: { in: projectIds },
+      ...(options?.visibility ? { visibility: options.visibility } : {}),
       ...(query.cursor ? { id: { lt: query.cursor } } : {}),
       ...(query.q
         ? {
@@ -408,6 +441,78 @@ export class ProjectsService {
     })
   }
 
+  private async ensureInternalThread(projectId: string, createdByUserId: string) {
+    return this.prisma.projectRequest.upsert({
+      where: {
+        projectId_type: { projectId, type: ProjectRequestType.INTERNAL },
+      },
+      create: {
+        projectId,
+        type: ProjectRequestType.INTERNAL,
+        title: 'Team review',
+        description: 'Internal CoCreate discussion — not visible to the client.',
+        createdByUserId,
+        status: ProjectRequestStatus.OPEN,
+      },
+      update: {},
+    })
+  }
+
+  private resolveThreadAuthorId(
+    project: { approvedByUserId: string | null; createdByUserId: string },
+    actorId: string,
+  ) {
+    return project.approvedByUserId ?? project.createdByUserId ?? actorId
+  }
+
+  private projectHasInternalThread(
+    project: { requests?: Array<{ type: ProjectRequestType }> },
+  ) {
+    return (
+      project.requests?.some((r) => r.type === ProjectRequestType.INTERNAL) ?? false
+    )
+  }
+
+  private async ensureInternalThreadsForProjects<
+    T extends {
+      id: string
+      approvedByUserId: string | null
+      createdByUserId: string
+      requests?: Array<{ type: ProjectRequestType } & Record<string, unknown>>
+    },
+  >(projects: T[], actorId: string): Promise<T[]> {
+    const missing = projects.filter((p) => !this.projectHasInternalThread(p))
+    if (missing.length === 0) return projects
+
+    await Promise.all(
+      missing.map((p) =>
+        this.ensureInternalThread(
+          p.id,
+          this.resolveThreadAuthorId(p, actorId),
+        ),
+      ),
+    )
+
+    const created = await this.prisma.projectRequest.findMany({
+      where: {
+        projectId: { in: missing.map((p) => p.id) },
+        type: ProjectRequestType.INTERNAL,
+      },
+      include: this.requestInclude(),
+    })
+    const byProjectId = new Map(created.map((r) => [r.projectId, r]))
+
+    return projects.map((project) => {
+      if (this.projectHasInternalThread(project)) return project
+      const internal = byProjectId.get(project.id)
+      if (!internal) return project
+      return {
+        ...project,
+        requests: [...(project.requests ?? []), internal],
+      }
+    })
+  }
+
   private projectDetailInclude() {
     return {
       organization: { select: { id: true, name: true, slug: true } },
@@ -429,7 +534,7 @@ export class ProjectsService {
 
   private async getRequestForActor(
     requestId: string,
-    actor: AuthenticatedAdmin | AuthenticatedClient,
+    actor: AuthenticatedAgencyUser | AuthenticatedClient,
   ) {
     const request = await this.prisma.projectRequest.findUnique({
       where: { id: requestId },
@@ -441,11 +546,19 @@ export class ProjectsService {
     if (!request) throw new NotFoundException('Request not found')
 
     if ('organization' in actor && actor.organization) {
+      if (request.type === ProjectRequestType.INTERNAL) {
+        throw new ForbiddenException('Request not found')
+      }
       await this.clientAccess.assertProjectAccess(
         actor,
         request.projectId,
         'VIEW',
       )
+    } else {
+      await this.agencyAccess.assertCanAccessProject(actor, request.projectId)
+      if (!this.agencyAccess.canReadRequest(actor, request.type)) {
+        throw new ForbiddenException('You cannot access this conversation')
+      }
     }
 
     return request
@@ -547,10 +660,10 @@ export class ProjectsService {
         where: { id: projectId },
         include: this.projectDetailInclude(),
       })
-      return this.serializeProjectWithCover(refreshed!)
+      return this.serializeProjectWithCover(this.stripInternalFromProject(refreshed!))
     }
 
-    return this.serializeProjectWithCover(project)
+    return this.serializeProjectWithCover(this.stripInternalFromProject(project))
   }
 
   async createChangeRequest(
@@ -811,15 +924,20 @@ export class ProjectsService {
 
   // ─── Admin ──────────────────────────────────────────────────────────────────
 
-  async listAllForAdmin() {
+  async listAllForAdmin(actor: AuthenticatedAgencyUser) {
+    const where = await this.agencyAccess.accessibleProjectsWhere(actor)
     const projects = await this.prisma.clientProject.findMany({
+      where,
       orderBy: { updatedAt: 'desc' },
       include: this.projectListInclude(),
     })
     return this.serializeProjectsWithCover(projects)
   }
 
-  async listForOrganization(organizationId: string) {
+  async listForOrganization(actor: AuthenticatedAgencyUser, organizationId: string) {
+    if (!this.agencyAccess.isCoreTeam(actor)) {
+      throw new ForbiddenException('Organization workspace requires core team access')
+    }
     const projects = await this.prisma.clientProject.findMany({
       where: { organizationId },
       orderBy: { updatedAt: 'desc' },
@@ -839,15 +957,33 @@ export class ProjectsService {
         },
       },
     })
-    return this.serializeProjectsWithCover(projects)
+    const withInternal = await this.ensureInternalThreadsForProjects(
+      projects,
+      actor.id,
+    )
+    return this.serializeProjectsWithCover(withInternal)
   }
 
-  async getForAdmin(projectId: string) {
-    const project = await this.prisma.clientProject.findUnique({
+  async getForAdmin(actor: AuthenticatedAgencyUser, projectId: string) {
+    await this.agencyAccess.assertCanAccessProject(actor, projectId)
+    let project = await this.prisma.clientProject.findUnique({
       where: { id: projectId },
       include: this.projectDetailInclude(),
     })
     if (!project) throw new NotFoundException('Project not found')
+
+    if (!this.projectHasInternalThread(project)) {
+      await this.ensureInternalThread(
+        projectId,
+        this.resolveThreadAuthorId(project, actor.id),
+      )
+      project = await this.prisma.clientProject.findUnique({
+        where: { id: projectId },
+        include: this.projectDetailInclude(),
+      })
+      if (!project) throw new NotFoundException('Project not found')
+    }
+
     return this.serializeProjectWithCover(project)
   }
 
@@ -892,7 +1028,7 @@ export class ProjectsService {
   }
 
   async getRequestThread(
-    actor: AuthenticatedAdmin | AuthenticatedClient,
+    actor: AuthenticatedAgencyUser | AuthenticatedClient,
     requestId: string,
   ) {
     const request = await this.getRequestForActor(requestId, actor)
@@ -975,10 +1111,13 @@ export class ProjectsService {
   }
 
   async createForAdmin(
-    admin: AuthenticatedAdmin,
+    admin: AuthenticatedAgencyUser,
     organizationId: string,
     dto: CreateProjectForAdminDto,
   ) {
+    if (!this.agencyAccess.isCoreTeam(admin)) {
+      throw new ForbiddenException('Only core team can create projects')
+    }
     const recipientUserIds = [...new Set(dto.recipientUserIds ?? [])]
     const inviteEmails = [
       ...new Set(
@@ -1066,6 +1205,7 @@ export class ProjectsService {
     })
 
     await this.ensureProgressThread(project.id, admin.id)
+    await this.ensureInternalThread(project.id, admin.id)
 
     const portalActions = {
       notifiedActiveCount: 0,
@@ -1233,7 +1373,14 @@ export class ProjectsService {
     })
   }
 
-  async approveProject(admin: AuthenticatedAdmin, organizationId: string, projectId: string) {
+  async approveProject(
+    admin: AuthenticatedAgencyUser,
+    organizationId: string,
+    projectId: string,
+  ) {
+    if (!this.agencyAccess.isCoreTeam(admin)) {
+      throw new ForbiddenException('Only core team can approve projects')
+    }
     const project = await this.prisma.clientProject.findFirst({
       where: { id: projectId, organizationId },
       include: { organization: { select: { id: true, name: true } } },
@@ -1271,6 +1418,7 @@ export class ProjectsService {
     })
 
     await this.ensureProgressThread(projectId, admin.id)
+    await this.ensureInternalThread(projectId, admin.id)
 
     const portalLink = this.notifications.clientProjectLink(projectId)
     const emailContent = this.mail.buildProjectApprovedEmail({
@@ -1291,7 +1439,14 @@ export class ProjectsService {
     return this.serializeProjectWithCover(updated)
   }
 
-  async updateProject(admin: AuthenticatedAdmin, projectId: string, dto: UpdateProjectDto) {
+  async updateProject(
+    admin: AuthenticatedAgencyUser,
+    projectId: string,
+    dto: UpdateProjectDto,
+  ) {
+    if (!this.agencyAccess.isCoreTeam(admin)) {
+      throw new ForbiddenException('Only core team can update project settings')
+    }
     await this.getProjectById(projectId)
 
     const data: Prisma.ClientProjectUpdateInput = {
@@ -1358,10 +1513,13 @@ export class ProjectsService {
   }
 
   async sendProgressCheckpoint(
-    admin: AuthenticatedAdmin,
+    admin: AuthenticatedAgencyUser,
     projectId: string,
     dto: CreateCheckpointDto,
   ) {
+    if (!this.agencyAccess.isCoreTeam(admin)) {
+      throw new ForbiddenException('Only core team can send progress checkpoints')
+    }
     const project = await this.getProjectById(projectId)
     if (project.status !== ClientProjectStatus.ACTIVE) {
       throw new BadRequestException('Checkpoints require an active project')
@@ -1465,19 +1623,14 @@ export class ProjectsService {
   }
 
   async resolveCancellation(
-    admin: AuthenticatedAdmin,
+    admin: AuthenticatedAgencyUser,
     requestId: string,
     dto: ResolveCancellationDto,
   ) {
-    const request = await this.prisma.projectRequest.findUnique({
-      where: { id: requestId },
-      include: {
-        project: {
-          include: { organization: { select: { id: true, name: true } } },
-        },
-      },
-    })
-    if (!request) throw new NotFoundException('Request not found')
+    if (!this.agencyAccess.isCoreTeam(admin)) {
+      throw new ForbiddenException('Only core team can resolve cancellations')
+    }
+    const request = await this.getRequestForActor(requestId, admin)
     if (request.type !== ProjectRequestType.CANCELLATION) {
       throw new BadRequestException('Not a cancellation request')
     }
@@ -1557,7 +1710,7 @@ export class ProjectsService {
   }
 
   async addRequestMessage(
-    actor: AuthenticatedAdmin | AuthenticatedClient,
+    actor: AuthenticatedAgencyUser | AuthenticatedClient,
     requestId: string,
     dto: CreateRequestMessageDto,
   ) {
@@ -1572,9 +1725,15 @@ export class ProjectsService {
     }
 
     const isClient = 'organization' in actor && Boolean(actor.organization)
+    if (!isClient) {
+      await this.agencyAccess.assertCanPostToRequest(actor, request.type)
+    }
+
     const authorRole = isClient
       ? ProjectMessageAuthorRole.CLIENT
-      : ProjectMessageAuthorRole.ADMIN
+      : isCollaboratorRole(actor.role)
+        ? ProjectMessageAuthorRole.COLLABORATOR
+        : ProjectMessageAuthorRole.ADMIN
 
     const message = await this.prisma.projectRequestMessage.create({
       data: {
@@ -1593,6 +1752,7 @@ export class ProjectsService {
       message.id,
       request.projectId,
       dto.attachmentIds,
+      request.type,
     )
 
     const messageWithAttachments =
@@ -1641,7 +1801,7 @@ export class ProjectsService {
           actionLink: adminLink,
         },
       })
-    } else {
+    } else if (request.type !== ProjectRequestType.INTERNAL) {
       await this.notifications.notifyOrgClients({
         organizationId: request.project.organizationId,
         type: PortalNotificationType.REQUEST_MESSAGE,
@@ -1672,19 +1832,16 @@ export class ProjectsService {
   }
 
   async updateRequest(
-    actor: AuthenticatedAdmin | AuthenticatedClient,
+    actor: AuthenticatedAgencyUser | AuthenticatedClient,
     requestId: string,
     dto: UpdateRequestDto,
   ) {
-    const request = await this.prisma.projectRequest.findUnique({
-      where: { id: requestId },
-      include: {
-        project: {
-          include: { organization: { select: { id: true, name: true } } },
-        },
-      },
-    })
-    if (!request) throw new NotFoundException('Request not found')
+    const request = await this.getRequestForActor(requestId, actor)
+    if (!('organization' in actor) || !actor.organization) {
+      if (!this.agencyAccess.isCoreTeam(actor)) {
+        throw new ForbiddenException('Only core team can update request status')
+      }
+    }
 
     const terminal: ProjectRequestStatus[] = [
       ProjectRequestStatus.RESOLVED,
@@ -1769,7 +1926,12 @@ export class ProjectsService {
     })
   }
 
-  async createUploadUrlForAdmin(projectId: string, dto: UploadUrlDto) {
+  async createUploadUrlForAdmin(
+    actor: AuthenticatedAgencyUser,
+    projectId: string,
+    dto: UploadUrlDto,
+  ) {
+    await this.agencyAccess.assertCanAccessProject(actor, projectId)
     const project = await this.getProjectById(projectId)
     return this.storage.createUploadUrl({
       organizationId: project.organizationId,
@@ -1807,6 +1969,7 @@ export class ProjectsService {
         fileName: dto.fileName,
         mimeType: dto.mimeType,
         sizeBytes: dto.sizeBytes,
+        visibility: ProjectAttachmentVisibility.CLIENT,
         uploadedByUserId: client.id,
       },
     })
@@ -1823,10 +1986,11 @@ export class ProjectsService {
   }
 
   async registerAttachmentForAdmin(
-    admin: AuthenticatedAdmin,
+    admin: AuthenticatedAgencyUser,
     projectId: string,
     dto: RegisterAttachmentDto,
   ) {
+    await this.agencyAccess.assertCanAccessProject(admin, projectId)
     const project = await this.getProjectById(projectId)
     this.storage.assertPathBelongsToProject(
       dto.storagePath,
@@ -1834,11 +1998,27 @@ export class ProjectsService {
       project.id,
     )
 
+    const isCollaborator = !this.agencyAccess.isCoreTeam(admin)
+    let visibility =
+      dto.visibility ?? ProjectAttachmentVisibility.CLIENT
+
     if (dto.requestId) {
       const req = await this.prisma.projectRequest.findFirst({
         where: { id: dto.requestId, projectId: project.id },
       })
       if (!req) throw new NotFoundException('Request not found')
+      if (isCollaborator && req.type !== ProjectRequestType.INTERNAL) {
+        throw new ForbiddenException(
+          'Collaborators can only attach files to the team review thread',
+        )
+      }
+      if (req.type === ProjectRequestType.INTERNAL) {
+        visibility = ProjectAttachmentVisibility.INTERNAL
+      }
+    }
+
+    if (isCollaborator) {
+      visibility = ProjectAttachmentVisibility.INTERNAL
     }
 
     const row = await this.prisma.projectAttachment.create({
@@ -1849,6 +2029,7 @@ export class ProjectsService {
         fileName: dto.fileName,
         mimeType: dto.mimeType,
         sizeBytes: dto.sizeBytes,
+        visibility,
         uploadedByUserId: admin.id,
       },
     })
@@ -1875,7 +2056,10 @@ export class ProjectsService {
       select: { id: true, title: true },
       orderBy: { updatedAt: 'desc' },
     })
-    return this.listFilesForProjects(projects, options)
+    return this.listFilesForProjects(projects, {
+      ...options,
+      visibility: ProjectAttachmentVisibility.CLIENT,
+    })
   }
 
   async listFilesForProjectClient(
@@ -1886,14 +2070,28 @@ export class ProjectsService {
     const project = await this.getProjectForClient(client, projectId)
     return this.listFilesForProjects(
       [{ id: project.id, title: project.title }],
-      { ...options, projectId: project.id },
+      {
+        ...options,
+        projectId: project.id,
+        visibility: ProjectAttachmentVisibility.CLIENT,
+      },
     )
   }
 
   async listFilesLibraryForAdmin(
+    actor: AuthenticatedAgencyUser,
     organizationId: string,
-    options?: { projectId?: string; q?: string; cursor?: string; limit?: number },
+    options?: {
+      projectId?: string
+      q?: string
+      cursor?: string
+      limit?: number
+      visibility?: ProjectAttachmentVisibility
+    },
   ) {
+    if (!this.agencyAccess.isCoreTeam(actor)) {
+      throw new ForbiddenException('Organization files require core team access')
+    }
     const projects = await this.prisma.clientProject.findMany({
       where: { organizationId },
       select: { id: true, title: true },
@@ -1903,9 +2101,16 @@ export class ProjectsService {
   }
 
   async listFilesForProjectAdmin(
+    actor: AuthenticatedAgencyUser,
     projectId: string,
-    options?: { q?: string; cursor?: string; limit?: number },
+    options?: {
+      q?: string
+      cursor?: string
+      limit?: number
+      visibility?: ProjectAttachmentVisibility
+    },
   ) {
+    await this.agencyAccess.assertCanAccessProject(actor, projectId)
     const project = await this.getProjectById(projectId)
     return this.listFilesForProjects(
       [{ id: project.id, title: project.title }],
@@ -1914,7 +2119,7 @@ export class ProjectsService {
   }
 
   async getAttachmentDownloadUrl(
-    actor: AuthenticatedClient | AuthenticatedAdmin,
+    actor: AuthenticatedClient | AuthenticatedAgencyUser,
     attachmentId: string,
   ) {
     const attachment = await this.prisma.projectAttachment.findUnique({
@@ -1924,11 +2129,16 @@ export class ProjectsService {
     if (!attachment) throw new NotFoundException('Attachment not found')
 
     if ('organization' in actor && actor.organization) {
+      if (attachment.visibility === ProjectAttachmentVisibility.INTERNAL) {
+        throw new NotFoundException('Attachment not found')
+      }
       await this.clientAccess.assertProjectAccess(
         actor,
         attachment.projectId,
         'VIEW',
       )
+    } else {
+      await this.agencyAccess.assertCanAccessProject(actor, attachment.projectId)
     }
 
     const signed = await this.storage.createDownloadUrl(attachment.storagePath)

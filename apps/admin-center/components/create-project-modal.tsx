@@ -417,7 +417,7 @@ export default function CreateProjectModal({
               rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="admin-input mt-1 w-full resize-y"
+              className="admin-textarea mt-1 w-full resize-y"
               placeholder="Goals, scope, and context for the team…"
               disabled={needsClientPicker && !effectiveOrganizationId}
             />

@@ -3,40 +3,56 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { getSupabasePublicEnv, isSupabaseConfigured } from '@/lib/supabase/env'
 import { createSupabaseServerClientWithCookies } from '@/lib/supabase/create-server-client'
 
-const publicPaths = ['/login', '/auth/callback', '/auth/signout']
+const publicPaths = ['/login', '/auth/callback', '/auth/signout', '/collaborate/login']
 
 const apiBase = () =>
   process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
-type AdminAccessResult =
-  | 'ok'
-  | 'forbidden'
-  | 'unauthorized'
-  | 'suspended'
-  | 'unavailable'
+const hubPaths = [
+  '/',
+  '/project-center',
+  '/clients',
+  '/client-access',
+  '/team',
+  '/profile',
+  '/settings',
+]
 
-async function verifyAdminAccess(accessToken: string): Promise<AdminAccessResult> {
+type SessionRole = 'SUPER_ADMIN' | 'ADMIN' | 'COLLABORATOR' | 'api_key' | null
+
+type AdminAccessResult =
+  | { status: 'ok'; role: SessionRole }
+  | { status: 'unauthorized' }
+  | { status: 'forbidden' }
+  | { status: 'suspended' }
+  | { status: 'unavailable' }
+
+async function verifyAgencyAccess(accessToken: string): Promise<AdminAccessResult> {
   try {
     const response = await fetch(`${apiBase()}/auth/admin/me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
       cache: 'no-store',
     })
-    if (response.status === 401) return 'unauthorized'
+    if (response.status === 401) return { status: 'unauthorized' }
     if (response.status === 403) {
       const body = (await response.json().catch(() => null)) as { message?: string } | null
       const message = typeof body?.message === 'string' ? body.message : ''
-      if (/suspended/i.test(message)) return 'suspended'
-      return 'forbidden'
+      if (/suspended/i.test(message)) return { status: 'suspended' }
+      return { status: 'forbidden' }
     }
-    if (response.status === 404) return 'unavailable'
-    if (!response.ok) return 'unavailable'
-    return 'ok'
+    if (response.status === 404) return { status: 'unavailable' }
+    if (!response.ok) return { status: 'unavailable' }
+    const body = (await response.json()) as {
+      mode?: string
+      admin?: { role?: SessionRole }
+    }
+    if (body.mode === 'api_key') return { status: 'ok', role: 'api_key' }
+    return { status: 'ok', role: body.admin?.role ?? null }
   } catch {
-    return 'unavailable'
+    return { status: 'unavailable' }
   }
 }
 
-/** Keep Supabase session cookies when redirecting (required after getUser() refresh). */
 function redirectWithCookies(baseResponse: NextResponse, url: URL): NextResponse {
   return NextResponse.redirect(url, { headers: baseResponse.headers })
 }
@@ -46,10 +62,11 @@ function loginRedirect(
   baseResponse: NextResponse,
   error: string,
   nextPath?: string,
+  loginPath = '/login',
 ): NextResponse {
-  const loginUrl = new URL('/login', request.url)
+  const loginUrl = new URL(loginPath, request.url)
   loginUrl.searchParams.set('error', error)
-  if (nextPath && nextPath !== '/login') {
+  if (nextPath && nextPath !== loginPath) {
     loginUrl.searchParams.set('next', nextPath)
   }
   return redirectWithCookies(baseResponse, loginUrl)
@@ -63,6 +80,13 @@ function signOutRedirect(
   const signOutUrl = new URL('/auth/signout', request.url)
   signOutUrl.searchParams.set('error', error)
   return redirectWithCookies(baseResponse, signOutUrl)
+}
+
+function isHubPath(pathname: string): boolean {
+  if (pathname === '/') return true
+  return hubPaths.some(
+    (path) => path !== '/' && (pathname === path || pathname.startsWith(`${path}/`)),
+  )
 }
 
 export async function middleware(request: NextRequest) {
@@ -106,25 +130,31 @@ export async function middleware(request: NextRequest) {
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData.session?.access_token ?? null
 
-  // BFF routes return JSON errors — do not redirect HTML navigations to /login.
   if (pathname.startsWith('/api/')) {
     return response
   }
 
   if (publicPaths.some((path) => pathname.startsWith(path))) {
     if (user && pathname.startsWith('/login') && accessToken) {
-      const access = await verifyAdminAccess(accessToken)
-      if (access === 'ok') {
-        const next = request.nextUrl.searchParams.get('next') ?? '/'
-        return redirectWithCookies(response, new URL(next, request.url))
+      const access = await verifyAgencyAccess(accessToken)
+      if (access.status === 'ok') {
+        const next = request.nextUrl.searchParams.get('next')
+        if (access.role === 'COLLABORATOR') {
+          const target = next?.startsWith('/collaborate')
+            ? next
+            : '/collaborate'
+          return redirectWithCookies(response, new URL(target, request.url))
+        }
+        const target = next ?? '/'
+        return redirectWithCookies(response, new URL(target, request.url))
       }
-      if (access === 'unauthorized') {
+      if (access.status === 'unauthorized') {
         return signOutRedirect(request, response, 'session_expired')
       }
-      if (access === 'suspended') {
+      if (access.status === 'suspended') {
         return signOutRedirect(request, response, 'admin_suspended')
       }
-      if (access === 'forbidden') {
+      if (access.status === 'forbidden') {
         return signOutRedirect(request, response, 'admin_required')
       }
     }
@@ -132,19 +162,37 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!user) {
-    return loginRedirect(request, response, 'auth', pathname)
+    const loginPath = pathname.startsWith('/collaborate') ? '/collaborate/login' : '/login'
+    return loginRedirect(request, response, 'auth', pathname, loginPath)
   }
 
   if (accessToken) {
-    const access = await verifyAdminAccess(accessToken)
-    if (access === 'unauthorized') {
+    const access = await verifyAgencyAccess(accessToken)
+    if (access.status === 'unauthorized') {
       return signOutRedirect(request, response, 'session_expired')
     }
-    if (access === 'forbidden') {
+    if (access.status === 'forbidden') {
       return signOutRedirect(request, response, 'admin_required')
     }
-    if (access === 'suspended') {
+    if (access.status === 'suspended') {
       return signOutRedirect(request, response, 'admin_suspended')
+    }
+
+    if (access.status === 'ok' && access.role === 'COLLABORATOR') {
+      if (isHubPath(pathname)) {
+        return redirectWithCookies(response, new URL('/collaborate', request.url))
+      }
+      if (!pathname.startsWith('/collaborate')) {
+        return redirectWithCookies(response, new URL('/collaborate', request.url))
+      }
+    }
+
+    if (
+      access.status === 'ok' &&
+      (access.role === 'SUPER_ADMIN' || access.role === 'ADMIN' || access.role === 'api_key') &&
+      pathname.startsWith('/collaborate')
+    ) {
+      return redirectWithCookies(response, new URL('/', request.url))
     }
   }
 

@@ -1,4 +1,5 @@
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator'
+import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator'
+import { ProjectAttachmentVisibility } from '@cocreate/database'
 
 export class RegisterAttachmentDto {
   @IsString()
@@ -24,4 +25,8 @@ export class RegisterAttachmentDto {
   @IsOptional()
   @IsString()
   requestId?: string
+
+  @IsOptional()
+  @IsEnum(ProjectAttachmentVisibility)
+  visibility?: ProjectAttachmentVisibility
 }

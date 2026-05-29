@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { Menu } from 'lucide-react'
 import AdminSidebar from '@/components/admin-sidebar'
+import CollaborateShell from '@/components/collaborate-shell'
 import {
   AdminAccessBanner,
   AdminSessionProvider,
@@ -14,10 +15,22 @@ import {
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const isAuthRoute =
-    pathname.startsWith('/login') || pathname.startsWith('/auth')
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/collaborate/login')
+  const isCollaborateRoute =
+    pathname.startsWith('/collaborate') && !pathname.startsWith('/collaborate/login')
 
   if (isAuthRoute) {
     return <>{children}</>
+  }
+
+  if (isCollaborateRoute) {
+    return (
+      <AdminSessionProvider>
+        <CollaborateShell>{children}</CollaborateShell>
+      </AdminSessionProvider>
+    )
   }
 
   return (
@@ -43,7 +56,7 @@ function AdminShellChrome({ children }: { children: React.ReactNode }) {
   }, [menuOpen])
 
   return (
-    <div className="flex min-h-svh">
+    <div className="flex h-svh overflow-hidden">
       {menuOpen ? (
         <button
           type="button"
@@ -82,7 +95,7 @@ function AdminShellChrome({ children }: { children: React.ReactNode }) {
         </Suspense>
       </aside>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <header className="admin-surface sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden">
           <button
             type="button"

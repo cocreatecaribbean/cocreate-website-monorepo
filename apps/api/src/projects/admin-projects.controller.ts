@@ -25,6 +25,7 @@ import { UpdateRequestDto } from './dto/update-request.dto'
 import { UploadUrlDto } from './dto/upload-url.dto'
 import { CreateProjectForAdminDto } from './dto/create-project-for-admin.dto'
 import { ProjectsService } from './projects.service'
+import { ProjectAttachmentVisibility } from '@cocreate/database'
 
 @Controller('admin')
 @UseGuards(AdminAuthGuard)
@@ -34,14 +35,19 @@ export class AdminProjectsController {
     private readonly brandAssets: OrganizationBrandAssetsService,
   ) {}
 
+  private actor(req: AdminRequest) {
+    if (!req.adminUser) throw new UnauthorizedException('Session required')
+    return req.adminUser
+  }
+
   @Get('projects')
-  listAllProjects() {
-    return this.projects.listAllForAdmin()
+  listAllProjects(@Req() req: AdminRequest) {
+    return this.projects.listAllForAdmin(this.actor(req))
   }
 
   @Get('projects/:id')
-  getProject(@Param('id') id: string) {
-    return this.projects.getForAdmin(id)
+  getProject(@Req() req: AdminRequest, @Param('id') id: string) {
+    return this.projects.getForAdmin(this.actor(req), id)
   }
 
   @Patch('projects/:id')
@@ -50,8 +56,7 @@ export class AdminProjectsController {
     @Param('id') id: string,
     @Body() dto: UpdateProjectDto,
   ) {
-    if (!req.adminUser) throw new UnauthorizedException('Admin session required')
-    return this.projects.updateProject(req.adminUser, id, dto)
+    return this.projects.updateProject(this.actor(req), id, dto)
   }
 
   @Post('projects/:id/review-requests')
@@ -60,10 +65,7 @@ export class AdminProjectsController {
     @Param('id') id: string,
     @Body() dto: CreateCheckpointDto,
   ) {
-    if (!req.adminUser) {
-      throw new Error('Admin user required for review requests')
-    }
-    return this.projects.sendProgressCheckpoint(req.adminUser, id, dto)
+    return this.projects.sendProgressCheckpoint(this.actor(req), id, dto)
   }
 
   @Post('projects/:id/checkpoints')
@@ -72,13 +74,16 @@ export class AdminProjectsController {
     @Param('id') id: string,
     @Body() dto: CreateCheckpointDto,
   ) {
-    if (!req.adminUser) throw new UnauthorizedException('Admin session required')
-    return this.projects.sendProgressCheckpoint(req.adminUser, id, dto)
+    return this.projects.sendProgressCheckpoint(this.actor(req), id, dto)
   }
 
   @Post('projects/:id/attachments/upload-url')
-  uploadUrl(@Param('id') id: string, @Body() dto: UploadUrlDto) {
-    return this.projects.createUploadUrlForAdmin(id, dto)
+  uploadUrl(
+    @Req() req: AdminRequest,
+    @Param('id') id: string,
+    @Body() dto: UploadUrlDto,
+  ) {
+    return this.projects.createUploadUrlForAdmin(this.actor(req), id, dto)
   }
 
   @Post('projects/:id/attachments')
@@ -87,10 +92,7 @@ export class AdminProjectsController {
     @Param('id') id: string,
     @Body() dto: RegisterAttachmentDto,
   ) {
-    if (!req.adminUser) {
-      throw new Error('Admin user required')
-    }
-    return this.projects.registerAttachmentForAdmin(req.adminUser, id, dto)
+    return this.projects.registerAttachmentForAdmin(this.actor(req), id, dto)
   }
 
   @Get('organizations/:organizationId/brand-assets')
@@ -128,31 +130,37 @@ export class AdminProjectsController {
 
   @Get('organizations/:organizationId/files/library')
   listFilesLibrary(
+    @Req() req: AdminRequest,
     @Param('organizationId') organizationId: string,
     @Query('projectId') projectId?: string,
     @Query('q') q?: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
+    @Query('visibility') visibility?: string,
   ) {
-    return this.projects.listFilesLibraryForAdmin(organizationId, {
+    return this.projects.listFilesLibraryForAdmin(this.actor(req), organizationId, {
       projectId,
       q,
       cursor,
       limit: limit ? Number(limit) : undefined,
+      visibility: visibility as ProjectAttachmentVisibility | undefined,
     })
   }
 
   @Get('projects/:id/files')
   listProjectFiles(
+    @Req() req: AdminRequest,
     @Param('id') id: string,
     @Query('q') q?: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
+    @Query('visibility') visibility?: string,
   ) {
-    return this.projects.listFilesForProjectAdmin(id, {
+    return this.projects.listFilesForProjectAdmin(this.actor(req), id, {
       q,
       cursor,
       limit: limit ? Number(limit) : undefined,
+      visibility: visibility as ProjectAttachmentVisibility | undefined,
     })
   }
 
@@ -161,10 +169,7 @@ export class AdminProjectsController {
     @Req() req: AdminRequest,
     @Param('attachmentId') attachmentId: string,
   ) {
-    if (!req.adminUser) {
-      throw new Error('Admin user required')
-    }
-    return this.projects.getAttachmentDownloadUrl(req.adminUser, attachmentId)
+    return this.projects.getAttachmentDownloadUrl(this.actor(req), attachmentId)
   }
 
   @Get('project-requests/:requestId')
@@ -172,8 +177,7 @@ export class AdminProjectsController {
     @Req() req: AdminRequest,
     @Param('requestId') requestId: string,
   ) {
-    if (!req.adminUser) throw new UnauthorizedException('Admin session required')
-    return this.projects.getRequestThread(req.adminUser, requestId)
+    return this.projects.getRequestThread(this.actor(req), requestId)
   }
 
   @Get('project-requests/:requestId/realtime')
@@ -181,8 +185,7 @@ export class AdminProjectsController {
     @Req() req: AdminRequest,
     @Param('requestId') requestId: string,
   ) {
-    if (!req.adminUser) throw new UnauthorizedException('Admin session required')
-    return this.projects.authorizeThreadRealtime(req.adminUser, requestId)
+    return this.projects.authorizeThreadRealtime(this.actor(req), requestId)
   }
 
   @Post('project-requests/:requestId/messages')
@@ -191,8 +194,7 @@ export class AdminProjectsController {
     @Param('requestId') requestId: string,
     @Body() dto: CreateRequestMessageDto,
   ) {
-    if (!req.adminUser) throw new UnauthorizedException('Admin session required')
-    return this.projects.addRequestMessage(req.adminUser, requestId, dto)
+    return this.projects.addRequestMessage(this.actor(req), requestId, dto)
   }
 
   @Patch('project-requests/:requestId')
@@ -201,10 +203,7 @@ export class AdminProjectsController {
     @Param('requestId') requestId: string,
     @Body() dto: UpdateRequestDto,
   ) {
-    if (!req.adminUser) {
-      throw new Error('Admin user required')
-    }
-    return this.projects.updateRequest(req.adminUser, requestId, dto)
+    return this.projects.updateRequest(this.actor(req), requestId, dto)
   }
 
   @Post('project-requests/:requestId/resolve-cancellation')
@@ -213,8 +212,7 @@ export class AdminProjectsController {
     @Param('requestId') requestId: string,
     @Body() dto: ResolveCancellationDto,
   ) {
-    if (!req.adminUser) throw new UnauthorizedException('Admin session required')
-    return this.projects.resolveCancellation(req.adminUser, requestId, dto)
+    return this.projects.resolveCancellation(this.actor(req), requestId, dto)
   }
 
   @Get('clients/:organizationId/portal-status')
@@ -223,8 +221,11 @@ export class AdminProjectsController {
   }
 
   @Get('clients/:organizationId/projects')
-  listOrgProjects(@Param('organizationId') organizationId: string) {
-    return this.projects.listForOrganization(organizationId)
+  listOrgProjects(
+    @Req() req: AdminRequest,
+    @Param('organizationId') organizationId: string,
+  ) {
+    return this.projects.listForOrganization(this.actor(req), organizationId)
   }
 
   @Post('clients/:organizationId/projects')
@@ -233,8 +234,7 @@ export class AdminProjectsController {
     @Param('organizationId') organizationId: string,
     @Body() dto: CreateProjectForAdminDto,
   ) {
-    if (!req.adminUser) throw new UnauthorizedException('Admin session required')
-    return this.projects.createForAdmin(req.adminUser, organizationId, dto)
+    return this.projects.createForAdmin(this.actor(req), organizationId, dto)
   }
 
   @Get('clients/:organizationId/inbox')
@@ -247,8 +247,7 @@ export class AdminProjectsController {
     @Req() req: AdminRequest,
     @Param('organizationId') organizationId: string,
   ) {
-    if (!req.adminUser) throw new UnauthorizedException('Admin session required')
-    return this.projects.unreadInboxCountForAdmin(req.adminUser, organizationId)
+    return this.projects.unreadInboxCountForAdmin(this.actor(req), organizationId)
   }
 
   @Post('clients/:organizationId/inbox/mark-read')
@@ -257,9 +256,8 @@ export class AdminProjectsController {
     @Param('organizationId') organizationId: string,
     @Body() dto: MarkInboxReadDto,
   ) {
-    if (!req.adminUser) throw new UnauthorizedException('Admin session required')
     return this.projects.markInboxReadForAdmin(
-      req.adminUser,
+      this.actor(req),
       organizationId,
       dto.requestId,
     )
@@ -276,9 +274,6 @@ export class AdminProjectsController {
     @Param('organizationId') organizationId: string,
     @Param('projectId') projectId: string,
   ) {
-    if (!req.adminUser) {
-      throw new Error('Admin user required to approve projects')
-    }
-    return this.projects.approveProject(req.adminUser, organizationId, projectId)
+    return this.projects.approveProject(this.actor(req), organizationId, projectId)
   }
 }

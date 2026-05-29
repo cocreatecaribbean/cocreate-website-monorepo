@@ -49,7 +49,10 @@ export async function completeAuthCallback(request: NextRequest) {
   const next = safeNextPath(searchParams.get('next'))
 
   const successUrl = new URL(next, origin)
-  const failUrl = new URL('/login?error=auth', origin)
+  const failPath = next.startsWith('/collaborate')
+    ? '/collaborate/login?error=auth'
+    : '/login?error=auth'
+  const failUrl = new URL(failPath, origin)
 
   const { supabase, response } = createSupabaseRouteHandlerClient(
     request,
