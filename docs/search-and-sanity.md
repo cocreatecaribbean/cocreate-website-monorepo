@@ -18,15 +18,24 @@ GROQ query stubs live in `apps/web/sanity/lib/queries.ts` for when Work/Original
 
 - Index: `apps/web/lib/search/site-search.ts` (work and originals from Sanity via `fetchWorkProjectPreviews` / `fetchOriginalPreviews`; empty when Sanity is unavailable or has no published documents)
 - API: `GET /api/search?q=...&limit=12`
-- UI: search overlay with live results (categories, clients, work projects, originals)
-- Project pages: `/work/[slug]` with sidebar headline layout
+- Suggestions API: `GET /api/search/suggestions?limit=8` (clients + tags when the overlay opens)
+- UI: search overlay with live results (categories, tags, clients, work projects, originals)
+- Project pages: `/work/[slug]` with sidebar headline layout and tag chips
 
-### Client filter on Work
+### Filters on Work
 
-- URL: `/work?client={clientSlug}` (e.g. `/work?client=proven`) or `/work?category=digital`
+- URL: `/work?client={clientSlug}` (e.g. `/work?client=proven`), `/work?category=digital`, or `/work?tag={tagSlug}`
 - Project URL: `/work/{projectSlug}` (e.g. `/work/proven`)
-- Slug derived from client display name (`toClientSlug` in `apps/web/lib/client-slug.ts`)
-- Clicking a **client** result in search opens all projects for that client
+- Client slug: `toClientSlug` in `apps/web/lib/client-slug.ts`
+- Tag slug: `toTagSlug` in `apps/web/lib/tag-slug.ts`
+- Clicking a **client** or **tag** in search opens the matching filtered work index
+
+### Tags
+
+- Sanity field: `workProject.tags` (string array)
+- Project detail sidebar: linked tag chips (`ProjectTags`)
+- Search matches tag names on projects and surfaces dedicated tag results
+- Empty search overlay shows client and tag suggestions from published projects
 
 ## Content sources
 

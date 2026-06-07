@@ -7,17 +7,20 @@ import { cn } from '@/utils/tailwind-helpers'
 type WorkPageHeaderProps = {
   clientFilterName?: string | null
   categoryFilterName?: string | null
+  tagFilterName?: string | null
 }
 
 export default function WorkPageHeader({
   clientFilterName,
   categoryFilterName,
+  tagFilterName,
 }: WorkPageHeaderProps) {
   const title = getWorkPageTitle({
     clientName: clientFilterName,
     categoryName: categoryFilterName,
+    tagName: tagFilterName,
   })
-  const isFiltered = Boolean(clientFilterName ?? categoryFilterName)
+  const isFiltered = Boolean(clientFilterName ?? categoryFilterName ?? tagFilterName)
 
   return (
     <section className="work-page-header mx-auto mb-8 flex w-[88svw] max-w-[1320px] flex-col text-black min-[1024px]:mb-12 min-[1500px]:mb-16">

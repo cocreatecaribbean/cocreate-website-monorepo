@@ -12,12 +12,14 @@ type WorkPageContentProps = {
   items: ProjectPreview[]
   clientName?: string | null
   categoryName?: WorkProjectCategory | null
+  tagName?: string | null
 }
 
 export default function WorkPageContent({
   items,
   clientName = null,
   categoryName = null,
+  tagName = null,
 }: WorkPageContentProps) {
   const sectionRef = useRef<HTMLElement>(null)
   const pathname = usePathname()
@@ -25,13 +27,14 @@ export default function WorkPageContent({
   const revealKey = `${pathname}?${searchParams.toString()}`
   useWorkPageAnimation({ scope: sectionRef, revealKey })
 
-  const isFiltered = Boolean(clientName || categoryName)
+  const isFiltered = Boolean(clientName || categoryName || tagName)
 
   return (
     <section ref={sectionRef} className="work-page-content">
       <WorkPageHeader
         clientFilterName={clientName}
         categoryFilterName={categoryName}
+        tagFilterName={tagName}
       />
       {isFiltered && items.length === 0 ? (
         <p className="mx-auto w-[88svw] max-w-[1320px] text-center text-lg text-slate-600">

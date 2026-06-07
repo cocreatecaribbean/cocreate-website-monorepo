@@ -58,6 +58,8 @@ export type ProjectPreview = {
   featured?: boolean
   /** Hero reel playback ID when present on this project */
   heroReelPlaybackId?: string
+  /** Sanity tags for search and project detail chips */
+  tags?: string[]
 }
 
 export type WorkProjectDetail = ProjectPreview & {
@@ -85,7 +87,7 @@ export type OriginalPreview = {
   href?: string
 }
 
-export type SearchResultKind = 'client' | 'project' | 'original' | 'category'
+export type SearchResultKind = 'client' | 'project' | 'original' | 'category' | 'tag'
 
 export type SearchResult = {
   id: string

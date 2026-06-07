@@ -20,6 +20,7 @@ type SanityWorkProjectRow = {
   category?: WorkProjectCategory | null
   featured?: boolean | null
   heroReelPlaybackId?: string | null
+  tags?: string[] | null
   projectVideos?: SanityProjectVideoRow[] | null
   caseStudy?: unknown[] | null
   gallery?: GalleryImage[] | null
@@ -80,6 +81,7 @@ export function mapSanityWorkProjectToPreview(row: SanityWorkProjectRow): Projec
     href: workProjectPath(slug),
     featured: row.featured ?? false,
     heroReelPlaybackId: row.heroReelPlaybackId ?? undefined,
+    tags: row.tags?.filter(Boolean) ?? undefined,
   }
 }
 

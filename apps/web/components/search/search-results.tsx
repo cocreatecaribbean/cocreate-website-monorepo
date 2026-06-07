@@ -7,6 +7,7 @@ import * as fonts from '@/styles/fonts'
 const KIND_LABEL: Record<SearchResultKind, string> = {
   client: 'Clients',
   category: 'Categories',
+  tag: 'Tags',
   project: 'Work',
   original: 'Originals',
 }
@@ -16,11 +17,12 @@ type SearchResultsProps = {
   loading: boolean
   query: string
   onSelect: () => void
+  emptyMessage?: string
 }
 
 function groupResults(results: SearchResult[]) {
   const groups: { kind: SearchResultKind; items: SearchResult[] }[] = []
-  const order: SearchResultKind[] = ['category', 'client', 'project', 'original']
+  const order: SearchResultKind[] = ['category', 'tag', 'client', 'project', 'original']
 
   for (const kind of order) {
     const items = results.filter((r) => r.kind === kind)
@@ -35,20 +37,34 @@ export default function SearchResults({
   loading,
   query,
   onSelect,
+  emptyMessage,
 }: SearchResultsProps) {
   const trimmed = query.trim()
+  const isSuggestionMode = trimmed.length < 2
 
-  if (trimmed.length < 2) {
+  if (isSuggestionMode && loading) {
     return (
       <p
-        className={`w-full text-center text-sm text-white/70 ${fonts.bricolage_grot400.className}`}
+        className={`w-full text-center text-sm text-white/80 ${fonts.bricolage_grot400.className}`}
+        aria-live="polite"
       >
-        Type at least 2 characters to search work, clients, categories, and originals.
+        Loading suggestions…
       </p>
     )
   }
 
-  if (loading) {
+  if (isSuggestionMode && results.length === 0) {
+    return (
+      <p
+        className={`w-full text-center text-sm text-white/70 ${fonts.bricolage_grot400.className}`}
+      >
+        {emptyMessage ??
+          'Type at least 2 characters to search work, clients, categories, tags, and originals.'}
+      </p>
+    )
+  }
+
+  if (!isSuggestionMode && loading) {
     return (
       <p
         className={`w-full text-center text-sm text-white/80 ${fonts.bricolage_grot400.className}`}
@@ -59,7 +75,7 @@ export default function SearchResults({
     )
   }
 
-  if (results.length === 0) {
+  if (!isSuggestionMode && results.length === 0) {
     return (
       <p
         className={`w-full text-center text-sm text-white/80 ${fonts.bricolage_grot400.className}`}
@@ -79,7 +95,7 @@ export default function SearchResults({
         ${fonts.bricolage_grot400.className}
       `}
       role="listbox"
-      aria-label="Search results"
+      aria-label={isSuggestionMode ? 'Search suggestions' : 'Search results'}
     >
       {groups.map(({ kind, items }) => (
         <div key={kind} className="mb-2 last:mb-0">

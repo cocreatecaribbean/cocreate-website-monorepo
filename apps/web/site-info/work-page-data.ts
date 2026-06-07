@@ -10,11 +10,19 @@ export type WorkPageTitle =
 export function getWorkPageTitle(options?: {
   clientName?: string | null
   categoryName?: string | null
+  tagName?: string | null
 }): WorkPageTitle {
   if (options?.clientName) {
     return {
       variant: 'filter',
       text: `${options.clientName} Projects`,
+    }
+  }
+
+  if (options?.tagName) {
+    return {
+      variant: 'filter',
+      text: `${options.tagName} Projects`,
     }
   }
 

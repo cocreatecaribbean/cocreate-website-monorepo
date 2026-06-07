@@ -20,7 +20,9 @@ export default function SearchOverlay() {
   const [mounted, setMounted] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
+  const [suggestions, setSuggestions] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -53,8 +55,39 @@ export default function SearchOverlay() {
     if (!isOpen) {
       setQuery('')
       setResults([])
+      setSuggestions([])
       setLoading(false)
+      setSuggestionsLoading(false)
     }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const controller = new AbortController()
+    setSuggestionsLoading(true)
+
+    void (async () => {
+      try {
+        const response = await fetch('/api/search/suggestions?limit=8', {
+          signal: controller.signal,
+        })
+        if (!response.ok) throw new Error('Suggestions failed')
+        const data = (await response.json()) as {
+          clients: SearchResult[]
+          tags: SearchResult[]
+        }
+        setSuggestions([...(data.clients ?? []), ...(data.tags ?? [])])
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          setSuggestions([])
+        }
+      } finally {
+        setSuggestionsLoading(false)
+      }
+    })()
+
+    return () => controller.abort()
   }, [isOpen])
 
   useEffect(() => {
@@ -101,6 +134,7 @@ export default function SearchOverlay() {
   }
 
   const showResults = query.trim().length >= 2
+  const showSuggestions = !showResults && (suggestionsLoading || suggestions.length > 0)
 
   if (!mounted) return null
 
@@ -155,7 +189,7 @@ export default function SearchOverlay() {
               ${fonts.bricolage_grot400.className}
             `}
           >
-            Search projects, clients and project categories.
+            Search projects, clients, categories, and tags.
           </p>
 
           <p
@@ -213,6 +247,14 @@ export default function SearchOverlay() {
               loading={loading}
               query={query}
               onSelect={handleResultSelect}
+            />
+          ) : showSuggestions ? (
+            <SearchResults
+              results={suggestions}
+              loading={suggestionsLoading}
+              query=""
+              onSelect={handleResultSelect}
+              emptyMessage="Browse clients and tags, or type to search."
             />
           ) : null}
         </div>

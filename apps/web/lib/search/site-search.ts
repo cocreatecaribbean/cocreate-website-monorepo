@@ -4,8 +4,10 @@ import { fetchOriginalPreviews } from '@/lib/cms/originals'
 import {
   getCategoryDisplayNameFromData,
   getClientDisplayNameFromData,
+  getTagDisplayNameFromData,
   getWorkProjectsForCategoryFromData,
   getWorkProjectsForClientFromData,
+  getWorkProjectsForTagFromData,
   searchSiteWithData,
 } from '@/lib/search/search-site'
 
@@ -41,8 +43,20 @@ export async function getClientDisplayName(clientSlug: string) {
   return getClientDisplayNameFromData(projects, clientSlug)
 }
 
+export async function getTagDisplayName(tagSlug: string) {
+  const projects = await fetchWorkProjectPreviews()
+  return getTagDisplayNameFromData(projects, tagSlug)
+}
+
+export async function getWorkProjectsForTag(tagSlug: string) {
+  const projects = await fetchWorkProjectPreviews()
+  return getWorkProjectsForTagFromData(projects, tagSlug)
+}
+
 export {
+  buildSearchSuggestions,
   getWorkProjectsForCategoryFromData,
   getWorkProjectsForClientFromData,
+  getWorkProjectsForTagFromData,
   searchSiteWithData,
 } from '@/lib/search/search-site'

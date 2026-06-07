@@ -1,6 +1,7 @@
 import type { OriginalPreview, ProjectPreview, SearchResult } from '@cocreate/types'
 import { workClientFilterHref, toClientSlug } from '@/lib/client-slug'
 import { projectMatchesSearch } from '@/lib/project-preview'
+import { toTagSlug, workTagFilterHref } from '@/lib/tag-slug'
 import { workProjectPath } from '@/lib/work-project-path'
 import {
   WORK_PROJECT_CATEGORIES,
@@ -60,6 +61,119 @@ function buildClientResults(
   }
 
   return results.sort((a, b) => a.title.localeCompare(b.title))
+}
+
+export function collectUniqueTags(projects: ProjectPreview[]): string[] {
+  const tags = new Set<string>()
+  for (const project of projects) {
+    for (const tag of project.tags ?? []) {
+      const trimmed = tag.trim()
+      if (trimmed) tags.add(trimmed)
+    }
+  }
+  return [...tags].sort((a, b) => a.localeCompare(b))
+}
+
+function countProjectsForTag(projects: ProjectPreview[], tag: string): number {
+  const slug = toTagSlug(tag)
+  return projects.filter((project) =>
+    (project.tags ?? []).some((item) => toTagSlug(item) === slug),
+  ).length
+}
+
+function buildTagResults(
+  projects: ProjectPreview[],
+  terms: string[],
+): SearchResult[] {
+  const results: SearchResult[] = []
+
+  for (const tag of collectUniqueTags(projects)) {
+    if (!matchesTerms(tag, terms)) continue
+    const count = countProjectsForTag(projects, tag)
+    if (count === 0) continue
+
+    const slug = toTagSlug(tag)
+    results.push({
+      id: `tag-${slug}`,
+      kind: 'tag',
+      title: tag,
+      subtitle: count === 1 ? '1 project' : `${count} projects`,
+      href: workTagFilterHref(slug),
+      projectCount: count,
+    })
+  }
+
+  return results
+}
+
+function buildAllClientSuggestions(
+  projects: ProjectPreview[],
+  limit: number,
+): SearchResult[] {
+  const byClient = new Map<
+    string,
+    { name: string; slug: string; projects: ProjectPreview[] }
+  >()
+
+  for (const project of projects) {
+    const slug = project.clientSlug ?? toClientSlug(project.clientName)
+    const existing = byClient.get(slug)
+    if (existing) {
+      existing.projects.push(project)
+    } else {
+      byClient.set(slug, {
+        name: project.clientName,
+        slug,
+        projects: [project],
+      })
+    }
+  }
+
+  return [...byClient.values()]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .slice(0, limit)
+    .map((client) => {
+      const count = client.projects.length
+      return {
+        id: `client-${client.slug}`,
+        kind: 'client' as const,
+        title: client.name,
+        subtitle: count === 1 ? '1 project' : `${count} projects`,
+        href: workClientFilterHref(client.slug),
+        projectCount: count,
+      }
+    })
+}
+
+function buildAllTagSuggestions(
+  projects: ProjectPreview[],
+  limit: number,
+): SearchResult[] {
+  return collectUniqueTags(projects)
+    .slice(0, limit)
+    .map((tag) => {
+      const count = countProjectsForTag(projects, tag)
+      const slug = toTagSlug(tag)
+      return {
+        id: `tag-${slug}`,
+        kind: 'tag' as const,
+        title: tag,
+        subtitle: count === 1 ? '1 project' : `${count} projects`,
+        href: workTagFilterHref(slug),
+        projectCount: count,
+      }
+    })
+}
+
+export function buildSearchSuggestions(
+  projects: ProjectPreview[],
+  limit = 8,
+): { clients: SearchResult[]; tags: SearchResult[] } {
+  const perSection = Math.max(4, Math.ceil(limit / 2))
+  return {
+    clients: buildAllClientSuggestions(projects, perSection),
+    tags: buildAllTagSuggestions(projects, perSection),
+  }
 }
 
 function buildCategoryResults(
@@ -135,6 +249,7 @@ export function searchSiteWithData(
 
   const terms = normalized.split(/\s+/).filter(Boolean)
   const categories = buildCategoryResults(projects, terms)
+  const tags = buildTagResults(projects, terms)
   const clients = buildClientResults(projects, terms)
   const projectResults = buildProjectResults(projects, terms)
   const originalResults = buildOriginalResults(originals, terms)
@@ -142,7 +257,13 @@ export function searchSiteWithData(
   const merged: SearchResult[] = []
   const seen = new Set<string>()
 
-  for (const result of [...categories, ...clients, ...projectResults, ...originalResults]) {
+  for (const result of [
+    ...categories,
+    ...tags,
+    ...clients,
+    ...projectResults,
+    ...originalResults,
+  ]) {
     if (seen.has(result.id)) continue
     seen.add(result.id)
     merged.push(result)
@@ -188,4 +309,27 @@ export function getClientDisplayNameFromData(
       clientSlug.trim().toLowerCase(),
   )
   return match?.clientName ?? null
+}
+
+export function getWorkProjectsForTagFromData(
+  projects: ProjectPreview[],
+  tagSlug: string,
+): ProjectPreview[] {
+  const slug = tagSlug.trim().toLowerCase()
+  return projects.filter((project) =>
+    (project.tags ?? []).some((tag) => toTagSlug(tag) === slug),
+  )
+}
+
+export function getTagDisplayNameFromData(
+  projects: ProjectPreview[],
+  tagSlug: string,
+): string | null {
+  const slug = tagSlug.trim().toLowerCase()
+  for (const project of projects) {
+    for (const tag of project.tags ?? []) {
+      if (toTagSlug(tag) === slug) return tag
+    }
+  }
+  return null
 }

@@ -6,9 +6,9 @@ import { workPageTopOffsetClass } from '@/lib/work-page-layout'
 import ViewAllWorkLink from '@/components/work/view-all-work-link'
 import CoCreateButton from '@/components/ui/cocreate-button'
 import CaseStudyContent from '@/components/work/case-study-content'
-import MuxVideoPlayer, {
-  projectVideoLabel,
-} from '@/components/media/mux-video-player'
+import MuxVideoPlayer from '@/components/media/mux-video-player'
+import ProjectTags from '@/components/work/project-tags'
+import { projectVideoLabel } from '@/lib/project-video-label'
 
 type WorkProjectPageProps = {
   project: WorkProjectDetail
@@ -57,6 +57,7 @@ export default function WorkProjectPage({ project }: WorkProjectPageProps) {
                 {project.clientName}
               </a>
             </p>
+            <ProjectTags tags={project.tags} />
             <ViewAllWorkLink className="mt-6 min-[1024px]:mt-8" />
           </header>
 
