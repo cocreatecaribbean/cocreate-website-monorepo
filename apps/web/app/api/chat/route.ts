@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     return Response.json(
       {
         error:
-          'Chat is not configured. Set OPENAI_API_KEY or AI_GATEWAY_API_KEY in apps/web/.env.local.',
+          'Chat is not configured. Set OPENAI_API_KEY or AI_GATEWAY_API_KEY in Doppler.',
       },
       { status: 503 },
     )

@@ -3,16 +3,18 @@
   "private": true,
   "packageManager": "pnpm@10.31.0",
   "scripts": {
-    "dev": "turbo dev --continue --filter=@cocreate/web --filter=@cocreate/api --filter=@cocreate/admin-center --filter=@cocreate/client-portal --filter=@cocreate/studio",
-    "dev:web": "turbo dev --filter=@cocreate/web",
-    "dev:api": "turbo dev --filter=@cocreate/api",
-    "dev:admin": "turbo dev --filter=@cocreate/admin-center",
-    "dev:portal": "turbo dev --filter=@cocreate/client-portal",
-    "dev:studio": "turbo dev --filter=@cocreate/studio",
+    "dev": "doppler run -- turbo dev --continue --filter=@cocreate/web --filter=@cocreate/api --filter=@cocreate/admin-center --filter=@cocreate/client-portal --filter=@cocreate/studio",
+    "dev:web": "doppler run -- turbo dev --filter=@cocreate/web",
+    "dev:api": "doppler run -- turbo dev --filter=@cocreate/api",
+    "dev:admin": "doppler run -- turbo dev --filter=@cocreate/admin-center",
+    "dev:portal": "doppler run -- turbo dev --filter=@cocreate/client-portal",
+    "dev:studio": "doppler run -- turbo dev --filter=@cocreate/studio",
     "build": "turbo build",
     "lint": "turbo lint",
-    "db:generate": "pnpm --filter @cocreate/database db:generate",
-    "db:push": "pnpm --filter @cocreate/database db:push"
+    "db:generate": "doppler run -- pnpm --filter @cocreate/database db:generate",
+    "db:push": "doppler run -- pnpm --filter @cocreate/database db:push",
+    "db:seed:admin": "doppler run -- pnpm --filter @cocreate/database seed:admin",
+    "sync:turbo-env": "node scripts/sync-turbo-api-env.mts"
   },
   "devDependencies": {
     "turbo": "catalog:tooling"

@@ -10,10 +10,10 @@
 
 ## Local development
 
-1. Copy env files (see root `.env.example`).
+1. [Doppler setup](./doppler.md): `doppler login`, `doppler setup` (once per machine).
 2. Generate Prisma client: `pnpm db:generate`
-3. Optional DB: `pnpm db:push` (requires Postgres on `DATABASE_URL`)
-4. Run everything: `pnpm dev` (Turbo runs web + api + studio)
+3. Optional DB: `pnpm db:push` (requires Postgres on `DATABASE_URL` in Doppler)
+4. Run everything: `pnpm dev` (injects secrets via `doppler run`, then Turbo runs web + api + studio)
    - Web: http://localhost:3000
    - API: http://localhost:3001
    - API health: http://localhost:3001/health
@@ -31,7 +31,7 @@ pnpm approve-builds
 
 - UI: `apps/web/components/contact/contact-chat.tsx` (placeholder — swap in your design)
 - Route: `apps/web/app/api/chat/route.ts` (`streamText` + OpenAI provider)
-- Env: `OPENAI_API_KEY` or `AI_GATEWAY_API_KEY` in `apps/web/.env.local`
+- Env: `OPENAI_API_KEY` or `AI_GATEWAY_API_KEY` in Doppler
 
 [Vercel AI SDK](https://sdk.vercel.ai/) · [AI Gateway](https://vercel.com/docs/ai-gateway) · [Chat template](https://github.com/vercel/ai-chatbot)
 
@@ -43,8 +43,8 @@ pnpm approve-builds
 
 ## Admin auth + client onboarding
 
-1. Seed first super admin: `pnpm --filter @cocreate/database seed:admin you@agency.com` (creates `SUPER_ADMIN`)
-2. Set Supabase keys in `apps/api/.env`, `apps/admin-center/.env.local`, `apps/client-portal/.env.local`
+1. Seed first super admin: `pnpm db:seed:admin you@agency.com` (creates `SUPER_ADMIN`)
+2. Set Supabase keys in Doppler (`NEXT_PUBLIC_SUPABASE_*`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`)
 3. In Supabase Dashboard → Authentication → URL Configuration, add redirect URLs:
    - `http://localhost:3002/auth/callback` (admin)
    - `http://localhost:3003/auth/callback` (client portal)
@@ -144,13 +144,13 @@ Supabase sign-in alone is not enough — the email must exist in Prisma with `ro
 
 Supabase caps auth emails (~4/hour per address, project-wide). For local dev, the API uses **`AUTH_DEV_LINKS=true`** (default in development): sign-in URLs are generated via the service role and shown in the UI / API logs — **no email is sent**.
 
-- **Test real sign-in flow:** set `NEXT_PUBLIC_SUPABASE_*` in `apps/admin-center/.env.local`, seed an admin, open `/login`, use the **dev sign-in link** on the page (also logged in the `@cocreate/api` terminal).
+- **Test real sign-in flow:** set `NEXT_PUBLIC_SUPABASE_*` in Doppler, seed an admin (`pnpm db:seed:admin`), open `/login`, use the **dev sign-in link** on the page (also logged in the `@cocreate/api` terminal).
 - **Optional dev bypass (no login):** `ADMIN_DEV_SKIP_AUTH=true` with Supabase unset — uses `ADMIN_API_KEY` for BFF → API only. Not for production.
 - **Production:** set `AUTH_DEV_LINKS=false` (or deploy with `NODE_ENV=production`) — emails send normally.
 
 ### Auth emails via Resend (recommended)
 
-The API sends invite and magic-link emails through **Resend’s API** (not Supabase SMTP) when these are set in `apps/api/.env`:
+The API sends invite and magic-link emails through **Resend’s API** (not Supabase SMTP) when these are set in Doppler:
 
 ```env
 AUTH_DEV_LINKS=false
@@ -202,7 +202,7 @@ The premium **Social Listening** tab loads data from **`GET /client-portal/socia
 | `GET /client-portal/social-listening/analytics/snapshots` | List available snapshot dates for the date picker |
 | `GET /client-portal/social-listening/analytics/compare?baseline=YYYY-MM-DD&current=YYYY-MM-DD` | Compare two snapshots; `current` defaults to latest |
 
-**API env (`apps/api/.env`):**
+**API env (Doppler):**
 
 ```env
 SOCIAL_LISTENING_SNAPSHOT_ENABLED=true
@@ -212,7 +212,7 @@ SOCIAL_LISTENING_SNAPSHOT_RETENTION_DAYS=548
 
 Retention pruning runs daily (same scheduler as capture). Brand24 fetches use a rolling **30-day** window ending on the snapshot date when capturing; live default window remains 7 days when snapshots are disabled.
 
-**Local demo (two dates):** set `SOCIAL_LISTENING_DEMO_SNAPSHOTS=true` (see `apps/api/.env.example`). On the first Social Listening API call per org, the API creates missing snapshots for **today** and **~90 days ago** (`SOCIAL_LISTENING_DEMO_SNAPSHOT_DAYS_AGO`, default 90) using org-scoped mock data (different chart numbers per date). Restart the API after changing env, then open Social Listening — the date dropdown and compare mode should show both dates.
+**Local demo (two dates):** set `SOCIAL_LISTENING_DEMO_SNAPSHOTS=true` (see `apps/api/.env.example`). On the first Social Listening API call per org, the API creates missing snapshots for **today** and **~90 days ago** (`SOCIAL_LISTENING_DEMO_SNAPSHOT_DAYS_AGO`, default 90) using org-scoped mock data (different chart numbers per date). Restart the API after changing Doppler config, then open Social Listening — the date dropdown and compare mode should show both dates.
 
 **PDF reports** — multi-page branded decks from saved snapshots (not live streaming). Templates are **code-first** React layouts in [`packages/social-listening-reports`](../packages/social-listening-reports) using `@react-pdf/renderer`. Add or change a design by adding a file under `src/templates/` and registering it in `registry.ts`.
 
@@ -227,7 +227,7 @@ Built-in templates: `executive-summary` (2 pages), `full-dashboard` (4 pages), `
 
 Double opt-in mailing list: footer → `POST /newsletter/subscribe` (via `apps/web/app/api/newsletter/subscribe`) → Prisma `NewsletterSubscriber` (`PENDING`) → Resend confirmation email → user clicks link → `GET /newsletter/confirm` → `CONFIRMED` + Resend contact in segment.
 
-**API (`apps/api/.env`):**
+**API (Doppler):**
 
 ```env
 RESEND_API_KEY=re_…
@@ -239,7 +239,7 @@ NEWSLETTER_FROM_NAME=CoCreate Caribbean
 AUTH_EMAIL_FROM=no-reply@mail.cocreatecaribbean.com   # auth / invites only
 ```
 
-**Web (`apps/web/.env.local`):** `API_URL=http://localhost:3001` (BFF to Nest).
+**Web (Doppler):** `API_URL=http://localhost:3001` (BFF to Nest).
 
 **Pages:** `/newsletter/confirmed`, `/newsletter/confirm-error`. Confirm link in email: `{WEB_URL}/newsletter/confirm?token=…` (web route proxies to API redirect).
 

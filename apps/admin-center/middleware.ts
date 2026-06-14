@@ -102,7 +102,7 @@ export async function middleware(request: NextRequest) {
     }
 
     return new NextResponse(
-      'Admin Center requires sign-in. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in apps/admin-center/.env.local, seed an admin (pnpm --filter @cocreate/database seed:admin your@email.com), then open /login. For local bypass only, set ADMIN_DEV_SKIP_AUTH=true.',
+      'Admin Center requires sign-in. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Doppler (run via `pnpm dev` / `doppler run`), seed an admin (`pnpm db:seed:admin your@email.com`), then open /login. For local bypass only, set ADMIN_DEV_SKIP_AUTH=true.',
       { status: 503 },
     )
   }

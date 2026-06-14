@@ -74,7 +74,7 @@ export class SupabaseAuthService implements OnModuleInit {
       )
     } else {
       this.logger.warn(
-        'Auth: Supabase SMTP for emails — set RESEND_API_KEY + AUTH_EMAIL_FROM in apps/api/.env to use no-reply@mail.cocreatecaribbean.com via Resend',
+        'Auth: Supabase SMTP for emails — set RESEND_API_KEY + AUTH_EMAIL_FROM in Doppler to use no-reply@mail.cocreatecaribbean.com via Resend',
       )
     }
   }
@@ -197,7 +197,7 @@ export class SupabaseAuthService implements OnModuleInit {
       `[invite] Resend API not configured — use Supabase SMTP or set RESEND_API_KEY + AUTH_EMAIL_FROM`,
     )
     throw new BadRequestException(
-      'Email sending is not configured. Set RESEND_API_KEY and AUTH_EMAIL_FROM in apps/api/.env, or fix Supabase SMTP.',
+      'Email sending is not configured. Set RESEND_API_KEY and AUTH_EMAIL_FROM in Doppler, or fix Supabase SMTP.',
     )
   }
 

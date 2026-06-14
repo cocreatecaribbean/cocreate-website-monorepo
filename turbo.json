@@ -1,15 +1,65 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "NEXT_PUBLIC_*"
+  ],
+  "globalPassThroughEnv": [
+    "*"
+  ],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**", "generated/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**",
+        "generated/**"
+      ]
     },
     "dev": {
       "cache": false,
       "persistent": true
     },
     "lint": {},
-    "type-check": {}
+    "type-check": {},
+    "@cocreate/api#build": {
+      "env": [
+        "ADMIN_API_KEY",
+        "ADMIN_CENTER_URL",
+        "ADMIN_NOTIFY_EMAIL",
+        "AUTH_DEV_LINKS",
+        "AUTH_EMAIL_FROM",
+        "AUTH_EMAIL_FROM_NAME",
+        "AUTH_USE_RESEND_API",
+        "BRAND24_API_BASE_URL",
+        "BRAND24_API_KEY",
+        "BRAND24_USE_LIVE_API",
+        "BRANDMENTIONS_API_KEY",
+        "CLIENT_PORTAL_URL",
+        "CORS_ORIGIN",
+        "DATABASE_POOL_MAX",
+        "DATABASE_URL",
+        "NEWSLETTER_FROM_EMAIL",
+        "NEWSLETTER_FROM_NAME",
+        "PORT",
+        "PROJECT_UPDATES_FROM_EMAIL",
+        "PROJECT_UPDATES_FROM_NAME",
+        "RESEND_API_KEY",
+        "RESEND_AUDIENCE_ID",
+        "RESEND_FROM_EMAIL",
+        "RESEND_SEGMENT_ID",
+        "SOCIAL_LISTENING_DEMO_SNAPSHOTS",
+        "SOCIAL_LISTENING_DEMO_SNAPSHOT_DAYS_AGO",
+        "SOCIAL_LISTENING_SNAPSHOT_ENABLED",
+        "SOCIAL_LISTENING_SNAPSHOT_MAX_AGE_HOURS",
+        "SOCIAL_LISTENING_SNAPSHOT_RETENTION_DAYS",
+        "SUPABASE_ANON_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "SUPABASE_URL",
+        "WEB_URL"
+      ]
+    }
   }
 }

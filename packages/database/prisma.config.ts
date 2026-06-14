@@ -1,10 +1,14 @@
 import path from 'node:path'
+import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { config as loadEnv } from 'dotenv'
 import { defineConfig } from 'prisma/config'
 
 const packageRoot = path.dirname(fileURLToPath(import.meta.url))
-loadEnv({ path: path.join(packageRoot, '.env') })
+const envPath = path.join(packageRoot, '.env')
+if (existsSync(envPath)) {
+  loadEnv({ path: envPath })
+}
 
 /** Prisma CLI / migrations — prefer direct Supabase session URL when set. */
 const migrationUrl =

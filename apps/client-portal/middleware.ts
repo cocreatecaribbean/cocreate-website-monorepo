@@ -65,7 +65,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next()
     }
     return new NextResponse(
-      'Client Portal requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local',
+      'Client Portal requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Doppler (run via `pnpm dev` / `doppler run`)',
       { status: 503 },
     )
   }

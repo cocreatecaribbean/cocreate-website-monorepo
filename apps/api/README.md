@@ -4,30 +4,30 @@ NestJS backend for CoCreate Caribbean.
 
 ## Setup
 
-1. Copy env files:
-   - `apps/api/.env` from `apps/api/.env.example`
-   - `packages/database/.env` from `packages/database/.env.example` (same `DATABASE_URL`)
+1. [Doppler setup](../../docs/doppler.md): `doppler login`, `doppler setup` (repo root).
 
 2. Generate Prisma client:
 
    ```bash
-   pnpm --filter @cocreate/database db:generate
+   pnpm db:generate
    ```
 
 3. Apply schema (local Postgres):
 
    ```bash
-   pnpm --filter @cocreate/database db:push
+   pnpm db:push
    ```
 
 4. Run API:
 
    ```bash
-   pnpm --filter @cocreate/api dev
+   pnpm dev:api
    ```
 
 - Root: http://localhost:3001
 - Health: http://localhost:3001/health
+
+Env keys are documented in [`apps/api/.env.example`](./.env.example) and injected by Doppler — do not create `apps/api/.env`.
 
 ## Stack
 

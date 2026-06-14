@@ -1,0 +1,5 @@
+# Doppler project binding for local development.
+# Run once per machine: doppler login && doppler setup
+setup:
+  project: cocreate-web-platform
+  config: dev
