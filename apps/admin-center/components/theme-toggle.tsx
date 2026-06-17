@@ -32,7 +32,7 @@ export default function ThemeToggle({ variant = 'sidebar' }: ThemeToggleProps) {
             ? 'h-9 w-[7.5rem] rounded-xl border border-chambray/10 bg-chambray/4 dark:border-white/10 dark:bg-white/5'
             : isSidebar
               ? 'h-9 rounded-xl bg-white/5'
-              : 'h-9 rounded-xl border border-app bg-app-input'
+              : 'h-9 rounded-xl border border-app bg-app-input dark:bg-white/8'
         }
         aria-hidden
       />
@@ -46,7 +46,7 @@ export default function ThemeToggle({ variant = 'sidebar' }: ThemeToggleProps) {
           ? 'bg-white/8'
           : isHeader
             ? 'border border-chambray/10 bg-chambray/[0.04] dark:border-white/10 dark:bg-white/5'
-            : 'border border-app bg-app-input'
+            : 'border border-app bg-app-input dark:bg-white/8'
       }`}
       role="group"
       aria-label="Color theme"
@@ -66,8 +66,8 @@ export default function ThemeToggle({ variant = 'sidebar' }: ThemeToggleProps) {
                 isHeader
                   ? `h-8 w-8 sm:h-auto sm:w-auto sm:flex-1 sm:px-2 sm:py-2 ${
                       active
-                        ? 'bg-chambray/15 text-chambray dark:bg-white/12 dark:text-casablanca'
-                        : 'text-app-muted hover:bg-chambray/5 dark:hover:bg-white/8'
+                        ? 'bg-chambray/15 text-chambray dark:bg-white/15 dark:text-casablanca dark:ring-1 dark:ring-casablanca/40'
+                        : 'text-app-muted hover:bg-chambray/5 dark:text-white/70 dark:hover:bg-white/8'
                     }`
                   : `flex flex-1 px-2 py-2 ${
                       isSidebar
@@ -75,8 +75,8 @@ export default function ThemeToggle({ variant = 'sidebar' }: ThemeToggleProps) {
                           ? 'bg-white/18 text-casablanca'
                           : 'text-white/70 hover:bg-white/10 hover:text-white'
                         : active
-                          ? 'bg-chambray/15 text-chambray dark:bg-white/12 dark:text-casablanca dark:ring-1 dark:ring-casablanca/30'
-                          : 'text-app-muted hover:bg-chambray/5 dark:hover:bg-white/8'
+                          ? 'bg-chambray/15 text-chambray dark:bg-white/15 dark:text-casablanca dark:ring-1 dark:ring-casablanca/40'
+                          : 'text-app-muted hover:bg-chambray/5 dark:text-white/70 dark:hover:bg-white/8'
                     }`
               }
             `}

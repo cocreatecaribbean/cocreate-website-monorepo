@@ -41,7 +41,7 @@ export default function ThemeToggle({ variant = 'sidebar' }: ThemeToggleProps) {
         </p>
       )}
       <div
-        className={`flex gap-1 rounded-xl p-1 ${isSidebar ? 'bg-white/8' : 'border border-app bg-app-input'}`}
+        className={`flex gap-1 rounded-xl p-1 ${isSidebar ? 'bg-white/8' : 'border border-app bg-app-input dark:bg-white/8'}`}
         role="group"
         aria-label="Color theme"
       >
@@ -61,8 +61,8 @@ export default function ThemeToggle({ variant = 'sidebar' }: ThemeToggleProps) {
                       ? 'bg-white/18 text-casablanca'
                       : 'text-white/70 hover:bg-white/10 hover:text-white'
                     : active
-                      ? 'bg-chambray/15 text-chambray dark:bg-white/12 dark:text-casablanca dark:ring-1 dark:ring-casablanca/30'
-                      : 'text-app-muted hover:bg-chambray/5 dark:hover:bg-white/8'
+                      ? 'bg-chambray/15 text-chambray dark:bg-white/15 dark:text-casablanca dark:ring-1 dark:ring-casablanca/40'
+                      : 'text-app-muted hover:bg-chambray/5 dark:text-white/70 dark:hover:bg-white/8'
                 }
               `}
               aria-pressed={active}

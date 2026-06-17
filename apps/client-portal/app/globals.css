@@ -26,6 +26,7 @@
 }
 
 .dark {
+  --surface-input: rgba(24, 30, 58, 0.9);
   --hero-gradient: linear-gradient(180deg, rgba(30, 38, 72, 0.85) 0%, rgba(20, 26, 50, 0.6) 100%);
   --sl-frame-bg: rgba(20, 26, 50, 0.65);
   --sl-frame-ring: rgba(255, 255, 255, 0.08);
