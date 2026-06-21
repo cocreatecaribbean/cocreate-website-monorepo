@@ -13,7 +13,7 @@ export const aboutTestimonialsMock: readonly AboutTestimonial[] = [
     name: 'Marcia Clarke',
     company: 'Island Fresh Markets',
     quote:
-      'CoCreate turned our scattered social presence into a cohesive story. The team listens, moves fast, and the work always feels unmistakably us.',
+      'CoCreate turned our scattered social presence into a cohesive story. The team listens, moves fast, and the work always feels unmistakably us. From campaign concepts to final delivery, every touchpoint reflected our values and resonated with the communities we serve. They became true partners in how we show up online and in the room.',
     photoUrl: '/about-us-test-img.jpg',
     sortOrder: 1,
   },

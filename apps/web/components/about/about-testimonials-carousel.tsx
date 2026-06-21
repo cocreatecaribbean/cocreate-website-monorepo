@@ -64,7 +64,7 @@ export default function AboutTestimonialsCarousel({
             <div
               key={testimonial.id}
               className="
-                embla__slide h-full min-w-0 flex-[0_0_85%] cursor-pointer
+                embla__slide h-full min-w-0 flex-[0_0_85%]
                 sm:flex-[0_0_58%] lg:flex-[0_0_46%] xl:flex-[0_0_42%]
               "
               onClick={() => onSlideClick(index)}
