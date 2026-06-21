@@ -1,4 +1,4 @@
-import type { SocialPlatformId } from '@/lib/social-listening/platform-meta'
+import type { SocialPlatformId } from '@client-portal/lib/social-listening/platform-meta'
 
 /** Per-platform bar gradients — distinctive but anchored in CoCreate palette */
 export type PlatformBarGradient = {

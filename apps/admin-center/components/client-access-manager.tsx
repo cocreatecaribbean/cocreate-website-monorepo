@@ -79,9 +79,6 @@ export default function ClientAccessManager() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [devSignInUrl, setDevSignInUrl] = useState<string | null>(null)
-  const [updatingSocialListeningId, setUpdatingSocialListeningId] = useState<string | null>(
-    null,
-  )
   const [savingBrand24Id, setSavingBrand24Id] = useState<string | null>(null)
   const [brand24Drafts, setBrand24Drafts] = useState<Record<string, string>>({})
   const [expandedTeamOrgId, setExpandedTeamOrgId] = useState<string | null>(null)
@@ -275,42 +272,6 @@ export default function ClientAccessManager() {
     }
   }
 
-  const toggleSocialListening = async (organizationId: string, enabled: boolean) => {
-    setError(null)
-    setSuccess(null)
-    setUpdatingSocialListeningId(organizationId)
-    try {
-      const response = await fetch(
-        `/api/clients/organizations/${organizationId}/social-listening`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ enabled }),
-        },
-      )
-      const data = await response.json()
-      if (!response.ok) {
-        throw new Error(
-          getApiErrorMessage(data, 'Failed to update Social Listening access'),
-        )
-      }
-      setSuccess(
-        enabled
-          ? 'Social Listening enabled for this client.'
-          : 'Social Listening disabled for this client.',
-      )
-      await loadClients({ silent: true })
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Could not update Social Listening access',
-      )
-    } finally {
-      setUpdatingSocialListeningId(null)
-    }
-  }
-
   return (
     <div className="space-y-5 sm:space-y-8">
       {success ? (
@@ -486,27 +447,12 @@ export default function ClientAccessManager() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-                  <div className="flex flex-col gap-1">
-                    <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-full border border-white/60 bg-white/50 px-4 py-2 text-sm text-app-primary backdrop-blur-sm">
-                      <input
-                        type="checkbox"
-                        checked={client.isSocialListeningSubscriber}
-                        disabled={updatingSocialListeningId === client.id}
-                        onChange={(event) =>
-                          void toggleSocialListening(client.id, event.target.checked)
-                        }
-                        className="h-4 w-4 rounded border-chambray/30 text-chambray focus:ring-sanmarino disabled:opacity-50"
-                      />
-                      <span>
-                        Company subscription (Social Listening)
-                        {updatingSocialListeningId === client.id ? '…' : ''}
-                      </span>
-                    </label>
-                    <p className="max-w-md text-xs text-app-muted">
-                      CoCreate enables when the client has paid. Controls whether the organization
-                      can use Social Listening; teammates still need individual access in Team.
-                    </p>
-                  </div>
+                  <Link
+                    href={`/social-listening/subscriptions/${client.id}`}
+                    className="admin-btn-ghost inline-flex min-h-10 items-center justify-center px-4"
+                  >
+                    Social Listening
+                  </Link>
                   {client.primaryContact &&
                   client.primaryContact.clientOrgRole !== 'OWNER' &&
                   client.primaryContact.status !== 'SUSPENDED' ? (

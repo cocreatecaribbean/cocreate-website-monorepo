@@ -2,17 +2,17 @@
 
 import { useCallback, useMemo } from 'react'
 import { ResponsiveStream, type StackTooltipProps } from '@nivo/stream'
-import SentimentFace from '@/components/social-listening/sentiment-face'
+import SentimentFace from '@client-portal/components/social-listening/sentiment-face'
 import {
   sentimentStreamColors,
   sentimentStreamKeys,
-} from '@/components/social-listening/nivo-theme'
-import { useNivoTheme } from '@/components/social-listening/use-nivo-theme'
+} from '@client-portal/components/social-listening/nivo-theme'
+import { useNivoTheme } from '@client-portal/components/social-listening/use-nivo-theme'
 import { useTheme } from 'next-themes'
-import { useIsMobileChart } from '@/components/social-listening/use-is-mobile-chart'
-import { usePrefersReducedMotion } from '@/components/social-listening/use-prefers-reduced-motion'
-import { SENTIMENT_LABELS } from '@/lib/social-listening/sentiment-meta'
-import type { SentimentId, SentimentOverTimeRow } from '@/lib/social-listening/types'
+import { useIsMobileChart } from '@client-portal/components/social-listening/use-is-mobile-chart'
+import { usePrefersReducedMotion } from '@client-portal/components/social-listening/use-prefers-reduced-motion'
+import { SENTIMENT_LABELS } from '@client-portal/lib/social-listening/sentiment-meta'
+import type { SentimentId, SentimentOverTimeRow } from '@client-portal/lib/social-listening/types'
 
 type SentimentStreamChartProps = {
   data: SentimentOverTimeRow[]

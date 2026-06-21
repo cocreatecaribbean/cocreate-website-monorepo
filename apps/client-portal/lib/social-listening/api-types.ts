@@ -1,4 +1,4 @@
-import type { SocialListeningAnalytics } from '@/lib/social-listening/types'
+import type { SocialListeningAnalytics } from '@client-portal/lib/social-listening/types'
 
 export type SocialListeningAnalyticsMeta = {
   source: 'brand24' | 'org_mock'

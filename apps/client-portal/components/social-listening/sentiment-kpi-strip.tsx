@@ -1,12 +1,12 @@
 'use client'
 
-import SentimentFace from '@/components/social-listening/sentiment-face'
-import { formatPercent } from '@/components/social-listening/nivo-theme'
-import { SENTIMENT_LABELS } from '@/lib/social-listening/sentiment-meta'
-import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
-import { formatMetricDeltaLine } from '@/lib/social-listening/format-compare-delta'
-import type { SocialListeningMetricDelta } from '@/lib/social-listening/api-types'
-import type { SentimentId, SocialListeningAnalytics } from '@/lib/social-listening/types'
+import SentimentFace from '@client-portal/components/social-listening/sentiment-face'
+import { formatPercent } from '@client-portal/components/social-listening/nivo-theme'
+import { SENTIMENT_LABELS } from '@client-portal/lib/social-listening/sentiment-meta'
+import { bricolage_grot600, bricolage_grot700 } from '@client-portal/styles/fonts'
+import { formatMetricDeltaLine } from '@client-portal/lib/social-listening/format-compare-delta'
+import type { SocialListeningMetricDelta } from '@client-portal/lib/social-listening/api-types'
+import type { SentimentId, SocialListeningAnalytics } from '@client-portal/lib/social-listening/types'
 
 type KpiItem = {
   label: string

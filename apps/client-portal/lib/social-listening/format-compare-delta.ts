@@ -1,4 +1,4 @@
-import type { SocialListeningMetricDelta } from '@/lib/social-listening/api-types'
+import type { SocialListeningMetricDelta } from '@client-portal/lib/social-listening/api-types'
 
 export function formatMetricDeltaLine(
   delta: SocialListeningMetricDelta,

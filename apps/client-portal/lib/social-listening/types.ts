@@ -21,7 +21,7 @@ export type SentimentOverTimeRow = {
   negative: number
 }
 
-import type { SocialPlatformId } from '@/lib/social-listening/platform-meta'
+import type { SocialPlatformId } from '@client-portal/lib/social-listening/platform-meta'
 
 export type SourceBreakdownRow = {
   platformId: SocialPlatformId

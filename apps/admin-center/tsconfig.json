@@ -25,6 +25,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@client-portal/*": [
+        "../client-portal/*"
       ]
     }
   },

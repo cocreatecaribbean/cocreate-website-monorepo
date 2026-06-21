@@ -1,11 +1,11 @@
 'use client'
 
-import PlatformIcon from '@/components/social-listening/platform-icon'
-import { formatMetricDeltaLine } from '@/lib/social-listening/format-compare-delta'
-import { PLATFORM_META } from '@/lib/social-listening/platform-meta'
-import type { PlatformMentionDelta } from '@/lib/social-listening/platform-mention-deltas'
-import type { SourceBreakdownRow } from '@/lib/social-listening/types'
-import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
+import PlatformIcon from '@client-portal/components/social-listening/platform-icon'
+import { formatMetricDeltaLine } from '@client-portal/lib/social-listening/format-compare-delta'
+import { PLATFORM_META } from '@client-portal/lib/social-listening/platform-meta'
+import type { PlatformMentionDelta } from '@client-portal/lib/social-listening/platform-mention-deltas'
+import type { SourceBreakdownRow } from '@client-portal/lib/social-listening/types'
+import { bricolage_grot600, bricolage_grot700 } from '@client-portal/styles/fonts'
 
 type SourceBreakdownPlatformStripProps = {
   breakdown: SourceBreakdownRow[]

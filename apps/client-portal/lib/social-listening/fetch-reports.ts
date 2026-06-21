@@ -1,6 +1,6 @@
 'use client'
 
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { createSupabaseBrowserClient } from '@client-portal/lib/supabase/client'
 
 const apiBase = () =>
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'

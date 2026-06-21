@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@cocreate/app-ui": "workspace:*",
+    "@cocreate/social-listening-plans": "workspace:*",
     "@nivo/bar": "^0.88.0",
     "@nivo/core": "^0.88.0",
     "@nivo/heatmap": "^0.88.0",

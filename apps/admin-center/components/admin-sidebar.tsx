@@ -8,6 +8,7 @@ import {
   FolderKanban,
   LayoutDashboard,
   LogOut,
+  Radio,
   Settings2,
   Shield,
   UserCircle,
@@ -50,6 +51,12 @@ const navItems: NavItem[] = [
     label: 'Clients',
     href: '/client-access',
     icon: Users,
+  },
+  {
+    id: 'social-listening',
+    label: 'Social Listening',
+    href: '/social-listening',
+    icon: Radio,
   },
   {
     id: 'team',

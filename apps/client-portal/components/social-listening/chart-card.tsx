@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { bricolage_grot600 } from '@/styles/fonts'
+import { bricolage_grot600 } from '@client-portal/styles/fonts'
 
 type ChartCardProps = {
   title: string

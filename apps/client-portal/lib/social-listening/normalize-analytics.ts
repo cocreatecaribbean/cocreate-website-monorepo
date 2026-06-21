@@ -1,4 +1,4 @@
-import type { SocialListeningAnalytics } from '@/lib/social-listening/types'
+import type { SocialListeningAnalytics } from '@client-portal/lib/social-listening/types'
 
 /** Ensure chart arrays exist after JSON snapshot round-trip */
 export function normalizeSocialListeningAnalytics(

@@ -1,10 +1,10 @@
 'use client'
 
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { createSupabaseBrowserClient } from '@client-portal/lib/supabase/client'
 import type {
   SocialListeningAnalyticsPayload,
   SocialListeningComparePayload,
-} from '@/lib/social-listening/api-types'
+} from '@client-portal/lib/social-listening/api-types'
 
 const apiBase = () =>
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'

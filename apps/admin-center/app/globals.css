@@ -3,6 +3,113 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+:root {
+  --radius-card: 1.75rem;
+  --hero-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.65) 100%);
+  --sl-frame-bg: rgba(255, 255, 255, 0.4);
+  --sl-frame-ring: rgba(255, 255, 255, 0.7);
+  --chart-header-bg: rgba(255, 255, 255, 0.3);
+  --chart-body-gradient: linear-gradient(to bottom, rgba(255, 255, 255, 0.2), transparent);
+  --sl-text-secondary: #64748b;
+  --sl-text-label: #64748b;
+  --sl-kpi-total: #39419a;
+  --sl-kpi-positive: #406eb5;
+  --sl-kpi-neutral: #475569;
+  --sl-kpi-negative: #dc2626;
+  --sl-delta: #406eb5;
+  --sl-hero-badge-text: #39419a;
+}
+
+.dark {
+  --hero-gradient: linear-gradient(180deg, rgba(30, 38, 72, 0.85) 0%, rgba(20, 26, 50, 0.6) 100%);
+  --sl-frame-bg: rgba(20, 26, 50, 0.65);
+  --sl-frame-ring: rgba(255, 255, 255, 0.08);
+  --chart-header-bg: rgba(24, 30, 58, 0.6);
+  --chart-body-gradient: linear-gradient(to bottom, rgba(24, 30, 58, 0.35), transparent);
+  --sl-text-secondary: #e2e8f0;
+  --sl-text-label: #f8fafc;
+  --sl-kpi-total: #f8fafc;
+  --sl-kpi-positive: #f6b03f;
+  --sl-kpi-neutral: #f8fafc;
+  --sl-kpi-negative: #fca5a5;
+  --sl-delta: #f6b03f;
+  --sl-hero-badge-text: #f8fafc;
+}
+
+@layer components {
+  .portal-gradient-hero {
+    background-image:
+      linear-gradient(135deg, rgba(64, 110, 181, 0.12) 0%, transparent 45%),
+      linear-gradient(225deg, rgba(246, 176, 63, 0.14) 0%, transparent 50%),
+      var(--hero-gradient);
+  }
+  .portal-sl-frame {
+    border-radius: var(--radius-card);
+    @apply backdrop-blur-xl border ring-1 ring-inset;
+    border-color: var(--surface-border);
+    background-color: var(--sl-frame-bg);
+    box-shadow: var(--shadow-card);
+    --tw-ring-color: var(--sl-frame-ring);
+  }
+  .portal-sl-sidebar {
+    @apply rounded-l-[1.65rem] bg-linear-to-b from-chambray via-[#2f3678] to-[#252b63] text-white shadow-[inset_-1px_0_0_rgba(255,255,255,0.06)];
+  }
+  .portal-sl-nav-item { cursor: pointer !important; }
+  .portal-sl-mobile-nav {
+    @apply rounded-2xl bg-linear-to-r from-chambray via-[#2f3678] to-chambray p-1 shadow-[0_8px_28px_rgba(57,65,154,0.2)] ring-1 ring-chambray/20;
+  }
+  .portal-sl-main { @apply p-4 sm:p-6 lg:border-l lg:border-chambray/8 lg:pl-6; }
+  .dark .portal-sl-main { @apply lg:border-white/10; }
+  .portal-sl-shell { @apply lg:min-h-[520px]; }
+  .portal-chart-card-header { border-color: var(--surface-border); background-color: var(--chart-header-bg); }
+  .portal-chart-card-body { background-image: var(--chart-body-gradient); }
+  .portal-sl-region { color: var(--text-primary); }
+  .portal-sl-body { color: var(--sl-text-secondary); }
+  .portal-sl-secondary { color: var(--sl-text-secondary); }
+  .portal-sl-caption { @apply text-xs; color: var(--sl-text-secondary); }
+  .portal-sl-kpi-value { color: var(--sl-kpi-total); }
+  .portal-sl-kpi-value-positive { color: var(--sl-kpi-positive); }
+  .portal-sl-kpi-value-neutral { color: var(--sl-kpi-neutral); }
+  .portal-sl-kpi-value-negative { color: var(--sl-kpi-negative); }
+  .portal-sl-delta { @apply text-xs font-medium; color: var(--sl-delta); }
+  .portal-sl-hero-badge { color: var(--sl-hero-badge-text); }
+  .dark .portal-sl-hero-badge {
+    background-image: linear-gradient(to right, rgba(246, 176, 63, 0.32), rgba(246, 176, 63, 0.14));
+    border-color: rgba(246, 176, 63, 0.55);
+    --tw-ring-color: rgba(246, 176, 63, 0.25);
+  }
+}
+
+@layer utilities {
+  .portal-animate-in { animation: portal-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .portal-animate-in-delay-1 { animation-delay: 0.07s; }
+  .portal-animate-in-delay-2 { animation-delay: 0.14s; }
+  .portal-animate-in-delay-3 { animation-delay: 0.21s; }
+  .portal-animate-in-delay-4 { animation-delay: 0.28s; }
+  .portal-chart-glow { filter: drop-shadow(0 4px 12px rgba(64, 110, 181, 0.15)); }
+  .dark .portal-chart-glow { filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35)); }
+  .dark .portal-sl-region .text-slate-600,
+  .dark .portal-sl-region .text-slate-500,
+  .dark .portal-sl-region .text-slate-400 { color: var(--sl-text-secondary); }
+}
+
+@keyframes portal-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-animate-in,
+  .portal-animate-in-delay-1,
+  .portal-animate-in-delay-2,
+  .portal-animate-in-delay-3,
+  .portal-animate-in-delay-4 {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @layer utilities {
   .admin-animate-in {
     animation: admin-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;

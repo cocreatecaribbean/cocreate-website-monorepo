@@ -1,7 +1,7 @@
-import { metricDelta } from '@/lib/social-listening/format-compare-delta'
-import type { SocialListeningMetricDelta } from '@/lib/social-listening/api-types'
-import type { SocialPlatformId } from '@/lib/social-listening/platform-meta'
-import type { SourceBreakdownRow } from '@/lib/social-listening/types'
+import { metricDelta } from '@client-portal/lib/social-listening/format-compare-delta'
+import type { SocialListeningMetricDelta } from '@client-portal/lib/social-listening/api-types'
+import type { SocialPlatformId } from '@client-portal/lib/social-listening/platform-meta'
+import type { SourceBreakdownRow } from '@client-portal/lib/social-listening/types'
 
 export type PlatformMentionDelta = SocialListeningMetricDelta & {
   platformId: SocialPlatformId

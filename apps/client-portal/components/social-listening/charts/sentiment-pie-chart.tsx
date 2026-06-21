@@ -2,14 +2,14 @@
 
 import { useMemo } from 'react'
 import { ResponsivePie } from '@nivo/pie'
-import ChartContainer from '@/components/social-listening/chart-container'
-import GlassChartTooltip from '@/components/social-listening/glass-tooltip'
-import SentimentFace from '@/components/social-listening/sentiment-face'
-import { formatPercent } from '@/components/social-listening/nivo-theme'
-import { useNivoTheme } from '@/components/social-listening/use-nivo-theme'
-import { usePrefersReducedMotion } from '@/components/social-listening/use-prefers-reduced-motion'
-import { SENTIMENT_BRAND_COLORS, SENTIMENT_LABELS } from '@/lib/social-listening/sentiment-meta'
-import type { SentimentId, SentimentSlice } from '@/lib/social-listening/types'
+import ChartContainer from '@client-portal/components/social-listening/chart-container'
+import GlassChartTooltip from '@client-portal/components/social-listening/glass-tooltip'
+import SentimentFace from '@client-portal/components/social-listening/sentiment-face'
+import { formatPercent } from '@client-portal/components/social-listening/nivo-theme'
+import { useNivoTheme } from '@client-portal/components/social-listening/use-nivo-theme'
+import { usePrefersReducedMotion } from '@client-portal/components/social-listening/use-prefers-reduced-motion'
+import { SENTIMENT_BRAND_COLORS, SENTIMENT_LABELS } from '@client-portal/lib/social-listening/sentiment-meta'
+import type { SentimentId, SentimentSlice } from '@client-portal/lib/social-listening/types'
 
 type SentimentPieChartProps = {
   data: SentimentSlice[]

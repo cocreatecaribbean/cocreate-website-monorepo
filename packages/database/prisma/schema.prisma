@@ -67,6 +67,8 @@ model Organization {
   portalNotifications         PortalNotification[]
   teamInviteRequests          ClientTeamInviteRequest[]
   brandAssets                 OrganizationBrandAsset[]
+  socialListeningSubscription SocialListeningSubscription?
+  socialListeningSetups       SocialListeningSetup[]
 
   @@index([slug])
 }
@@ -411,6 +413,141 @@ model SocialListeningSnapshot {
 
   @@unique([organizationId, snapshotDate])
   @@index([organizationId, snapshotDate])
+}
+
+// ─── Social Listening subscriptions & setups ────────────────────────────────
+
+enum SocialListeningPlan {
+  PULSE
+  GROWTH
+  SCALE
+}
+
+enum SocialListeningSubscriptionStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum SocialListeningBillingSource {
+  FYGARO
+  ADMIN_COMP
+  ADMIN_MANUAL
+}
+
+enum SocialListeningSubscriptionCancelledBy {
+  CLIENT
+  ADMIN
+  SYSTEM
+}
+
+enum SocialListeningSetupStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum SocialListeningSetupActor {
+  CLIENT
+  ADMIN
+}
+
+enum SocialListeningPaymentEventType {
+  INITIAL
+  RENEWAL
+  MANUAL_RENEWAL
+  UPDATE_PAYMENT
+}
+
+enum SocialListeningBillingEmailType {
+  SUBSCRIPTION_ACTIVATED
+  AUTO_RENEW_UPCOMING
+  MANUAL_RENEW_REMINDER
+  ENABLE_AUTO_RENEW_NUDGE
+  AUTO_RENEW_SUCCESS
+  AUTO_RENEW_FAILED
+  SUBSCRIPTION_EXPIRED
+  SUBSCRIPTION_CANCELLED
+}
+
+/// One subscription record per client organization
+model SocialListeningSubscription {
+  id                     String                               @id @default(cuid())
+  organizationId         String                               @unique
+  organization           Organization                         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan                   SocialListeningPlan
+  status                 SocialListeningSubscriptionStatus    @default(PENDING_PAYMENT)
+  startedAt              DateTime?
+  currentPeriodEnd       DateTime?
+  autoRenewEnabled       Boolean                              @default(true)
+  cancelAtPeriodEnd      Boolean                              @default(false)
+  cancelledAt            DateTime?
+  cancelledBy            SocialListeningSubscriptionCancelledBy?
+  cancelReason           String?                              @db.Text
+  billingSource          SocialListeningBillingSource         @default(FYGARO)
+  fygaroCustomReference  String                               @unique
+  paymentMethodLast4     String?
+  paymentMethodBrand     String?
+  paymentMethodExpMonth  Int?
+  paymentMethodExpYear   Int?
+  fygaroCustomerRef      String?
+  createdByUserId        String?
+  createdAt              DateTime                             @default(now())
+  updatedAt              DateTime                             @updatedAt
+  paymentEvents          SocialListeningPaymentEvent[]
+  billingEmailLogs       SocialListeningBillingEmailLog[]
+
+  @@index([status])
+  @@index([currentPeriodEnd])
+  @@index([status, currentPeriodEnd])
+}
+
+model SocialListeningPaymentEvent {
+  id                  String                          @id @default(cuid())
+  subscriptionId      String
+  subscription        SocialListeningSubscription     @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  eventType           SocialListeningPaymentEventType
+  fygaroTransactionId String                          @unique
+  amount              String
+  currency            String
+  rawPayload          Json
+  processedAt         DateTime                        @default(now())
+
+  @@index([subscriptionId, processedAt])
+}
+
+model SocialListeningBillingEmailLog {
+  id             String                          @id @default(cuid())
+  subscriptionId String
+  subscription   SocialListeningSubscription     @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  emailType      SocialListeningBillingEmailType
+  periodEnd      DateTime
+  recipientEmail String
+  resendMessageId String?
+  sentAt         DateTime                        @default(now())
+
+  @@unique([subscriptionId, emailType, periodEnd])
+  @@index([subscriptionId, sentAt])
+}
+
+model SocialListeningSetup {
+  id                String                     @id @default(cuid())
+  organizationId    String
+  organization      Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status            SocialListeningSetupStatus @default(ACTIVE)
+  keywords          Json
+  platforms         Json
+  startDate         DateTime                   @db.Date
+  endDate           DateTime                   @db.Date
+  brand24ProjectId  String?
+  snapshotsCaptured Int                        @default(0)
+  createdBy         SocialListeningSetupActor
+  createdByUserId   String?
+  createdAt         DateTime                   @default(now())
+
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
 }
 
 /// Portal account — agency admins (ADMIN) or client contacts (CLIENT)

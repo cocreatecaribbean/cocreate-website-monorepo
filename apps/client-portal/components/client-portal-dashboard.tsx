@@ -1,12 +1,16 @@
 'use client'
 
-import { Suspense, useCallback } from 'react'
+import { Suspense, useCallback, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import ControlCenterPanel from '@/components/control-center/control-center-panel'
 import OrganizationLogo from '@/components/organization-logo'
 import SocialListeningPanel from '@/components/social-listening/social-listening-panel'
+import PortalSettingsPanel from '@/components/portal-settings-panel'
+import SocialListeningBillingPanel from '@/components/social-listening/social-listening-billing-panel'
 import type { SocialListeningAnalyticsPayload } from '@/lib/social-listening/api-types'
 import { alkatra600, bricolage_grot500, bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
+import { SOCIAL_LISTENING_PLANS } from '@cocreate/social-listening-plans'
+import { subscribeToPlan } from '@/lib/social-listening/fetch-billing-client'
 import { CheckCircle2, Radio } from 'lucide-react'
 
 type TabId = 'control-center' | 'social-listening'
@@ -30,6 +34,7 @@ type ClientPortalDashboardProps = {
   organizationName: string | null
   organizationLogoUrl?: string | null
   hasSocialListening: boolean
+  isOwner: boolean
   socialListeningAnalytics: SocialListeningAnalyticsPayload | null
 }
 
@@ -52,6 +57,7 @@ function ClientPortalDashboardContent({
   organizationName,
   organizationLogoUrl,
   hasSocialListening,
+  isOwner,
   socialListeningAnalytics,
 }: ClientPortalDashboardProps) {
   const router = useRouter()
@@ -150,16 +156,23 @@ function ClientPortalDashboardContent({
           {activeTab === 'control-center' ? (
             <ControlCenterPanel organizationName={organizationName} />
           ) : hasSocialListening && socialListeningAnalytics ? (
-            <SocialListeningPanel
-              initialAnalytics={socialListeningAnalytics}
-              organizationName={organizationName}
-            />
+            <>
+              <SocialListeningBillingPanel isOwner={isOwner} />
+              <SocialListeningPanel
+                initialAnalytics={socialListeningAnalytics}
+                organizationName={organizationName}
+                renderSettingsPanel={() => <PortalSettingsPanel />}
+              />
+            </>
           ) : hasSocialListening ? (
             <p className="text-sm text-app-muted">
               Unable to load analytics. Try refreshing or contact CoCreate support.
             </p>
           ) : (
-            <SocialListeningSubscribePanel organizationName={organizationName} />
+            <SocialListeningSubscribePanel
+              organizationName={organizationName}
+              isOwner={isOwner}
+            />
           )}
         </div>
       </div>
@@ -167,70 +180,36 @@ function ClientPortalDashboardContent({
   )
 }
 
-const listeningPlans = [
-  {
-    id: 'pulse',
-    name: 'Pulse',
-    price: '$149',
-    period: '/ month',
-    description: 'Essential monitoring for a focused brand footprint.',
-    mentions: '5,000',
-    alerts: '5',
-    keywords: '10',
-    users: '2',
-    highlighted: false,
-    features: [
-      'Monthly mention volume cap',
-      'Email alert digests',
-      'Web + social sources',
-      'Basic sentiment tags',
-    ],
-  },
-  {
-    id: 'growth',
-    name: 'Growth',
-    price: '$349',
-    period: '/ month',
-    description: 'Most popular — scale mentions and real-time alerts.',
-    mentions: '25,000',
-    alerts: '25',
-    keywords: '50',
-    users: '5',
-    highlighted: true,
-    features: [
-      'Everything in Pulse',
-      'Real-time mention alerts',
-      'Competitor keyword sets',
-      'Sentiment & share-of-voice',
-      'Exportable PDF reports',
-    ],
-  },
-  {
-    id: 'scale',
-    name: 'Scale',
-    price: '$799',
-    period: '/ month',
-    description: 'High-volume listening for regional or multi-brand teams.',
-    mentions: '100,000',
-    alerts: 'Unlimited',
-    keywords: '200',
-    users: '15',
-    highlighted: false,
-    features: [
-      'Everything in Growth',
-      'Priority mention indexing',
-      'Custom alert rules & webhooks',
-      'Dedicated account support',
-      'API access (coming soon)',
-    ],
-  },
-] as const
+const listeningPlans = SOCIAL_LISTENING_PLANS
 
 function SocialListeningSubscribePanel({
   organizationName,
+  isOwner,
 }: {
   organizationName: string | null
+  isOwner: boolean
 }) {
+  const [submittingPlan, setSubmittingPlan] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+
+  const onRequestPlan = async (planId: string) => {
+    if (!isOwner) {
+      setMessage('Only your organization owner can subscribe.')
+      return
+    }
+    setSubmittingPlan(planId)
+    setMessage(null)
+    try {
+      const result = await subscribeToPlan(planId as 'pulse' | 'growth' | 'scale')
+      if (result.ok && result.checkoutUrl) {
+        window.location.href = result.checkoutUrl
+        return
+      }
+      setMessage(result.message ?? 'Checkout is not available yet. Contact CoCreate.')
+    } finally {
+      setSubmittingPlan(null)
+    }
+  }
   return (
     <div className="space-y-8">
       <section className="portal-surface-solid overflow-hidden bg-linear-to-br from-white via-white to-sanmarino/[0.06] p-6 sm:p-8">
@@ -284,9 +263,9 @@ function SocialListeningSubscribePanel({
 
             <p className="mt-6 flex items-baseline gap-1">
               <span className={`text-3xl text-chambray ${bricolage_grot700.className}`}>
-                {plan.price}
+                {plan.priceLabel}
               </span>
-              <span className="text-sm text-app-muted">{plan.period}</span>
+              <span className="text-sm text-app-muted">{plan.periodLabel}</span>
             </p>
 
             <dl className="mt-6 grid grid-cols-2 gap-3 rounded-2xl bg-chambray/[0.04] p-4 text-sm ring-1 ring-chambray/6">
@@ -330,13 +309,19 @@ function SocialListeningSubscribePanel({
 
             <button
               type="button"
+              disabled={submittingPlan === plan.id}
+              onClick={() => void onRequestPlan(plan.id)}
               className={`mt-8 w-full ${plan.highlighted ? 'portal-btn-primary' : 'portal-btn-ghost'}`}
             >
-              Request {plan.name}
+              {submittingPlan === plan.id ? 'Redirecting…' : `Subscribe to ${plan.name}`}
             </button>
           </article>
         ))}
       </div>
+
+      {message ? (
+        <p className="text-center text-sm text-app-muted">{message}</p>
+      ) : null}
 
       <p className="text-center text-xs text-app-muted">
         Pricing is subject to change. Your CoCreate team will confirm availability,

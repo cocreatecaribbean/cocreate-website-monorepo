@@ -1,12 +1,12 @@
 'use client'
 
 import { ResponsiveHeatMap } from '@nivo/heatmap'
-import ChartContainer from '@/components/social-listening/chart-container'
-import GlassChartTooltip from '@/components/social-listening/glass-tooltip'
-import { heatmapBrandScale } from '@/components/social-listening/nivo-theme'
-import { useNivoTheme } from '@/components/social-listening/use-nivo-theme'
-import { usePrefersReducedMotion } from '@/components/social-listening/use-prefers-reduced-motion'
-import type { MentionMatrixRow } from '@/lib/social-listening/types'
+import ChartContainer from '@client-portal/components/social-listening/chart-container'
+import GlassChartTooltip from '@client-portal/components/social-listening/glass-tooltip'
+import { heatmapBrandScale } from '@client-portal/components/social-listening/nivo-theme'
+import { useNivoTheme } from '@client-portal/components/social-listening/use-nivo-theme'
+import { usePrefersReducedMotion } from '@client-portal/components/social-listening/use-prefers-reduced-motion'
+import type { MentionMatrixRow } from '@client-portal/lib/social-listening/types'
 
 type MentionHeatmapChartProps = {
   data: MentionMatrixRow[]

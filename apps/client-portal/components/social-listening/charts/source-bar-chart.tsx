@@ -2,22 +2,22 @@
 
 import { useMemo } from 'react'
 import { ResponsiveBar } from '@nivo/bar'
-import ChartContainer from '@/components/social-listening/chart-container'
-import GlassChartTooltip from '@/components/social-listening/glass-tooltip'
-import PlatformIcon from '@/components/social-listening/platform-icon'
-import { useNivoTheme } from '@/components/social-listening/use-nivo-theme'
-import { usePrefersReducedMotion } from '@/components/social-listening/use-prefers-reduced-motion'
+import ChartContainer from '@client-portal/components/social-listening/chart-container'
+import GlassChartTooltip from '@client-portal/components/social-listening/glass-tooltip'
+import PlatformIcon from '@client-portal/components/social-listening/platform-icon'
+import { useNivoTheme } from '@client-portal/components/social-listening/use-nivo-theme'
+import { usePrefersReducedMotion } from '@client-portal/components/social-listening/use-prefers-reduced-motion'
 import {
   PLATFORM_BAR_GRADIENTS,
   platformGradientDefId,
-} from '@/lib/social-listening/platform-bar-styles'
+} from '@client-portal/lib/social-listening/platform-bar-styles'
 import {
   PLATFORM_META,
   type SocialPlatformId,
-} from '@/lib/social-listening/platform-meta'
-import { formatMetricDeltaLine } from '@/lib/social-listening/format-compare-delta'
-import type { PlatformMentionDelta } from '@/lib/social-listening/platform-mention-deltas'
-import type { SourceBreakdownRow } from '@/lib/social-listening/types'
+} from '@client-portal/lib/social-listening/platform-meta'
+import { formatMetricDeltaLine } from '@client-portal/lib/social-listening/format-compare-delta'
+import type { PlatformMentionDelta } from '@client-portal/lib/social-listening/platform-mention-deltas'
+import type { SourceBreakdownRow } from '@client-portal/lib/social-listening/types'
 
 type ChartRow = SourceBreakdownRow & {
   platformLabel: string

@@ -10,6 +10,12 @@
   },
   "dependencies": {
     "@cocreate/app-ui": "workspace:*",
+    "@nivo/bar": "^0.88.0",
+    "@nivo/core": "^0.88.0",
+    "@nivo/heatmap": "^0.88.0",
+    "@nivo/line": "^0.88.0",
+    "@nivo/pie": "^0.88.0",
+    "@nivo/stream": "^0.88.0",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.8",
     "emoji-picker-react": "^4.12.2",

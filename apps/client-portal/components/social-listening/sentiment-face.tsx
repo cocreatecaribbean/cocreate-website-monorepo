@@ -1,5 +1,5 @@
-import type { SentimentId } from '@/lib/social-listening/types'
-import { SENTIMENT_GRADIENT_STOPS } from '@/lib/social-listening/sentiment-meta'
+import type { SentimentId } from '@client-portal/lib/social-listening/types'
+import { SENTIMENT_GRADIENT_STOPS } from '@client-portal/lib/social-listening/sentiment-meta'
 
 type SentimentFaceProps = {
   sentiment: SentimentId

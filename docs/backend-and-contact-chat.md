@@ -173,6 +173,7 @@ All use `RESEND_API_KEY` and a verified `mail.cocreatecaribbean.com` domain. Eac
 |------|----------------|-----|
 | Auth invites & magic links | `no-reply@mail.cocreatecaribbean.com` | `AUTH_EMAIL_FROM`, `AUTH_EMAIL_FROM_NAME` |
 | Newsletter double opt-in | `signup@mail.cocreatecaribbean.com` | `NEWSLETTER_FROM_EMAIL`, `NEWSLETTER_FROM_NAME` |
+| Social Listening billing | `billingupdates@mail.cocreatecaribbean.com` | `BILLING_FROM_EMAIL`, `BILLING_FROM_NAME` |
 | Project workspace (client + admin) | `updates@mail.cocreatecaribbean.com` | `PROJECT_UPDATES_FROM_EMAIL`, `PROJECT_UPDATES_FROM_NAME` |
 
 ### Client portal entitlements
@@ -181,13 +182,39 @@ All use `RESEND_API_KEY` and a verified `mail.cocreatecaribbean.com` domain. Eac
 
 | Layer | Field | Who sets it | Effect |
 |-------|--------|-------------|--------|
-| Company subscription | `Organization.isSocialListeningSubscriber` | CoCreate admin only (Admin → Clients: **Company subscription (Social Listening)**; later billing webhooks) | Org is entitled to Social Listening |
+| Company subscription | `SocialListeningSubscription` (+ synced `Organization.isSocialListeningSubscriber`) | Fygaro webhook, client subscribe flow, or Admin → **Social Listening Center** | Org is entitled when `status = ACTIVE` and `currentPeriodEnd > now` |
 | Teammate visibility | `User.canAccessSocialListening` | Owner (Team hub) or admin (team panel) for PMs/members | That user may open the dashboard **if** the org is subscribed |
-| Owner | *(implicit)* | Org subscription | Owner **always** passes the gate when `isSocialListeningSubscriber` is true (no per-user toggle in Team UI) |
+| Owner | *(implicit)* | Org subscription | Owner **always** passes the gate when subscribed (no per-user toggle in Team UI) |
 
-When admin enables company subscription, active org **owners** also get `canAccessSocialListening: true` in the database for roster consistency; access does not depend on that flag for owners.
+**Admin → Social Listening Center** (`/social-listening`): subscription roster, grant comp/manual plans, cancel/extend, create listening setups for clients, **view the same analytics dashboard as clients** (`/social-listening/subscriptions/:organizationId/analytics`), payment event log, billing email log.
 
-`GET /client-portal/me` exposes `permissions.canUseSocialListening` (Bearer JWT, server-side) — not UI-only. Paid subscriptions can flip the org flag via billing webhooks later.
+CoCreate admins can view org-scoped analytics for any active subscription (admin- or client-created setups). Disclose this in client-facing terms/privacy policy.
+
+When a subscription activates (Fygaro webhook or admin grant), active org **owners** get `canAccessSocialListening: true` and `Organization.isSocialListeningSubscriber` is synced.
+
+`GET /client-portal/me` exposes `permissions.canUseSocialListening` (Bearer JWT, server-side).
+
+**Billing (Fygaro + Resend):**
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /client-portal/social-listening/subscribe` | Start Fygaro checkout for Pulse/Growth/Scale |
+| `GET /client-portal/social-listening/subscription` | Plan, renewal date, auto-renew, masked card |
+| `PATCH /client-portal/social-listening/subscription/auto-renew` | Toggle auto-renew (owner) |
+| `POST /client-portal/social-listening/subscription/cancel` | Cancel at period end |
+| `POST /client-portal/social-listening/subscription/renew` | Manual renewal checkout URL |
+| `POST /webhooks/fygaro` | Payment + renewal webhooks (signature verified) |
+| `GET /admin/social-listening/subscriptions` | Admin subscription roster |
+| `POST /admin/social-listening/setups` | Admin create listening setup for client |
+| `GET /admin/social-listening/organizations/:organizationId/analytics` | Admin analytics (same data as client portal) |
+| `GET /admin/social-listening/organizations/:organizationId/analytics/snapshots` | Snapshot dates for admin analytics |
+| `GET /admin/social-listening/organizations/:organizationId/analytics/compare` | Compare snapshots (admin) |
+| `GET /admin/social-listening/organizations/:organizationId/reports/templates` | PDF report templates (admin) |
+| `POST /admin/social-listening/organizations/:organizationId/reports/generate` | Generate PDF report (admin) |
+
+Billing lifecycle emails send from **`billingupdates@mail.cocreatecaribbean.com`** (`BILLING_FROM_EMAIL`). Renewal reminders run on a daily cron (7d/3d auto-renew upcoming; 7d/3d/1d manual renew + enable auto-renew nudge).
+
+Paid Fygaro checkouts flip subscription state via **`POST /webhooks/fygaro`** (never store raw card data — only masked last4 from webhook).
 
 The premium **Social Listening** tab loads data from **`GET /client-portal/social-listening/analytics`** (Bearer JWT, `ClientAuthGuard`). The API resolves **`organizationId` from the logged-in user only** — never from client-supplied org ids.
 

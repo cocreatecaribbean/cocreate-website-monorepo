@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import SourceBarChart from '@/components/social-listening/charts/source-bar-chart'
-import ChartCard from '@/components/social-listening/chart-card'
-import SourceBreakdownPlatformStrip from '@/components/social-listening/source-breakdown-platform-strip'
-import { computePlatformMentionDeltas } from '@/lib/social-listening/platform-mention-deltas'
-import type { SocialListeningAnalytics } from '@/lib/social-listening/types'
-import { bricolage_grot600 } from '@/styles/fonts'
+import SourceBarChart from '@client-portal/components/social-listening/charts/source-bar-chart'
+import ChartCard from '@client-portal/components/social-listening/chart-card'
+import SourceBreakdownPlatformStrip from '@client-portal/components/social-listening/source-breakdown-platform-strip'
+import { computePlatformMentionDeltas } from '@client-portal/lib/social-listening/platform-mention-deltas'
+import type { SocialListeningAnalytics } from '@client-portal/lib/social-listening/types'
+import { bricolage_grot600 } from '@client-portal/styles/fonts'
 
 export type PlatformMentionsViewMode = 'bars' | 'cards'
 

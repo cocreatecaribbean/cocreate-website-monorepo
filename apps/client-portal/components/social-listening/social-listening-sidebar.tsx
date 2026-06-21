@@ -1,15 +1,15 @@
 'use client'
 
-import { PORTAL_SETTINGS } from '@/lib/portal/nav'
+import { PORTAL_SETTINGS } from '@client-portal/lib/portal/nav'
 import {
   SOCIAL_LISTENING_NAV,
   SOCIAL_LISTENING_REPORTS,
   type SocialListeningNavItem,
   type SocialListeningViewId,
-} from '@/lib/social-listening/nav'
-import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
+} from '@client-portal/lib/social-listening/nav'
+import { bricolage_grot600, bricolage_grot700 } from '@client-portal/styles/fonts'
 import { Plus } from 'lucide-react'
-import type { MentionSnapshotHint } from '@/lib/social-listening/mention-snapshot-hint'
+import type { MentionSnapshotHint } from '@client-portal/lib/social-listening/mention-snapshot-hint'
 
 type SocialListeningSidebarProps = {
   activeView: SocialListeningViewId
@@ -18,6 +18,8 @@ type SocialListeningSidebarProps = {
   onOpenSettings: () => void
   organizationName?: string | null
   mentionHint?: MentionSnapshotHint
+  showSettings?: boolean
+  showSetupShortcut?: boolean
 }
 
 function NavButton({
@@ -69,6 +71,8 @@ export default function SocialListeningSidebar({
   onOpenSettings,
   organizationName,
   mentionHint,
+  showSettings = true,
+  showSetupShortcut = true,
 }: SocialListeningSidebarProps) {
   const projectLabel = organizationName?.trim() || 'Your brand'
 
@@ -84,6 +88,7 @@ export default function SocialListeningSidebar({
           >
             Projects
           </p>
+          {showSetupShortcut ? (
           <button
             type="button"
             onClick={() => onSelectView('setup')}
@@ -93,6 +98,7 @@ export default function SocialListeningSidebar({
           >
             <Plus className="h-3.5 w-3.5" aria-hidden />
           </button>
+          ) : null}
         </div>
         <p
           className={`mt-3 truncate text-sm font-semibold tracking-wide text-white uppercase ${bricolage_grot700.className}`}
@@ -129,11 +135,13 @@ export default function SocialListeningSidebar({
           active={!settingsActive && activeView === SOCIAL_LISTENING_REPORTS.id}
           onSelect={() => onSelectView(SOCIAL_LISTENING_REPORTS.id)}
         />
+        {showSettings ? (
         <NavButton
           item={portalSettingsNavItem}
           active={settingsActive}
           onSelect={onOpenSettings}
         />
+        ) : null}
       </div>
     </aside>
   )

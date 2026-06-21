@@ -1,5 +1,5 @@
 import type { Theme } from '@nivo/core'
-import { SENTIMENT_BRAND_COLORS } from '@/lib/social-listening/sentiment-meta'
+import { SENTIMENT_BRAND_COLORS } from '@client-portal/lib/social-listening/sentiment-meta'
 
 export const brandColors = {
   chambray: '#39419a',

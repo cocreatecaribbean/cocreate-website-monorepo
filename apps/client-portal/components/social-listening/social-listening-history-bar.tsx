@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { fetchSocialListeningSnapshotDates } from '@/lib/social-listening/fetch-analytics-client'
-import { bricolage_grot600 } from '@/styles/fonts'
+import { useSocialListeningDataSource } from '@client-portal/lib/social-listening/data-source'
+import { bricolage_grot600 } from '@client-portal/styles/fonts'
 
 type SocialListeningHistoryBarProps = {
   asOf: string | null
@@ -21,14 +21,15 @@ export default function SocialListeningHistoryBar({
   onCompareEnabledChange,
   onCompareBaselineChange,
 }: SocialListeningHistoryBarProps) {
+  const dataSource = useSocialListeningDataSource()
   const [dates, setDates] = useState<string[]>([])
   const latestDate = dates[0] ?? null
   const latestOptionLabel = latestDate ? `Latest (${latestDate})` : 'Latest'
 
   const loadDates = useCallback(async () => {
-    const list = await fetchSocialListeningSnapshotDates()
+    const list = await dataSource.fetchSnapshotDates()
     setDates(list)
-  }, [])
+  }, [dataSource])
 
   useEffect(() => {
     void loadDates()

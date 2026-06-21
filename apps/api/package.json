@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@cocreate/database": "workspace:*",
+    "@cocreate/social-listening-plans": "workspace:*",
     "@cocreate/social-listening-reports": "workspace:*",
     "@nestjs/common": "catalog:api",
     "@nestjs/config": "catalog:api",

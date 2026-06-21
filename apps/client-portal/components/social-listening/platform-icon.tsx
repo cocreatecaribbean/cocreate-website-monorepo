@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import type { SocialPlatformId } from '@/lib/social-listening/platform-meta'
+import type { SocialPlatformId } from '@client-portal/lib/social-listening/platform-meta'
 
 type PlatformIconProps = {
   platformId: SocialPlatformId

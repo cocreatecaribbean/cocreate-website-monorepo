@@ -1,21 +1,20 @@
 'use client'
 
-import { useMemo } from 'react'
-import MentionHeatmapChart from '@/components/social-listening/charts/mention-heatmap-chart'
-import ReachEngagementLineChart from '@/components/social-listening/charts/reach-engagement-line-chart'
-import SentimentPieChart from '@/components/social-listening/charts/sentiment-pie-chart'
-import SentimentStreamChart from '@/components/social-listening/charts/sentiment-stream-chart'
-import ChartCard from '@/components/social-listening/chart-card'
-import MentionsByPlatformBlock from '@/components/social-listening/mentions-by-platform-block'
-import SocialListeningReportsPanel from '@/components/social-listening/social-listening-reports-panel'
-import PortalSettingsPanel from '@/components/portal-settings-panel'
-import SocialListeningSetupPanel from '@/components/social-listening/social-listening-setup-panel'
-import SocialListeningSectionPlaceholder from '@/components/social-listening/social-listening-section-placeholder'
-import SentimentKpiStrip from '@/components/social-listening/sentiment-kpi-strip'
-import type { SocialListeningComparePayload } from '@/lib/social-listening/api-types'
-import { computePlatformMentionDeltas } from '@/lib/social-listening/platform-mention-deltas'
-import type { SocialListeningViewId } from '@/lib/social-listening/nav'
-import type { SocialListeningAnalytics } from '@/lib/social-listening/types'
+import { useMemo, type ReactNode } from 'react'
+import MentionHeatmapChart from '@client-portal/components/social-listening/charts/mention-heatmap-chart'
+import ReachEngagementLineChart from '@client-portal/components/social-listening/charts/reach-engagement-line-chart'
+import SentimentPieChart from '@client-portal/components/social-listening/charts/sentiment-pie-chart'
+import SentimentStreamChart from '@client-portal/components/social-listening/charts/sentiment-stream-chart'
+import ChartCard from '@client-portal/components/social-listening/chart-card'
+import MentionsByPlatformBlock from '@client-portal/components/social-listening/mentions-by-platform-block'
+import SocialListeningReportsPanel from '@client-portal/components/social-listening/social-listening-reports-panel'
+import SocialListeningSetupPanel from '@client-portal/components/social-listening/social-listening-setup-panel'
+import SocialListeningSectionPlaceholder from '@client-portal/components/social-listening/social-listening-section-placeholder'
+import SentimentKpiStrip from '@client-portal/components/social-listening/sentiment-kpi-strip'
+import type { SocialListeningComparePayload } from '@client-portal/lib/social-listening/api-types'
+import { computePlatformMentionDeltas } from '@client-portal/lib/social-listening/platform-mention-deltas'
+import type { SocialListeningViewId } from '@client-portal/lib/social-listening/nav'
+import type { SocialListeningAnalytics } from '@client-portal/lib/social-listening/types'
 import { Quote } from 'lucide-react'
 
 type SocialListeningDashboardProps = {
@@ -28,6 +27,8 @@ type SocialListeningDashboardProps = {
   compareCurrentDate?: string
   comparePayload?: SocialListeningComparePayload | null
   onSetupComplete?: () => void
+  showSetup?: boolean
+  renderSettingsPanel?: () => ReactNode
 }
 
 export default function SocialListeningDashboard({
@@ -40,6 +41,8 @@ export default function SocialListeningDashboard({
   compareCurrentDate,
   comparePayload = null,
   onSetupComplete,
+  showSetup = true,
+  renderSettingsPanel,
 }: SocialListeningDashboardProps) {
   const platformMentionDeltas = useMemo(() => {
     if (!comparePayload) return null
@@ -56,7 +59,7 @@ export default function SocialListeningDashboard({
 
   return (
     <div className="portal-sl-region space-y-6">
-      {settingsOpen ? <PortalSettingsPanel /> : null}
+      {settingsOpen && renderSettingsPanel ? renderSettingsPanel() : null}
       {!settingsOpen && compareDeltas && compareBaselineDate && compareCurrentDate ? (
         <p className="text-center text-xs portal-sl-secondary">
           Comparing {compareCurrentDate} to baseline {compareBaselineDate}
@@ -91,7 +94,7 @@ export default function SocialListeningDashboard({
         />
       ) : null}
       {!settingsOpen && activeView === 'reports' ? <SocialListeningReportsPanel /> : null}
-      {!settingsOpen && activeView === 'setup' ? (
+      {!settingsOpen && activeView === 'setup' && showSetup ? (
         <SocialListeningSetupPanel onComplete={onSetupComplete} />
       ) : null}
 

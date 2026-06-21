@@ -13,6 +13,7 @@
     "lint": "turbo lint",
     "db:generate": "doppler run -- pnpm --filter @cocreate/database db:generate",
     "db:push": "doppler run -- pnpm --filter @cocreate/database db:push",
+    "db:migrate": "doppler run -- pnpm --filter @cocreate/database exec prisma migrate deploy",
     "db:seed:admin": "doppler run -- pnpm --filter @cocreate/database seed:admin",
     "sync:turbo-env": "node scripts/sync-turbo-api-env.mts"
   },

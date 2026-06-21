@@ -75,6 +75,7 @@ export default async function ClientPortalHomePage() {
         organizationName={profile.organization?.name ?? null}
         organizationLogoUrl={profile.organization?.logoUrl ?? null}
         hasSocialListening={hasSocialListening}
+        isOwner={profile.user.clientOrgRole === 'OWNER'}
         socialListeningAnalytics={socialListeningAnalytics}
       />
     </ClientPortalShell>

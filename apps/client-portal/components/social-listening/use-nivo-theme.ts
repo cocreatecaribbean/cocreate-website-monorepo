@@ -2,7 +2,7 @@
 
 import { useTheme } from 'next-themes'
 import { useEffect, useMemo, useState } from 'react'
-import { getNivoTheme } from '@/components/social-listening/nivo-theme'
+import { getNivoTheme } from '@client-portal/components/social-listening/nivo-theme'
 
 export function useNivoTheme() {
   const { resolvedTheme } = useTheme()

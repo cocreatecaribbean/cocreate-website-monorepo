@@ -1,5 +1,5 @@
-import type { SocialListeningAnalytics } from '@/lib/social-listening/types'
-import { SENTIMENT_COLORS } from '@/lib/social-listening/types'
+import type { SocialListeningAnalytics } from '@client-portal/lib/social-listening/types'
+import { SENTIMENT_COLORS } from '@client-portal/lib/social-listening/types'
 
 export const mockSocialListeningAnalytics: SocialListeningAnalytics = {
   sentimentSummary: [

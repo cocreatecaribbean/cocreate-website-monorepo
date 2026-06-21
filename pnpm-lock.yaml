@@ -213,6 +213,24 @@ importers:
       '@cocreate/app-ui':
         specifier: workspace:*
         version: link:../../packages/app-ui
+      '@nivo/bar':
+        specifier: ^0.88.0
+        version: 0.88.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@nivo/core':
+        specifier: ^0.88.0
+        version: 0.88.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@nivo/heatmap':
+        specifier: ^0.88.0
+        version: 0.88.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@nivo/line':
+        specifier: ^0.88.0
+        version: 0.88.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@nivo/pie':
+        specifier: ^0.88.0
+        version: 0.88.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@nivo/stream':
+        specifier: ^0.88.0
+        version: 0.88.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@supabase/ssr':
         specifier: ^0.6.1
         version: 0.6.1(@supabase/supabase-js@2.106.1)
@@ -255,7 +273,7 @@ importers:
         version: 9.39.4(jiti@2.7.0)
       eslint-config-next:
         specifier: catalog:web
-        version: 16.1.4(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+        version: 16.1.4(@typescript-eslint/parser@8.56.1(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
       tailwindcss:
         specifier: catalog:web
         version: 4.2.1
@@ -268,6 +286,9 @@ importers:
       '@cocreate/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@cocreate/social-listening-plans':
+        specifier: workspace:*
+        version: link:../../packages/social-listening-plans
       '@cocreate/social-listening-reports':
         specifier: workspace:*
         version: link:../../packages/social-listening-reports
@@ -338,6 +359,9 @@ importers:
       '@cocreate/app-ui':
         specifier: workspace:*
         version: link:../../packages/app-ui
+      '@cocreate/social-listening-plans':
+        specifier: workspace:*
+        version: link:../../packages/social-listening-plans
       '@nivo/bar':
         specifier: ^0.88.0
         version: 0.88.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -398,7 +422,7 @@ importers:
         version: 9.39.4(jiti@2.7.0)
       eslint-config-next:
         specifier: catalog:web
-        version: 16.1.4(@typescript-eslint/parser@8.56.1(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+        version: 16.1.4(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
       tailwindcss:
         specifier: catalog:web
         version: 4.2.1
@@ -614,6 +638,15 @@ importers:
       prisma:
         specifier: catalog:api
         version: 7.8.0(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(magicast@0.3.5)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@5.9.3)
+      typescript:
+        specifier: catalog:tooling
+        version: 5.9.3
+
+  packages/social-listening-plans:
+    devDependencies:
+      '@types/node':
+        specifier: catalog:tooling
+        version: 20.19.37
       typescript:
         specifier: catalog:tooling
         version: 5.9.3

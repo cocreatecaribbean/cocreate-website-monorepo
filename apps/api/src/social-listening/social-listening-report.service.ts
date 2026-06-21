@@ -43,11 +43,6 @@ export class SocialListeningReportService {
     baseline?: string,
     current?: string,
   ): Promise<{ buffer: Buffer; filename: string }> {
-    const template = getReportTemplate(templateId)
-    if (!template) {
-      throw new BadRequestException(`Unknown report template: ${templateId}`)
-    }
-
     if (!this.clientAccess.canUseSocialListening(client)) {
       throw new ForbiddenException(
         'Social Listening is not enabled for your account',
@@ -55,6 +50,32 @@ export class SocialListeningReportService {
     }
 
     const organization = await this.requireSubscriberOrg(client)
+    return this.generatePdfForOrganization(
+      organization,
+      templateId,
+      asOf,
+      baseline,
+      current,
+    )
+  }
+
+  async generatePdfForOrganization(
+    organization: {
+      id: string
+      name: string
+      slug: string | null
+      logoUrl: string | null
+      brand24ProjectId: string | null
+    },
+    templateId: string,
+    asOf?: string,
+    baseline?: string,
+    current?: string,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const template = getReportTemplate(templateId)
+    if (!template) {
+      throw new BadRequestException(`Unknown report template: ${templateId}`)
+    }
 
     let compare: SocialListeningCompareResponse | undefined
     if (template.supportsCompare) {
@@ -63,7 +84,7 @@ export class SocialListeningReportService {
           'baseline date is required for this template (YYYY-MM-DD)',
         )
       }
-      compare = await this.compareForClient(client, baseline, current)
+      compare = await this.compareForOrganization(organization, baseline, current)
     }
 
     let snapshotResponse
@@ -97,7 +118,7 @@ export class SocialListeningReportService {
     const context: ReportRenderContext = {
       organization: {
         name: organization.name,
-        slug: organization.slug,
+        slug: organization.slug ?? undefined,
         logoUrl: organization.logoUrl,
       },
       snapshot: {
@@ -140,12 +161,11 @@ export class SocialListeningReportService {
     }
   }
 
-  private async compareForClient(
-    client: AuthenticatedClient,
+  private async compareForOrganization(
+    organization: { id: string; brand24ProjectId: string | null },
     baseline: string,
     current?: string,
   ): Promise<SocialListeningCompareResponse> {
-    const organization = await this.requireSubscriberOrg(client)
     await this.snapshots.ensureDemoSnapshots(organization)
 
     const baselineDate = parseUtcDateOnly(baseline)
@@ -163,6 +183,15 @@ export class SocialListeningReportService {
     }
 
     return this.snapshots.compare(organization, baselineDate, currentDate)
+  }
+
+  private async compareForClient(
+    client: AuthenticatedClient,
+    baseline: string,
+    current?: string,
+  ): Promise<SocialListeningCompareResponse> {
+    const organization = await this.requireSubscriberOrg(client)
+    return this.compareForOrganization(organization, baseline, current)
   }
 
   private async requireSubscriberOrg(client: AuthenticatedClient) {

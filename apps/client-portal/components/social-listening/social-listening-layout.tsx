@@ -2,13 +2,13 @@
 
 import { Suspense, useCallback, type ReactNode } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import SocialListeningSidebar from '@/components/social-listening/social-listening-sidebar'
-import type { MentionSnapshotHint } from '@/lib/social-listening/mention-snapshot-hint'
+import SocialListeningSidebar from '@client-portal/components/social-listening/social-listening-sidebar'
+import type { MentionSnapshotHint } from '@client-portal/lib/social-listening/mention-snapshot-hint'
 import {
   isPortalSettingsView,
   PORTAL_SETTINGS,
   PORTAL_SETTINGS_QUERY,
-} from '@/lib/portal/nav'
+} from '@client-portal/lib/portal/nav'
 import {
   SOCIAL_LISTENING_NAV,
   SOCIAL_LISTENING_REPORTS,
@@ -16,19 +16,23 @@ import {
   SOCIAL_LISTENING_VIEW_QUERY,
   parseSocialListeningView,
   type SocialListeningViewId,
-} from '@/lib/social-listening/nav'
-import { bricolage_grot600 } from '@/styles/fonts'
+} from '@client-portal/lib/social-listening/nav'
+import { bricolage_grot600 } from '@client-portal/styles/fonts'
 
 type SocialListeningLayoutProps = {
   children: (activeView: SocialListeningViewId, settingsOpen: boolean) => ReactNode
   organizationName?: string | null
   mentionHint?: MentionSnapshotHint
+  showSettings?: boolean
+  showSetupShortcut?: boolean
 }
 
 function SocialListeningLayoutInner({
   children,
   organizationName,
   mentionHint,
+  showSettings = true,
+  showSetupShortcut = true,
 }: SocialListeningLayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -100,6 +104,7 @@ function SocialListeningLayoutInner({
               </button>
             )
           })}
+          {showSettings ? (
           <button
             type="button"
             role="tab"
@@ -118,6 +123,7 @@ function SocialListeningLayoutInner({
             <PORTAL_SETTINGS.icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
             {PORTAL_SETTINGS.label}
           </button>
+          ) : null}
         </div>
       </div>
 
@@ -129,6 +135,8 @@ function SocialListeningLayoutInner({
           onOpenSettings={openSettings}
           organizationName={organizationName}
           mentionHint={mentionHint}
+          showSettings={showSettings}
+          showSetupShortcut={showSetupShortcut}
         />
       </div>
 

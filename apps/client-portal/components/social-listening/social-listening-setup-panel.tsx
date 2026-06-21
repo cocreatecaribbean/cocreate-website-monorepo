@@ -2,14 +2,14 @@
 
 import { FormEvent, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { createListeningSetup } from '@/lib/social-listening/fetch-analytics-client'
+import { useSocialListeningDataSource } from '@client-portal/lib/social-listening/data-source'
 import {
   PLATFORM_META,
   type SocialPlatformId,
-} from '@/lib/social-listening/platform-meta'
-import { PORTAL_SETTINGS_QUERY } from '@/lib/portal/nav'
-import { SOCIAL_LISTENING_VIEW_QUERY } from '@/lib/social-listening/nav'
-import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
+} from '@client-portal/lib/social-listening/platform-meta'
+import { PORTAL_SETTINGS_QUERY } from '@client-portal/lib/portal/nav'
+import { SOCIAL_LISTENING_VIEW_QUERY } from '@client-portal/lib/social-listening/nav'
+import { bricolage_grot600, bricolage_grot700 } from '@client-portal/styles/fonts'
 
 type KeywordRow = { value: string; matchType: 'broad' | 'exact' }
 
@@ -33,6 +33,7 @@ type SocialListeningSetupPanelProps = {
 export default function SocialListeningSetupPanel({
   onComplete,
 }: SocialListeningSetupPanelProps) {
+  const dataSource = useSocialListeningDataSource()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -96,7 +97,12 @@ export default function SocialListeningSetupPanel({
     }
 
     setSubmitting(true)
-    const result = await createListeningSetup({
+    if (!dataSource.createListeningSetup) {
+      setSubmitting(false)
+      setError('Setup is not available in this view.')
+      return
+    }
+    const result = await dataSource.createListeningSetup({
       keywords: trimmed,
       platforms,
       startDate,

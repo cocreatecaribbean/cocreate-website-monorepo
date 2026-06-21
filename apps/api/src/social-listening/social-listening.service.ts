@@ -4,6 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
+import {
+  SocialListeningSetupActor,
+  SocialListeningSetupStatus,
+} from '@cocreate/database'
 import { PrismaService } from '../prisma/prisma.service'
 import type { AuthenticatedClient } from '../auth/auth.service'
 import { ClientAccessService } from '../auth/client-access.service'
@@ -44,6 +48,16 @@ export class SocialListeningService {
   ): Promise<SocialListeningAnalyticsResponse> {
     this.assertSocialListeningUser(client)
     const organization = await this.requireSubscriberOrg(client)
+    return this.getAnalyticsForOrganization(organization, asOf)
+  }
+
+  async getAnalyticsForOrganization(
+    organization: {
+      id: string
+      brand24ProjectId: string | null
+    },
+    asOf?: string,
+  ): Promise<SocialListeningAnalyticsResponse> {
     await this.snapshots.ensureDemoSnapshots(organization)
 
     if (asOf) {
@@ -91,6 +105,14 @@ export class SocialListeningService {
   ): Promise<SocialListeningSnapshotDatesResponse> {
     this.assertSocialListeningUser(client)
     const organization = await this.requireSubscriberOrg(client)
+    return this.listSnapshotDatesForOrganization(organization.id, limit)
+  }
+
+  async listSnapshotDatesForOrganization(
+    organizationId: string,
+    limit?: number,
+  ): Promise<SocialListeningSnapshotDatesResponse> {
+    const organization = await this.requireSubscriberOrgById(organizationId)
     await this.snapshots.ensureDemoSnapshots(organization)
     const parsedLimit = limit ? Number.parseInt(String(limit), 10) : 90
     const safeLimit =
@@ -105,37 +127,83 @@ export class SocialListeningService {
     dto: CreateListeningSetupDto,
   ) {
     this.assertSocialListeningUser(client)
-    const organization = await this.requireSubscriberOrg(client)
+    const organizationId = client.organization?.id
+    if (!organizationId) {
+      throw new ForbiddenException('No organization linked to this account')
+    }
+    return this.createListeningSetup({
+      organizationId,
+      dto,
+      actor: 'CLIENT',
+      userId: client.id,
+    })
+  }
+
+  async createListeningSetup(params: {
+    organizationId: string
+    dto: CreateListeningSetupDto
+    actor: 'CLIENT' | 'ADMIN'
+    userId?: string
+  }) {
+    await this.requireSubscriberOrgById(params.organizationId)
+
     const { start, end } = validateListeningSetupDateRange(
-      dto.startDate,
-      dto.endDate,
+      params.dto.startDate,
+      params.dto.endDate,
     )
 
-    const activeSources = this.brand24.mapPlatformsToActiveSources(dto.platforms)
+    await this.prisma.socialListeningSetup.updateMany({
+      where: {
+        organizationId: params.organizationId,
+        status: SocialListeningSetupStatus.ACTIVE,
+      },
+      data: { status: SocialListeningSetupStatus.ARCHIVED },
+    })
+
+    const activeSources = this.brand24.mapPlatformsToActiveSources(params.dto.platforms)
     const { projectId } = await this.brand24.addProject({
-      keywords: dto.keywords,
+      keywords: params.dto.keywords,
       activeSources,
-      projectName: organization.id,
+      projectName: params.organizationId,
     })
 
     await this.prisma.organization.update({
-      where: { id: organization.id },
+      where: { id: params.organizationId },
       data: { brand24ProjectId: projectId },
     })
 
-    const orgContext = { id: organization.id, brand24ProjectId: projectId }
+    const orgContext = { id: params.organizationId, brand24ProjectId: projectId }
     const dates = enumerateUtcDatesInclusive(start, end)
 
     for (const snapshotDate of dates) {
       await this.snapshots.captureSnapshot(orgContext, snapshotDate)
     }
 
+    const setup = await this.prisma.socialListeningSetup.create({
+      data: {
+        organizationId: params.organizationId,
+        status: SocialListeningSetupStatus.ACTIVE,
+        keywords: params.dto.keywords as object,
+        platforms: params.dto.platforms as object,
+        startDate: start,
+        endDate: end,
+        brand24ProjectId: projectId,
+        snapshotsCaptured: dates.length,
+        createdBy:
+          params.actor === 'ADMIN'
+            ? SocialListeningSetupActor.ADMIN
+            : SocialListeningSetupActor.CLIENT,
+        createdByUserId: params.userId ?? null,
+      },
+    })
+
     return {
       ok: true as const,
+      setupId: setup.id,
       brand24ProjectId: projectId,
       snapshotsCaptured: dates.length,
-      startDate: dto.startDate,
-      endDate: dto.endDate,
+      startDate: params.dto.startDate,
+      endDate: params.dto.endDate,
     }
   }
 
@@ -146,6 +214,14 @@ export class SocialListeningService {
   ): Promise<SocialListeningCompareResponse> {
     this.assertSocialListeningUser(client)
     const organization = await this.requireSubscriberOrg(client)
+    return this.compareForOrganization(organization, baseline, current)
+  }
+
+  async compareForOrganization(
+    organization: { id: string; brand24ProjectId: string | null },
+    baseline: string,
+    current?: string,
+  ): Promise<SocialListeningCompareResponse> {
     await this.snapshots.ensureDemoSnapshots(organization)
 
     const baselineDate = parseUtcDateOnly(baseline)
@@ -165,12 +241,7 @@ export class SocialListeningService {
     return this.snapshots.compare(organization, baselineDate, currentDate)
   }
 
-  private async requireSubscriberOrg(client: AuthenticatedClient) {
-    const organizationId = client.organization?.id
-    if (!organizationId) {
-      throw new ForbiddenException('No organization linked to this account')
-    }
-
+  private async requireSubscriberOrgById(organizationId: string) {
     const organization = await this.prisma.organization.findUnique({
       where: { id: organizationId },
       select: {
@@ -191,5 +262,13 @@ export class SocialListeningService {
     }
 
     return organization
+  }
+
+  private async requireSubscriberOrg(client: AuthenticatedClient) {
+    const organizationId = client.organization?.id
+    if (!organizationId) {
+      throw new ForbiddenException('No organization linked to this account')
+    }
+    return this.requireSubscriberOrgById(organizationId)
   }
 }

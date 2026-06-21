@@ -1,17 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import {
-  downloadSocialListeningReport,
-  fetchReportTemplates,
-  type ReportTemplateMeta,
-} from '@/lib/social-listening/fetch-reports'
-import { fetchSocialListeningSnapshotDates } from '@/lib/social-listening/fetch-analytics-client'
-import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
+import { useSocialListeningDataSource, type SocialListeningDataSource } from '@client-portal/lib/social-listening/data-source'
+import { bricolage_grot600, bricolage_grot700 } from '@client-portal/styles/fonts'
 import { FileDown } from 'lucide-react'
 
 export default function SocialListeningReportsPanel() {
-  const [templates, setTemplates] = useState<ReportTemplateMeta[]>([])
+  const dataSource = useSocialListeningDataSource()
+  const [templates, setTemplates] = useState<
+    Awaited<ReturnType<SocialListeningDataSource['fetchReportTemplates']>>
+  >([])
   const [dates, setDates] = useState<string[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const [asOf, setAsOf] = useState<string | null>(null)
@@ -26,15 +24,15 @@ export default function SocialListeningReportsPanel() {
 
   const loadMeta = useCallback(async () => {
     const [templateList, dateList] = await Promise.all([
-      fetchReportTemplates(),
-      fetchSocialListeningSnapshotDates(),
+      dataSource.fetchReportTemplates(),
+      dataSource.fetchSnapshotDates(),
     ])
     setTemplates(templateList)
     setDates(dateList)
     if (templateList.length && !selectedTemplateId) {
       setSelectedTemplateId(templateList[0]!.id)
     }
-  }, [selectedTemplateId])
+  }, [dataSource, selectedTemplateId])
 
   useEffect(() => {
     void loadMeta()
@@ -46,7 +44,7 @@ export default function SocialListeningReportsPanel() {
     setError(null)
     setSuccess(null)
 
-    const result = await downloadSocialListeningReport({
+    const result = await dataSource.downloadReport({
       templateId: selectedTemplateId,
       asOf: asOf ?? undefined,
       baseline: selectedTemplate?.supportsCompare ? baseline ?? undefined : undefined,

@@ -13,6 +13,8 @@ import { AdminsModule } from './admins/admins.module'
 import { NewsletterModule } from './newsletter/newsletter.module'
 import { ProjectsModule } from './projects/projects.module'
 import { UsersModule } from './users/users.module'
+import { BillingModule } from './billing/billing.module'
+import { SocialListeningAdminModule } from './social-listening-admin/social-listening-admin.module'
 import { DashboardModule } from './dashboard/dashboard.module'
 
 @Module({
@@ -33,6 +35,8 @@ import { DashboardModule } from './dashboard/dashboard.module'
     ProjectsModule,
     UsersModule,
     DashboardModule,
+    BillingModule,
+    SocialListeningAdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

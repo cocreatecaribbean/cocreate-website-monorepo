@@ -1,13 +1,13 @@
 'use client'
 
 import { ResponsiveLine } from '@nivo/line'
-import ChartContainer from '@/components/social-listening/chart-container'
-import GlassChartTooltip from '@/components/social-listening/glass-tooltip'
-import { brandColors, lineSeriesColors } from '@/components/social-listening/nivo-theme'
-import { useNivoTheme } from '@/components/social-listening/use-nivo-theme'
-import { useIsMobileChart } from '@/components/social-listening/use-is-mobile-chart'
-import { usePrefersReducedMotion } from '@/components/social-listening/use-prefers-reduced-motion'
-import type { ReachEngagementSeries } from '@/lib/social-listening/types'
+import ChartContainer from '@client-portal/components/social-listening/chart-container'
+import GlassChartTooltip from '@client-portal/components/social-listening/glass-tooltip'
+import { brandColors, lineSeriesColors } from '@client-portal/components/social-listening/nivo-theme'
+import { useNivoTheme } from '@client-portal/components/social-listening/use-nivo-theme'
+import { useIsMobileChart } from '@client-portal/components/social-listening/use-is-mobile-chart'
+import { usePrefersReducedMotion } from '@client-portal/components/social-listening/use-prefers-reduced-motion'
+import type { ReachEngagementSeries } from '@client-portal/lib/social-listening/types'
 
 type ReachEngagementLineChartProps = {
   data: ReachEngagementSeries[]

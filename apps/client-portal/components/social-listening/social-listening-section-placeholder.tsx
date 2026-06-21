@@ -1,6 +1,6 @@
 'use client'
 
-import PortalSectionPlaceholder from '@/components/portal/section-placeholder'
+import PortalSectionPlaceholder from '@client-portal/components/portal/section-placeholder'
 import type { LucideIcon } from 'lucide-react'
 
 type SocialListeningSectionPlaceholderProps = {

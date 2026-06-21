@@ -1,4 +1,4 @@
-import type { SentimentId } from '@/lib/social-listening/types'
+import type { SentimentId } from '@client-portal/lib/social-listening/types'
 
 /** Chart arc / stream colors — brand-tinted, not generic traffic-light green */
 export const SENTIMENT_BRAND_COLORS: Record<SentimentId, string> = {
