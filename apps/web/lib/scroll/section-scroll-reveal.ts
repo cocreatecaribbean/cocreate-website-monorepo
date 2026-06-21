@@ -5,15 +5,20 @@ type SectionScrollRevealOptions = {
   trigger: HTMLElement
   onReveal: () => void
   onHide: () => void
+  persistAfterReveal?: boolean
 }
 
 /**
- * Bidirectional enter/leave ScrollTrigger tuned for ScrollSmoother + touch.
+ * ScrollTrigger section reveal tuned for ScrollSmoother + touch.
+ * Default: bidirectional enter/leave. With persistAfterReveal: reveal on scroll-down
+ * entry, stay visible when scrolling past or back up through the section, hide only
+ * when scrolling back above the section top (onLeaveBack) so the next scroll-down can reveal again.
  */
 export function bindSectionScrollReveal({
   trigger,
   onReveal,
   onHide,
+  persistAfterReveal = false,
 }: SectionScrollRevealOptions) {
   const start = ScrollTrigger.isTouch ? 'top 92%' : 'top 85%'
 
@@ -23,9 +28,13 @@ export function bindSectionScrollReveal({
     end: 'bottom 12%',
     invalidateOnRefresh: true,
     onEnter: onReveal,
-    onEnterBack: onReveal,
-    onLeave: onHide,
-    onLeaveBack: onHide,
+    ...(persistAfterReveal
+      ? { onLeaveBack: onHide }
+      : {
+          onEnterBack: onReveal,
+          onLeave: onHide,
+          onLeaveBack: onHide,
+        }),
   })
 
   const syncIfInView = () => {

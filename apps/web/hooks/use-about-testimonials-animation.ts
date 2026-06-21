@@ -11,25 +11,24 @@ import {
 
 gsap.registerPlugin(ScrollTrigger, useGSAP)
 
-const ITEM_STAGGER = 0.18
-const ITEM_REVEAL_DURATION = 0.78
-const ITEM_HIDE_STAGGER = 0.06
 const EASE_IN = 'power2.in'
 const EASE_OUT = 'power2.out'
 const DECOR_EASE_IN = 'sine.out'
 
 const HIDDEN_HEADING = { autoAlpha: 0, y: 20 }
-const HIDDEN_PANEL = { autoAlpha: 0, y: 28 }
+const HIDDEN_COPY = { autoAlpha: 0, y: 18 }
+const HIDDEN_PANEL = { autoAlpha: 0, y: 32 }
 const HIDDEN_DECOR = { autoAlpha: 0 }
-const HIDDEN_ITEM = { autoAlpha: 0, y: 20 }
 
-type UseAboutServicesAnimationOptions = {
+type UseAboutTestimonialsAnimationOptions = {
   scope: RefObject<HTMLElement | null>
 }
 
 type RevealPhase = 'hidden' | 'shown' | 'animating'
 
-export function useAboutServicesAnimation({ scope }: UseAboutServicesAnimationOptions) {
+export function useAboutTestimonialsAnimation({
+  scope,
+}: UseAboutTestimonialsAnimationOptions) {
   const activeTimelineRef = useRef<gsap.core.Timeline | null>(null)
   const floatTweensRef = useRef<gsap.core.Tween[]>([])
   const phaseRef = useRef<RevealPhase>('hidden')
@@ -39,17 +38,17 @@ export function useAboutServicesAnimation({ scope }: UseAboutServicesAnimationOp
       const section = scope.current
       if (!section) return
 
-      const heading = section.querySelector<HTMLElement>('[data-about-services-heading]')
-      const panel = section.querySelector<HTMLElement>('[data-about-services-panel]')
-      const decor = section.querySelectorAll<HTMLElement>('[data-about-services-decor]')
+      const heading = section.querySelector<HTMLElement>('[data-about-testimonials-heading]')
+      const copy = section.querySelector<HTMLElement>('[data-about-testimonials-copy]')
+      const panel = section.querySelector<HTMLElement>('[data-about-testimonials-panel]')
+      const decor = section.querySelectorAll<HTMLElement>('[data-about-testimonials-decor]')
       const decorFloat = section.querySelectorAll<HTMLElement>(
-        '[data-about-services-decor-float]',
+        '[data-about-testimonials-decor-float]',
       )
-      const items = gsap.utils.toArray<HTMLElement>('[data-about-services-item]', section)
 
-      if (!heading || !panel || items.length === 0) return
+      if (!heading || !panel) return
 
-      const targets = [heading, panel, ...decor, ...items]
+      const targets = [heading, copy, panel, ...decor].filter(Boolean) as HTMLElement[]
 
       const killFloat = () => {
         floatTweensRef.current.forEach((tween) => tween.kill())
@@ -59,12 +58,11 @@ export function useAboutServicesAnimation({ scope }: UseAboutServicesAnimationOp
 
       const startDecorFloat = () => {
         killFloat()
-
         decorFloat.forEach((el, index) => {
           floatTweensRef.current.push(
             gsap.to(el, {
-              y: index === 0 ? -44 : 44,
-              duration: 3.8,
+              y: index === 0 ? -36 : 36,
+              duration: 4.2,
               ease: 'sine.inOut',
               yoyo: true,
               repeat: -1,
@@ -75,9 +73,9 @@ export function useAboutServicesAnimation({ scope }: UseAboutServicesAnimationOp
 
       const applyHiddenState = () => {
         gsap.set(heading, HIDDEN_HEADING)
+        if (copy) gsap.set(copy, HIDDEN_COPY)
         gsap.set(panel, HIDDEN_PANEL)
         gsap.set(decor, HIDDEN_DECOR)
-        gsap.set(items, HIDDEN_ITEM)
       }
 
       const playReveal = () => {
@@ -102,43 +100,19 @@ export function useAboutServicesAnimation({ scope }: UseAboutServicesAnimationOp
 
         activeTimelineRef.current = tl
 
-        tl.to(heading, {
-          autoAlpha: 1,
-          y: 0,
-          duration: 0.52,
-        })
-          .to(
-            panel,
-            {
-              autoAlpha: 1,
-              y: 0,
-              duration: 0.58,
-            },
-            '<0.08',
-          )
-          .to(
-            items,
-            {
-              autoAlpha: 1,
-              y: 0,
-              duration: ITEM_REVEAL_DURATION,
-              stagger: {
-                each: ITEM_STAGGER,
-                from: 'start',
-              },
-            },
-            '-=0.2',
-          )
-          .to(
-            decor,
-            {
-              autoAlpha: 1,
-              duration: 1.05,
-              ease: DECOR_EASE_IN,
-              stagger: 0.14,
-            },
-            '<0.12',
-          )
+        tl.to(heading, { autoAlpha: 1, y: 0, duration: 0.52 })
+        if (copy) {
+          tl.to(copy, { autoAlpha: 1, y: 0, duration: 0.48 }, '<0.06')
+        }
+        tl.to(
+          panel,
+          { autoAlpha: 1, y: 0, duration: 0.72 },
+          copy ? '-=0.12' : '<0.1',
+        ).to(
+          decor,
+          { autoAlpha: 1, duration: 1, ease: DECOR_EASE_IN, stagger: 0.12 },
+          '-=0.35',
+        )
       }
 
       const playHide = () => {
@@ -162,42 +136,10 @@ export function useAboutServicesAnimation({ scope }: UseAboutServicesAnimationOp
 
         activeTimelineRef.current = tl
 
-        tl.to(items, {
-          autoAlpha: 0,
-          y: -14,
-          duration: 0.4,
-          stagger: {
-            each: ITEM_HIDE_STAGGER,
-            from: 'end',
-          },
-        })
-          .to(
-            heading,
-            {
-              autoAlpha: 0,
-              y: -12,
-              duration: 0.32,
-            },
-            '-=0.18',
-          )
-          .to(
-            decor,
-            {
-              autoAlpha: 0,
-              duration: 0.34,
-              stagger: 0.05,
-            },
-            '-=0.22',
-          )
-          .to(
-            panel,
-            {
-              autoAlpha: 0,
-              y: 24,
-              duration: 0.44,
-            },
-            '-=0.26',
-          )
+        tl.to(panel, { autoAlpha: 0, y: 24, duration: 0.42 })
+          .to(heading, { autoAlpha: 0, y: -12, duration: 0.32 }, '-=0.2')
+          .to(copy ?? [], { autoAlpha: 0, y: -10, duration: 0.28 }, '-=0.24')
+          .to(decor, { autoAlpha: 0, duration: 0.3, stagger: 0.05 }, '-=0.22')
       }
 
       const prefersReducedMotion = window.matchMedia(
@@ -211,9 +153,9 @@ export function useAboutServicesAnimation({ scope }: UseAboutServicesAnimationOp
       }
 
       primeScrollRevealTargets(heading, HIDDEN_HEADING)
+      if (copy) primeScrollRevealTargets(copy, HIDDEN_COPY)
       primeScrollRevealTargets(panel, HIDDEN_PANEL)
       primeScrollRevealTargets(decor, HIDDEN_DECOR)
-      primeScrollRevealTargets(items, HIDDEN_ITEM)
 
       const trigger = bindSectionScrollReveal({
         trigger: section,
