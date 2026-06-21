@@ -5,6 +5,15 @@ import React, {
   useState
 } from 'react'
 import { EmblaCarouselType, EmblaEventType } from 'embla-carousel'
+import { cn } from '@/utils/tailwind-helpers'
+
+/** Active = vertical casablanca pill; inactive = sanmarino circle */
+export function getEmblaDotClassName(isSelected: boolean) {
+  return cn(
+    'embla__dot rounded-full transition-all duration-200 hover:cursor-pointer',
+    isSelected ? 'h-6 w-3 bg-casablanca' : 'h-3 w-3 bg-sanmarino',
+  )
+}
 
 type UseDotButtonType = {
   selectedIndex: number

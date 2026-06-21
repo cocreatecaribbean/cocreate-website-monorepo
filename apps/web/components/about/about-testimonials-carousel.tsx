@@ -7,14 +7,13 @@ import {
   PrevButton,
   usePrevNextButtons,
 } from '@/components/emblaCarouselArrowButtons'
-import { DotButton, useDotButton } from '@/components/emblaCarouselDotButton'
+import { DotButton, useDotButton, getEmblaDotClassName } from '@/components/emblaCarouselDotButton'
 import TestimonialChatCard from '@/components/about/testimonial-chat-card'
 import {
   useEmblaScaleTween,
   useEmblaStationarySlideClick,
 } from '@/hooks/use-embla-scale-tween'
 import type { AboutTestimonial } from '@/types/about-testimonial'
-import { cn } from '@/utils/tailwind-helpers'
 
 const OPTIONS: EmblaOptionsType = {
   align: 'center',
@@ -92,12 +91,7 @@ export default function AboutTestimonialsCarousel({
             <DotButton
               key={index}
               onClick={() => onDotButtonClick(index)}
-              className={cn(
-                'embla__dot h-3 rounded-full transition-all duration-200 hover:cursor-pointer',
-                index === selectedIndex
-                  ? 'w-6 bg-casablanca'
-                  : 'w-3 bg-sanmarino/70',
-              )}
+              className={getEmblaDotClassName(index === selectedIndex)}
             />
           ))}
         </div>

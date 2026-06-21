@@ -1,31 +1,43 @@
-/* Pagination — fixed-width slots so the active pill never bleeds into neighbors */
+/* Pagination — fixed slots; active indicator is a vertical casablanca pill */
 .arc-gallery-pagination {
   overflow: visible;
 }
 
 .arc-gallery-pagination__btn {
   display: flex;
-  height: 2.75rem;
-  width: 2rem;
+  height: 1.5rem;
+  width: 0.75rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   padding: 0;
+  cursor: pointer;
+  border-radius: 9999px;
+}
+
+.arc-gallery-pagination__btn:hover .arc-gallery-pagination__pill:not(.is-active) {
+  background-color: #355fa0;
+}
+
+.arc-gallery-pagination__btn:focus-visible {
+  outline: 2px solid #f6b03f;
+  outline-offset: 3px;
 }
 
 .arc-gallery-pagination__pill {
   display: block;
-  height: 0.5rem;
-  width: 0.5rem;
+  height: 0.75rem;
+  width: 0.75rem;
   border-radius: 9999px;
-  background-color: rgba(57, 65, 154, 0.25);
+  background-color: #406eb5;
   transition:
-    width 0.55s cubic-bezier(0.22, 1, 0.36, 1),
-    background-color 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    height 0.2s ease,
+    background-color 0.2s ease;
 }
 
 .arc-gallery-pagination__pill.is-active {
-  width: 2rem;
+  height: 1.5rem;
+  width: 0.75rem;
   background-color: #f6b03f;
 }
 

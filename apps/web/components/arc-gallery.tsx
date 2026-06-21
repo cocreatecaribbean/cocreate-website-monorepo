@@ -7,6 +7,7 @@ import { useArcGalleryLayout } from '@/hooks/use-arc-gallery-layout'
 import { useCarouselDrag } from '@/hooks/use-carousel-drag'
 import type { ProjectPreview } from '@cocreate/types'
 import { getArcTileStyle, getWrappedOffset } from '@/utils/arc-gallery-math'
+import { NextButton, PrevButton } from '@/components/emblaCarouselArrowButtons'
 import * as fonts from '@/styles/fonts'
 import './arc-gallery.css'
 
@@ -87,27 +88,26 @@ export default function ArcGallery({ items = [] }: ArcGalleryProps) {
   return (
     <div className="relative w-full min-w-0">
       <div
-        className="relative w-full min-w-0 py-4 max-md:py-6 md:py-6 lg:py-8"
+        className="relative w-full min-w-0 py-4 max-md:py-4 md:py-4 lg:py-6"
         role="region"
         aria-roledescription="carousel"
         aria-label="Arc gallery preview"
       >
         <div
           ref={stageRef}
-          onPointerDown={onPointerDown}
           className="
-            relative mx-auto w-full min-w-0 touch-pan-y
+            pointer-events-none relative mx-auto w-full min-w-0 touch-pan-y
             h-[min(50svh,400px)] min-[640px]:h-[min(44svh,400px)]
             max-md:overflow-visible
-            py-6 max-md:py-6 md:h-[480px] md:overflow-hidden md:py-0
-            lg:h-[540px] xl:h-[600px]
+            py-4 max-md:py-4 md:h-[440px] md:overflow-hidden md:py-0
+            lg:h-[480px] xl:h-[520px]
           "
         >
           <div
             className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_42%,rgba(246,176,63,0.08),transparent_70%)]"
             aria-hidden
           />
-          <div className="absolute inset-0 overflow-x-clip overflow-y-visible max-md:overflow-x-clip md:overflow-visible">
+          <div className="pointer-events-none absolute inset-0 overflow-x-clip overflow-y-visible max-md:overflow-x-clip md:overflow-visible">
             {items.map((item, index) => {
               const offset = getWrappedOffset(
                 index,
@@ -129,41 +129,20 @@ export default function ArcGallery({ items = [] }: ArcGalleryProps) {
               )
             })}
           </div>
+        </div>
 
-          {/* Desktop / tablet: arrows flanking the arc */}
-          <div className="pointer-events-none absolute inset-x-0 top-[40%] z-40 hidden -translate-y-1/2 justify-between px-2 min-[640px]:flex lg:px-4">
-            <ArcNavButton label="Previous" onClick={() => step(-1)} />
-            <ArcNavButton
-              label="Next"
-              onClick={() => step(1)}
-              direction="right"
-            />
+        <div className="embla__controls relative z-20 -mt-6 flex flex-col items-center gap-y-6 max-md:-mt-4 md:-mt-24 lg:-mt-28 xl:-mt-32">
+          <div className="flex flex-row gap-x-8">
+            <PrevButton aria-label="Previous project" onClick={() => step(-1)} />
+            <NextButton aria-label="Next project" onClick={() => step(1)} />
           </div>
 
           <ArcGalleryPagination
             items={items}
             activeIndex={activeIndex}
             onSelect={goTo}
-            className="absolute inset-x-0 bottom-[9%] z-40 hidden min-[640px]:flex md:bottom-[10%]"
           />
         </div>
-
-        {/* Mobile only — arrows below the stage */}
-        <div className="mt-1 flex items-center justify-center gap-5 max-[639px]:-mt-1 min-[640px]:hidden">
-          <ArcNavButton label="Previous" onClick={() => step(-1)} />
-          <ArcNavButton
-            label="Next"
-            onClick={() => step(1)}
-            direction="right"
-          />
-        </div>
-
-        <ArcGalleryPagination
-          items={items}
-          activeIndex={activeIndex}
-          onSelect={goTo}
-          className="arc-gallery-pagination relative z-40 mt-3 py-2 min-[640px]:hidden"
-        />
       </div>
     </div>
   )
@@ -181,7 +160,7 @@ function ArcGalleryPagination({
   className?: string
 }) {
   return (
-    <div className={`flex items-center justify-center gap-2 ${className}`}>
+    <div className={`arc-gallery-pagination flex items-center justify-center gap-2 ${className}`}>
       {items.map((item, i) => {
         const isActive = i === activeIndex
         return (
@@ -228,7 +207,7 @@ function ArcTile({
   const transition = getArcTileTransition(isDragging, isMobile)
 
   const shellClass = `
-    arc-tile-card group absolute left-1/2 cursor-pointer select-none overflow-hidden
+    arc-tile-card group pointer-events-auto absolute left-1/2 cursor-pointer select-none overflow-hidden
     aspect-4/5 md:aspect-square
     rounded-4xl
     ring-1 ring-chambray/10
@@ -321,26 +300,5 @@ function ArcTile({
     >
       {content}
     </article>
-  )
-}
-
-function ArcNavButton({
-  label,
-  onClick,
-  direction = 'left',
-}: {
-  label: string
-  onClick: () => void
-  direction?: 'left' | 'right'
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      onClick={onClick}
-      className="pointer-events-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-chambray/15 bg-white/90 text-xl text-chambray shadow-sm transition hover:border-chambray/30 hover:bg-white md:h-12 md:w-12 lg:h-14 lg:w-14"
-    >
-      {direction === 'left' ? '‹' : '›'}
-    </button>
   )
 }

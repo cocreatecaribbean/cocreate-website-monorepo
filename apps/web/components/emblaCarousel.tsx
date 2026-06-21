@@ -6,7 +6,7 @@ import {
   PrevButton,
   usePrevNextButtons
 } from './emblaCarouselArrowButtons'
-import { DotButton, useDotButton } from './emblaCarouselDotButton'
+import { DotButton, useDotButton, getEmblaDotClassName } from './emblaCarouselDotButton'
 import EmblaSlide from './emblaSlide'
 import { cn } from '@/utils/tailwind-helpers'
 import { Philosophy } from '@/types/global-types'
@@ -80,21 +80,18 @@ const EmblaCarousel = (props: PropType) => {
         </div>
       </div>
 
-      <div className="embla__controls self-center flex flex-col items-center gap-y-8 ">
+      <div className="embla__controls self-center flex flex-col items-center gap-y-6 ">
         <div className="embla__buttons flex flex-row gap-x-10">
           <PrevButton onClick={onPrevButtonClick} disabled={prevBtnDisabled} />
           <NextButton onClick={onNextButtonClick} disabled={nextBtnDisabled} />
         </div>
 
-        <div className="embla__dots flex flex-row gap-x-4">
+        <div className="embla__dots flex h-6 flex-row items-center gap-x-4">
           {scrollSnaps.map((_, index) => (
             <DotButton
               key={index}
               onClick={() => onDotButtonClick(index)}
-              className={cn(
-                "embla__dot w-3 rounded-full hover:cursor-pointer transition-all duration-200",
-                index === selectedIndex ? "bg-casablanca h-6" : "bg-sanmarino h-3"
-              )}
+              className={getEmblaDotClassName(index === selectedIndex)}
             />
           ))}
         </div>
