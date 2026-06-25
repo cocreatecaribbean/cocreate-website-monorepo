@@ -1,4 +1,5 @@
 'use client'
+import { nestApiUrl } from '@cocreate/api-client'
 
 import { FormEvent, useState } from 'react'
 import Link from 'next/link'
@@ -8,7 +9,6 @@ import DevSignInLink from '@/components/dev-sign-in-link'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { alkatra600, bricolage_grot500 } from '@/styles/fonts'
 
-const apiBase = () => process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 export default function AdminLoginForm() {
   const router = useRouter()
@@ -35,7 +35,7 @@ export default function AdminLoginForm() {
     setDevSignInUrl(null)
 
     try {
-      const response = await fetch(`${apiBase()}/auth/admin/magic-link`, {
+      const response = await fetch(nestApiUrl('/auth/admin/magic-link'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

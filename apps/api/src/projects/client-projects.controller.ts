@@ -25,7 +25,7 @@ import { UploadUrlDto } from './dto/upload-url.dto'
 import { RegisterCoverDto } from './dto/register-cover.dto'
 import { ProjectsService } from './projects.service'
 
-@Controller('client-portal')
+@Controller({ path: 'client-portal', version: '1' })
 @UseGuards(ClientAuthGuard)
 export class ClientProjectsController {
   constructor(private readonly projects: ProjectsService) {}

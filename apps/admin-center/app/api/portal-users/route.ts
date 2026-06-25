@@ -1,6 +1,6 @@
+import { nestApiUrl } from '@cocreate/api-client'
 import { NextResponse } from 'next/server'
 
-const apiBase = () => process.env.API_URL ?? 'http://localhost:3001'
 const adminKey = () => process.env.ADMIN_API_KEY ?? ''
 
 export async function GET() {
@@ -11,7 +11,7 @@ export async function GET() {
     )
   }
 
-  const response = await fetch(`${apiBase()}/admin/client-portal-users`, {
+  const response = await fetch(nestApiUrl('/admin/client-portal-users'), {
     headers: { 'x-admin-key': adminKey() },
     cache: 'no-store',
   })
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const response = await fetch(`${apiBase()}/admin/client-portal-users`, {
+  const response = await fetch(nestApiUrl('/admin/client-portal-users'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

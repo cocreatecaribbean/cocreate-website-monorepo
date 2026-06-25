@@ -19,7 +19,7 @@ import {
   ToggleAutoRenewDto,
 } from './dto/client-billing.dto'
 
-@Controller('client-portal/social-listening')
+@Controller({ path: 'client-portal/social-listening', version: '1' })
 @UseGuards(ClientAuthGuard)
 export class ClientBillingController {
   constructor(

@@ -1,7 +1,7 @@
+import { nestApiUrl } from '@cocreate/api-client'
 import { NextResponse } from 'next/server'
 import { adminApiHeaders } from '@/lib/admin-api-headers'
 
-const apiBase = () => process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 type RouteContext = { params: Promise<{ organizationId: string }> }
 
@@ -15,7 +15,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   const body = await request.json()
 
   const response = await fetch(
-    `${apiBase()}/admin/clients/organizations/${organizationId}/brand24-project`,
+    nestApiUrl(`/admin/clients/organizations/${organizationId}/brand24-project`),
     {
       method: 'PATCH',
       headers,

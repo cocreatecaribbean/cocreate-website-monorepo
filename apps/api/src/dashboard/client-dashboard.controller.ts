@@ -4,7 +4,7 @@ import type { ClientPortalRequest } from '../auth/guards/client-auth.guard'
 import { ProjectsService } from '../projects/projects.service'
 import { DashboardStatsService } from './dashboard-stats.service'
 
-@Controller('client-portal/dashboard')
+@Controller({ path: 'client-portal/dashboard', version: '1' })
 @UseGuards(ClientAuthGuard)
 export class ClientDashboardController {
   constructor(

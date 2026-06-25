@@ -27,7 +27,7 @@ import { CreateProjectForAdminDto } from './dto/create-project-for-admin.dto'
 import { ProjectsService } from './projects.service'
 import { ProjectAttachmentVisibility } from '@cocreate/database'
 
-@Controller('admin')
+@Controller({ path: 'admin', version: '1' })
 @UseGuards(AdminAuthGuard)
 export class AdminProjectsController {
   constructor(

@@ -16,7 +16,7 @@ import { SocialListeningService } from '../social-listening/social-listening.ser
 import { CreateListeningSetupDto } from '../social-listening/dto/create-listening-setup.dto'
 import { ClientPortalService } from './client-portal.service'
 
-@Controller('client-portal')
+@Controller({ path: 'client-portal', version: '1' })
 export class ClientPortalController {
   constructor(
     private readonly clientPortalService: ClientPortalService,

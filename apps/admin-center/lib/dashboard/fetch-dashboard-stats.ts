@@ -1,8 +1,7 @@
+import { nestApiUrl } from '@cocreate/api-client'
 import { adminApiHeaders } from '@/lib/admin-api-headers'
 import type { AdminDashboardStats } from '@/lib/dashboard/types'
 
-const apiBase = () =>
-  process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 const emptyStats: AdminDashboardStats = {
   activeClients: 0,
@@ -19,7 +18,7 @@ export async function fetchAdminDashboardStats(): Promise<AdminDashboardStats> {
   if (!headers) return emptyStats
 
   try {
-    const response = await fetch(`${apiBase()}/admin/dashboard/stats`, {
+    const response = await fetch(nestApiUrl('/admin/dashboard/stats'), {
       headers,
       cache: 'no-store',
     })

@@ -1,0 +1,19 @@
+{
+  "name": "@cocreate/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "catalog:tooling",
+    "jest": "catalog:tooling",
+    "ts-jest": "^29.3.4",
+    "typescript": "catalog:tooling"
+  }
+}

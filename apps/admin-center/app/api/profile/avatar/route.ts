@@ -1,8 +1,7 @@
+import { nestApiUrl } from '@cocreate/api-client'
 import { NextRequest, NextResponse } from 'next/server'
 import { adminApiHeaders } from '@/lib/admin-api-headers'
 
-const apiBase = () =>
-  process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 export async function PATCH(request: NextRequest) {
   const headers = await adminApiHeaders(true)
@@ -11,7 +10,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json()
-  const response = await fetch(`${apiBase()}/auth/admin/profile/avatar`, {
+  const response = await fetch(nestApiUrl('/auth/admin/profile/avatar'), {
     method: 'PATCH',
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

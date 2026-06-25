@@ -1,10 +1,9 @@
 'use client'
+import { nestApiUrl } from '@cocreate/api-client'
 
 import { createSupabaseBrowserClient } from '@client-portal/lib/supabase/client'
 import type { SocialListeningPlanId } from '@cocreate/social-listening-plans'
 
-const apiBase = () =>
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 async function getToken(): Promise<string | null> {
   const supabase = createSupabaseBrowserClient()
@@ -34,7 +33,7 @@ export type ClientSubscriptionView = {
 export async function fetchClientSubscription(): Promise<ClientSubscriptionView | null> {
   const token = await getToken()
   if (!token) return null
-  const res = await fetch(`${apiBase()}/client-portal/social-listening/subscription`, {
+  const res = await fetch(nestApiUrl('/client-portal/social-listening/subscription'), {
     headers: { Authorization: `Bearer ${token}` },
     cache: 'no-store',
   })
@@ -50,7 +49,7 @@ export async function subscribeToPlan(plan: SocialListeningPlanId): Promise<{
 }> {
   const token = await getToken()
   if (!token) return { ok: false, message: 'Not signed in' }
-  const res = await fetch(`${apiBase()}/client-portal/social-listening/subscribe`, {
+  const res = await fetch(nestApiUrl('/client-portal/social-listening/subscribe'), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -64,7 +63,7 @@ export async function subscribeToPlan(plan: SocialListeningPlanId): Promise<{
 export async function toggleAutoRenew(enabled: boolean): Promise<boolean> {
   const token = await getToken()
   if (!token) return false
-  const res = await fetch(`${apiBase()}/client-portal/social-listening/subscription/auto-renew`, {
+  const res = await fetch(nestApiUrl('/client-portal/social-listening/subscription/auto-renew'), {
     method: 'PATCH',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -78,7 +77,7 @@ export async function toggleAutoRenew(enabled: boolean): Promise<boolean> {
 export async function cancelSubscription(cancelReason?: string): Promise<boolean> {
   const token = await getToken()
   if (!token) return false
-  const res = await fetch(`${apiBase()}/client-portal/social-listening/subscription/cancel`, {
+  const res = await fetch(nestApiUrl('/client-portal/social-listening/subscription/cancel'), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -92,7 +91,7 @@ export async function cancelSubscription(cancelReason?: string): Promise<boolean
 export async function getRenewCheckoutUrl(): Promise<string | null> {
   const token = await getToken()
   if (!token) return null
-  const res = await fetch(`${apiBase()}/client-portal/social-listening/subscription/renew`, {
+  const res = await fetch(nestApiUrl('/client-portal/social-listening/subscription/renew'), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   })
@@ -105,7 +104,7 @@ export async function getUpdatePaymentUrl(): Promise<string | null> {
   const token = await getToken()
   if (!token) return null
   const res = await fetch(
-    `${apiBase()}/client-portal/social-listening/subscription/update-payment`,
+    nestApiUrl('/client-portal/social-listening/subscription/update-payment'),
     { method: 'POST', headers: { Authorization: `Bearer ${token}` } },
   )
   if (!res.ok) return null

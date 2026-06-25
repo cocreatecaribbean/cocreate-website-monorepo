@@ -6,7 +6,7 @@ import { AdminAuthGuard, type AdminRequest } from './guards/admin-auth.guard'
 import { SupabaseAuthService } from '../clients/supabase-auth.service'
 import { AdminProfileService } from '../users/admin-profile.service'
 
-@Controller('auth/admin')
+@Controller({ path: 'auth/admin', version: '1' })
 export class AdminAuthController {
   constructor(
     private readonly authService: AuthService,

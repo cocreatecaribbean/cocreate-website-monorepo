@@ -1,5 +1,6 @@
+import { nestApiUrl } from '@cocreate/api-client'
 import { adminApiHeaders } from '@/lib/admin-api-headers'
-import { adminApiBase } from '@/lib/admin-api-proxy'
+import { proxyAdminApi } from '@/lib/admin-api-proxy'
 import type { SocialListeningAnalyticsPayload } from '@client-portal/lib/social-listening/api-types'
 import { normalizeSocialListeningAnalytics } from '@client-portal/lib/social-listening/normalize-analytics'
 
@@ -10,7 +11,7 @@ export async function fetchAdminSocialListeningAnalytics(
   if (!headers) return null
 
   const response = await fetch(
-    `${adminApiBase()}/admin/social-listening/organizations/${organizationId}/analytics`,
+    nestApiUrl(`/admin/social-listening/organizations/${organizationId}/analytics`),
     { headers, cache: 'no-store' },
   )
 

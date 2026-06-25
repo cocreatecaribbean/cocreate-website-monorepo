@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@base-ui/react": "catalog:web",
+    "@cocreate/api-client": "workspace:*",
     "@cocreate/types": "workspace:*",
     "@cosmicjs/sdk": "catalog:web",
     "@gsap/react": "catalog:animation",

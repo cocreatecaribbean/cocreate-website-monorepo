@@ -14,7 +14,7 @@ import { AgencyProfileOptionsService } from './agency-profile-options.service'
 import { CreateProfileOptionDto } from './dto/create-profile-option.dto'
 import { UpdateProfileOptionDto } from './dto/update-profile-option.dto'
 
-@Controller('auth/admin')
+@Controller({ path: 'auth/admin', version: '1' })
 export class AgencyProfileOptionsPublicController {
   constructor(private readonly options: AgencyProfileOptionsService) {}
 
@@ -26,7 +26,7 @@ export class AgencyProfileOptionsPublicController {
   }
 }
 
-@Controller('admin/settings/profile-options')
+@Controller({ path: 'admin/settings/profile-options', version: '1' })
 @UseGuards(AdminAuthGuard, SuperAdminGuard)
 export class AgencyProfileOptionsAdminController {
   constructor(private readonly options: AgencyProfileOptionsService) {}

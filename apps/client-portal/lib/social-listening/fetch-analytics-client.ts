@@ -1,4 +1,5 @@
 'use client'
+import { nestApiUrl } from '@cocreate/api-client'
 
 import { createSupabaseBrowserClient } from '@client-portal/lib/supabase/client'
 import type {
@@ -6,8 +7,6 @@ import type {
   SocialListeningComparePayload,
 } from '@client-portal/lib/social-listening/api-types'
 
-const apiBase = () =>
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 async function getBrowserAccessToken(): Promise<string | null> {
   const supabase = createSupabaseBrowserClient()
@@ -19,7 +18,7 @@ async function socialListeningFetch<T>(path: string): Promise<T | null> {
   const token = await getBrowserAccessToken()
   if (!token) return null
 
-  const response = await fetch(`${apiBase()}${path}`, {
+  const response = await fetch(nestApiUrl(path), {
     headers: { Authorization: `Bearer ${token}` },
     cache: 'no-store',
   })
@@ -40,7 +39,7 @@ export async function fetchSocialListeningAnalyticsWithStatus(options?: {
 
   const query = options?.asOf ? `?asOf=${encodeURIComponent(options.asOf)}` : ''
   const response = await fetch(
-    `${apiBase()}/client-portal/social-listening/analytics${query}`,
+    nestApiUrl(`/client-portal/social-listening/analytics${query}`),
     {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
@@ -86,7 +85,7 @@ export async function createListeningSetup(
   const token = await getBrowserAccessToken()
   if (!token) return { ok: false, message: 'Not signed in' }
 
-  const response = await fetch(`${apiBase()}/client-portal/social-listening/setup`, {
+  const response = await fetch(nestApiUrl('/client-portal/social-listening/setup'), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,

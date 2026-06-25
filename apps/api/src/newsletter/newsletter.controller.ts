@@ -11,7 +11,7 @@ import type { Response } from 'express'
 import { NewsletterService } from './newsletter.service'
 import { SubscribeNewsletterDto } from './dto/subscribe.dto'
 
-@Controller('newsletter')
+@Controller({ path: 'newsletter', version: '1' })
 export class NewsletterController {
   constructor(private readonly newsletterService: NewsletterService) {}
 

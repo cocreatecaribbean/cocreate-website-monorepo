@@ -2,8 +2,6 @@ import { NextRequest } from 'next/server'
 import { adminApiHeaders } from '@/lib/admin-api-headers'
 import { proxyAdminApi } from '@/lib/admin-api-proxy'
 
-const apiBase = () =>
-  process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 export async function POST(
   request: NextRequest,

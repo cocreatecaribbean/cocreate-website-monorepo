@@ -5,7 +5,7 @@ import { UpdateAdminProfileDto } from './dto/update-admin-profile.dto'
 import { AvatarUploadUrlDto } from './dto/avatar-upload-url.dto'
 import { RegisterAvatarDto } from './dto/register-avatar.dto'
 
-@Controller('auth/admin')
+@Controller({ path: 'auth/admin', version: '1' })
 export class AdminProfileController {
   constructor(private readonly profiles: AdminProfileService) {}
 

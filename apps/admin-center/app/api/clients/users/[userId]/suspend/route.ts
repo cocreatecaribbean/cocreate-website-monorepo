@@ -1,7 +1,7 @@
+import { nestApiUrl } from '@cocreate/api-client'
 import { NextResponse } from 'next/server'
 import { adminApiHeaders } from '@/lib/admin-api-headers'
 
-const apiBase = () => process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 type RouteContext = { params: Promise<{ userId: string }> }
 
@@ -12,7 +12,7 @@ export async function POST(_request: Request, context: RouteContext) {
   }
 
   const { userId } = await context.params
-  const response = await fetch(`${apiBase()}/admin/clients/users/${userId}/suspend`, {
+  const response = await fetch(nestApiUrl(`/admin/clients/users/${userId}/suspend`), {
     method: 'POST',
     headers,
   })

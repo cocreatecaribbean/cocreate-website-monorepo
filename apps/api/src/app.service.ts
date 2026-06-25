@@ -6,6 +6,7 @@ export class AppService {
     return {
       name: 'CoCreate API',
       status: 'ok',
+      version: '1',
     }
   }
 }

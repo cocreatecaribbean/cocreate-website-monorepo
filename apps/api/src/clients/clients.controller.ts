@@ -7,7 +7,7 @@ import { LogoUploadUrlDto } from './dto/logo-upload-url.dto'
 import { UpdateBrand24ProjectDto } from './dto/update-brand24-project.dto'
 import { UpdateSocialListeningDto } from './dto/update-social-listening.dto'
 
-@Controller('admin/clients')
+@Controller({ path: 'admin/clients', version: '1' })
 @UseGuards(AdminAuthGuard)
 export class ClientsController {
   constructor(

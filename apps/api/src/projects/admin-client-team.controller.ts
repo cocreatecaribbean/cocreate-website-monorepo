@@ -16,7 +16,7 @@ import { InviteTeamMemberDto } from './dto/invite-team-member.dto'
 import { UpdateTeamMemberDto } from './dto/update-team-member.dto'
 import { RejectTeamInviteDto } from './dto/reject-team-invite.dto'
 
-@Controller('admin/clients/organizations/:organizationId')
+@Controller({ path: 'admin/clients/organizations/:organizationId', version: '1' })
 @UseGuards(AdminAuthGuard)
 export class AdminClientTeamController {
   constructor(private readonly team: ClientTeamService) {}

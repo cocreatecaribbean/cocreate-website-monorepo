@@ -8,7 +8,8 @@
     "start": "nest start",
     "start:prod": "node dist/main.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "jest"
   },
   "dependencies": {
     "@cocreate/database": "workspace:*",
@@ -19,6 +20,7 @@
     "@nestjs/core": "catalog:api",
     "@nestjs/platform-express": "catalog:api",
     "@nestjs/schedule": "catalog:api",
+    "@nestjs/swagger": "^11.2.0",
     "@prisma/adapter-pg": "catalog:api",
     "@supabase/supabase-js": "^2.49.8",
     "class-transformer": "^0.5.1",
@@ -32,6 +34,12 @@
   "devDependencies": {
     "@nestjs/cli": "catalog:api",
     "@nestjs/schematics": "catalog:api",
+    "@nestjs/testing": "^11.1.23",
+    "@types/jest": "^29.5.14",
+    "@types/supertest": "^6.0.3",
+    "jest": "catalog:tooling",
+    "supertest": "^7.1.0",
+    "ts-jest": "^29.3.4",
     "@types/express": "^5.0.6",
     "@types/node": "catalog:tooling",
     "@types/pg": "catalog:api",

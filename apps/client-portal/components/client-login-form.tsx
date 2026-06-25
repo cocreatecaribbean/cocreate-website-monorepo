@@ -1,4 +1,5 @@
 'use client'
+import { nestApiUrl } from '@cocreate/api-client'
 
 import { FormEvent, useState } from 'react'
 import Link from 'next/link'
@@ -7,7 +8,6 @@ import CoCreateLogo from '@/components/cocreate-logo'
 import DevSignInLink from '@/components/dev-sign-in-link'
 import { alkatra600, bricolage_grot500, bricolage_grot600 } from '@/styles/fonts'
 
-const apiBase = () => process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 export default function ClientPortalLoginForm() {
   const searchParams = useSearchParams()
@@ -29,7 +29,7 @@ export default function ClientPortalLoginForm() {
     setDevSignInUrl(null)
 
     try {
-      const response = await fetch(`${apiBase()}/client-portal/magic-link`, {
+      const response = await fetch(nestApiUrl('/client-portal/magic-link'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

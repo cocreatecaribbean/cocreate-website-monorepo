@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server'
+import { nestApiUrl } from '@cocreate/api-client'
 import { getApiErrorMessage } from '@/lib/api-error'
-
-export const adminApiBase = () =>
-  process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 /** Proxy an authenticated request to the Nest API; returns 503 when the API is unreachable. */
 export async function proxyAdminApi(
@@ -15,7 +13,7 @@ export async function proxyAdminApi(
   }
 
   try {
-    const response = await fetch(`${adminApiBase()}${path}`, {
+    const response = await fetch(nestApiUrl(path), {
       ...init,
       headers: { ...headers, ...(init?.headers as Record<string, string> | undefined) },
       cache: 'no-store',

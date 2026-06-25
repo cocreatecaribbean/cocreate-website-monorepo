@@ -1,9 +1,8 @@
 'use client'
+import { nestApiUrl } from '@cocreate/api-client'
 
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
-const apiBase = () =>
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 import type {
   ClientOrgRole,
@@ -98,7 +97,7 @@ async function teamFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getToken()
   if (!token) throw new Error('Not signed in')
 
-  const response = await fetch(`${apiBase()}${path}`, {
+  const response = await fetch(nestApiUrl(path), {
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,

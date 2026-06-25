@@ -1,9 +1,8 @@
 'use client'
+import { nestApiUrl } from '@cocreate/api-client'
 
 import { createSupabaseBrowserClient } from '@client-portal/lib/supabase/client'
 
-const apiBase = () =>
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 async function getBrowserAccessToken(): Promise<string | null> {
   const supabase = createSupabaseBrowserClient()
@@ -24,7 +23,7 @@ export async function fetchReportTemplates(): Promise<ReportTemplateMeta[]> {
   if (!token) return []
 
   const response = await fetch(
-    `${apiBase()}/client-portal/social-listening/reports/templates`,
+    nestApiUrl('/client-portal/social-listening/reports/templates'),
     {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
@@ -53,7 +52,7 @@ export async function downloadSocialListeningReport(options: {
   if (options.current) params.set('current', options.current)
 
   const response = await fetch(
-    `${apiBase()}/client-portal/social-listening/reports/generate?${params.toString()}`,
+    nestApiUrl(`/client-portal/social-listening/reports/generate?${params.toString()}`),
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },

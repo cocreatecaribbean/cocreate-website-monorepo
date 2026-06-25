@@ -1,16 +1,15 @@
+import { nestApiUrl } from '@cocreate/api-client'
 import { getAccessToken } from '@client-portal/lib/supabase/server'
 import type { SocialListeningAnalyticsPayload } from '@client-portal/lib/social-listening/api-types'
 import { normalizeSocialListeningAnalytics } from '@client-portal/lib/social-listening/normalize-analytics'
 
-const apiBase = () =>
-  process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 /** Server-only: initial Social Listening load in app/page.tsx */
 export async function fetchSocialListeningAnalytics(): Promise<SocialListeningAnalyticsPayload | null> {
   const token = await getAccessToken()
   if (!token) return null
 
-  const response = await fetch(`${apiBase()}/client-portal/social-listening/analytics`, {
+  const response = await fetch(nestApiUrl('/client-portal/social-listening/analytics'), {
     headers: { Authorization: `Bearer ${token}` },
     cache: 'no-store',
   })

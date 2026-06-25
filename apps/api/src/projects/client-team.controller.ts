@@ -18,7 +18,7 @@ import { UpdateTeamMemberDto } from './dto/update-team-member.dto'
 import { AddProjectMemberDto } from './dto/add-project-member.dto'
 import { RequestTeamInviteDto } from './dto/request-team-invite.dto'
 
-@Controller('client-portal')
+@Controller({ path: 'client-portal', version: '1' })
 @UseGuards(ClientAuthGuard)
 export class ClientTeamController {
   constructor(private readonly team: ClientTeamService) {}

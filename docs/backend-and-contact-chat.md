@@ -17,6 +17,8 @@
    - Web: http://localhost:3000
    - API: http://localhost:3001
    - API health: http://localhost:3001/health
+   - API docs: http://localhost:3001/docs
+   - Versioned routes: `/v1/...` (see [api-versioning.md](./api-versioning.md))
 
 ### Prisma build scripts (pnpm)
 

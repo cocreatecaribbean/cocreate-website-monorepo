@@ -1,6 +1,7 @@
+import { nestApiUrl } from '@cocreate/api-client'
 import { NextResponse } from 'next/server'
 import { adminApiHeaders } from '@/lib/admin-api-headers'
-import { adminApiBase } from '@/lib/admin-api-proxy'
+import { proxyAdminApi } from '@/lib/admin-api-proxy'
 
 type RouteContext = { params: Promise<{ organizationId: string }> }
 
@@ -18,7 +19,7 @@ export async function POST(request: Request, context: RouteContext) {
     : `/admin/social-listening/organizations/${organizationId}/reports/generate`
 
   try {
-    const response = await fetch(`${adminApiBase()}${apiPath}`, {
+    const response = await fetch(nestApiUrl(`${apiPath}`), {
       method: 'POST',
       headers,
       cache: 'no-store',

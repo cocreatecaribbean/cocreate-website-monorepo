@@ -1,0 +1,10 @@
+{
+  "name": "@cocreate/api-contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./v1/client-portal": "./src/v1/client-portal.ts"
+  }
+}

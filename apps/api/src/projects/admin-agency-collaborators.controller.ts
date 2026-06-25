@@ -15,7 +15,7 @@ import { ForbiddenException } from '@nestjs/common'
 import { AgencyCollaboratorsService } from './agency-collaborators.service'
 import { InviteAgencyCollaboratorDto } from './dto/invite-agency-collaborator.dto'
 
-@Controller('admin/projects/:projectId/collaborators')
+@Controller({ path: 'admin/projects/:projectId/collaborators', version: '1' })
 @UseGuards(AdminAuthGuard)
 export class AdminAgencyCollaboratorsController {
   constructor(private readonly collaborators: AgencyCollaboratorsService) {}

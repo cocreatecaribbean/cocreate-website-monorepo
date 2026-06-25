@@ -1,4 +1,5 @@
 'use client'
+import { nestApiUrl } from '@cocreate/api-client'
 
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { ClientRecentActivityItem } from '@/lib/dashboard/types'
@@ -15,8 +16,6 @@ import type {
   ProjectRequestMessage,
 } from '@/lib/projects/api-types'
 
-const apiBase = () =>
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 async function getBrowserAccessToken(): Promise<string | null> {
   const supabase = createSupabaseBrowserClient()
@@ -33,7 +32,7 @@ async function portalFetch<T>(
     return { ok: false, status: 401, message: 'Not signed in' }
   }
 
-  const response = await fetch(`${apiBase()}${path}`, {
+  const response = await fetch(nestApiUrl(path), {
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,

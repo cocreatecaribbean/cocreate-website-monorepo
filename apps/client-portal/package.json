@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@cocreate/api-client": "workspace:*",
+    "@cocreate/api-contracts": "workspace:*",
     "@cocreate/app-ui": "workspace:*",
     "@cocreate/social-listening-plans": "workspace:*",
     "@nivo/bar": "^0.88.0",

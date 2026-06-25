@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common'
 import { ClientsService } from '../clients/clients.service'
 
-@Controller('admin/client-portal-users')
+@Controller({ path: 'admin/client-portal-users', version: '1' })
 export class AdminClientPortalController {
   constructor(private readonly clientsService: ClientsService) {}
 

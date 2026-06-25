@@ -1,7 +1,7 @@
+import { nestApiUrl } from '@cocreate/api-client'
 import type { NextRequest } from 'next/server'
 import { completeAuthCallback } from '@/lib/supabase/route-handler'
 
-const apiBase = () => process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 export async function GET(request: NextRequest) {
   const result = await completeAuthCallback(request)
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    await fetch(`${apiBase()}/client-portal/session/sync`, {
+    await fetch(nestApiUrl('/client-portal/session/sync'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ accessToken: result.session.access_token }),

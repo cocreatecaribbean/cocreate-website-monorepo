@@ -1,3 +1,4 @@
+import { nestApiUrl } from '@cocreate/api-client'
 import type { CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getSupabasePublicEnv, isSupabaseConfigured } from '@/lib/supabase/env'
@@ -5,8 +6,6 @@ import { createSupabaseServerClientWithCookies } from '@/lib/supabase/create-ser
 
 const publicPaths = ['/login', '/auth/callback', '/auth/signout']
 
-const apiBase = () =>
-  process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 type ClientAccessResult =
   | 'ok'
@@ -16,7 +15,7 @@ type ClientAccessResult =
 
 async function verifyClientAccess(accessToken: string): Promise<ClientAccessResult> {
   try {
-    const response = await fetch(`${apiBase()}/client-portal/me`, {
+    const response = await fetch(nestApiUrl('/client-portal/me'), {
       headers: { Authorization: `Bearer ${accessToken}` },
       cache: 'no-store',
     })

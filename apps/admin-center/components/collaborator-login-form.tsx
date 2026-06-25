@@ -1,4 +1,5 @@
 'use client'
+import { nestApiUrl } from '@cocreate/api-client'
 
 import { FormEvent, useState } from 'react'
 import Link from 'next/link'
@@ -8,7 +9,6 @@ import DevSignInLink from '@/components/dev-sign-in-link'
 import ThemeToggle from '@/components/theme-toggle'
 import { alkatra600, bricolage_grot500 } from '@/styles/fonts'
 
-const apiBase = () => process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 export default function CollaboratorLoginForm() {
   const searchParams = useSearchParams()
@@ -29,7 +29,7 @@ export default function CollaboratorLoginForm() {
     setDevSignInUrl(null)
 
     try {
-      const response = await fetch(`${apiBase()}/auth/collaborator/magic-link`, {
+      const response = await fetch(nestApiUrl('/auth/collaborator/magic-link'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

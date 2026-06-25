@@ -3,7 +3,7 @@ import { AdminAuthGuard } from '../auth/guards/admin-auth.guard'
 import { ProjectsService } from '../projects/projects.service'
 import { DashboardStatsService } from './dashboard-stats.service'
 
-@Controller('admin/dashboard')
+@Controller({ path: 'admin/dashboard', version: '1' })
 @UseGuards(AdminAuthGuard)
 export class AdminDashboardController {
   constructor(

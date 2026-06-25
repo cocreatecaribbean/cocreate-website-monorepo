@@ -15,7 +15,7 @@ import { AdminCreateSetupDto } from './dto/admin-create-setup.dto'
 import { PrismaService } from '../prisma/prisma.service'
 import { SocialListeningReportService } from '../social-listening/social-listening-report.service'
 
-@Controller('admin/social-listening')
+@Controller({ path: 'admin/social-listening', version: '1' })
 @UseGuards(AdminAuthGuard)
 export class SocialListeningAdminController {
   constructor(

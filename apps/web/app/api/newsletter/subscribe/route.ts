@@ -1,6 +1,6 @@
+import { nestApiUrl } from '@cocreate/api-client'
 import { NextResponse } from 'next/server'
 
-const apiBase = () => process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 export async function POST(request: Request) {
   let body: { email?: string; website?: string }
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await fetch(`${apiBase()}/newsletter/subscribe`, {
+    const response = await fetch(nestApiUrl('/newsletter/subscribe'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

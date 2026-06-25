@@ -1,7 +1,8 @@
+import { nestApiUrl } from '@cocreate/api-client'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { adminApiHeaders } from '@/lib/admin-api-headers'
-import { adminApiBase } from '@/lib/admin-api-proxy'
+import { proxyAdminApi } from '@/lib/admin-api-proxy'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import { FolderKanban } from 'lucide-react'
 
@@ -17,7 +18,7 @@ export default async function CollaborateHomePage() {
     redirect('/collaborate/login')
   }
 
-  const response = await fetch(`${adminApiBase()}/auth/collaborator/me`, {
+  const response = await fetch(nestApiUrl('/auth/collaborator/me'), {
     headers,
     cache: 'no-store',
   })

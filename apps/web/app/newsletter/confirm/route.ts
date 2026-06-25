@@ -1,6 +1,6 @@
+import { nestApiUrl } from '@cocreate/api-client'
 import { NextResponse } from 'next/server'
 
-const apiBase = () => process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
   try {
     const response = await fetch(
-      `${apiBase()}/newsletter/confirm?token=${encodeURIComponent(token)}`,
+      nestApiUrl(`/newsletter/confirm?token=${encodeURIComponent(token)}`),
       { redirect: 'manual', cache: 'no-store' },
     )
 

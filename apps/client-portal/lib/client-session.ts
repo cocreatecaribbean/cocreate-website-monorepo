@@ -1,3 +1,4 @@
+import { nestApiUrl } from '@cocreate/api-client'
 import { getAccessToken } from '@/lib/supabase/server'
 import {
   resolveCanUseSocialListening,
@@ -10,7 +11,6 @@ export type { ClientOrgRole, PortalPermissions }
 
 export type ClientPortalProfile = PortalProfilePayload
 
-const apiBase = () => process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 export async function fetchClientPortalProfile(): Promise<ClientPortalProfile | null> {
   const token = await getAccessToken()
@@ -18,7 +18,7 @@ export async function fetchClientPortalProfile(): Promise<ClientPortalProfile | 
 
   let response: Response
   try {
-    response = await fetch(`${apiBase()}/client-portal/me`, {
+    response = await fetch(nestApiUrl('/client-portal/me'), {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
     })

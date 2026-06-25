@@ -1,8 +1,9 @@
+import { nestApiUrl } from '@cocreate/api-client'
 import Link from 'next/link'
 import AdminPageHeader from '@/components/admin-page-header'
 import SocialListeningAdminAnalyticsView from '@/components/social-listening-admin-analytics-view'
 import { adminApiHeaders } from '@/lib/admin-api-headers'
-import { adminApiBase } from '@/lib/admin-api-proxy'
+import { proxyAdminApi } from '@/lib/admin-api-proxy'
 import { fetchAdminSocialListeningAnalytics } from '@/lib/social-listening/fetch-admin-analytics-server'
 import { bricolage_grot500 } from '@/styles/fonts'
 
@@ -21,7 +22,7 @@ export default async function SocialListeningAnalyticsPage({ params }: PageProps
   const [initialAnalytics, subscriptionDetail] = await Promise.all([
     fetchAdminSocialListeningAnalytics(organizationId),
     headers
-      ? fetch(`${adminApiBase()}/admin/social-listening/subscriptions/${organizationId}`, {
+      ? fetch(nestApiUrl(`/admin/social-listening/subscriptions/${organizationId}`), {
           headers,
           cache: 'no-store',
         })

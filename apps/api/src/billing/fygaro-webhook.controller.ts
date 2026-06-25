@@ -6,6 +6,7 @@ import {
   Post,
   Req,
   UnauthorizedException,
+  VERSION_NEUTRAL,
 } from '@nestjs/common'
 import type { RawBodyRequest } from '@nestjs/common'
 import type { Request } from 'express'
@@ -14,7 +15,7 @@ import { FygaroService } from './fygaro.service'
 import { ResendBillingService } from './resend-billing.service'
 import { SubscriptionService, type FygaroWebhookPayload } from './subscription.service'
 
-@Controller('webhooks')
+@Controller({ path: 'webhooks', version: VERSION_NEUTRAL })
 export class FygaroWebhookController {
   private readonly logger = new Logger(FygaroWebhookController.name)
 

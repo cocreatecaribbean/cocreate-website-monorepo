@@ -7,7 +7,7 @@ import { AgencyAccessService } from './agency-access.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { isCollaboratorRole } from './admin-roles'
 
-@Controller('auth/collaborator')
+@Controller({ path: 'auth/collaborator', version: '1' })
 export class CollaboratorAuthController {
   constructor(
     private readonly authService: AuthService,

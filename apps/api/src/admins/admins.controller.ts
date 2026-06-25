@@ -4,7 +4,7 @@ import { SuperAdminGuard } from '../auth/guards/super-admin.guard'
 import { AdminsService } from './admins.service'
 import { UpdateAdminRoleDto } from '../users/dto/update-admin-role.dto'
 
-@Controller('admin/admins')
+@Controller({ path: 'admin/admins', version: '1' })
 @UseGuards(AdminAuthGuard)
 export class AdminsController {
   constructor(private readonly adminsService: AdminsService) {}

@@ -1,7 +1,7 @@
+import { nestApiUrl } from '@cocreate/api-client'
 import { NextResponse } from 'next/server'
 import { adminApiHeaders } from '@/lib/admin-api-headers'
 
-const apiBase = () => process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 export async function POST(
   request: Request,
@@ -15,7 +15,7 @@ export async function POST(
 
   const body = await request.json()
   const response = await fetch(
-    `${apiBase()}/admin/project-requests/${requestId}/messages`,
+    nestApiUrl(`/admin/project-requests/${requestId}/messages`),
     {
       method: 'POST',
       headers,
