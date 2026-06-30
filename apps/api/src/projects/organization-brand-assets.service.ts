@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import type { AuthenticatedAdmin } from '../auth/auth.service'
 import { PrismaService } from '../prisma/prisma.service'
-import type { RegisterBrandAssetDto } from './dto/register-brand-asset.dto'
-import type { UploadUrlDto } from './dto/upload-url.dto'
+import type {
+  RegisterBrandAssetInput,
+  UploadUrlInput,
+} from '@cocreate/api-contracts/v1/requests/projects'
 import { ProjectStorageService } from './project-storage.service'
 import { resolveActorDisplayName, userActorSelect, type UserActorPick } from '../users/display-name'
 
@@ -66,7 +68,7 @@ export class OrganizationBrandAssetsService {
     return rows.map(serializeBrandAsset)
   }
 
-  async createUploadUrl(organizationId: string, dto: UploadUrlDto) {
+  async createUploadUrl(organizationId: string, dto: UploadUrlInput) {
     await this.assertOrganizationExists(organizationId)
     return this.storage.createBrandUploadUrl({
       organizationId,
@@ -76,7 +78,7 @@ export class OrganizationBrandAssetsService {
     })
   }
 
-  async register(admin: AuthenticatedAdmin, organizationId: string, dto: RegisterBrandAssetDto) {
+  async register(admin: AuthenticatedAdmin, organizationId: string, dto: RegisterBrandAssetInput) {
     await this.assertOrganizationExists(organizationId)
     this.storage.assertPathBelongsToOrganizationBrand(dto.storagePath, organizationId)
 

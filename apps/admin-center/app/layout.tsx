@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { QueryProvider } from '@cocreate/app-ui/query-provider'
 import AdminShell from '@/components/admin-shell'
 import { ThemeProvider } from '@/components/theme-provider'
 import {
@@ -32,9 +33,11 @@ export default function RootLayout({
         className={`${bricolage_grot400.className} antialiased`}
         suppressHydrationWarning
       >
-        <ThemeProvider>
-          <AdminShell>{children}</AdminShell>
-        </ThemeProvider>
+        <QueryProvider>
+          <ThemeProvider>
+            <AdminShell>{children}</AdminShell>
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   )

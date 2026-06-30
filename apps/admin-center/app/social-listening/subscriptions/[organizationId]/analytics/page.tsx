@@ -6,14 +6,9 @@ import { adminApiHeaders } from '@/lib/admin-api-headers'
 import { proxyAdminApi } from '@/lib/admin-api-proxy'
 import { fetchAdminSocialListeningAnalytics } from '@/lib/social-listening/fetch-admin-analytics-server'
 import { bricolage_grot500 } from '@/styles/fonts'
+import type { SlSubscriptionSummaryResponse } from '@/lib/projects/api-types'
 
 type PageProps = { params: Promise<{ organizationId: string }> }
-
-type SubscriptionDetailResponse = {
-  subscription: {
-    organization: { id: string; name: string; slug: string }
-  } | null
-}
 
 export default async function SocialListeningAnalyticsPage({ params }: PageProps) {
   const { organizationId } = await params
@@ -27,7 +22,7 @@ export default async function SocialListeningAnalyticsPage({ params }: PageProps
           cache: 'no-store',
         })
           .then((response) =>
-            response.ok ? (response.json() as Promise<SubscriptionDetailResponse>) : null,
+            response.ok ? (response.json() as Promise<SlSubscriptionSummaryResponse>) : null,
           )
           .catch(() => null)
       : Promise.resolve(null),

@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "isolatedModules": true,
+    "paths": {
+      "@cocreate/database": ["../../packages/database/generated/client"],
+      "@cocreate/api-contracts": ["../../packages/api-contracts/dist/index"],
+      "@cocreate/api-contracts/v1/*": ["../../packages/api-contracts/dist/v1/*"]
+    }
+  },
+  "include": ["src/**/*"]
+}

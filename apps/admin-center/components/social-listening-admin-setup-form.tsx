@@ -4,9 +4,8 @@ import Link from 'next/link'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import AdminToast from '@/components/admin-toast'
-import { fetchAdminBff } from '@/lib/admin-api-fetch'
-
-type ClientRow = { id: string; name: string }
+import { useCreateSocialListeningSetupMutation } from '@/lib/api/mutations/social-listening'
+import { useSocialListeningClientRowsQuery } from '@/lib/api/queries/social-listening'
 
 const PLATFORMS = ['web', 'x', 'instagram', 'facebook', 'tiktok', 'reddit', 'forums'] as const
 
@@ -18,6 +17,8 @@ export default function SocialListeningAdminSetupForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const presetOrgId = searchParams.get('organizationId') ?? ''
+  const { data: clients = [] } = useSocialListeningClientRowsQuery()
+  const createSetupMutation = useCreateSocialListeningSetupMutation()
 
   const defaults = useMemo(() => {
     const end = new Date()
@@ -26,18 +27,12 @@ export default function SocialListeningAdminSetupForm() {
     return { start: formatDateInput(start), end: formatDateInput(end) }
   }, [])
 
-  const [clients, setClients] = useState<ClientRow[]>([])
   const [organizationId, setOrganizationId] = useState(presetOrgId)
   const [keyword, setKeyword] = useState('')
   const [platforms, setPlatforms] = useState<string[]>(['web', 'x', 'instagram'])
   const [startDate, setStartDate] = useState(defaults.start)
   const [endDate, setEndDate] = useState(defaults.end)
   const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-
-  useEffect(() => {
-    void fetchAdminBff<ClientRow[]>('/api/clients').then(setClients).catch(() => {})
-  }, [])
 
   useEffect(() => {
     if (presetOrgId) setOrganizationId(presetOrgId)
@@ -52,25 +47,18 @@ export default function SocialListeningAdminSetupForm() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!organizationId || !keyword.trim()) return
-    setSubmitting(true)
     setError(null)
     try {
-      await fetchAdminBff('/api/social-listening/setups', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          organizationId,
-          keywords: [{ value: keyword.trim(), matchType: 'broad' as const }],
-          platforms,
-          startDate,
-          endDate,
-        }),
+      await createSetupMutation.mutateAsync({
+        organizationId,
+        keywords: [{ value: keyword.trim(), matchType: 'broad' as const }],
+        platforms,
+        startDate,
+        endDate,
       })
       router.push(`/social-listening/subscriptions/${organizationId}/analytics`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Setup failed.')
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -143,8 +131,8 @@ export default function SocialListeningAdminSetupForm() {
         </div>
       </div>
       <div className="flex gap-3 pt-2">
-        <button type="submit" disabled={submitting} className="admin-btn-primary min-h-10">
-          {submitting ? 'Creating…' : 'Create listening setup'}
+        <button type="submit" disabled={createSetupMutation.isPending} className="admin-btn-primary min-h-10">
+          {createSetupMutation.isPending ? 'Creating…' : 'Create listening setup'}
         </button>
         <Link href="/social-listening" className="admin-btn-ghost inline-flex min-h-10 items-center">
           Cancel

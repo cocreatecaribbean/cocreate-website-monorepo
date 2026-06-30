@@ -1,7 +1,7 @@
 import { nestApiUrl } from '@cocreate/api-client'
 import { getAccessToken } from '@client-portal/lib/supabase/server'
-import type { SocialListeningAnalyticsPayload } from '@client-portal/lib/social-listening/api-types'
-import { normalizeSocialListeningAnalytics } from '@client-portal/lib/social-listening/normalize-analytics'
+import type { SocialListeningAnalyticsPayload } from '@cocreate/api-contracts/v1/social-listening'
+import { normalizeSocialListeningAnalytics } from '@cocreate/social-listening/core'
 
 
 /** Server-only: initial Social Listening load in app/page.tsx */

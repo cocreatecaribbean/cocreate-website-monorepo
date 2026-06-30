@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import AdminFilesSection from '@/components/admin-files-section'
 import RequestMessageThread from '@/components/request-message-thread'
 import ProjectStatusAttribution from '@/components/project-status-attribution'
@@ -18,12 +19,17 @@ import {
   AdminApiFetchError,
   fetchAdminBff,
 } from '@/lib/admin-api-fetch'
-import { fetchInboxUnreadCount, markInboxRead } from '@/lib/projects/inbox-unread'
-import type {
-  ClientProjectSummary,
-  ProjectActivityItem,
-  ProjectRequestItem,
-} from '@/lib/projects/types'
+import { useApproveClientProjectMutation } from '@/lib/api/mutations/projects'
+import { useMarkInboxReadMutation } from '@/lib/api/mutations/clients'
+import { adminQueryKeys } from '@/lib/api/query-keys'
+import {
+  useClientActivityQuery,
+  useClientDetailQuery,
+  useClientInboxQuery,
+  useClientProjectsQuery,
+  useInboxUnreadCountQuery,
+} from '@/lib/api/queries/clients'
+import { prefetchAdminProjectOverview } from '@/lib/api/queries/projects'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import {
   ArrowLeft,
@@ -34,16 +40,6 @@ import {
   LayoutGrid,
   Users,
 } from 'lucide-react'
-
-type ClientRosterItem = {
-  id: string
-  name: string
-  slug: string
-  logoUrl: string | null
-  isSocialListeningSubscriber: boolean
-  brand24ProjectId: string | null
-  primaryContact: { id: string; email: string; status: string } | null
-}
 
 type TabId = 'overview' | 'projects' | 'files' | 'inbox' | 'activity' | 'team'
 
@@ -61,18 +57,46 @@ type ClientWorkspaceProps = {
 
 export default function ClientWorkspace({ organizationId, initialTab = 'projects' }: ClientWorkspaceProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { session } = useAdminSession()
   const currentUserId = session?.mode === 'user' ? session.userId : null
   const isCoreTeam =
     session?.mode === 'user' && isCoreTeamSession(session.role)
   const canTrackUnread = session?.mode === 'user' && isCoreTeam
+
+  const clientQuery = useClientDetailQuery(organizationId)
+  const projectsQuery = useClientProjectsQuery(organizationId)
+  const inboxQuery = useClientInboxQuery(organizationId)
+  const activityQuery = useClientActivityQuery(organizationId)
+  const unreadQuery = useInboxUnreadCountQuery(organizationId, canTrackUnread)
+  const markInboxReadMutation = useMarkInboxReadMutation(organizationId)
+  const approveProjectMutation = useApproveClientProjectMutation(organizationId)
+
+  const client = clientQuery.data
+  const projects = projectsQuery.data ?? []
+  const inbox = inboxQuery.data ?? []
+  const activity = activityQuery.data ?? []
+  const unreadCount = unreadQuery.data ?? 0
+  const loading =
+    clientQuery.isLoading ||
+    projectsQuery.isLoading ||
+    inboxQuery.isLoading ||
+    activityQuery.isLoading
+
+  const queryError =
+    clientQuery.error ??
+    projectsQuery.error ??
+    inboxQuery.error ??
+    activityQuery.error
+  const loadError = queryError
+    ? queryError instanceof AdminApiFetchError
+      ? `${queryError.message} — ${adminFetchErrorHint(queryError.code)}`
+      : queryError instanceof Error
+        ? queryError.message
+        : 'Could not load client workspace.'
+    : null
+
   const [tab, setTab] = useState<TabId>(initialTab)
-  const [client, setClient] = useState<ClientRosterItem | null>(null)
-  const [projects, setProjects] = useState<ClientProjectSummary[]>([])
-  const [inbox, setInbox] = useState<ProjectRequestItem[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [activity, setActivity] = useState<ProjectActivityItem[]>([])
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [approvingId, setApprovingId] = useState<string | null>(null)
@@ -81,62 +105,12 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
   const deepLinkAppliedRef = useRef(false)
 
-  const refreshUnreadCount = useCallback(async () => {
-    if (!canTrackUnread) {
-      setUnreadCount(0)
-      return
-    }
-    try {
-      setUnreadCount(await fetchInboxUnreadCount(organizationId))
-    } catch {
-      setUnreadCount(0)
-    }
-  }, [canTrackUnread, organizationId])
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [roster, projectList, inboxList, activityList, unread] = await Promise.all([
-        fetchAdminBff<ClientRosterItem[]>('/api/clients'),
-        fetchAdminBff<ClientProjectSummary[]>(`/api/clients/${organizationId}/projects`),
-        fetchAdminBff<ProjectRequestItem[]>(`/api/clients/${organizationId}/inbox`),
-        fetchAdminBff<ProjectActivityItem[]>(`/api/clients/${organizationId}/activity`),
-        canTrackUnread ? fetchInboxUnreadCount(organizationId) : Promise.resolve(0),
-      ])
-      setClient(roster.find((c) => c.id === organizationId) ?? null)
-      setProjects(projectList)
-      setInbox(inboxList)
-      setActivity(activityList)
-      setUnreadCount(unread)
-    } catch (err) {
-      const message =
-        err instanceof AdminApiFetchError
-          ? `${err.message} — ${adminFetchErrorHint(err.code)}`
-          : err instanceof Error
-            ? err.message
-            : 'Could not load client workspace.'
-      setError(message)
-    } finally {
-      setLoading(false)
-    }
-  }, [canTrackUnread, organizationId])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
   useEffect(() => {
     if (tab !== 'inbox' || loading || !canTrackUnread) return
-    void (async () => {
-      try {
-        await markInboxRead(organizationId)
-        await refreshUnreadCount()
-      } catch {
-        /* non-blocking */
-      }
-    })()
-  }, [tab, loading, canTrackUnread, organizationId, refreshUnreadCount])
+    void markInboxReadMutation.mutateAsync(undefined).catch(() => {
+      /* non-blocking */
+    })
+  }, [tab, loading, canTrackUnread, markInboxReadMutation])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -186,22 +160,16 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
     }
   }, [loading, organizationId, projects, router])
 
-  const refreshThread = async (
-    requestId: string,
-    options?: { reloadWorkspace?: boolean },
-  ) => {
-    const thread = await fetchAdminBff<ProjectRequestItem>(
-      `/api/project-requests/${requestId}`,
-    )
-    setProjects((prev) =>
-      prev.map((p) => ({
-        ...p,
-        requests: p.requests?.map((r) => (r.id === requestId ? { ...r, ...thread } : r)),
-      })),
-    )
-    if (options?.reloadWorkspace) {
-      await load()
-    }
+  const refreshThread = async (requestId: string) => {
+    await queryClient.invalidateQueries({
+      queryKey: adminQueryKeys.requests.detail(requestId),
+    })
+    await queryClient.invalidateQueries({
+      queryKey: adminQueryKeys.projects.byOrganization(organizationId),
+    })
+    await queryClient.invalidateQueries({
+      queryKey: adminQueryKeys.inbox.list(organizationId),
+    })
   }
 
   const sendAdminMessage = async (
@@ -238,7 +206,10 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         body: JSON.stringify({ status: 'COMPLETED' }),
       })
       setSuccess('Project marked complete. Client has been notified.')
-      await load()
+      void queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.projects.byOrganization(organizationId),
+      })
+      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.projects.detail(projectId) })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not complete project')
     } finally {
@@ -250,12 +221,8 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
     setApprovingId(projectId)
     setError(null)
     try {
-      await fetchAdminBff(
-        `/api/clients/${organizationId}/projects/${projectId}/approve`,
-        { method: 'POST' },
-      )
+      await approveProjectMutation.mutateAsync(projectId)
       setSuccess('Project approved and client notified.')
-      await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Approve failed')
     } finally {
@@ -272,7 +239,10 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         body: JSON.stringify({ status }),
       })
       setSuccess(status === 'RESOLVED' ? 'Request resolved.' : 'Request rejected.')
-      await load()
+      await refreshThread(requestId)
+      void queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.clients.activity(organizationId),
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed')
     }
@@ -295,7 +265,10 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         body: JSON.stringify(payload),
       })
       setSuccess('Cancellation resolved and client notified.')
-      await load()
+      await refreshThread(requestId)
+      void queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.clients.activity(organizationId),
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not resolve cancellation')
     }
@@ -362,9 +335,9 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
-        {error ? (
+        {error ?? loadError ? (
           <p className="admin-alert-error mb-4">
-            {error}
+            {error ?? loadError}
           </p>
         ) : null}
         {success ? (
@@ -443,6 +416,12 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                       <Link
                         href={`/clients/${organizationId}/projects/${project.id}`}
                         className="admin-btn-primary text-sm"
+                        onMouseEnter={() =>
+                          void prefetchAdminProjectOverview(queryClient, project.id)
+                        }
+                        onFocus={() =>
+                          void prefetchAdminProjectOverview(queryClient, project.id)
+                        }
                       >
                         Open project
                       </Link>
@@ -496,7 +475,9 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                         organizationId={organizationId}
                         requestId={item.id}
                         enabled
-                        onMarked={() => void refreshUnreadCount()}
+                        onMarked={() => {
+                          void unreadQuery.refetch()
+                        }}
                       />
                     ) : null}
                     <RequestMessageThread
@@ -557,7 +538,6 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         onClose={() => setCreateProjectOpen(false)}
         onCreated={(summary) => {
           setSuccess(summary)
-          void load()
         }}
       />
     </main>

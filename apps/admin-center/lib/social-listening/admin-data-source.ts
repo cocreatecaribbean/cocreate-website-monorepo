@@ -3,11 +3,11 @@
 import type {
   ReportTemplateMeta,
   SocialListeningDataSource,
-} from '@client-portal/lib/social-listening/data-source'
+} from '@cocreate/social-listening/data-source'
 import type {
   SocialListeningAnalyticsPayload,
   SocialListeningComparePayload,
-} from '@client-portal/lib/social-listening/api-types'
+} from '@cocreate/api-contracts/v1/social-listening'
 import { fetchAdminBff } from '@/lib/admin-api-fetch'
 
 function buildOrgPath(organizationId: string, suffix: string) {

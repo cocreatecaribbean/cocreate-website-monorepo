@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
 import ControlCenterApprovalsView from '@/components/control-center/control-center-approvals-view'
 import ControlCenterFilesSection from '@/components/control-center/control-center-files-section'
 import ControlCenterProjectsView from '@/components/control-center/control-center-projects-view'
@@ -13,10 +12,7 @@ import { ATTENTION_PAGE_PATH } from '@/lib/control-center/attention-items'
 import type { ControlCenterViewId } from '@/lib/control-center/nav'
 import { buildClientDashboardKpis } from '@/lib/dashboard/format-dashboard-stats'
 import { useClientRecentActivity } from '@/lib/dashboard/use-client-recent-activity'
-import {
-  fetchDashboardStats,
-  PORTAL_NOTIFICATIONS_REFRESH_EVENT,
-} from '@/lib/projects/fetch-projects-client'
+import { useDashboardStatsQuery } from '@/lib/api/queries/projects'
 import { alkatra600, bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import {
   ArrowRight,
@@ -121,33 +117,18 @@ function KpiGrid({
 
 function OverviewSection() {
   const { items: recentActivity, loading: activityLoading } = useClientRecentActivity(8)
-  const [kpiStats, setKpiStats] = useState<ReturnType<typeof buildClientDashboardKpis> | null>(
-    null,
-  )
-  const [kpiLoading, setKpiLoading] = useState(true)
-
-  const loadKpis = useCallback(async () => {
-    setKpiLoading(true)
-    const data = await fetchDashboardStats()
-    setKpiStats(data ? buildClientDashboardKpis(data) : buildClientDashboardKpis({
-      activeProjects: 0,
-      activeProjectsAwaitingReview: 0,
-      pendingApprovals: 0,
-      sharedFiles: 0,
-      lastSharedFileAt: null,
-    }))
-    setKpiLoading(false)
-  }, [])
-
-  useEffect(() => {
-    void loadKpis()
-  }, [loadKpis])
-
-  useEffect(() => {
-    const onRefresh = () => void loadKpis()
-    window.addEventListener(PORTAL_NOTIFICATIONS_REFRESH_EVENT, onRefresh)
-    return () => window.removeEventListener(PORTAL_NOTIFICATIONS_REFRESH_EVENT, onRefresh)
-  }, [loadKpis])
+  const { data: statsData, isLoading: kpiLoading } = useDashboardStatsQuery()
+  const kpiStats = statsData
+    ? buildClientDashboardKpis(statsData)
+    : kpiLoading
+      ? null
+      : buildClientDashboardKpis({
+          activeProjects: 0,
+          activeProjectsAwaitingReview: 0,
+          pendingApprovals: 0,
+          sharedFiles: 0,
+          lastSharedFileAt: null,
+        })
 
   return (
     <div className="space-y-4 sm:space-y-6">

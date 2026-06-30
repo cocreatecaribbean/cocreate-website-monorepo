@@ -1,3 +1,4 @@
+import type { ClientProjectSummary as AdminClientProjectSummary } from '@cocreate/api-contracts/v1/admin-portal'
 import type {
   ClientApprovalRecord,
   ClientProject,
@@ -225,10 +226,34 @@ export function serializeProject(project: ProjectWithReviewMeta) {
         : undefined,
     attachments: project.attachments?.map(serializeAttachment) ?? undefined,
     activities: project.activities?.map(serializeActivity) ?? undefined,
+  } satisfies Omit<AdminClientProjectSummary, 'activities' | 'requests' | 'attachments'> & {
+    createdByUserId: string | null
+    approvedByUserId: string | null
+    completedByUserId: string | null
+    requests?: ReturnType<typeof serializeRequest>[]
+    attachments?: ReturnType<typeof serializeAttachment>[]
+    activities?: ReturnType<typeof serializeActivity>[]
   }
 }
 
+function isFullThreadMessage(
+  message: unknown,
+): message is ProjectRequestMessage & {
+  author?: UserWithProfile
+  attachmentLinks?: Array<{ attachment: ProjectAttachment }>
+  createdAt: Date
+} {
+  return (
+    typeof message === 'object' &&
+    message !== null &&
+    'createdAt' in message &&
+    message.createdAt instanceof Date
+  )
+}
+
 export function serializeRequest(request: RequestWithRelations) {
+  const fullMessages = request.messages?.filter(isFullThreadMessage) ?? []
+
   return {
     id: request.id,
     projectId: request.projectId,
@@ -253,8 +278,8 @@ export function serializeRequest(request: RequestWithRelations) {
     createdAt: request.createdAt.toISOString(),
     updatedAt: request.updatedAt.toISOString(),
     attachments: request.attachments?.map(serializeAttachment),
-    messages: request.messages?.map(serializeMessage),
-    messageCount: request.messages?.length ?? 0,
+    messages: fullMessages.length ? fullMessages.map(serializeMessage) : undefined,
+    messageCount: fullMessages.length,
   }
 }
 

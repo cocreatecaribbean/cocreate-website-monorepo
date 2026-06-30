@@ -1,10 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
 import ThemeToggle from '@/components/theme-toggle'
 import PortalTeamPanel from '@/components/portal-team-panel'
-import { fetchPortalProfile } from '@/lib/team/fetch-team-client'
+import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import { CONTROL_CENTER_VIEW_QUERY } from '@/lib/control-center/nav'
 import { bricolage_grot600 } from '@/styles/fonts'
 import { Settings } from 'lucide-react'
@@ -16,15 +15,9 @@ type PortalSettingsPanelProps = {
 export default function PortalSettingsPanel({
   showPreviewBanner = false,
 }: PortalSettingsPanelProps) {
-  const [canManageTeam, setCanManageTeam] = useState(false)
-  const [canAccessTeamHub, setCanAccessTeamHub] = useState(false)
-
-  useEffect(() => {
-    void fetchPortalProfile().then((profile) => {
-      setCanManageTeam(Boolean(profile?.permissions.canManageOrgTeam))
-      setCanAccessTeamHub(Boolean(profile?.permissions.canAccessTeamHub))
-    })
-  }, [])
+  const { data: profile } = usePortalProfileQuery()
+  const canManageTeam = Boolean(profile?.permissions.canManageOrgTeam)
+  const canAccessTeamHub = Boolean(profile?.permissions.canAccessTeamHub)
 
   return (
     <div className="space-y-6">
@@ -58,12 +51,12 @@ export default function PortalSettingsPanel({
             </p>
           </div>
         </div>
-        <div className="mt-8 max-w-md">
-          <ThemeToggle variant="settings" />
+        <div className="mt-6">
+          <ThemeToggle />
         </div>
       </section>
       {showPreviewBanner ? (
-        <p className="flex items-center justify-center gap-2 text-center text-xs tracking-wide text-app-muted uppercase">
+        <p className="text-center text-xs tracking-wide text-app-muted uppercase">
           Preview workspace · Live data coming soon
         </p>
       ) : null}

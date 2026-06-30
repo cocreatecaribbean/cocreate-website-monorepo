@@ -3,9 +3,11 @@ import type { AuthenticatedAdmin } from '../auth/auth.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { AgencyProfileOptionsService } from './agency-profile-options.service'
 import { ProfileStorageService } from './profile-storage.service'
-import type { UpdateAdminProfileDto } from './dto/update-admin-profile.dto'
-import type { AvatarUploadUrlDto } from './dto/avatar-upload-url.dto'
-import type { RegisterAvatarDto } from './dto/register-avatar.dto'
+import type {
+  UpdateAdminProfileInput,
+  AvatarUploadUrlInput,
+  RegisterAvatarInput,
+} from '@cocreate/api-contracts/v1/requests/users'
 
 const profileInclude = {
   jobTitles: {
@@ -27,7 +29,7 @@ export class AdminProfileService {
     return this.serializeProfile(profile, admin.email)
   }
 
-  async updateProfile(admin: AuthenticatedAdmin, dto: UpdateAdminProfileDto) {
+  async updateProfile(admin: AuthenticatedAdmin, dto: UpdateAdminProfileInput) {
     const profile = await this.ensureProfileRow(admin.id)
 
     if (dto.displayName !== undefined) {
@@ -68,7 +70,7 @@ export class AdminProfileService {
     return this.serializeProfile(updated, admin.email)
   }
 
-  async createAvatarUploadUrl(admin: AuthenticatedAdmin, dto: AvatarUploadUrlDto) {
+  async createAvatarUploadUrl(admin: AuthenticatedAdmin, dto: AvatarUploadUrlInput) {
     return this.storage.createUploadUrl({
       userId: admin.id,
       fileName: dto.fileName,
@@ -77,7 +79,7 @@ export class AdminProfileService {
     })
   }
 
-  async registerAvatar(admin: AuthenticatedAdmin, dto: RegisterAvatarDto) {
+  async registerAvatar(admin: AuthenticatedAdmin, dto: RegisterAvatarInput) {
     this.storage.assertPathBelongsToUser(dto.storagePath, admin.id)
     await this.ensureProfileRow(admin.id)
 

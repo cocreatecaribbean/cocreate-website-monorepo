@@ -9,7 +9,6 @@ import ProjectCenterList from '@/components/project-center-list'
 export default function ProjectCenterView() {
   const [createOpen, setCreateOpen] = useState(false)
   const [success, setSuccess] = useState<string | null>(null)
-  const [refreshToken, setRefreshToken] = useState(0)
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
@@ -36,7 +35,7 @@ export default function ProjectCenterView() {
             onDismiss={() => setSuccess(null)}
           />
         ) : null}
-        <ProjectCenterList refreshToken={refreshToken} />
+        <ProjectCenterList />
       </div>
 
       <CreateProjectModal
@@ -44,7 +43,6 @@ export default function ProjectCenterView() {
         onClose={() => setCreateOpen(false)}
         onCreated={(summary) => {
           setSuccess(summary)
-          setRefreshToken((n) => n + 1)
         }}
       />
     </main>

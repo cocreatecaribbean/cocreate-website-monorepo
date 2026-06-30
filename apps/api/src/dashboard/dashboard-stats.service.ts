@@ -8,25 +8,13 @@ import {
 } from '@cocreate/database'
 import type { AuthenticatedClient } from '../auth/auth.service'
 import { ClientAccessService } from '../auth/client-access.service'
+import type { AdminDashboardStats as AdminDashboardStatsContract } from '@cocreate/api-contracts/v1/admin-portal'
+import type { ClientDashboardStats as ClientDashboardStatsContract } from '@cocreate/api-contracts/v1/client-portal'
 import { PrismaService } from '../prisma/prisma.service'
 
-export type ClientDashboardStats = {
-  activeProjects: number
-  activeProjectsAwaitingReview: number
-  pendingApprovals: number
-  sharedFiles: number
-  lastSharedFileAt: string | null
-}
+export type ClientDashboardStats = ClientDashboardStatsContract
 
-export type AdminDashboardStats = {
-  activeClients: number
-  activeClientsThisMonth: number
-  openProjects: number
-  projectsAwaitingApproval: number
-  portalInvites: number
-  socialListeningSubscribers: number
-  socialListeningConfigured: number
-}
+export type AdminDashboardStats = AdminDashboardStatsContract
 
 const pendingCheckpointMessageWhere = {
   messageKind: ProjectMessageKind.CHECKPOINT,
@@ -103,7 +91,7 @@ export class DashboardStatsService {
       pendingApprovals,
       sharedFiles,
       lastSharedFileAt: lastAttachment?.createdAt.toISOString() ?? null,
-    }
+    } satisfies ClientDashboardStats
   }
 
   async getAdminStats(): Promise<AdminDashboardStats> {
@@ -179,6 +167,6 @@ export class DashboardStatsService {
       portalInvites,
       socialListeningSubscribers,
       socialListeningConfigured,
-    }
+    } satisfies AdminDashboardStats
   }
 }

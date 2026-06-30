@@ -4,7 +4,7 @@ import { adminApiHeaders } from '@/lib/admin-api-headers'
 
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ projectId: string }> },
 ) {
   const { projectId } = await params
@@ -13,10 +13,14 @@ export async function GET(
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  const response = await fetch(nestApiUrl(`/admin/projects/${projectId}`), {
-    headers,
-    cache: 'no-store',
-  })
+  const view = new URL(request.url).searchParams.get('view') ?? 'overview'
+  const response = await fetch(
+    nestApiUrl(`/admin/projects/${projectId}?view=${encodeURIComponent(view)}`),
+    {
+      headers,
+      cache: 'no-store',
+    },
+  )
   const data = await response.json()
   return NextResponse.json(data, { status: response.status })
 }

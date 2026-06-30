@@ -10,15 +10,11 @@ async function getBrowserAccessToken(): Promise<string | null> {
   return data.session?.access_token ?? null
 }
 
-export type ReportTemplateMeta = {
-  id: string
-  label: string
-  description: string
-  pageHint: string
-  supportsCompare: boolean
-}
+import type { SocialListeningReportTemplateMeta } from '@cocreate/api-contracts/v1/social-listening'
 
-export async function fetchReportTemplates(): Promise<ReportTemplateMeta[]> {
+export type ReportTemplateMeta = SocialListeningReportTemplateMeta
+
+export async function fetchReportTemplates(): Promise<SocialListeningReportTemplateMeta[]> {
   const token = await getBrowserAccessToken()
   if (!token) return []
 

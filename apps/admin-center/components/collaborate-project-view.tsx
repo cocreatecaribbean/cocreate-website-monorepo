@@ -1,13 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, FolderOpen, MessageSquare, Shield } from 'lucide-react'
 import CollaborateProjectFiles from '@/components/collaborate-project-files'
 import { useAdminSession } from '@/components/admin-session-provider'
 import RequestMessageThread from '@/components/request-message-thread'
 import TeamReviewPanel from '@/components/team-review-panel'
-import { fetchAdminBff } from '@/lib/admin-api-fetch'
+import { adminQueryKeys } from '@/lib/api/query-keys'
+import { useAdminProjectQuery } from '@/lib/api/queries/projects'
 import type { ClientProjectSummary, ProjectRequestItem } from '@/lib/projects/types'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 
@@ -22,42 +24,27 @@ type CollaborateProjectViewProps = {
 }
 
 export default function CollaborateProjectView({ projectId }: CollaborateProjectViewProps) {
+  const queryClient = useQueryClient()
   const { session } = useAdminSession()
   const currentUserId = session?.mode === 'user' ? session.userId : null
-  const [project, setProject] = useState<ClientProjectSummary | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+
+  const { data: project, isLoading, error: queryError, isError } = useAdminProjectQuery(projectId)
   const [activeThread, setActiveThread] = useState<ThreadTab>('team-review')
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await fetchAdminBff<ClientProjectSummary>(`/api/projects/${projectId}`)
-      setProject(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load project')
-    } finally {
-      setLoading(false)
-    }
-  }, [projectId])
+  const error = isError
+    ? queryError instanceof Error
+      ? queryError.message
+      : 'Could not load project'
+    : null
 
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  const refreshThread = useCallback(async (requestId: string) => {
-    const updated = await fetchAdminBff<ProjectRequestItem>(
-      `/api/project-requests/${requestId}`,
-    )
-    setProject((current) => {
-      if (!current?.requests) return current
-      return {
-        ...current,
-        requests: current.requests.map((r) => (r.id === requestId ? updated : r)),
-      }
+  const refreshThread = async (requestId: string) => {
+    await queryClient.invalidateQueries({
+      queryKey: adminQueryKeys.requests.detail(requestId),
     })
-  }, [])
+    await queryClient.invalidateQueries({
+      queryKey: adminQueryKeys.projects.detail(projectId),
+    })
+  }
 
   const internal = project ? findThread(project, 'INTERNAL') : null
   const progress = project ? findThread(project, 'PROGRESS') : null
@@ -82,7 +69,7 @@ export default function CollaborateProjectView({ projectId }: CollaborateProject
     }
   }, [threadTabs, activeThread])
 
-  if (loading) {
+  if (isLoading) {
     return <p className="mt-6 text-app-muted">Loading project…</p>
   }
 

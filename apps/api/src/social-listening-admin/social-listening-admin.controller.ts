@@ -1,17 +1,23 @@
 import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
 import type { Response } from 'express'
+import {
+  AdminCreateSetupSchema,
+  type AdminCreateSetupInput,
+  CancelSubscriptionSchema,
+  type CancelSubscriptionInput,
+  GrantSubscriptionSchema,
+  type GrantSubscriptionInput,
+  ListSubscriptionsQuerySchema,
+  type ListSubscriptionsQueryInput,
+  PatchSubscriptionSchema,
+  type PatchSubscriptionInput,
+} from '@cocreate/api-contracts/v1/requests/social-listening-admin'
 import { AdminAuthGuard, type AdminRequest } from '../auth/guards/admin-auth.guard'
 import { SocialListeningSubscriptionCancelledBy } from '@cocreate/database'
+import { zodBody, zodQuery } from '../common/zod/zod-validation.pipe'
 import { SocialListeningService } from '../social-listening/social-listening.service'
 import { SubscriptionService } from '../billing/subscription.service'
 import { ResendBillingService } from '../billing/resend-billing.service'
-import {
-  CancelSubscriptionDto,
-  GrantSubscriptionDto,
-  ListSubscriptionsQueryDto,
-  PatchSubscriptionDto,
-} from './dto/admin-subscription.dto'
-import { AdminCreateSetupDto } from './dto/admin-create-setup.dto'
 import { PrismaService } from '../prisma/prisma.service'
 import { SocialListeningReportService } from '../social-listening/social-listening-report.service'
 
@@ -32,12 +38,14 @@ export class SocialListeningAdminController {
   }
 
   @Get('subscriptions')
-  listSubscriptions(@Query() query: Record<string, string | undefined>) {
+  listSubscriptions(
+    @Query(zodQuery(ListSubscriptionsQuerySchema)) query: ListSubscriptionsQueryInput,
+  ) {
     return this.subscriptions.listAdminSubscriptions({
-      status: query.status as ListSubscriptionsQueryDto['status'],
-      plan: query.plan as ListSubscriptionsQueryDto['plan'],
-      expiringWithinDays: query.expiringSoon === 'true' ? 7 : undefined,
-      noActiveSetup: query.noSetup === 'true',
+      status: query.status,
+      plan: query.plan,
+      expiringWithinDays: query.expiringSoon ? 7 : undefined,
+      noActiveSetup: query.noSetup,
     })
   }
 
@@ -52,13 +60,16 @@ export class SocialListeningAdminController {
   }
 
   @Post('subscriptions')
-  grantSubscription(@Req() req: AdminRequest, @Body() dto: GrantSubscriptionDto) {
+  grantSubscription(
+    @Req() req: AdminRequest,
+    @Body(zodBody(GrantSubscriptionSchema)) body: GrantSubscriptionInput,
+  ) {
     return this.subscriptions.grantAdminSubscription({
-      organizationId: dto.organizationId,
-      plan: dto.plan,
-      billingSource: dto.billingSource,
-      periodMonths: dto.periodMonths,
-      autoRenewEnabled: dto.autoRenewEnabled,
+      organizationId: body.organizationId,
+      plan: body.plan,
+      billingSource: body.billingSource,
+      periodMonths: body.periodMonths,
+      autoRenewEnabled: body.autoRenewEnabled,
       createdByUserId: req.adminUser?.id,
     })
   }
@@ -66,21 +77,21 @@ export class SocialListeningAdminController {
   @Patch('subscriptions/:organizationId')
   patchSubscription(
     @Param('organizationId') organizationId: string,
-    @Body() dto: PatchSubscriptionDto,
+    @Body(zodBody(PatchSubscriptionSchema)) body: PatchSubscriptionInput,
   ) {
-    return this.subscriptions.patchAdminSubscription(organizationId, dto)
+    return this.subscriptions.patchAdminSubscription(organizationId, body)
   }
 
   @Post('subscriptions/:organizationId/cancel')
   async cancelSubscription(
     @Param('organizationId') organizationId: string,
-    @Body() dto: CancelSubscriptionDto,
+    @Body(zodBody(CancelSubscriptionSchema)) body: CancelSubscriptionInput,
   ) {
     const updated = await this.subscriptions.cancel({
       organizationId,
-      immediate: dto.immediate,
+      immediate: body.immediate,
       cancelledBy: SocialListeningSubscriptionCancelledBy.ADMIN,
-      cancelReason: dto.cancelReason,
+      cancelReason: body.cancelReason,
     })
 
     const ownerEmail = await this.subscriptions.getOwnerEmail(organizationId)
@@ -89,7 +100,7 @@ export class SocialListeningAdminController {
         subscriptionId: updated.id,
         periodEnd: updated.currentPeriodEnd,
         to: ownerEmail,
-        atPeriodEnd: !dto.immediate,
+        atPeriodEnd: !body.immediate,
       })
     }
 
@@ -109,7 +120,10 @@ export class SocialListeningAdminController {
   }
 
   @Post('setups')
-  createSetup(@Req() req: AdminRequest, @Body() body: AdminCreateSetupDto) {
+  createSetup(
+    @Req() req: AdminRequest,
+    @Body(zodBody(AdminCreateSetupSchema)) body: AdminCreateSetupInput,
+  ) {
     return this.socialListening.createListeningSetup({
       organizationId: body.organizationId,
       dto: body,

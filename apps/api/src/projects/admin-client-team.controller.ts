@@ -10,11 +10,17 @@ import {
   UseGuards,
 } from '@nestjs/common'
 import { ClientTeamInviteRequestStatus } from '@cocreate/database'
+import {
+  InviteTeamMemberSchema,
+  type InviteTeamMemberInput,
+  RejectTeamInviteSchema,
+  type RejectTeamInviteInput,
+  UpdateTeamMemberSchema,
+  type UpdateTeamMemberInput,
+} from '@cocreate/api-contracts/v1/requests/projects'
 import { AdminAuthGuard, type AdminRequest } from '../auth/guards/admin-auth.guard'
+import { zodBody } from '../common/zod/zod-validation.pipe'
 import { ClientTeamService } from './client-team.service'
-import { InviteTeamMemberDto } from './dto/invite-team-member.dto'
-import { UpdateTeamMemberDto } from './dto/update-team-member.dto'
-import { RejectTeamInviteDto } from './dto/reject-team-invite.dto'
 
 @Controller({ path: 'admin/clients/organizations/:organizationId', version: '1' })
 @UseGuards(AdminAuthGuard)
@@ -30,12 +36,12 @@ export class AdminClientTeamController {
   inviteTeamMember(
     @Req() request: AdminRequest,
     @Param('organizationId') organizationId: string,
-    @Body() dto: InviteTeamMemberDto,
+    @Body(zodBody(InviteTeamMemberSchema)) body: InviteTeamMemberInput,
   ) {
     return this.team.inviteToOrganizationAsAdmin(
       request.adminUser!,
       organizationId,
-      dto,
+      body,
     )
   }
 
@@ -43,9 +49,9 @@ export class AdminClientTeamController {
   updateTeamMember(
     @Param('organizationId') organizationId: string,
     @Param('userId') userId: string,
-    @Body() dto: UpdateTeamMemberDto,
+    @Body(zodBody(UpdateTeamMemberSchema)) body: UpdateTeamMemberInput,
   ) {
-    return this.team.updateTeamMemberAsAdmin(organizationId, userId, dto)
+    return this.team.updateTeamMemberAsAdmin(organizationId, userId, body)
   }
 
   @Post('team/:userId/suspend')
@@ -89,13 +95,13 @@ export class AdminClientTeamController {
     @Req() request: AdminRequest,
     @Param('organizationId') organizationId: string,
     @Param('requestId') requestId: string,
-    @Body() dto: RejectTeamInviteDto,
+    @Body(zodBody(RejectTeamInviteSchema)) body: RejectTeamInviteInput,
   ) {
     return this.team.rejectInviteRequest(
       request.adminUser!,
       organizationId,
       requestId,
-      dto,
+      body,
     )
   }
 }

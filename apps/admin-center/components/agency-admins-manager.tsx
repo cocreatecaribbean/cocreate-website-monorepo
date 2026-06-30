@@ -1,26 +1,18 @@
 'use client'
 
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import AdminToast from '@/components/admin-toast'
 import DevSignInLink from '@/components/dev-sign-in-link'
 import { getApiErrorMessage } from '@/lib/api-error'
 import {
   adminFetchErrorHint,
   AdminApiFetchError,
-  fetchAdminBff,
 } from '@/lib/admin-api-fetch'
+import { useSuspendAdminMutation, useUpdateAdminRoleMutation } from '@/lib/api/mutations/admins'
+import { useAdminsQuery } from '@/lib/api/queries/admins'
 import { adminRoleLabel, isSuperAdminSession } from '@/lib/admin-session'
 import { useAdminSession } from '@/components/admin-session-provider'
 import { bricolage_grot600 } from '@/styles/fonts'
-
-type AdminRosterItem = {
-  id: string
-  email: string
-  role: 'SUPER_ADMIN' | 'ADMIN'
-  status: 'INVITED' | 'ACTIVE' | 'SUSPENDED'
-  createdAt: string
-  updatedAt: string
-}
 
 const statusLabel: Record<string, string> = {
   INVITED: 'Invited',
@@ -34,40 +26,23 @@ export default function AgencyAdminsManager() {
     session?.mode === 'api_key' ? 'api_key' : session?.role ?? null,
   )
 
-  const [admins, setAdmins] = useState<AdminRosterItem[]>([])
+  const { data: admins = [], isLoading, error: queryError, isError } = useAdminsQuery()
+  const suspendMutation = useSuspendAdminMutation()
+  const updateRoleMutation = useUpdateAdminRoleMutation()
+
   const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [devSignInUrl, setDevSignInUrl] = useState<string | null>(null)
 
-  const loadAdmins = async (options?: { silent?: boolean }) => {
-    if (!options?.silent) {
-      setLoading(true)
-      setError(null)
-    }
-    try {
-      const data = await fetchAdminBff<AdminRosterItem[]>('/api/admins')
-      setAdmins(data)
-    } catch (err) {
-      const message =
-        err instanceof AdminApiFetchError
-          ? `${err.message} — ${adminFetchErrorHint(err.code)}`
-          : err instanceof Error
-            ? err.message
-            : 'Could not load agency admins.'
-      setError(message)
-    } finally {
-      if (!options?.silent) {
-        setLoading(false)
-      }
-    }
-  }
-
-  useEffect(() => {
-    void loadAdmins()
-  }, [])
+  const loadError = isError
+    ? queryError instanceof AdminApiFetchError
+      ? `${queryError.message} — ${adminFetchErrorHint(queryError.code)}`
+      : queryError instanceof Error
+        ? queryError.message
+        : 'Could not load agency admins.'
+    : null
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -93,7 +68,6 @@ export default function AgencyAdminsManager() {
       if (data.devSignInUrl) {
         setDevSignInUrl(data.devSignInUrl)
       }
-      await loadAdmins({ silent: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invite failed')
     } finally {
@@ -105,9 +79,8 @@ export default function AgencyAdminsManager() {
     setError(null)
     setSuccess(null)
     try {
-      await fetchAdminBff(`/api/admins/${userId}/suspend`, { method: 'POST' })
+      await suspendMutation.mutateAsync(userId)
       setSuccess('Admin access suspended.')
-      await loadAdmins({ silent: true })
     } catch (err) {
       setError(
         err instanceof AdminApiFetchError
@@ -123,13 +96,8 @@ export default function AgencyAdminsManager() {
     setError(null)
     setSuccess(null)
     try {
-      await fetchAdminBff(`/api/admins/${userId}/role`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role }),
-      })
+      await updateRoleMutation.mutateAsync({ userId, role })
       setSuccess(role === 'SUPER_ADMIN' ? 'Promoted to super admin' : 'Set to admin')
-      await loadAdmins({ silent: true })
     } catch (err) {
       setError(
         err instanceof AdminApiFetchError
@@ -146,8 +114,8 @@ export default function AgencyAdminsManager() {
       {success ? (
         <AdminToast message={success} variant="success" onDismiss={() => setSuccess(null)} />
       ) : null}
-      {error ? (
-        <AdminToast message={error} variant="error" onDismiss={() => setError(null)} />
+      {error ?? loadError ? (
+        <AdminToast message={error ?? loadError ?? ''} variant="error" onDismiss={() => setError(null)} />
       ) : null}
 
       {isSuper ? (
@@ -193,7 +161,7 @@ export default function AgencyAdminsManager() {
         <h2 className={`mt-2 text-lg text-chambray ${bricolage_grot600.className}`}>
           Agency admins
         </h2>
-        {loading ? (
+        {isLoading ? (
           <p className="mt-4 text-sm text-slate-500">Loading…</p>
         ) : admins.length === 0 ? (
           <p className="mt-4 text-sm text-slate-500">

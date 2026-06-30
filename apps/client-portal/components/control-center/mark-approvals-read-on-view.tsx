@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { dispatchPortalNotificationsRefresh, markApprovalsRead } from '@/lib/projects/fetch-projects-client'
+import { useMarkApprovalsReadMutation } from '@/lib/api/mutations/approvals'
 
 type MarkApprovalsReadOnViewProps = {
   requestId: string
@@ -13,23 +13,12 @@ export default function MarkApprovalsReadOnView({
   requestId,
   enabled,
 }: MarkApprovalsReadOnViewProps) {
+  const markRead = useMarkApprovalsReadMutation()
+
   useEffect(() => {
     if (!enabled || !requestId) return
-    let cancelled = false
-    void (async () => {
-      try {
-        await markApprovalsRead(requestId)
-        if (!cancelled) {
-          dispatchPortalNotificationsRefresh()
-        }
-      } catch {
-        /* non-blocking */
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [requestId, enabled])
+    markRead.mutate(requestId)
+  }, [requestId, enabled, markRead])
 
   return null
 }

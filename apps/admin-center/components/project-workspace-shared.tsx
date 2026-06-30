@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useAdminSession } from '@/components/admin-session-provider'
 import RequestMessageThread from '@/components/request-message-thread'
 import MarkInboxReadOnView from '@/components/mark-inbox-read-on-view'
+import { useAdminRequestThreadQuery } from '@/lib/api/queries/projects'
 import type { ClientProjectSummary, ProjectRequestItem } from '@/lib/projects/types'
 import { bricolage_grot600 } from '@/styles/fonts'
 
@@ -151,6 +152,7 @@ export function ProjectThreadPanel({
   readOnly,
   organizationId,
   markReadEnabled,
+  loadMessages = true,
   onInboxMarked,
   onSendMessage,
   onThreadUpdate,
@@ -162,6 +164,7 @@ export function ProjectThreadPanel({
   readOnly?: boolean
   organizationId: string
   markReadEnabled?: boolean
+  loadMessages?: boolean
   onInboxMarked?: () => void
   onSendMessage: (
     body: string,
@@ -177,6 +180,8 @@ export function ProjectThreadPanel({
 }) {
   const { session } = useAdminSession()
   const currentUserId = session?.mode === 'user' ? session.userId : null
+  const threadQuery = useAdminRequestThreadQuery(loadMessages ? request.id : null)
+  const resolvedRequest = threadQuery.data ?? request
 
   return (
     <div id={`thread-panel-${request.id}`} className="rounded-xl border border-chambray/8 p-4">
@@ -192,7 +197,7 @@ export function ProjectThreadPanel({
           />
         ) : null}
         <RequestMessageThread
-          request={request}
+          request={resolvedRequest}
           viewerRole="ADMIN"
           currentUserId={currentUserId}
           readOnly={readOnly}

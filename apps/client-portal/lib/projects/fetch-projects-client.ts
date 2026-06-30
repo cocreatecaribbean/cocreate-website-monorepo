@@ -73,8 +73,13 @@ export async function fetchClientRecentActivity(
   return result.ok ? result.data : []
 }
 
-export async function fetchProject(id: string): Promise<ClientProjectDetail | null> {
-  const result = await portalFetch<ClientProjectDetail>(`/client-portal/projects/${id}`)
+export async function fetchProject(
+  id: string,
+  view: 'overview' | 'full' = 'overview',
+): Promise<ClientProjectDetail | null> {
+  const result = await portalFetch<ClientProjectDetail>(
+    `/client-portal/projects/${id}?view=${encodeURIComponent(view)}`,
+  )
   return result.ok ? result.data : null
 }
 
@@ -95,15 +100,6 @@ export async function fetchOpenApprovals(): Promise<ProjectRequestItem[]> {
     '/client-portal/projects/requests/open',
   )
   return result.ok ? result.data : []
-}
-
-export const APPROVALS_BADGE_REFRESH_EVENT = 'portal-approvals-badge-refresh'
-export const PORTAL_NOTIFICATIONS_REFRESH_EVENT = 'portal-notifications-refresh'
-
-export function dispatchPortalNotificationsRefresh() {
-  if (typeof window === 'undefined') return
-  window.dispatchEvent(new Event(APPROVALS_BADGE_REFRESH_EVENT))
-  window.dispatchEvent(new Event(PORTAL_NOTIFICATIONS_REFRESH_EVENT))
 }
 
 export async function fetchUnreadApprovalsCount(): Promise<number> {

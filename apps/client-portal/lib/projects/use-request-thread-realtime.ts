@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { useQueryClient, type QueryKey } from '@tanstack/react-query'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { authorizeRequestThreadRealtime } from '@/lib/projects/fetch-projects-client'
 import {
@@ -11,11 +12,14 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 
 export function useRequestThreadRealtime(
   requestId: string | undefined,
-  onUpdate: () => void,
-  options?: { enabled?: boolean },
+  onUpdate?: () => void,
+  options?: { enabled?: boolean; invalidateQueryKeys?: QueryKey[] },
 ) {
+  const queryClient = useQueryClient()
   const onUpdateRef = useRef(onUpdate)
   onUpdateRef.current = onUpdate
+  const invalidateQueryKeysRef = useRef(options?.invalidateQueryKeys)
+  invalidateQueryKeysRef.current = options?.invalidateQueryKeys
 
   const enabled =
     isThreadRealtimeEnabled() && options?.enabled !== false && Boolean(requestId)
@@ -30,7 +34,15 @@ export function useRequestThreadRealtime(
     const scheduleUpdate = () => {
       if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
-        if (!cancelled) onUpdateRef.current()
+        if (cancelled) return
+        const keys = invalidateQueryKeysRef.current
+        if (keys?.length) {
+          for (const queryKey of keys) {
+            void queryClient.invalidateQueries({ queryKey })
+          }
+        } else {
+          onUpdateRef.current?.()
+        }
       }, 300)
     }
 
@@ -54,5 +66,5 @@ export function useRequestThreadRealtime(
         void createSupabaseBrowserClient().removeChannel(channel)
       }
     }
-  }, [enabled, requestId])
+  }, [enabled, queryClient, requestId])
 }

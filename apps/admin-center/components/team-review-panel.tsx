@@ -1,10 +1,14 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAdminSession } from '@/components/admin-session-provider'
 import RequestMessageThread from '@/components/request-message-thread'
-import { fetchAdminBff } from '@/lib/admin-api-fetch'
+import { useSendAdminRequestMessageMutation } from '@/lib/api/mutations/projects'
+import { adminQueryKeys } from '@/lib/api/query-keys'
+import { useAdminRequestThreadQuery } from '@/lib/api/queries/projects'
 import type { ProjectRequestItem } from '@/lib/projects/types'
+import { useRequestThreadRealtime } from '@/lib/projects/use-request-thread-realtime'
 import { bricolage_grot600 } from '@/styles/fonts'
 
 type TeamReviewPanelProps = {
@@ -20,25 +24,44 @@ export default function TeamReviewPanel({
   readOnly = false,
   onThreadUpdate,
 }: TeamReviewPanelProps) {
+  const queryClient = useQueryClient()
   const { session } = useAdminSession()
   const currentUserId = session?.mode === 'user' ? session.userId : null
-  const [request, setRequest] = useState(internalRequest)
 
-  const refreshThread = useCallback(async () => {
-    const updated = await fetchAdminBff<ProjectRequestItem>(
-      `/api/project-requests/${internalRequest.id}`,
-    )
-    setRequest(updated)
+  const threadQuery = useAdminRequestThreadQuery(internalRequest.id)
+  const sendMessageMutation = useSendAdminRequestMessageMutation(internalRequest.id)
+
+  const request = threadQuery.data ?? internalRequest
+
+  const invalidateKeys = useMemo(
+    () => [
+      adminQueryKeys.requests.detail(internalRequest.id),
+      adminQueryKeys.projects.detail(_projectId),
+      adminQueryKeys.projects.all,
+    ],
+    [internalRequest.id, _projectId],
+  )
+
+  useRequestThreadRealtime(internalRequest.id, onThreadUpdate, {
+    invalidateQueryKeys: invalidateKeys,
+  })
+
+  useEffect(() => {
+    if (threadQuery.data) {
+      onThreadUpdate?.()
+    }
+  }, [threadQuery.data, onThreadUpdate])
+
+  const refreshThread = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: adminQueryKeys.requests.detail(internalRequest.id),
+    })
     onThreadUpdate?.()
-  }, [internalRequest.id, onThreadUpdate])
+  }
 
   async function sendMessage(body: string, attachmentIds?: string[]) {
     try {
-      await fetchAdminBff(`/api/project-requests/${request.id}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body, attachmentIds }),
-      })
+      await sendMessageMutation.mutateAsync({ body, attachmentIds })
       await refreshThread()
       return { ok: true as const }
     } catch (err) {

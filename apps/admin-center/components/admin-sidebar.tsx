@@ -114,13 +114,14 @@ export default function AdminSidebar({
   const pathname = useResolvedPathname()
   const activeNavId = getActiveAdminNavId(pathname)
   const router = useRouter()
-  const { session, loading: sessionLoading } = useAdminSession()
+  const { session, loading: sessionLoading, clearQueryCache } = useAdminSession()
   const items =
     session?.mode === 'api_key' || isSuperAdminSession(session?.role ?? null)
       ? [...navItems, ...superAdminNavItems]
       : navItems
 
   const logout = async () => {
+    clearQueryCache()
     router.push('/auth/signout')
     router.refresh()
   }

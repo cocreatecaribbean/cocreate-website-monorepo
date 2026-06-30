@@ -9,11 +9,15 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common'
+import {
+  InviteAgencyCollaboratorSchema,
+  type InviteAgencyCollaboratorInput,
+} from '@cocreate/api-contracts/v1/requests/projects'
 import { AdminAuthGuard, type AdminRequest } from '../auth/guards/admin-auth.guard'
 import { isAgencyAdminRole } from '../auth/admin-roles'
 import { ForbiddenException } from '@nestjs/common'
+import { zodBody } from '../common/zod/zod-validation.pipe'
 import { AgencyCollaboratorsService } from './agency-collaborators.service'
-import { InviteAgencyCollaboratorDto } from './dto/invite-agency-collaborator.dto'
 
 @Controller({ path: 'admin/projects/:projectId/collaborators', version: '1' })
 @UseGuards(AdminAuthGuard)
@@ -38,12 +42,12 @@ export class AdminAgencyCollaboratorsController {
   invite(
     @Req() req: AdminRequest,
     @Param('projectId') projectId: string,
-    @Body() dto: InviteAgencyCollaboratorDto,
+    @Body(zodBody(InviteAgencyCollaboratorSchema)) body: InviteAgencyCollaboratorInput,
   ) {
     const actor = this.requireCoreTeam(req)
     return this.collaborators.inviteToProject(actor, projectId, {
-      email: dto.email,
-      userId: dto.userId,
+      email: body.email,
+      userId: body.userId,
     })
   }
 

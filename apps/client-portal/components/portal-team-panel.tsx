@@ -1,10 +1,12 @@
 'use client'
 
-import { FormEvent, useCallback, useEffect, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import {
-  fetchOrgTeam,
-  inviteTeamMember,
-  updateTeamMember,
+  useInviteTeamMemberMutation,
+  useUpdateTeamMemberMutation,
+} from '@/lib/api/mutations/team'
+import { useOrgTeamQuery } from '@/lib/api/queries/team'
+import {
   type ClientOrgRole,
   type TeamMember,
 } from '@/lib/team/fetch-team-client'
@@ -17,8 +19,10 @@ const roleLabels: Record<ClientOrgRole, string> = {
 }
 
 export default function PortalTeamPanel({ canManage }: { canManage: boolean }) {
-  const [members, setMembers] = useState<TeamMember[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: orgTeam, isLoading: loading, error: queryError } = useOrgTeamQuery()
+  const members = orgTeam?.members ?? []
+  const inviteMutation = useInviteTeamMemberMutation()
+  const updateMemberMutation = useUpdateTeamMemberMutation()
   const [error, setError] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<ClientOrgRole>('MEMBER')
@@ -27,22 +31,6 @@ export default function PortalTeamPanel({ canManage }: { canManage: boolean }) {
   const [devSignInUrl, setDevSignInUrl] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await fetchOrgTeam()
-      setMembers(data.members)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load team')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void load()
-  }, [load])
 
   const onInvite = async (event: FormEvent) => {
     event.preventDefault()
@@ -52,7 +40,7 @@ export default function PortalTeamPanel({ canManage }: { canManage: boolean }) {
     setDevSignInUrl(null)
     setError(null)
     try {
-      const result = await inviteTeamMember({
+      const result = await inviteMutation.mutateAsync({
         email: email.trim(),
         clientOrgRole: role,
         canAccessSocialListening: socialListening,
@@ -62,8 +50,7 @@ export default function PortalTeamPanel({ canManage }: { canManage: boolean }) {
       if (result.invitation?.devSignInUrl) {
         setDevSignInUrl(result.invitation.devSignInUrl)
       }
-      await load()
-    } catch (err) {
+          } catch (err) {
       setError(err instanceof Error ? err.message : 'Invite failed')
     } finally {
       setSubmitting(false)
@@ -73,10 +60,12 @@ export default function PortalTeamPanel({ canManage }: { canManage: boolean }) {
   const onToggleSocial = async (member: TeamMember) => {
     if (!canManage || member.clientOrgRole === 'OWNER') return
     try {
-      await updateTeamMember(member.id, {
-        canAccessSocialListening: !member.canAccessSocialListening,
+      await updateMemberMutation.mutateAsync({
+        userId: member.id,
+        body: {
+          canAccessSocialListening: !member.canAccessSocialListening,
+        },
       })
-      await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed')
     }
@@ -85,8 +74,10 @@ export default function PortalTeamPanel({ canManage }: { canManage: boolean }) {
   const onRoleChange = async (member: TeamMember, clientOrgRole: ClientOrgRole) => {
     if (!canManage || member.clientOrgRole === 'OWNER') return
     try {
-      await updateTeamMember(member.id, { clientOrgRole })
-      await load()
+      await updateMemberMutation.mutateAsync({
+        userId: member.id,
+        body: { clientOrgRole },
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed')
     }

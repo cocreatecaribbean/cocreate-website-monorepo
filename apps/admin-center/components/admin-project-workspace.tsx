@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import AdminToast from '@/components/admin-toast'
 import ProjectCollaboratorsPanel from '@/components/project-collaborators-panel'
 import ProjectStatusAttribution, { ProjectTimeline } from '@/components/project-status-attribution'
@@ -14,9 +15,13 @@ import {
   AdminApiFetchError,
   fetchAdminBff,
 } from '@/lib/admin-api-fetch'
-import { fetchInboxUnreadCount } from '@/lib/projects/inbox-unread'
 import { stageProjectFiles } from '@/lib/projects/fetch-project-files'
-import type { ClientProjectSummary, ProjectRequestItem } from '@/lib/projects/types'
+import {
+  useApproveClientProjectMutation,
+  useCreateCheckpointMutation,
+} from '@/lib/api/mutations/projects'
+import { adminQueryKeys } from '@/lib/api/query-keys'
+import { useAdminProjectWorkspaceQuery } from '@/lib/api/queries/projects'
 import {
   findProjectThread,
   formatPhaseLabel,
@@ -68,15 +73,29 @@ export default function AdminProjectWorkspace({
 }: AdminProjectWorkspaceProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
   const { session } = useAdminSession()
   const isCoreTeam =
     session?.mode === 'user' && isCoreTeamSession(session.role)
   const canTrackUnread = session?.mode === 'user' && isCoreTeam
 
+  const workspaceQuery = useAdminProjectWorkspaceQuery(organizationId, projectId)
+  const approveProjectMutation = useApproveClientProjectMutation(organizationId)
+  const createCheckpointMutation = useCreateCheckpointMutation(projectId)
+
+  const project = workspaceQuery.data?.project ?? null
+  const loading = workspaceQuery.isLoading
+  const loadError = workspaceQuery.isError
+    ? workspaceQuery.error instanceof AdminApiFetchError
+      ? `${workspaceQuery.error.message} — ${adminFetchErrorHint(workspaceQuery.error.code)}`
+      : workspaceQuery.error instanceof Error
+        ? workspaceQuery.error.message
+        : 'Could not load project.'
+    : null
+
+  const clientName = clientNameProp ?? workspaceQuery.data?.clientName ?? 'Client'
+
   const [tab, setTab] = useState<ProjectWorkspaceTabId>(initialTab)
-  const [project, setProject] = useState<ClientProjectSummary | null>(null)
-  const [clientName, setClientName] = useState(clientNameProp ?? 'Client')
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [checkpointError, setCheckpointError] = useState<string | null>(null)
@@ -104,37 +123,6 @@ export default function AdminProjectWorkspace({
     [organizationId, projectId, router, searchParams],
   )
 
-  const loadProject = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [roster, data] = await Promise.all([
-        clientNameProp
-          ? Promise.resolve(null)
-          : fetchAdminBff<Array<{ id: string; name: string }>>('/api/clients'),
-        fetchAdminBff<ClientProjectSummary>(`/api/projects/${projectId}`),
-      ])
-      if (roster) {
-        setClientName(roster.find((c) => c.id === organizationId)?.name ?? 'Client')
-      }
-      setProject(data)
-    } catch (err) {
-      const message =
-        err instanceof AdminApiFetchError
-          ? `${err.message} — ${adminFetchErrorHint(err.code)}`
-          : err instanceof Error
-            ? err.message
-            : 'Could not load project.'
-      setError(message)
-    } finally {
-      setLoading(false)
-    }
-  }, [clientNameProp, organizationId, projectId])
-
-  useEffect(() => {
-    void loadProject()
-  }, [loadProject])
-
   useEffect(() => {
     setTab(parseTab(searchParams.get('tab') ?? initialTab))
   }, [searchParams, initialTab])
@@ -155,29 +143,21 @@ export default function AdminProjectWorkspace({
 
   const refreshUnreadCount = useCallback(async () => {
     if (!canTrackUnread) return
-    try {
-      await fetchInboxUnreadCount(organizationId)
-    } catch {
-      /* non-blocking */
-    }
-  }, [canTrackUnread, organizationId])
+    await queryClient.invalidateQueries({
+      queryKey: adminQueryKeys.projects.workspace(organizationId, projectId),
+    })
+  }, [canTrackUnread, organizationId, projectId, queryClient])
 
   const refreshThread = useCallback(
     async (requestId: string) => {
-      const thread = await fetchAdminBff<ProjectRequestItem>(
-        `/api/project-requests/${requestId}`,
-      )
-      setProject((current) => {
-        if (!current?.requests) return current
-        return {
-          ...current,
-          requests: current.requests.map((r) =>
-            r.id === requestId ? { ...r, ...thread } : r,
-          ),
-        }
+      await queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.requests.detail(requestId),
+      })
+      await queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.projects.workspace(organizationId, projectId),
       })
     },
-    [],
+    [organizationId, projectId, queryClient],
   )
 
   const sendAdminMessage = useCallback(
@@ -207,12 +187,8 @@ export default function AdminProjectWorkspace({
     setApproving(true)
     setError(null)
     try {
-      await fetchAdminBff(
-        `/api/clients/${organizationId}/projects/${projectId}/approve`,
-        { method: 'POST' },
-      )
+      await approveProjectMutation.mutateAsync(projectId)
       setSuccess('Project approved and client notified.')
-      await loadProject()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Approve failed')
     } finally {
@@ -230,7 +206,12 @@ export default function AdminProjectWorkspace({
         body: JSON.stringify({ status: 'COMPLETED' }),
       })
       setSuccess('Project marked complete. Client has been notified.')
-      await loadProject()
+      void queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.projects.workspace(organizationId, projectId),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.projects.byOrganization(organizationId),
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not complete project')
     } finally {
@@ -255,7 +236,7 @@ export default function AdminProjectWorkspace({
         body: JSON.stringify(payload),
       })
       setSuccess('Cancellation resolved and client notified.')
-      await loadProject()
+      await refreshThread(requestId)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not resolve cancellation')
     }
@@ -271,16 +252,12 @@ export default function AdminProjectWorkspace({
           ? await stageProjectFiles(projectId, Array.from(checkpointFiles))
           : undefined
 
-      await fetchAdminBff<ProjectRequestItem>(`/api/projects/${projectId}/checkpoints`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: checkpointTitle.trim(),
-          body: checkpointBody.trim(),
-          ...(checkpointReviewUrl.trim() ? { reviewUrl: checkpointReviewUrl.trim() } : {}),
-          ...(checkpointPhase ? { targetPhase: checkpointPhase } : {}),
-          ...(attachments?.length ? { attachments } : {}),
-        }),
+      await createCheckpointMutation.mutateAsync({
+        title: checkpointTitle.trim(),
+        body: checkpointBody.trim(),
+        ...(checkpointReviewUrl.trim() ? { reviewUrl: checkpointReviewUrl.trim() } : {}),
+        ...(checkpointPhase ? { targetPhase: checkpointPhase } : {}),
+        ...(attachments?.length ? { attachments } : {}),
       })
 
       setSuccess('Progress check sent — client can approve or reply.')
@@ -290,7 +267,6 @@ export default function AdminProjectWorkspace({
       setCheckpointFiles(null)
       setCheckpointPhase('')
       setShowProgressCheck(false)
-      await loadProject()
       setTabWithUrl('threads')
     } catch (err) {
       const message =
@@ -384,9 +360,9 @@ export default function AdminProjectWorkspace({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
-        {error ? (
+        {error ?? loadError ? (
           <p className="admin-alert-error mb-4">
-            {error}
+            {error ?? loadError}
           </p>
         ) : null}
         {success ? (
@@ -493,6 +469,7 @@ export default function AdminProjectWorkspace({
                 request={onboarding}
                 readOnly={onboardingClosed}
                 organizationId={organizationId}
+                loadMessages={tab === 'threads'}
                 markReadEnabled={canTrackUnread}
                 onInboxMarked={() => void refreshUnreadCount()}
                 onSendMessage={(body, attachmentIds) =>
@@ -507,6 +484,7 @@ export default function AdminProjectWorkspace({
                 subtitle="Progress checks and client replies"
                 request={progress}
                 organizationId={organizationId}
+                loadMessages={tab === 'threads'}
                 markReadEnabled={canTrackUnread}
                 onInboxMarked={() => void refreshUnreadCount()}
                 onSendMessage={(body, attachmentIds) =>
@@ -521,6 +499,7 @@ export default function AdminProjectWorkspace({
                 subtitle={cancellation.cancellationOutcome ?? 'Open'}
                 request={cancellation}
                 organizationId={organizationId}
+                loadMessages={tab === 'threads'}
                 markReadEnabled={canTrackUnread}
                 onInboxMarked={() => void refreshUnreadCount()}
                 onSendMessage={(body, attachmentIds) =>

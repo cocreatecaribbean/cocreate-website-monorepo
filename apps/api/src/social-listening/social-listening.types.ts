@@ -1,25 +1,32 @@
-/** API response shape — mirrors client-portal chart types */
+/** API social-listening types — wire shapes from contracts; runtime constants stay local. */
+
+import type {
+  SocialListeningAnalytics as SocialListeningAnalyticsWire,
+  SocialListeningAnalyticsMeta,
+  SocialListeningComparePayload,
+  SocialListeningHeatmapCell,
+  SocialListeningLineChartPoint,
+  SocialListeningMentionMatrixRow,
+  SocialListeningMetricDelta,
+  SocialListeningReachEngagementSeries,
+  SocialListeningSentimentId,
+  SocialListeningSentimentOverTimeRow,
+  SocialListeningSentimentSlice,
+  SocialListeningSourceBreakdownRow,
+} from '@cocreate/api-contracts/v1/social-listening'
+
+/** Sentiment colors — CoCreate brand tints (API-local; not imported from frontend packages). */
 export const SENTIMENT_COLORS = {
   positive: '#406eb5',
   neutral: '#a8b8e8',
   negative: '#d94f4f',
 } as const
 
-export type SentimentId = keyof typeof SENTIMENT_COLORS
+export type SentimentId = SocialListeningSentimentId
 
-export type SentimentSlice = {
-  id: SentimentId
-  label: string
-  value: number
-  color: string
-}
+export type SentimentSlice = SocialListeningSentimentSlice
 
-export type SentimentOverTimeRow = {
-  date: string
-  positive: number
-  neutral: number
-  negative: number
-}
+export type SentimentOverTimeRow = SocialListeningSentimentOverTimeRow
 
 export type SocialPlatformId =
   | 'x'
@@ -30,43 +37,26 @@ export type SocialPlatformId =
   | 'web'
   | 'forums'
 
-export type SourceBreakdownRow = {
+export type SourceBreakdownRow = SocialListeningSourceBreakdownRow & {
   platformId: SocialPlatformId
-  mentions: number
 }
 
-export type LineChartPoint = { x: string; y: number }
+export type LineChartPoint = SocialListeningLineChartPoint
 
-export type ReachEngagementSeries = {
-  id: string
-  data: LineChartPoint[]
-}
+export type ReachEngagementSeries = SocialListeningReachEngagementSeries
 
-export type HeatmapCell = { x: string; y: number }
+export type HeatmapCell = SocialListeningHeatmapCell
 
-export type MentionMatrixRow = {
-  id: string
-  data: HeatmapCell[]
-}
+export type MentionMatrixRow = SocialListeningMentionMatrixRow
 
-export type SocialListeningAnalytics = {
-  sentimentSummary: SentimentSlice[]
-  sentimentOverTime: SentimentOverTimeRow[]
+export type SocialListeningAnalytics = Omit<
+  SocialListeningAnalyticsWire,
+  'sourceBreakdown'
+> & {
   sourceBreakdown: SourceBreakdownRow[]
-  reachVsEngagement: ReachEngagementSeries[]
-  mentionMatrix: MentionMatrixRow[]
 }
 
-export type SocialListeningAnalyticsMeta = {
-  source: 'brand24' | 'org_mock'
-  organizationId: string
-  brand24ProjectId: string | null
-  fetchedAt: string
-  snapshotDate?: string
-  periodStart?: string
-  periodEnd?: string
-  fromSnapshot?: boolean
-}
+export type { SocialListeningAnalyticsMeta, SocialListeningMetricDelta }
 
 export type SocialListeningAnalyticsResponse = {
   ok: true
@@ -79,29 +69,6 @@ export type SocialListeningSnapshotDatesResponse = {
   dates: string[]
 }
 
-export type SocialListeningMetricDelta = {
-  baseline: number
-  current: number
-  change: number
-  percentChange: number | null
-}
-
 export type SocialListeningCompareResponse = {
   ok: true
-  baseline: {
-    date: string
-    data: SocialListeningAnalytics
-    meta: SocialListeningAnalyticsMeta
-  }
-  current: {
-    date: string
-    data: SocialListeningAnalytics
-    meta: SocialListeningAnalyticsMeta
-  }
-  deltas: {
-    totalMentions: SocialListeningMetricDelta
-    positive: SocialListeningMetricDelta
-    neutral: SocialListeningMetricDelta
-    negative: SocialListeningMetricDelta
-  }
-}
+} & SocialListeningComparePayload

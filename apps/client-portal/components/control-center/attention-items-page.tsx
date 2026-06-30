@@ -2,14 +2,10 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
 import { formatAttentionStatusLabel } from '@/lib/control-center/attention-items'
 import type { PortalNotificationItem } from '@/lib/projects/api-types'
-import {
-  dispatchPortalNotificationsRefresh,
-  fetchAttentionItems,
-  markNotificationRead,
-} from '@/lib/projects/fetch-projects-client'
+import { useMarkNotificationReadMutation } from '@/lib/api/mutations/notifications'
+import { useAttentionItemsQuery } from '@/lib/api/queries/notifications'
 import { alkatra600, bricolage_grot600 } from '@/styles/fonts'
 import { ArrowLeft, Bell } from 'lucide-react'
 
@@ -30,18 +26,8 @@ function attentionHrefToPath(href: string): string | null {
 export default function AttentionItemsPage({ organizationName }: AttentionItemsPageProps) {
   const router = useRouter()
   const workspaceLabel = organizationName?.trim() || 'your workspace'
-  const [items, setItems] = useState<PortalNotificationItem[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const load = async () => {
-    setLoading(true)
-    setItems(await fetchAttentionItems())
-    setLoading(false)
-  }
-
-  useEffect(() => {
-    void load()
-  }, [])
+  const { data: items = [], isLoading: loading } = useAttentionItemsQuery()
+  const markRead = useMarkNotificationReadMutation()
 
   const onOpen = (item: PortalNotificationItem) => {
     if (item.href) {
@@ -58,14 +44,7 @@ export default function AttentionItemsPage({ organizationName }: AttentionItemsP
       }
     }
 
-    void (async () => {
-      try {
-        await markNotificationRead(item.id)
-        dispatchPortalNotificationsRefresh()
-      } catch {
-        /* non-blocking */
-      }
-    })()
+    markRead.mutate(item.id)
   }
 
   const count = items.length

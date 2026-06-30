@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { FormEvent, useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import AdminToast from '@/components/admin-toast'
 import ClientTeamPanel from '@/components/client-team-panel'
 import DevSignInLink from '@/components/dev-sign-in-link'
@@ -11,26 +12,11 @@ import {
   AdminApiFetchError,
   fetchAdminBff,
 } from '@/lib/admin-api-fetch'
+import { useSuspendClientUserMutation } from '@/lib/api/mutations/clients'
+import { adminQueryKeys } from '@/lib/api/query-keys'
+import { useClientsQuery } from '@/lib/api/queries/clients'
 import { bricolage_grot600 } from '@/styles/fonts'
-
 type ClientOrgRole = 'OWNER' | 'PROJECT_MANAGER' | 'MEMBER'
-
-type ClientRosterItem = {
-  id: string
-  name: string
-  slug: string
-  logoUrl: string | null
-  isSocialListeningSubscriber: boolean
-  brand24ProjectId: string | null
-  createdAt: string
-  primaryContact: {
-    id: string
-    email: string
-    status: 'INVITED' | 'ACTIVE' | 'SUSPENDED'
-    clientOrgRole: ClientOrgRole | null
-    canAccessSocialListening: boolean
-  } | null
-}
 
 const orgRoleBadge: Record<ClientOrgRole, string> = {
   OWNER: 'Owner',
@@ -67,14 +53,16 @@ const statusLabel: Record<string, string> = {
 }
 
 export default function ClientAccessManager() {
-  const [clients, setClients] = useState<ClientRosterItem[]>([])
+  const queryClient = useQueryClient()
+  const { data: clients = [], isLoading, error: queryError, isError } = useClientsQuery()
+  const suspendMutation = useSuspendClientUserMutation()
+
   const [companyName, setCompanyName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [enableSocialListening, setEnableSocialListening] = useState(false)
   const [logoUrl, setLogoUrl] = useState('')
   const [logoUploading, setLogoUploading] = useState(false)
   const [logoFileName, setLogoFileName] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -84,37 +72,19 @@ export default function ClientAccessManager() {
   const [expandedTeamOrgId, setExpandedTeamOrgId] = useState<string | null>(null)
   const [settingOwnerUserId, setSettingOwnerUserId] = useState<string | null>(null)
 
-  const loadClients = async (options?: { silent?: boolean }) => {
-    if (!options?.silent) {
-      setLoading(true)
-      setError(null)
-    }
-    try {
-      const data = await fetchAdminBff<ClientRosterItem[]>('/api/clients')
-      setClients(data)
-      setBrand24Drafts(
-        Object.fromEntries(
-          data.map((c) => [c.id, c.brand24ProjectId ?? '']),
-        ),
-      )
-    } catch (err) {
-      const message =
-        err instanceof AdminApiFetchError
-          ? `${err.message} — ${adminFetchErrorHint(err.code)}`
-          : err instanceof Error
-            ? err.message
-            : 'Could not load clients.'
-      setError(message)
-    } finally {
-      if (!options?.silent) {
-        setLoading(false)
-      }
-    }
-  }
+  const loadError = isError
+    ? queryError instanceof AdminApiFetchError
+      ? `${queryError.message} — ${adminFetchErrorHint(queryError.code)}`
+      : queryError instanceof Error
+        ? queryError.message
+        : 'Could not load clients.'
+    : null
 
   useEffect(() => {
-    void loadClients()
-  }, [])
+    setBrand24Drafts(
+      Object.fromEntries(clients.map((c) => [c.id, c.brand24ProjectId ?? ''])),
+    )
+  }, [clients])
 
   const onLogoChange = async (file: File | null) => {
     if (!file) return
@@ -195,7 +165,7 @@ export default function ClientAccessManager() {
           'Organization owner invited. They will receive a sign-in email shortly.',
         )
       }
-      await loadClients({ silent: true })
+      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.clients.all })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to invite client')
     } finally {
@@ -207,9 +177,8 @@ export default function ClientAccessManager() {
     setError(null)
     setSuccess(null)
     try {
-      await fetchAdminBff(`/api/clients/users/${userId}/suspend`, { method: 'POST' })
+      await suspendMutation.mutateAsync(userId)
       setSuccess('Client access suspended.')
-      await loadClients({ silent: true })
     } catch (err) {
       setError(
         err instanceof AdminApiFetchError
@@ -240,7 +209,7 @@ export default function ClientAccessManager() {
         throw new Error(getApiErrorMessage(data, 'Failed to save Brand24 project ID'))
       }
       setSuccess('Brand24 project ID saved.')
-      await loadClients({ silent: true })
+      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.clients.all })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save Brand24 project ID')
     } finally {
@@ -255,10 +224,14 @@ export default function ClientAccessManager() {
     try {
       await fetchAdminBff(`/api/clients/${organizationId}/team/${userId}`, {
         method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientOrgRole: 'OWNER' }),
       })
       setSuccess('Organization owner updated. They can manage portal team in the client portal.')
-      await loadClients({ silent: true })
+      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.clients.all })
+      void queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.team.members(organizationId),
+      })
     } catch (err) {
       setError(
         err instanceof AdminApiFetchError
@@ -277,8 +250,8 @@ export default function ClientAccessManager() {
       {success ? (
         <AdminToast message={success} variant="success" onDismiss={() => setSuccess(null)} />
       ) : null}
-      {error ? (
-        <AdminToast message={error} variant="error" onDismiss={() => setError(null)} />
+      {error ?? loadError ? (
+        <AdminToast message={error ?? loadError ?? ''} variant="error" onDismiss={() => setError(null)} />
       ) : null}
       <form
         onSubmit={onSubmit}
@@ -370,7 +343,7 @@ export default function ClientAccessManager() {
           managers and members are assigned in the client portal. Optional Brand24 project
           ID per subscriber.
         </p>
-        {loading ? (
+        {isLoading ? (
           <p className="mt-4 text-sm text-app-muted">Loading…</p>
         ) : clients.length === 0 ? (
           <p className="mt-4 text-sm text-app-muted">No clients onboarded yet.</p>

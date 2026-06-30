@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "build": "nest build",
-    "dev": "PORT=3001 nest start --watch",
+    "predev": "sh -c 'test -f ../../packages/api-contracts/dist/index.js || pnpm --filter @cocreate/api-contracts build'",
+    "dev": "concurrently -n contracts,api -c blue,green \"pnpm --filter @cocreate/api-contracts dev\" \"PORT=3001 nest start --watch\"",
     "start": "nest start",
     "start:prod": "node dist/main.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
@@ -12,9 +13,11 @@
     "test": "jest"
   },
   "dependencies": {
+    "@cocreate/api-contracts": "workspace:*",
     "@cocreate/database": "workspace:*",
     "@cocreate/social-listening-plans": "workspace:*",
     "@cocreate/social-listening-reports": "workspace:*",
+    "zod": "catalog:web",
     "@nestjs/common": "catalog:api",
     "@nestjs/config": "catalog:api",
     "@nestjs/core": "catalog:api",
@@ -23,8 +26,6 @@
     "@nestjs/swagger": "^11.2.0",
     "@prisma/adapter-pg": "catalog:api",
     "@supabase/supabase-js": "^2.49.8",
-    "class-transformer": "^0.5.1",
-    "class-validator": "^0.14.1",
     "dotenv": "^16.4.7",
     "pg": "catalog:api",
     "resend": "^6.12.3",
@@ -43,6 +44,9 @@
     "@types/express": "^5.0.6",
     "@types/node": "catalog:tooling",
     "@types/pg": "catalog:api",
+    "@swc/cli": "^0.6.0",
+    "@swc/core": "^1.11.0",
+    "concurrently": "catalog:web",
     "typescript": "catalog:tooling"
   }
 }

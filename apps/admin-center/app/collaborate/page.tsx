@@ -5,12 +5,7 @@ import { adminApiHeaders } from '@/lib/admin-api-headers'
 import { proxyAdminApi } from '@/lib/admin-api-proxy'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import { FolderKanban } from 'lucide-react'
-
-type CollaboratorMe = {
-  ok: true
-  collaborator: { id: string; email: string }
-  projects: Array<{ id: string; title: string; organizationName: string }>
-}
+import type { CollaboratorMe } from '@/lib/projects/api-types'
 
 export default async function CollaborateHomePage() {
   const headers = await adminApiHeaders()

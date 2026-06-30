@@ -8,11 +8,16 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common'
+import {
+  CreateProfileOptionSchema,
+  type CreateProfileOptionInput,
+  UpdateProfileOptionSchema,
+  type UpdateProfileOptionInput,
+} from '@cocreate/api-contracts/v1/requests/users'
 import { AdminAuthGuard } from '../auth/guards/admin-auth.guard'
 import { SuperAdminGuard } from '../auth/guards/super-admin.guard'
+import { zodBody } from '../common/zod/zod-validation.pipe'
 import { AgencyProfileOptionsService } from './agency-profile-options.service'
-import { CreateProfileOptionDto } from './dto/create-profile-option.dto'
-import { UpdateProfileOptionDto } from './dto/update-profile-option.dto'
 
 @Controller({ path: 'auth/admin', version: '1' })
 export class AgencyProfileOptionsPublicController {
@@ -37,12 +42,15 @@ export class AgencyProfileOptionsAdminController {
   }
 
   @Post()
-  create(@Body() body: CreateProfileOptionDto) {
+  create(@Body(zodBody(CreateProfileOptionSchema)) body: CreateProfileOptionInput) {
     return this.options.create(body)
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: UpdateProfileOptionDto) {
+  update(
+    @Param('id') id: string,
+    @Body(zodBody(UpdateProfileOptionSchema)) body: UpdateProfileOptionInput,
+  ) {
     return this.options.update(id, body)
   }
 

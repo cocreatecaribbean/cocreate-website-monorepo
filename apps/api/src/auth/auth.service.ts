@@ -6,8 +6,9 @@ import {
 import { ConfigService } from '@nestjs/config'
 import { ClientOrgRole, UserRole, UserStatus } from '@cocreate/database'
 import { isAgencyAdminRole, isAgencyStaffRole, isCollaboratorRole } from './admin-roles'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js'
 import { PrismaService } from '../prisma/prisma.service'
+import { AuthTokenCache } from './auth-token-cache'
 
 export type AuthenticatedAdmin = {
   id: string
@@ -41,6 +42,9 @@ export type AuthenticatedClient = {
 export class AuthService {
   private readonly adminClient: SupabaseClient
   private readonly publicClient: SupabaseClient | null
+  private readonly supabaseUserCache = new AuthTokenCache<User>()
+  private readonly agencyUserCache = new AuthTokenCache<AuthenticatedAgencyUser>()
+  private readonly clientUserCache = new AuthTokenCache<AuthenticatedClient>()
 
   constructor(
     private readonly config: ConfigService,
@@ -75,6 +79,9 @@ export class AuthService {
   }
 
   async getSupabaseUserFromToken(accessToken: string) {
+    const cached = this.supabaseUserCache.get(accessToken)
+    if (cached) return cached
+
     if (!this.adminClient) {
       throw new UnauthorizedException('Supabase Auth is not configured')
     }
@@ -84,10 +91,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired session')
     }
 
+    this.supabaseUserCache.set(accessToken, data.user)
     return data.user
   }
 
   async requireAgencyUser(accessToken: string): Promise<AuthenticatedAgencyUser> {
+    const cached = this.agencyUserCache.get(accessToken)
+    if (cached) return cached
+
     const authUser = await this.getSupabaseUserFromToken(accessToken)
     const email = this.normalizeEmail(authUser.email!)
 
@@ -121,13 +132,15 @@ export class AuthService {
       where: { id: user.id },
     })
 
-    return {
+    const result = {
       id: refreshed.id,
       email: refreshed.email,
       role: refreshed.role,
       status: refreshed.status,
       supabaseAuthId: refreshed.supabaseAuthId,
     }
+    this.agencyUserCache.set(accessToken, result)
+    return result
   }
 
   async requireAdmin(accessToken: string): Promise<AuthenticatedAdmin> {
@@ -175,6 +188,9 @@ export class AuthService {
   }
 
   async requireClient(accessToken: string): Promise<AuthenticatedClient> {
+    const cached = this.clientUserCache.get(accessToken)
+    if (cached) return cached
+
     const authUser = await this.getSupabaseUserFromToken(accessToken)
     const email = this.normalizeEmail(authUser.email!)
     const user = await this.loadClientByEmail(email)
@@ -186,7 +202,7 @@ export class AuthService {
       })
     }
 
-    return {
+    const result = {
       id: user.id,
       email: user.email,
       role: user.role,
@@ -196,6 +212,8 @@ export class AuthService {
       canAccessSocialListening: user.canAccessSocialListening,
       organization: this.mapClientOrganization(user.organization),
     }
+    this.clientUserCache.set(accessToken, result)
+    return result
   }
 
   async syncClientSession(accessToken: string) {

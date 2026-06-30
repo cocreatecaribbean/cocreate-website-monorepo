@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
-  cancelSubscription,
-  fetchClientSubscription,
   getRenewCheckoutUrl,
   getUpdatePaymentUrl,
-  toggleAutoRenew,
-  type ClientSubscriptionView,
 } from '@client-portal/lib/social-listening/fetch-billing-client'
+import {
+  useCancelSubscriptionMutation,
+  useToggleAutoRenewMutation,
+} from '@/lib/api/mutations/social-listening'
+import { useClientSubscriptionQuery } from '@/lib/api/queries/social-listening'
 import { bricolage_grot600 } from '@client-portal/styles/fonts'
 
 export default function SocialListeningBillingPanel({
@@ -16,21 +17,11 @@ export default function SocialListeningBillingPanel({
 }: {
   isOwner: boolean
 }) {
-  const [subscription, setSubscription] = useState<ClientSubscriptionView | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { data: subscription, isLoading: loading } = useClientSubscriptionQuery()
+  const toggleAutoRenew = useToggleAutoRenewMutation()
+  const cancelSubscription = useCancelSubscriptionMutation()
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
-
-  const load = async () => {
-    setLoading(true)
-    const sub = await fetchClientSubscription()
-    setSubscription(sub)
-    setLoading(false)
-  }
-
-  useEffect(() => {
-    void load()
-  }, [])
 
   if (loading) {
     return <p className="text-sm text-app-muted">Loading billing…</p>
@@ -55,7 +46,7 @@ export default function SocialListeningBillingPanel({
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-app-muted">Plan</dt>
-          <dd className="font-medium text-chambray">{subscription.planName}</dd>
+          <dd>{subscription.planName}</dd>
         </div>
         <div>
           <dt className="text-app-muted">Status</dt>
@@ -94,12 +85,11 @@ export default function SocialListeningBillingPanel({
             <input
               type="checkbox"
               checked={subscription.autoRenewEnabled}
-              disabled={busy || subscription.billingSource !== 'FYGARO'}
+              disabled={busy || subscription.billingSource !== 'FYGARO' || toggleAutoRenew.isPending}
               onChange={async (e) => {
                 setBusy(true)
-                const ok = await toggleAutoRenew(e.target.checked)
+                const ok = await toggleAutoRenew.mutateAsync(e.target.checked)
                 setMessage(ok ? 'Auto-renew updated.' : 'Could not update auto-renew.')
-                await load()
                 setBusy(false)
               }}
             />
@@ -137,15 +127,14 @@ export default function SocialListeningBillingPanel({
           {!subscription.cancelAtPeriodEnd ? (
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || cancelSubscription.isPending}
               className="portal-btn-ghost"
               onClick={async () => {
                 setBusy(true)
-                const ok = await cancelSubscription()
+                const ok = await cancelSubscription.mutateAsync()
                 setMessage(
                   ok ? 'Subscription will cancel at end of billing period.' : 'Cancel failed.',
                 )
-                await load()
                 setBusy(false)
               }}
             >

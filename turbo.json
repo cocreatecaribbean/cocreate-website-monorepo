@@ -25,6 +25,9 @@
     "lint": {},
     "type-check": {},
     "@cocreate/api#build": {
+      "dependsOn": [
+        "^build"
+      ],
       "env": [
         "ADMIN_API_KEY",
         "ADMIN_CENTER_URL",

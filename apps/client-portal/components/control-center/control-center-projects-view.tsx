@@ -9,28 +9,23 @@ import {
   useState,
 } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import type { ClientProjectDetail, ClientProjectSummary } from '@/lib/projects/api-types'
+import { useQueryClient } from '@tanstack/react-query'
 import PortalProjectWorkspace from '@/components/control-center/portal-project-workspace'
 import ProjectStatusAttribution, {
   ProjectStatusBadge,
 } from '@/components/project-status-attribution'
-import {
-  createProject,
-  dispatchPortalNotificationsRefresh,
-  fetchProject,
-  fetchProjects,
-  fetchRequestThread,
-  markAttentionRead,
-  navigateToApprovals,
-  uploadProjectFiles,
-} from '@/lib/projects/fetch-projects-client'
+import { useCreateProjectWithFilesMutation } from '@/lib/api/mutations/projects'
+import { useMarkAttentionReadMutation } from '@/lib/api/mutations/notifications'
+import { usePortalProfileQuery } from '@/lib/api/queries/team'
+import { useProjectQuery, useProjectsQuery, prefetchClientProjectOverview } from '@/lib/api/queries/projects'
+import { queryKeys } from '@/lib/api/query-keys'
+import { navigateToApprovals } from '@/lib/projects/fetch-projects-client'
 import {
   parsePortalProjectTab,
   PROJECT_TAB_QUERY,
   type PortalProjectTabId,
 } from '@/lib/control-center/project-workspace'
 import ProjectCover from '@/components/project-cover'
-import { fetchPortalProfile } from '@/lib/team/fetch-team-client'
 import { bricolage_grot600 } from '@/styles/fonts'
 import { Bell, Calendar, ExternalLink, Plus } from 'lucide-react'
 
@@ -40,39 +35,30 @@ export default function ControlCenterProjectsView() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
   const deepLinkHandled = useRef(false)
 
-  useEffect(() => {
-    void fetchPortalProfile().then((profile) => {
-      setCanCreateProject(profile?.permissions.canCreateProject ?? true)
-    })
-  }, [])
+  const { data: profile } = usePortalProfileQuery()
+  const canCreateProject = profile?.permissions.canCreateProject ?? true
+
   const [openedProjectId, setOpenedProjectId] = useState<string | null>(null)
-  const [projects, setProjects] = useState<ClientProjectSummary[]>([])
-  const [detail, setDetail] = useState<ClientProjectDetail | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { data: projects = [], isLoading: loading } = useProjectsQuery()
+  const {
+    data: detail,
+    isError: detailIsError,
+    refetch: refetchDetail,
+  } = useProjectQuery(openedProjectId)
+
+  const createProjectMutation = useCreateProjectWithFilesMutation()
+  const markAttentionRead = useMarkAttentionReadMutation()
+
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [files, setFiles] = useState<FileList | null>(null)
-  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [detailError, setDetailError] = useState<string | null>(null)
-  const [canCreateProject, setCanCreateProject] = useState(true)
   const [initialProjectTab, setInitialProjectTab] = useState<PortalProjectTabId>('overview')
 
-  const loadProjects = useCallback(async () => {
-    setLoading(true)
-    const list = await fetchProjects()
-    setProjects(list)
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    void loadProjects()
-  }, [loadProjects])
-
-  // Email / notification deep links use ?projectId= once; in-app navigation uses local state only.
   useLayoutEffect(() => {
     if (deepLinkHandled.current) return
     deepLinkHandled.current = true
@@ -103,42 +89,9 @@ export default function ControlCenterProjectsView() {
   }, [pathname, router, searchParams])
 
   useEffect(() => {
-    if (!openedProjectId) {
-      setDetail(null)
-      setDetailError(null)
-      return
-    }
-    setDetailError(null)
-    let cancelled = false
-    void fetchProject(openedProjectId).then((project) => {
-      if (cancelled) return
-      if (!project) {
-        setDetail(null)
-        setDetailError('Could not load this project.')
-        return
-      }
-      setDetail(project)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [openedProjectId])
-
-  useEffect(() => {
     if (!openedProjectId || !detail || detail.id !== openedProjectId) return
-    let cancelled = false
-    void (async () => {
-      try {
-        await markAttentionRead({ projectId: openedProjectId })
-        if (!cancelled) dispatchPortalNotificationsRefresh()
-      } catch {
-        /* non-blocking */
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [openedProjectId, detail])
+    markAttentionRead.mutate({ projectId: openedProjectId })
+  }, [openedProjectId, detail, markAttentionRead])
 
   const openProject = useCallback((projectId: string, tab: PortalProjectTabId = 'overview') => {
     setInitialProjectTab(tab)
@@ -150,56 +103,43 @@ export default function ControlCenterProjectsView() {
     setInitialProjectTab('overview')
   }, [])
 
-  const refreshThreadInDetail = useCallback(async (requestId: string) => {
-    const result = await fetchRequestThread(requestId)
-    if (!result.ok) return
-    setDetail((prev) => {
-      if (!prev) return prev
-      return {
-        ...prev,
-        requests: prev.requests?.map((r) =>
-          r.id === requestId ? result.data : r,
-        ),
-      }
-    })
-  }, [])
+  const refreshProjectData = useCallback(async () => {
+    await refetchDetail()
+    await queryClient.invalidateQueries({ queryKey: queryKeys.projects.list() })
+  }, [queryClient, refetchDetail])
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    setSubmitting(true)
     setError(null)
-    const result = await createProject({
+    const result = await createProjectMutation.mutateAsync({
       title: title.trim(),
       description: description.trim(),
+      files: files?.length ? Array.from(files) : undefined,
     })
     if (!result.ok || !result.project) {
       setError(result.message ?? 'Could not create project')
-      setSubmitting(false)
       return
     }
-    if (files?.length) {
-      const upload = await uploadProjectFiles(result.project.id, Array.from(files))
-      if (!upload.ok) setError(upload.message ?? 'Project created but upload failed')
+    if ('uploadError' in result && result.uploadError) {
+      setError(result.uploadError)
     }
     setTitle('')
     setDescription('')
     setFiles(null)
     setShowForm(false)
-    setSubmitting(false)
-    await loadProjects()
     openProject(result.project.id)
   }
 
   const detailReady = Boolean(
     openedProjectId && detail && detail.id === openedProjectId,
   )
+  const detailError = detailIsError ? 'Could not load this project.' : null
+  const submitting = createProjectMutation.isPending
 
   if (openedProjectId && detailError) {
     return (
       <div className="space-y-4">
-        <p className="portal-alert-error">
-          {detailError}
-        </p>
+        <p className="portal-alert-error">{detailError}</p>
         <button type="button" onClick={closeProject} className="portal-btn-ghost text-sm">
           ← All projects
         </button>
@@ -225,12 +165,7 @@ export default function ControlCenterProjectsView() {
         project={detail}
         initialTab={initialProjectTab}
         onBack={closeProject}
-        onRefreshThread={refreshThreadInDetail}
-        onRefresh={async () => {
-          const next = await fetchProject(openedProjectId!)
-          setDetail(next)
-          await loadProjects()
-        }}
+        onRefresh={refreshProjectData}
       />
     )
   }
@@ -253,11 +188,7 @@ export default function ControlCenterProjectsView() {
         ) : null}
       </div>
 
-      {error ? (
-        <p className="portal-alert-error">
-          {error}
-        </p>
-      ) : null}
+      {error ? <p className="portal-alert-error">{error}</p> : null}
 
       {showForm ? (
         <form
@@ -313,6 +244,8 @@ export default function ControlCenterProjectsView() {
             <article
               key={project.id}
               className="portal-glass-card portal-shine-hover flex flex-col overflow-hidden p-0"
+              onMouseEnter={() => void prefetchClientProjectOverview(queryClient, project.id)}
+              onFocus={() => void prefetchClientProjectOverview(queryClient, project.id)}
             >
               <ProjectCover
                 coverImageUrl={project.coverImageUrl}
@@ -321,38 +254,40 @@ export default function ControlCenterProjectsView() {
                 className="rounded-none"
               />
               <div className="flex flex-col p-6">
-              <div className="flex items-start justify-between gap-2">
-                <h3 className={`text-base text-chambray ${bricolage_grot600.className}`}>
-                  {project.title}
-                </h3>
-                <ProjectStatusBadge project={project} />
-              </div>
-              <p className="mt-2 line-clamp-3 text-sm text-app-muted">{project.description}</p>
-              <div className="mt-2">
-                <ProjectStatusAttribution project={project} variant="linesOnly" />
-              </div>
-              <p className="mt-4 flex items-center gap-1.5 text-xs text-app-muted">
-                <Calendar className="h-3.5 w-3.5" aria-hidden />
-                {new Date(project.updatedAt).toLocaleDateString()}
-              </p>
-              <button
-                type="button"
-                onClick={() => openProject(project.id)}
-                className="portal-btn-ghost mt-5 w-full text-sm"
-              >
-                Open project
-                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-              </button>
-              {project.hasPendingCheckpoint ? (
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className={`text-base text-chambray ${bricolage_grot600.className}`}>
+                    {project.title}
+                  </h3>
+                  <ProjectStatusBadge project={project} />
+                </div>
+                <p className="mt-2 line-clamp-3 text-sm text-app-muted">{project.description}</p>
+                <div className="mt-2">
+                  <ProjectStatusAttribution project={project} variant="linesOnly" />
+                </div>
+                <p className="mt-4 flex items-center gap-1.5 text-xs text-app-muted">
+                  <Calendar className="h-3.5 w-3.5" aria-hidden />
+                  {new Date(project.updatedAt).toLocaleDateString()}
+                </p>
                 <button
                   type="button"
-                  onClick={() => navigateToApprovals()}
-                  className="portal-btn-primary mt-2 w-full gap-2 text-sm"
+                  onClick={() => openProject(project.id)}
+                  onMouseEnter={() => void prefetchClientProjectOverview(queryClient, project.id)}
+                  onFocus={() => void prefetchClientProjectOverview(queryClient, project.id)}
+                  className="portal-btn-ghost mt-5 w-full text-sm"
                 >
-                  <Bell className="h-4 w-4" aria-hidden />
-                  Approval needed
+                  Open project
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden />
                 </button>
-              ) : null}
+                {project.hasPendingCheckpoint ? (
+                  <button
+                    type="button"
+                    onClick={() => navigateToApprovals()}
+                    className="portal-btn-primary mt-2 w-full gap-2 text-sm"
+                  >
+                    <Bell className="h-4 w-4" aria-hidden />
+                    Approval needed
+                  </button>
+                ) : null}
               </div>
             </article>
           ))}

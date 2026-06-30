@@ -1,43 +1,17 @@
 import { fetchAdminBff } from '@/lib/admin-api-fetch'
-import type { ClientProjectSummary } from '@/lib/projects/types'
+import type {
+  CreateProjectForAdminPayload,
+  CreateProjectForAdminResult,
+  OrganizationPortalStatus,
+} from '@/lib/projects/api-types'
 
-export type PortalUserStatus = 'ACTIVE' | 'INVITED'
-
-export type OrganizationPortalUser = {
-  id: string
-  email: string
-  status: PortalUserStatus
-  clientOrgRole: string | null
-}
-
-export type OrganizationPortalStatus = {
-  hasActiveUsers: boolean
-  hasPortalUsers: boolean
-  needsInvite: boolean
-  activeUserCount: number
-  invitedUsers: { id: string; email: string }[]
-  suggestedContactEmail: string | null
-  portalUsers: OrganizationPortalUser[]
-}
-
-export type CreateProjectForAdminPayload = {
-  title: string
-  description: string
-  recipientUserIds?: string[]
-  inviteEmails?: string[]
-  /** @deprecated Use inviteEmails */
-  contactEmail?: string
-}
-
-export type CreateProjectForAdminResult = {
-  project: ClientProjectSummary
-  portalActions: {
-    notifiedActiveCount: number
-    inviteRemindersSent: number
-    newInvitesSent: number
-    invitedEmails: string[]
-  }
-}
+export type {
+  CreateProjectForAdminPayload,
+  CreateProjectForAdminResult,
+  OrganizationPortalStatus,
+  OrganizationPortalUser,
+  PortalUserStatus,
+} from '@/lib/projects/api-types'
 
 export async function fetchOrganizationPortalStatus(
   organizationId: string,

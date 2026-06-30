@@ -1,118 +1,52 @@
 'use client'
 
 import Link from 'next/link'
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import AdminToast from '@/components/admin-toast'
-import { fetchAdminBff } from '@/lib/admin-api-fetch'
+import {
+  useCancelSocialListeningSubscriptionMutation,
+  useExtendSocialListeningSubscriptionMutation,
+} from '@/lib/api/mutations/social-listening'
+import { useSocialListeningSubscriptionQuery } from '@/lib/api/queries/social-listening'
 import { bricolage_grot600 } from '@/styles/fonts'
-
-type DetailResponse = {
-  subscription: {
-    id: string
-    plan: string
-    status: string
-    startedAt: string | null
-    currentPeriodEnd: string | null
-    autoRenewEnabled: boolean
-    cancelAtPeriodEnd: boolean
-    billingSource: string
-    paymentMethodLast4: string | null
-    paymentMethodBrand: string | null
-    paymentEvents: Array<{
-      id: string
-      eventType: string
-      amount: string
-      currency: string
-      processedAt: string
-    }>
-    billingEmailLogs: Array<{
-      id: string
-      emailType: string
-      sentAt: string
-      recipientEmail: string
-    }>
-    organization: { id: string; name: string; slug: string }
-  } | null
-  setups: Array<{
-    id: string
-    status: string
-    startDate: string
-    endDate: string
-    brand24ProjectId: string | null
-    createdBy: string
-    createdAt: string
-  }>
-}
 
 export default function SocialListeningSubscriptionDetail({
   organizationId,
 }: {
   organizationId: string
 }) {
-  const [data, setData] = useState<DetailResponse | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { data, isLoading } = useSocialListeningSubscriptionQuery(organizationId)
+  const cancelMutation = useCancelSocialListeningSubscriptionMutation(organizationId)
+  const extendMutation = useExtendSocialListeningSubscriptionMutation(organizationId)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
 
-  const load = async () => {
-    setLoading(true)
-    try {
-      const res = await fetchAdminBff<DetailResponse>(
-        `/api/social-listening/subscriptions/${organizationId}`,
-      )
-      setData(res)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load subscription.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    void load()
-  }, [organizationId])
+  const submitting = cancelMutation.isPending || extendMutation.isPending
 
   const cancel = async (immediate: boolean) => {
-    setSubmitting(true)
     setError(null)
     try {
-      await fetchAdminBff(
-        `/api/social-listening/subscriptions/${organizationId}/cancel`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ immediate, cancelReason: 'Cancelled by admin' }),
-        },
-      )
+      await cancelMutation.mutateAsync({
+        immediate,
+        cancelReason: 'Cancelled by admin',
+      })
       setSuccess(immediate ? 'Subscription cancelled.' : 'Subscription set to cancel at period end.')
-      await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Cancel failed.')
-    } finally {
-      setSubmitting(false)
     }
   }
 
   const extend = async (e: FormEvent) => {
     e.preventDefault()
-    setSubmitting(true)
     try {
-      await fetchAdminBff(`/api/social-listening/subscriptions/${organizationId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ extendMonths: 1 }),
-      })
+      await extendMutation.mutateAsync(1)
       setSuccess('Extended by 1 month.')
-      await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Extend failed.')
-    } finally {
-      setSubmitting(false)
     }
   }
 
-  if (loading) return <p className="text-sm text-app-muted">Loading…</p>
+  if (isLoading) return <p className="text-sm text-app-muted">Loading…</p>
   if (!data?.subscription) {
     return (
       <div className="space-y-4">

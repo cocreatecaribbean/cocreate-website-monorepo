@@ -1,27 +1,29 @@
 'use client'
 
-import { FormEvent, useCallback, useEffect, useState } from 'react'
+import { FormEvent, useMemo, useState } from 'react'
+import { AdminApiFetchError } from '@/lib/admin-api-fetch'
 import {
-  AdminApiFetchError,
-  fetchAdminBff,
-} from '@/lib/admin-api-fetch'
+  useCreateProfileOptionMutation,
+  useDeleteProfileOptionMutation,
+} from '@/lib/api/mutations/profile'
+import { useAgencyProfileOptionsQuery } from '@/lib/api/queries/profile'
 import { bricolage_grot600 } from '@/styles/fonts'
 import AdminToast from '@/components/admin-toast'
-
-type JobTitleOption = {
-  id: string
-  label: string
-  sortOrder: number
-  isActive: boolean
-}
+import type { JobTitleOption } from '@/lib/projects/api-types'
 
 type ToastState = { message: string; variant: 'success' | 'error' } | null
 
 export default function AgencyProfileOptionsManager() {
-  const [options, setOptions] = useState<JobTitleOption[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: optionsRaw = [], isLoading } = useAgencyProfileOptionsQuery()
+  const createOptionMutation = useCreateProfileOptionMutation()
+  const deleteOptionMutation = useDeleteProfileOptionMutation()
+
+  const options = useMemo(
+    () => (Array.isArray(optionsRaw) ? optionsRaw.filter((o) => o.isActive) : []),
+    [optionsRaw],
+  )
+
   const [newLabel, setNewLabel] = useState('')
-  const [adding, setAdding] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [toast, setToast] = useState<ToastState>(null)
 
@@ -35,43 +37,18 @@ export default function AgencyProfileOptionsManager() {
     setToast({ message, variant: 'error' })
   }
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const rows = await fetchAdminBff<JobTitleOption[]>('/api/settings/profile-options')
-      setOptions(Array.isArray(rows) ? rows.filter((o) => o.isActive) : [])
-    } catch (err) {
-      showError(err, 'Could not load job titles')
-      setOptions([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
   const addOption = async (e: FormEvent) => {
     e.preventDefault()
     const trimmed = newLabel.trim()
     if (!trimmed) return
 
-    setAdding(true)
     setToast(null)
     try {
-      await fetchAdminBff('/api/settings/profile-options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label: trimmed }),
-      })
+      await createOptionMutation.mutateAsync({ label: trimmed })
       setNewLabel('')
       setToast({ message: 'Job title added', variant: 'success' })
-      await load()
     } catch (err) {
       showError(err, 'Could not add job title')
-    } finally {
-      setAdding(false)
     }
   }
 
@@ -81,11 +58,7 @@ export default function AgencyProfileOptionsManager() {
     setDeletingId(id)
     setToast(null)
     try {
-      const result = await fetchAdminBff<{
-        ok?: boolean
-        removed?: boolean
-        deactivated?: boolean
-      }>(`/api/settings/profile-options/${id}`, { method: 'DELETE' })
+      const result = await deleteOptionMutation.mutateAsync(id)
       if (result.deactivated) {
         setToast({
           message:
@@ -95,7 +68,6 @@ export default function AgencyProfileOptionsManager() {
       } else {
         setToast({ message: 'Job title deleted', variant: 'success' })
       }
-      await load()
     } catch (err) {
       showError(err, 'Could not remove job title')
     } finally {
@@ -113,7 +85,7 @@ export default function AgencyProfileOptionsManager() {
         />
       ) : null}
 
-      {loading ? <p className="text-sm text-slate-500">Loading…</p> : null}
+      {isLoading ? <p className="text-sm text-slate-500">Loading…</p> : null}
 
       <section className="admin-surface space-y-4 p-6">
         <p className={`text-lg text-chambray ${bricolage_grot600.className}`}>Job titles</p>
@@ -127,14 +99,14 @@ export default function AgencyProfileOptionsManager() {
             onChange={(e) => setNewLabel(e.target.value)}
             placeholder="New job title"
             className="admin-input min-w-[12rem] flex-1"
-            disabled={adding}
+            disabled={createOptionMutation.isPending}
           />
           <button
             type="submit"
-            disabled={adding || !newLabel.trim()}
+            disabled={createOptionMutation.isPending || !newLabel.trim()}
             className="admin-btn-primary text-sm"
           >
-            {adding ? 'Adding…' : 'Add'}
+            {createOptionMutation.isPending ? 'Adding…' : 'Add'}
           </button>
         </form>
         <OptionList

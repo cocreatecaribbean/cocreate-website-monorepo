@@ -3,11 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import FilePreviewModal from '@/components/file-preview-modal'
 import type { ClientFilesLibrary, ProjectAttachmentWithUsage } from '@/lib/projects/api-types'
-import {
-  fetchAttachmentDownloadUrl,
-  fetchFilesLibrary,
-  uploadProjectFiles,
-} from '@/lib/projects/fetch-projects-client'
+import { useUploadProjectFilesMutation } from '@/lib/api/mutations/files'
+import { useFilesLibraryQuery } from '@/lib/api/queries/files'
+import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-projects-client'
 import { bricolage_grot600 } from '@/styles/fonts'
 import { Download, FileText, FolderKanban, Loader2, Search, Upload } from 'lucide-react'
 
@@ -123,24 +121,25 @@ function ProjectFilesBlock({
   onPreview: (file: ProjectAttachmentWithUsage, url: string | null) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState(false)
+  const uploadMutation = useUploadProjectFilesMutation(group.projectId)
   const [error, setError] = useState<string | null>(null)
 
   const onUpload = async (files: FileList | null) => {
     if (!files?.length) return
-    setUploading(true)
     setError(null)
-    const result = await uploadProjectFiles(group.projectId, Array.from(files))
+    const result = await uploadMutation.mutateAsync({
+      files: Array.from(files),
+    })
     if (!result.ok) {
       setError(result.message ?? 'Upload failed')
     } else {
       onRefresh()
     }
-    setUploading(false)
     if (inputRef.current) inputRef.current.value = ''
   }
 
   const totalCount = group.libraryUploads.length + group.usedInThreads.length
+  const uploading = uploadMutation.isPending
 
   return (
     <section className="portal-glass-card portal-animate-in overflow-hidden">
@@ -231,40 +230,23 @@ function ProjectFilesBlock({
 }
 
 export default function ControlCenterFilesSection() {
-  const [library, setLibrary] = useState<ClientFilesLibrary>({
-    projects: [],
-    files: [],
-    nextCursor: null,
-  })
   const [query, setQuery] = useState('')
   const [projectId, setProjectId] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [preview, setPreview] = useState<{
     file: ProjectAttachmentWithUsage
     url: string | null
   } | null>(null)
   const search = query.trim()
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await fetchFilesLibrary({
-        projectId: projectId || undefined,
-        q: search || undefined,
-      })
-      setLibrary(data)
-    } catch {
-      setError('Could not load files')
-    } finally {
-      setLoading(false)
-    }
-  }, [projectId, search])
-
-  useEffect(() => {
-    void load()
-  }, [load])
+  const {
+    data: library = { projects: [], files: [], nextCursor: null },
+    isLoading: loading,
+    isError,
+    refetch,
+  } = useFilesLibraryQuery({
+    projectId: projectId || undefined,
+    q: search || undefined,
+  })
 
   if (loading) {
     return (
@@ -275,88 +257,65 @@ export default function ControlCenterFilesSection() {
     )
   }
 
-  if (error) {
+  if (isError) {
     return (
-      <p className="portal-glass-card portal-alert-error p-5 sm:p-6">{error}</p>
-    )
-  }
-
-  if (!search && library.projects.length === 0) {
-    return (
-      <section className="portal-glass-card p-8 text-center">
-        <p className={`text-chambray ${bricolage_grot600.className}`}>No project files yet</p>
-        <p className="mt-2 text-sm text-app-muted">
-          Upload files from a project page or attach them in a message thread.
-        </p>
-      </section>
+      <p className="portal-glass-card portal-alert-error p-5 sm:p-6">Could not load files</p>
     )
   }
 
   return (
     <div className="space-y-6">
-      <section className="portal-glass-card p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <label className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-app-muted" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search files in your organization"
-              className="portal-input w-full pl-9"
-            />
+      <section className="portal-glass-card portal-animate-in p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+          <label className="flex-1">
+            <span className="text-xs font-medium text-app-muted">Search files</span>
+            <div className="relative mt-1">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-app-muted"
+                aria-hidden
+              />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by filename"
+                className="portal-input w-full pl-9"
+              />
+            </div>
           </label>
-          <select
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-            className="portal-input min-w-[220px]"
-          >
-            <option value="">All projects</option>
-            {library.projects.map((project) => (
-              <option key={project.projectId} value={project.projectId}>
-                {project.projectTitle}
-              </option>
-            ))}
-          </select>
-          <button type="button" onClick={() => void load()} className="portal-btn-ghost text-sm">
-            Apply
-          </button>
+          <label className="sm:w-56">
+            <span className="text-xs font-medium text-app-muted">Project</span>
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className="portal-input mt-1 w-full"
+            >
+              <option value="">All projects</option>
+              {library.projects.map((group) => (
+                <option key={group.projectId} value={group.projectId}>
+                  {group.projectTitle}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </section>
 
-      {search ? (
-        <section className="portal-glass-card portal-animate-in overflow-hidden">
-          <div className="hidden border-b border-chambray/8 bg-chambray/[0.03] px-5 py-3 text-xs font-medium tracking-wide text-app-muted uppercase dark:border-white/10 dark:bg-white/5 sm:grid sm:grid-cols-[1fr_180px_100px_80px] sm:gap-4">
-            <span>File</span>
-            <span>Project</span>
-            <span>Updated</span>
-            <span className="text-right">Size</span>
-          </div>
-          {(library.files ?? []).length === 0 ? (
-            <p className="px-5 py-8 text-sm text-app-muted">No files match your search.</p>
-          ) : (
-            <ul>
-              {(library.files ?? []).map((file) => (
-                <FileRow
-                  key={file.id}
-                  file={file}
-                  fetchDownloadUrl={fetchAttachmentDownloadUrl}
-                  projectTitle={file.projectTitle}
-                  onPreview={(item, url) => setPreview({ file: item, url })}
-                />
-              ))}
-            </ul>
-          )}
-        </section>
+      {library.projects.length === 0 ? (
+        <p className="portal-glass-card p-8 text-center text-sm text-app-muted">
+          No files found.
+        </p>
       ) : (
         library.projects.map((group) => (
           <ProjectFilesBlock
             key={group.projectId}
             group={group}
-            onRefresh={load}
-            onPreview={(item, url) => setPreview({ file: item, url })}
+            onRefresh={() => void refetch()}
+            onPreview={(file, url) => setPreview({ file, url })}
           />
         ))
       )}
+
       <FilePreviewModal
         open={Boolean(preview)}
         fileName={preview?.file.fileName ?? ''}

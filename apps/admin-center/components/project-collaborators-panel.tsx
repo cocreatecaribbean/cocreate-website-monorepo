@@ -1,24 +1,12 @@
 'use client'
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
-import { fetchAdminBff } from '@/lib/admin-api-fetch'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
+import {
+  useAddProjectCollaboratorMutation,
+  useRemoveProjectCollaboratorMutation,
+} from '@/lib/api/mutations/collaborators'
+import { useProjectCollaboratorsQuery } from '@/lib/api/queries/collaborators'
 import { bricolage_grot600 } from '@/styles/fonts'
-
-type CollaboratorRow = {
-  id: string
-  userId: string
-  email: string
-  status: string
-  grantedByEmail: string
-  createdAt: string
-}
-
-type RosterItem = {
-  id: string
-  email: string
-  status: string
-  projects: Array<{ id: string }>
-}
 
 type ProjectCollaboratorsPanelProps = {
   projectId: string
@@ -27,36 +15,24 @@ type ProjectCollaboratorsPanelProps = {
 export default function ProjectCollaboratorsPanel({
   projectId,
 }: ProjectCollaboratorsPanelProps) {
-  const [rows, setRows] = useState<CollaboratorRow[]>([])
-  const [roster, setRoster] = useState<RosterItem[]>([])
+  const { data, isLoading, error: queryError, isError } = useProjectCollaboratorsQuery(projectId)
+  const addMutation = useAddProjectCollaboratorMutation(projectId)
+  const removeMutation = useRemoveProjectCollaboratorMutation(projectId)
+
+  const rows = data?.collaborators ?? []
+  const roster = data?.roster ?? []
+
   const [mode, setMode] = useState<'existing' | 'new'>('existing')
   const [selectedUserId, setSelectedUserId] = useState('')
   const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [inviting, setInviting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [list, allCollaborators] = await Promise.all([
-        fetchAdminBff<CollaboratorRow[]>(`/api/projects/${projectId}/collaborators`),
-        fetchAdminBff<RosterItem[]>('/api/collaborators'),
-      ])
-      setRows(list)
-      setRoster(allCollaborators)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load collaborators')
-    } finally {
-      setLoading(false)
-    }
-  }, [projectId])
-
-  useEffect(() => {
-    void load()
-  }, [load])
+  const loadError = isError
+    ? queryError instanceof Error
+      ? queryError.message
+      : 'Could not load collaborators'
+    : null
 
   const availableFromRoster = useMemo(() => {
     const onProject = new Set(rows.map((r) => r.userId))
@@ -75,7 +51,6 @@ export default function ProjectCollaboratorsPanel({
 
   async function onAdd(e: FormEvent) {
     e.preventDefault()
-    setInviting(true)
     setError(null)
     setMessage(null)
     try {
@@ -84,35 +59,22 @@ export default function ProjectCollaboratorsPanel({
           ? { userId: selectedUserId }
           : { email: email.trim() }
 
-      const result = await fetchAdminBff<{
-        message: string
-        devSignInUrl?: string
-      }>(`/api/projects/${projectId}/collaborators`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
+      const result = await addMutation.mutateAsync(body)
       setEmail('')
       setMessage(
         result.devSignInUrl
           ? `${result.message} Dev link: ${result.devSignInUrl}`
           : result.message,
       )
-      await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Add failed')
-    } finally {
-      setInviting(false)
     }
   }
 
   async function onRemove(userId: string) {
     setError(null)
     try {
-      await fetchAdminBff(`/api/projects/${projectId}/collaborators/${userId}`, {
-        method: 'DELETE',
-      })
-      await load()
+      await removeMutation.mutateAsync(userId)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Remove failed')
     }
@@ -176,16 +138,18 @@ export default function ProjectCollaboratorsPanel({
               className="admin-input min-w-[220px] flex-1"
             />
           )}
-          <button type="submit" disabled={inviting} className="admin-btn-primary text-sm">
-            {inviting ? 'Adding…' : 'Add to project'}
+          <button type="submit" disabled={addMutation.isPending} className="admin-btn-primary text-sm">
+            {addMutation.isPending ? 'Adding…' : 'Add to project'}
           </button>
         </div>
       </form>
 
       {message ? <p className="mt-3 text-sm text-sanmarino">{message}</p> : null}
-      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+      {error ?? loadError ? (
+        <p className="mt-3 text-sm text-red-600">{error ?? loadError}</p>
+      ) : null}
 
-      {loading ? (
+      {isLoading ? (
         <p className="mt-4 text-sm text-app-muted">Loading…</p>
       ) : rows.length === 0 ? (
         <p className="mt-4 text-sm text-app-muted">No collaborators on this project yet.</p>

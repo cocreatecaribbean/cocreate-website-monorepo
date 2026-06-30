@@ -11,19 +11,32 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common'
+import {
+  CreateCheckpointSchema,
+  type CreateCheckpointInput,
+  CreateProjectForAdminSchema,
+  type CreateProjectForAdminInput,
+  CreateRequestMessageSchema,
+  type CreateRequestMessageInput,
+  MarkInboxReadSchema,
+  type MarkInboxReadInput,
+  RegisterAttachmentSchema,
+  type RegisterAttachmentInput,
+  RegisterBrandAssetSchema,
+  type RegisterBrandAssetInput,
+  ResolveCancellationSchema,
+  type ResolveCancellationInput,
+  UpdateProjectSchema,
+  type UpdateProjectInput,
+  UpdateRequestSchema,
+  type UpdateRequestInput,
+  UploadUrlSchema,
+  type UploadUrlInput,
+} from '@cocreate/api-contracts/v1/requests/projects'
 import { AdminAuthGuard } from '../auth/guards/admin-auth.guard'
 import type { AdminRequest } from '../auth/guards/admin-auth.guard'
-import { CreateCheckpointDto } from './dto/create-checkpoint.dto'
-import { ResolveCancellationDto } from './dto/resolve-cancellation.dto'
-import { CreateRequestMessageDto } from './dto/create-request-message.dto'
-import { RegisterAttachmentDto } from './dto/register-attachment.dto'
-import { RegisterBrandAssetDto } from './dto/register-brand-asset.dto'
+import { zodBody } from '../common/zod/zod-validation.pipe'
 import { OrganizationBrandAssetsService } from './organization-brand-assets.service'
-import { UpdateProjectDto } from './dto/update-project.dto'
-import { MarkInboxReadDto } from './dto/mark-inbox-read.dto'
-import { UpdateRequestDto } from './dto/update-request.dto'
-import { UploadUrlDto } from './dto/upload-url.dto'
-import { CreateProjectForAdminDto } from './dto/create-project-for-admin.dto'
 import { ProjectsService } from './projects.service'
 import { ProjectAttachmentVisibility } from '@cocreate/database'
 
@@ -46,53 +59,58 @@ export class AdminProjectsController {
   }
 
   @Get('projects/:id')
-  getProject(@Req() req: AdminRequest, @Param('id') id: string) {
-    return this.projects.getForAdmin(this.actor(req), id)
+  getProject(
+    @Req() req: AdminRequest,
+    @Param('id') id: string,
+    @Query('view') view?: string,
+  ) {
+    const detailView = view === 'full' ? 'full' : 'overview'
+    return this.projects.getForAdmin(this.actor(req), id, detailView)
   }
 
   @Patch('projects/:id')
   updateProject(
     @Req() req: AdminRequest,
     @Param('id') id: string,
-    @Body() dto: UpdateProjectDto,
+    @Body(zodBody(UpdateProjectSchema)) body: UpdateProjectInput,
   ) {
-    return this.projects.updateProject(this.actor(req), id, dto)
+    return this.projects.updateProject(this.actor(req), id, body)
   }
 
   @Post('projects/:id/review-requests')
   createReviewRequest(
     @Req() req: AdminRequest,
     @Param('id') id: string,
-    @Body() dto: CreateCheckpointDto,
+    @Body(zodBody(CreateCheckpointSchema)) body: CreateCheckpointInput,
   ) {
-    return this.projects.sendProgressCheckpoint(this.actor(req), id, dto)
+    return this.projects.sendProgressCheckpoint(this.actor(req), id, body)
   }
 
   @Post('projects/:id/checkpoints')
   sendCheckpoint(
     @Req() req: AdminRequest,
     @Param('id') id: string,
-    @Body() dto: CreateCheckpointDto,
+    @Body(zodBody(CreateCheckpointSchema)) body: CreateCheckpointInput,
   ) {
-    return this.projects.sendProgressCheckpoint(this.actor(req), id, dto)
+    return this.projects.sendProgressCheckpoint(this.actor(req), id, body)
   }
 
   @Post('projects/:id/attachments/upload-url')
   uploadUrl(
     @Req() req: AdminRequest,
     @Param('id') id: string,
-    @Body() dto: UploadUrlDto,
+    @Body(zodBody(UploadUrlSchema)) body: UploadUrlInput,
   ) {
-    return this.projects.createUploadUrlForAdmin(this.actor(req), id, dto)
+    return this.projects.createUploadUrlForAdmin(this.actor(req), id, body)
   }
 
   @Post('projects/:id/attachments')
   registerAttachment(
     @Req() req: AdminRequest,
     @Param('id') id: string,
-    @Body() dto: RegisterAttachmentDto,
+    @Body(zodBody(RegisterAttachmentSchema)) body: RegisterAttachmentInput,
   ) {
-    return this.projects.registerAttachmentForAdmin(this.actor(req), id, dto)
+    return this.projects.registerAttachmentForAdmin(this.actor(req), id, body)
   }
 
   @Get('organizations/:organizationId/brand-assets')
@@ -103,19 +121,19 @@ export class AdminProjectsController {
   @Post('organizations/:organizationId/brand-assets/upload-url')
   brandAssetUploadUrl(
     @Param('organizationId') organizationId: string,
-    @Body() dto: UploadUrlDto,
+    @Body(zodBody(UploadUrlSchema)) body: UploadUrlInput,
   ) {
-    return this.brandAssets.createUploadUrl(organizationId, dto)
+    return this.brandAssets.createUploadUrl(organizationId, body)
   }
 
   @Post('organizations/:organizationId/brand-assets')
   registerBrandAsset(
     @Req() req: AdminRequest,
     @Param('organizationId') organizationId: string,
-    @Body() dto: RegisterBrandAssetDto,
+    @Body(zodBody(RegisterBrandAssetSchema)) body: RegisterBrandAssetInput,
   ) {
     if (!req.adminUser) throw new UnauthorizedException('Admin session required')
-    return this.brandAssets.register(req.adminUser, organizationId, dto)
+    return this.brandAssets.register(req.adminUser, organizationId, body)
   }
 
   @Get('brand-assets/:assetId/download')
@@ -192,27 +210,27 @@ export class AdminProjectsController {
   addMessage(
     @Req() req: AdminRequest,
     @Param('requestId') requestId: string,
-    @Body() dto: CreateRequestMessageDto,
+    @Body(zodBody(CreateRequestMessageSchema)) body: CreateRequestMessageInput,
   ) {
-    return this.projects.addRequestMessage(this.actor(req), requestId, dto)
+    return this.projects.addRequestMessage(this.actor(req), requestId, body)
   }
 
   @Patch('project-requests/:requestId')
   updateRequest(
     @Req() req: AdminRequest,
     @Param('requestId') requestId: string,
-    @Body() dto: UpdateRequestDto,
+    @Body(zodBody(UpdateRequestSchema)) body: UpdateRequestInput,
   ) {
-    return this.projects.updateRequest(this.actor(req), requestId, dto)
+    return this.projects.updateRequest(this.actor(req), requestId, body)
   }
 
   @Post('project-requests/:requestId/resolve-cancellation')
   resolveCancellation(
     @Req() req: AdminRequest,
     @Param('requestId') requestId: string,
-    @Body() dto: ResolveCancellationDto,
+    @Body(zodBody(ResolveCancellationSchema)) body: ResolveCancellationInput,
   ) {
-    return this.projects.resolveCancellation(this.actor(req), requestId, dto)
+    return this.projects.resolveCancellation(this.actor(req), requestId, body)
   }
 
   @Get('clients/:organizationId/portal-status')
@@ -232,9 +250,9 @@ export class AdminProjectsController {
   createOrgProject(
     @Req() req: AdminRequest,
     @Param('organizationId') organizationId: string,
-    @Body() dto: CreateProjectForAdminDto,
+    @Body(zodBody(CreateProjectForAdminSchema)) body: CreateProjectForAdminInput,
   ) {
-    return this.projects.createForAdmin(this.actor(req), organizationId, dto)
+    return this.projects.createForAdmin(this.actor(req), organizationId, body)
   }
 
   @Get('clients/:organizationId/inbox')
@@ -254,12 +272,12 @@ export class AdminProjectsController {
   markInboxRead(
     @Req() req: AdminRequest,
     @Param('organizationId') organizationId: string,
-    @Body() dto: MarkInboxReadDto,
+    @Body(zodBody(MarkInboxReadSchema)) body: MarkInboxReadInput,
   ) {
     return this.projects.markInboxReadForAdmin(
       this.actor(req),
       organizationId,
-      dto.requestId,
+      body.requestId,
     )
   }
 

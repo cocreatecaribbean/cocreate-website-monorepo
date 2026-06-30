@@ -1,34 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import AdminToast from '@/components/admin-toast'
-import { fetchAdminBff } from '@/lib/admin-api-fetch'
+import { useSocialListeningStatsQuery, useSocialListeningSubscriptionsQuery } from '@/lib/api/queries/social-listening'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
-
-type SlStats = {
-  active: number
-  pending: number
-  expiringSoon: number
-  noSetup: number
-}
-
-type SlSubscription = {
-  id: string
-  organizationId: string
-  plan: string
-  status: string
-  startedAt: string | null
-  currentPeriodEnd: string | null
-  autoRenewEnabled: boolean
-  billingSource: string
-  organization: {
-    id: string
-    name: string
-    slug: string
-    brand24ProjectId: string | null
-  }
-}
 
 const statusClass: Record<string, string> = {
   ACTIVE: 'bg-emerald-100 text-emerald-900',
@@ -39,36 +15,25 @@ const statusClass: Record<string, string> = {
 }
 
 export default function SocialListeningCenter() {
-  const [stats, setStats] = useState<SlStats | null>(null)
-  const [subscriptions, setSubscriptions] = useState<SlSubscription[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const statsQuery = useSocialListeningStatsQuery()
+  const subscriptionsQuery = useSocialListeningSubscriptionsQuery()
+  const [dismissedError, setDismissedError] = useState(false)
 
-  const load = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [statsData, subsData] = await Promise.all([
-        fetchAdminBff<SlStats>('/api/social-listening/stats'),
-        fetchAdminBff<SlSubscription[]>('/api/social-listening/subscriptions'),
-      ])
-      setStats(statsData)
-      setSubscriptions(subsData)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load Social Listening data.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    void load()
-  }, [])
+  const stats = statsQuery.data ?? null
+  const subscriptions = subscriptionsQuery.data ?? []
+  const loading = statsQuery.isLoading || subscriptionsQuery.isLoading
+  const queryError = statsQuery.error ?? subscriptionsQuery.error
+  const error =
+    !dismissedError && queryError
+      ? queryError instanceof Error
+        ? queryError.message
+        : 'Could not load Social Listening data.'
+      : null
 
   return (
     <div className="space-y-8">
       {error ? (
-        <AdminToast message={error} variant="error" onDismiss={() => setError(null)} />
+        <AdminToast message={error} variant="error" onDismiss={() => setDismissedError(true)} />
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

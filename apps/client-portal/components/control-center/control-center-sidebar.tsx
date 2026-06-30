@@ -1,12 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
 import ControlCenterAttentionLink from '@/components/control-center/control-center-attention-link'
-import {
-  APPROVALS_BADGE_REFRESH_EVENT,
-  fetchUnreadApprovalsCount,
-  PORTAL_NOTIFICATIONS_REFRESH_EVENT,
-} from '@/lib/projects/fetch-projects-client'
+import { useUnreadApprovalsCountQuery } from '@/lib/api/queries/approvals'
 import {
   buildControlCenterNavItems,
   CONTROL_CENTER_SETTINGS,
@@ -72,27 +67,8 @@ export default function ControlCenterSidebar({
   const workspaceLabel = organizationName?.trim() || 'Workspace'
   const { canAccessTeamHub } = usePortalPermissions()
   const navItems = buildControlCenterNavItems(canAccessTeamHub)
-  const [approvalsBadge, setApprovalsBadge] = useState<string | undefined>()
-
-  const refreshApprovalsBadge = useCallback(() => {
-    void fetchUnreadApprovalsCount().then((count) => {
-      setApprovalsBadge(count > 0 ? String(count) : undefined)
-    })
-  }, [])
-
-  useEffect(() => {
-    refreshApprovalsBadge()
-  }, [refreshApprovalsBadge, activeView])
-
-  useEffect(() => {
-    const handler = () => refreshApprovalsBadge()
-    window.addEventListener(APPROVALS_BADGE_REFRESH_EVENT, handler)
-    window.addEventListener(PORTAL_NOTIFICATIONS_REFRESH_EVENT, handler)
-    return () => {
-      window.removeEventListener(APPROVALS_BADGE_REFRESH_EVENT, handler)
-      window.removeEventListener(PORTAL_NOTIFICATIONS_REFRESH_EVENT, handler)
-    }
-  }, [refreshApprovalsBadge])
+  const { data: unreadCount = 0 } = useUnreadApprovalsCountQuery()
+  const approvalsBadge = unreadCount > 0 ? String(unreadCount) : undefined
 
   return (
     <aside

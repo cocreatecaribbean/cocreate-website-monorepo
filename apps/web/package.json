@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev --webpack\" \"next-video sync -w\"",
-    "dev:turbo": "concurrently \"next dev --turbopack\" \"next-video sync -w\"",
+    "dev": "concurrently \"next dev --turbopack\" \"next-video sync -w\"",
+    "dev:webpack": "concurrently \"next dev --webpack\" \"next-video sync -w\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -12,6 +12,7 @@
   "dependencies": {
     "@base-ui/react": "catalog:web",
     "@cocreate/api-client": "workspace:*",
+    "@cocreate/app-ui": "workspace:*",
     "@cocreate/types": "workspace:*",
     "@cosmicjs/sdk": "catalog:web",
     "@gsap/react": "catalog:animation",

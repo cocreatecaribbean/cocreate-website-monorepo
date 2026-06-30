@@ -13,7 +13,11 @@ import { ClientAuthGuard } from '../auth/guards/client-auth.guard'
 import type { ClientPortalRequest } from '../auth/guards/client-auth.guard'
 import { SocialListeningReportService } from '../social-listening/social-listening-report.service'
 import { SocialListeningService } from '../social-listening/social-listening.service'
-import { CreateListeningSetupDto } from '../social-listening/dto/create-listening-setup.dto'
+import {
+  CreateListeningSetupSchema,
+  type CreateListeningSetupInput,
+} from '@cocreate/api-contracts/v1/requests/social-listening'
+import { zodBody } from '../common/zod/zod-validation.pipe'
 import { ClientPortalService } from './client-portal.service'
 
 @Controller({ path: 'client-portal', version: '1' })
@@ -34,11 +38,11 @@ export class ClientPortalController {
   @UseGuards(ClientAuthGuard)
   createSocialListeningSetup(
     @Req() request: ClientPortalRequest,
-    @Body() dto: CreateListeningSetupDto,
+    @Body(zodBody(CreateListeningSetupSchema)) body: CreateListeningSetupInput,
   ) {
     return this.socialListeningService.createListeningSetupForClient(
       request.clientUser!,
-      dto,
+      body,
     )
   }
 

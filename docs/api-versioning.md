@@ -38,7 +38,16 @@ fetch(nestApiUrl('/admin/admins'))
 
 ## Shared contracts
 
-`@cocreate/api-contracts` holds v1 TypeScript shapes (e.g. client-portal project types). Import from `@cocreate/api-contracts/v1/client-portal`.
+`@cocreate/api-contracts` holds v1 TypeScript wire shapes for Nest JSON responses.
+
+| Subpath | Use for |
+|---------|---------|
+| `v1/client-portal` | Client portal projects, dashboard, notifications |
+| `v1/admin-portal` | Admin roster, project superset, dashboard, SL admin |
+| `v1/social-listening` | Analytics/compare/report HTTP payloads |
+| `v1/shared/projects` | Shared project primitives |
+
+See [Types and contracts](./types-and-contracts.md) for the full package map and import cheat sheet.
 
 ## Breaking change policy
 

@@ -1,32 +1,21 @@
 'use client'
 
-import { FormEvent, useCallback, useEffect, useState } from 'react'
-import { fetchAdminBff } from '@/lib/admin-api-fetch'
+import { FormEvent, useEffect, useState } from 'react'
+import { useInviteClientTeamMemberMutation } from '@/lib/api/mutations/clients'
+import {
+  useApproveTeamInviteMutation,
+  useRejectTeamInviteMutation,
+  useSuspendClientTeamMemberMutation,
+  useUpdateClientTeamMemberMutation,
+} from '@/lib/api/mutations/team'
+import { useClientTeamQuery } from '@/lib/api/queries/team'
 import { bricolage_grot600 } from '@/styles/fonts'
-
 type ClientOrgRole = 'OWNER' | 'PROJECT_MANAGER' | 'MEMBER'
-
-type TeamMember = {
-  id: string
-  email: string
-  status: string
-  clientOrgRole: ClientOrgRole | null
-  canAccessSocialListening: boolean
-}
 
 const roleLabels: Record<ClientOrgRole, string> = {
   OWNER: 'Owner',
   PROJECT_MANAGER: 'Project manager',
   MEMBER: 'Member',
-}
-
-type InviteRequest = {
-  id: string
-  email: string
-  requestedClientOrgRole: ClientOrgRole
-  status: string
-  requestedByEmail: string
-  createdAt: string
 }
 
 export default function ClientTeamPanel({
@@ -35,43 +24,31 @@ export default function ClientTeamPanel({
   highlightInviteRequestId = null,
 }: {
   organizationId: string
-  /** When nested inside another card (e.g. Clients roster), avoid overflow traps */
   embedded?: boolean
   highlightInviteRequestId?: string | null
 }) {
-  const [members, setMembers] = useState<TeamMember[]>([])
-  const [inviteRequests, setInviteRequests] = useState<InviteRequest[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data, isLoading, error: queryError, isError } = useClientTeamQuery(organizationId)
+  const inviteMutation = useInviteClientTeamMemberMutation(organizationId)
+  const updateMemberMutation = useUpdateClientTeamMemberMutation(organizationId)
+  const approveMutation = useApproveTeamInviteMutation(organizationId)
+  const rejectMutation = useRejectTeamInviteMutation(organizationId)
+  const suspendMutation = useSuspendClientTeamMemberMutation(organizationId)
+
+  const members = data?.members ?? []
+  const inviteRequests = data?.inviteRequests ?? []
+
   const [actingRequestId, setActingRequestId] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<ClientOrgRole>('MEMBER')
   const [socialListening, setSocialListening] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [devSignInUrl, setDevSignInUrl] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [teamData, requestsData] = await Promise.all([
-        fetchAdminBff<{ members: TeamMember[] }>(`/api/clients/${organizationId}/team`),
-        fetchAdminBff<{ requests: InviteRequest[] }>(
-          `/api/clients/${organizationId}/team/invite-requests?status=PENDING`,
-        ).catch(() => ({ requests: [] as InviteRequest[] })),
-      ])
-      setMembers(teamData.members)
-      setInviteRequests(requestsData.requests)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load team')
-    } finally {
-      setLoading(false)
-    }
-  }, [organizationId])
-
-  useEffect(() => {
-    void load()
-  }, [load])
+  const loadError = isError
+    ? queryError instanceof Error
+      ? queryError.message
+      : 'Failed to load team'
+    : null
 
   useEffect(() => {
     if (!highlightInviteRequestId) return
@@ -83,30 +60,28 @@ export default function ClientTeamPanel({
   const onInvite = async (event: FormEvent) => {
     event.preventDefault()
     if (!email.trim()) return
-    setSubmitting(true)
     setError(null)
     setDevSignInUrl(null)
     try {
-      const result = await fetchAdminBff<{
-        member: TeamMember
-        invitation?: { devSignInUrl?: string }
-      }>(`/api/clients/${organizationId}/team`, {
-        method: 'POST',
-        body: JSON.stringify({
-          email: email.trim(),
-          clientOrgRole: role,
-          canAccessSocialListening: socialListening,
-        }),
+      const result = await inviteMutation.mutateAsync({
+        email: email.trim(),
+        clientOrgRole: role,
+        canAccessSocialListening: socialListening,
       })
       setEmail('')
-      if (result.invitation?.devSignInUrl) {
-        setDevSignInUrl(result.invitation.devSignInUrl)
+      if (
+        result &&
+        typeof result === 'object' &&
+        'invitation' in result &&
+        result.invitation &&
+        typeof result.invitation === 'object' &&
+        'devSignInUrl' in result.invitation &&
+        result.invitation.devSignInUrl
+      ) {
+        setDevSignInUrl(result.invitation.devSignInUrl as string)
       }
-      await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invite failed')
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -115,11 +90,7 @@ export default function ClientTeamPanel({
     body: { clientOrgRole?: ClientOrgRole; canAccessSocialListening?: boolean },
   ) => {
     try {
-      await fetchAdminBff(`/api/clients/${organizationId}/team/${userId}`, {
-        method: 'PATCH',
-        body: JSON.stringify(body),
-      })
-      await load()
+      await updateMemberMutation.mutateAsync({ userId, body })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed')
     }
@@ -129,11 +100,7 @@ export default function ClientTeamPanel({
     setActingRequestId(requestId)
     setError(null)
     try {
-      await fetchAdminBff(
-        `/api/clients/${organizationId}/team/invite-requests/${requestId}/approve`,
-        { method: 'POST' },
-      )
-      await load()
+      await approveMutation.mutateAsync(requestId)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Approve failed')
     } finally {
@@ -146,14 +113,7 @@ export default function ClientTeamPanel({
     setActingRequestId(requestId)
     setError(null)
     try {
-      await fetchAdminBff(
-        `/api/clients/${organizationId}/team/invite-requests/${requestId}/reject`,
-        {
-          method: 'POST',
-          body: JSON.stringify({ rejectionReason: reason.trim() || undefined }),
-        },
-      )
-      await load()
+      await rejectMutation.mutateAsync({ requestId, rejectionReason: reason.trim() || undefined })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Reject failed')
     } finally {
@@ -164,11 +124,7 @@ export default function ClientTeamPanel({
   const onSuspend = async (userId: string) => {
     if (!window.confirm('Suspend this portal user?')) return
     try {
-      await fetchAdminBff(
-        `/api/clients/${organizationId}/team/${userId}/suspend`,
-        { method: 'POST' },
-      )
-      await load()
+      await suspendMutation.mutateAsync(userId)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Suspend failed')
     }
@@ -245,7 +201,7 @@ export default function ClientTeamPanel({
         </div>
       ) : null}
 
-      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+      {error ?? loadError ? <p className="mt-3 text-sm text-red-600">{error ?? loadError}</p> : null}
       {devSignInUrl ? (
         <p className="mt-2 text-sm">
           <a href={devSignInUrl} className="text-sanmarino underline">
@@ -281,14 +237,14 @@ export default function ClientTeamPanel({
             />
             Can view Social Listening
           </label>
-          <button type="submit" disabled={submitting} className="admin-btn-primary text-sm">
-            {submitting ? 'Inviting…' : 'Invite'}
+          <button type="submit" disabled={inviteMutation.isPending} className="admin-btn-primary text-sm">
+            {inviteMutation.isPending ? 'Inviting…' : 'Invite'}
           </button>
         </div>
       </form>
 
       <div className="mt-6 max-w-full overflow-x-auto overscroll-x-contain">
-        {loading ? (
+        {isLoading ? (
           <p className="text-sm text-app-muted">Loading…</p>
         ) : (
           <table className="w-full min-w-[36rem] text-left text-sm">

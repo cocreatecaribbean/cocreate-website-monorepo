@@ -1,15 +1,17 @@
 'use client'
 
-import { FormEvent, useCallback, useEffect, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import ProjectCover from '@/components/project-cover'
 import ProjectTeamAside from '@/components/project-team-aside'
 import {
-  fetchTeamHub,
-  inviteTeamMember,
-  requestTeamInvite,
-  updateTeamMember,
+  useInviteTeamMemberMutation,
+  useRequestTeamInviteMutation,
+  useUpdateTeamMemberMutation,
+} from '@/lib/api/mutations/team'
+import { useTeamHubQuery } from '@/lib/api/queries/team'
+import {
   type ClientOrgRole,
-  type TeamHub,
+  type ProjectTeamCard,
   type TeamMember,
 } from '@/lib/team/fetch-team-client'
 import { bricolage_grot500, bricolage_grot600 } from '@/styles/fonts'
@@ -21,8 +23,10 @@ const roleLabels: Record<ClientOrgRole, string> = {
 }
 
 export default function PortalTeamHub() {
-  const [hub, setHub] = useState<TeamHub | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { data: hub = null, isLoading: loading, error: queryError } = useTeamHubQuery()
+  const inviteMutation = useInviteTeamMemberMutation()
+  const requestInviteMutation = useRequestTeamInviteMutation()
+  const updateMemberMutation = useUpdateTeamMemberMutation()
   const [error, setError] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<ClientOrgRole>('MEMBER')
@@ -31,22 +35,6 @@ export default function PortalTeamHub() {
   const [message, setMessage] = useState<string | null>(null)
   const [devSignInUrl, setDevSignInUrl] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await fetchTeamHub()
-      setHub(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load team workspace')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void load()
-  }, [load])
 
   const permissions = hub?.permissions
 
@@ -58,7 +46,7 @@ export default function PortalTeamHub() {
     setDevSignInUrl(null)
     setError(null)
     try {
-      const result = await inviteTeamMember({
+      const result = await inviteMutation.mutateAsync({
         email: email.trim(),
         clientOrgRole: role,
         canAccessSocialListening: socialListening,
@@ -68,8 +56,7 @@ export default function PortalTeamHub() {
       if (result.invitation?.devSignInUrl) {
         setDevSignInUrl(result.invitation.devSignInUrl)
       }
-      await load()
-    } catch (err) {
+          } catch (err) {
       setError(err instanceof Error ? err.message : 'Invite failed')
     } finally {
       setSubmitting(false)
@@ -83,7 +70,7 @@ export default function PortalTeamHub() {
     setMessage(null)
     setError(null)
     try {
-      const result = await requestTeamInvite({
+      const result = await requestInviteMutation.mutateAsync({
         email: email.trim(),
         clientOrgRole: role,
       })
@@ -91,8 +78,7 @@ export default function PortalTeamHub() {
       setMessage(
         `Invite request submitted for ${result.request.email}. CoCreate will review and send the invitation.`,
       )
-      await load()
-    } catch (err) {
+          } catch (err) {
       setError(err instanceof Error ? err.message : 'Request failed')
     } finally {
       setSubmitting(false)
@@ -102,10 +88,12 @@ export default function PortalTeamHub() {
   const onToggleSocial = async (member: TeamMember) => {
     if (!permissions?.canToggleSocialListening || member.clientOrgRole === 'OWNER') return
     try {
-      await updateTeamMember(member.id, {
-        canAccessSocialListening: !member.canAccessSocialListening,
+      await updateMemberMutation.mutateAsync({
+        userId: member.id,
+        body: {
+          canAccessSocialListening: !member.canAccessSocialListening,
+        },
       })
-      await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed')
     }
@@ -114,8 +102,10 @@ export default function PortalTeamHub() {
   const onRoleChange = async (member: TeamMember, clientOrgRole: ClientOrgRole) => {
     if (!permissions?.canManageOrgRoles || member.clientOrgRole === 'OWNER') return
     try {
-      await updateTeamMember(member.id, { clientOrgRole })
-      await load()
+      await updateMemberMutation.mutateAsync({
+        userId: member.id,
+        body: { clientOrgRole },
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed')
     }
@@ -128,7 +118,7 @@ export default function PortalTeamHub() {
   if (!hub) {
     return (
       <p className="text-sm text-red-600" role="alert">
-        {error ?? 'Unable to load team workspace'}
+        {error ?? (queryError instanceof Error ? queryError.message : 'Unable to load team workspace')}
       </p>
     )
   }
@@ -353,7 +343,7 @@ function ProjectSection({
 }: {
   title: string
   description: string
-  projects: TeamHub['projectsOwned']
+  projects: ProjectTeamCard[]
 }) {
   if (projects.length === 0) return null
 

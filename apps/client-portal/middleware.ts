@@ -85,12 +85,9 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData.session?.access_token ?? null
+  const user = sessionData.session?.user ?? null
 
   if (publicPaths.some((path) => pathname.startsWith(path))) {
     if (user && pathname.startsWith('/login') && accessToken) {
@@ -130,6 +127,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

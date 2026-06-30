@@ -26,6 +26,7 @@ type RequestMessageThreadProps = {
   onResolve?: (status: 'RESOLVED' | 'REJECTED') => Promise<void>
   showResolveActions?: boolean
   onThreadUpdate?: () => void
+  invalidateQueryKeys?: import('@tanstack/react-query').QueryKey[]
 }
 
 function initialAuthorRole(request: ProjectRequestItem): 'ADMIN' | 'CLIENT' {
@@ -43,9 +44,11 @@ export default function RequestMessageThread({
   showResolveActions = false,
   readOnly = false,
   onThreadUpdate,
+  invalidateQueryKeys,
 }: RequestMessageThreadProps) {
-  useRequestThreadRealtime(request.id, () => onThreadUpdate?.(), {
-    enabled: Boolean(onThreadUpdate),
+  useRequestThreadRealtime(request.id, onThreadUpdate, {
+    enabled: Boolean(onThreadUpdate || invalidateQueryKeys?.length),
+    invalidateQueryKeys,
   })
 
   const inputClass = 'portal-textarea w-full resize-y'

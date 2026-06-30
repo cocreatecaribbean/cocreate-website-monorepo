@@ -6,9 +6,10 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc -p tsconfig.typecheck.json"
   },
   "dependencies": {
+    "@cocreate/api-contracts": "workspace:*",
     "@react-pdf/renderer": "^4.3.0",
     "react": "catalog:react"
   },

@@ -7,6 +7,10 @@
     "declaration": true,
     "outDir": "./dist",
     "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "@cocreate/api-contracts/v1/*": ["../api-contracts/dist/v1/*"]
+    },
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,

@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   adminFetchErrorHint,
   AdminApiFetchError,
@@ -32,6 +33,7 @@ type AdminSessionContextValue = {
   error: string | null
   hint: string | null
   refresh: () => Promise<void>
+  clearQueryCache: () => void
 }
 
 const AdminSessionContext = createContext<AdminSessionContextValue | null>(null)
@@ -45,6 +47,7 @@ export function useAdminSession() {
 }
 
 export function AdminSessionProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient()
   const [session, setSession] = useState<AdminSession | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -107,13 +110,17 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const clearQueryCache = useCallback(() => {
+    queryClient.clear()
+  }, [queryClient])
+
   useEffect(() => {
     void refresh()
   }, [refresh])
 
   const value = useMemo(
-    () => ({ session, loading, error, hint, refresh }),
-    [session, loading, error, hint, refresh],
+    () => ({ session, loading, error, hint, refresh, clearQueryCache }),
+    [session, loading, error, hint, refresh, clearQueryCache],
   )
 
   return (

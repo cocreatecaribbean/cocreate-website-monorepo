@@ -1,65 +1,47 @@
 'use client'
 
-import { FormEvent, useCallback, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { fetchAdminBff } from '@/lib/admin-api-fetch'
-import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import { UserCircle } from 'lucide-react'
 import AdminToast from '@/components/admin-toast'
 import { useAdminSession } from '@/components/admin-session-provider'
+import {
+  useUpdateAdminAvatarMutation,
+  useUpdateAdminProfileMutation,
+} from '@/lib/api/mutations/profile'
+import { useAdminProfileQuery, useProfileOptionsQuery } from '@/lib/api/queries/profile'
 import { isSuperAdminSession } from '@/lib/admin-session'
-
-type ProfileOption = { id: string; label: string }
-
-type AdminProfile = {
-  displayName: string | null
-  jobTitle: string | null
-  jobTitleLabels: string[]
-  jobTitleOptionIds: string[]
-  avatarUrl: string | null
-  email: string
-  profileComplete: boolean
-  updatedAt: string
-}
+import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 
 export default function AdminProfileForm() {
   const { session } = useAdminSession()
   const isSuperAdmin = isSuperAdminSession(session?.role ?? null)
-  const [profile, setProfile] = useState<AdminProfile | null>(null)
-  const [jobTitleOptions, setJobTitleOptions] = useState<ProfileOption[]>([])
+
+  const profileQuery = useAdminProfileQuery()
+  const optionsQuery = useProfileOptionsQuery()
+  const updateProfileMutation = useUpdateAdminProfileMutation()
+  const updateAvatarMutation = useUpdateAdminAvatarMutation()
+
+  const profile = profileQuery.data?.profile ?? null
+  const jobTitleOptions = optionsQuery.data?.jobTitles ?? []
+
   const [displayName, setDisplayName] = useState('')
   const [selectedJobTitleIds, setSelectedJobTitleIds] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [profileRes, optionsRes] = await Promise.all([
-        fetchAdminBff<{ ok: boolean; profile?: AdminProfile }>('/api/profile'),
-        fetchAdminBff<{
-          ok: boolean
-          jobTitles?: ProfileOption[]
-        }>('/api/profile-options'),
-      ])
-      if (optionsRes.jobTitles) setJobTitleOptions(optionsRes.jobTitles)
-      if (profileRes.profile) {
-        setProfile(profileRes.profile)
-        setDisplayName(profileRes.profile.displayName ?? '')
-        setSelectedJobTitleIds(profileRes.profile.jobTitleOptionIds ?? [])
-      }
-    } catch {
-      setToast('Could not load profile')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
-    void load()
-  }, [load])
+    if (!profile || initialized) return
+    setDisplayName(profile.displayName ?? '')
+    setSelectedJobTitleIds(profile.jobTitleOptionIds ?? [])
+    setInitialized(true)
+  }, [profile, initialized])
+
+  useEffect(() => {
+    if (profileQuery.isError || optionsQuery.isError) {
+      setToast('Could not load profile')
+    }
+  }, [profileQuery.isError, optionsQuery.isError])
 
   const toggleJobTitle = (id: string) => {
     setSelectedJobTitleIds((current) =>
@@ -69,80 +51,37 @@ export default function AdminProfileForm() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    setSaving(true)
     setToast(null)
     try {
-      const data = await fetchAdminBff<{ ok: boolean; profile?: AdminProfile }>(
-        '/api/profile',
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            displayName,
-            jobTitleOptionIds: selectedJobTitleIds,
-          }),
-        },
-      )
+      const data = await updateProfileMutation.mutateAsync({
+        displayName,
+        jobTitleOptionIds: selectedJobTitleIds,
+      })
       if (data.profile) {
-        setProfile(data.profile)
         setSelectedJobTitleIds(data.profile.jobTitleOptionIds ?? [])
         setToast('Profile saved')
       }
     } catch {
       setToast('Could not save profile')
-    } finally {
-      setSaving(false)
     }
   }
 
   const onAvatarChange = async (file: File | null) => {
     if (!file) return
-    setUploading(true)
     setToast(null)
     try {
-      const urlRes = await fetchAdminBff<{
-        ok: boolean
-        storagePath?: string
-        signedUrl?: string
-      }>('/api/profile/avatar/upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileName: file.name,
-          mimeType: file.type,
-          sizeBytes: file.size,
-        }),
-      })
-
-      if (!urlRes.signedUrl || !urlRes.storagePath) {
-        throw new Error('Upload URL missing')
-      }
-
-      const upload = await fetch(urlRes.signedUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type },
-        body: file,
-      })
-      if (!upload.ok) throw new Error('Upload failed')
-
-      const reg = await fetchAdminBff<{ ok: boolean; profile?: AdminProfile }>(
-        '/api/profile/avatar',
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ storagePath: urlRes.storagePath }),
-        },
-      )
+      const reg = await updateAvatarMutation.mutateAsync(file)
       if (reg.profile) {
-        setProfile(reg.profile)
         setToast('Photo updated')
       }
     } catch {
       setToast('Could not upload photo')
-    } finally {
-      setUploading(false)
     }
   }
+
+  const loading = profileQuery.isLoading || optionsQuery.isLoading
+  const saving = updateProfileMutation.isPending
+  const uploading = updateAvatarMutation.isPending
 
   if (loading) {
     return <p className="text-sm text-app-muted">Loading profile…</p>

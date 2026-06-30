@@ -6,7 +6,7 @@ import {
 import { ClientOrgRole, UserRole, UserStatus } from '@cocreate/database'
 import { PrismaService } from '../prisma/prisma.service'
 import { uniqueSlug } from '../common/utils/slug.util'
-import { InviteClientDto } from './dto/invite-client.dto'
+import type { InviteClientInput } from '@cocreate/api-contracts/v1/requests/clients'
 import { SupabaseAuthService } from './supabase-auth.service'
 import type {
   ClientOrganizationRosterItem,
@@ -92,7 +92,7 @@ export class ClientsService {
     }
   }
 
-  async inviteClient(dto: InviteClientDto): Promise<InviteClientResult> {
+  async inviteClient(dto: InviteClientInput): Promise<InviteClientResult> {
     const email = this.normalizeEmail(dto.clientEmail)
     const companyName = dto.companyName.trim()
 

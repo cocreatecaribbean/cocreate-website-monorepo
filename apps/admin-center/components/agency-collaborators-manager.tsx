@@ -1,28 +1,21 @@
 'use client'
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import AdminToast from '@/components/admin-toast'
 import DevSignInLink from '@/components/dev-sign-in-link'
 import {
+  useAssignCollaboratorToProjectMutation,
+  useInviteCollaboratorMutation,
+  useRemoveCollaboratorMutation,
+  useResendCollaboratorInviteMutation,
+} from '@/lib/api/mutations/collaborators'
+import { useCollaboratorsRosterQuery } from '@/lib/api/queries/collaborators'
+import { useAdminProjectsQuery } from '@/lib/api/queries/projects'
+import {
   adminFetchErrorHint,
   AdminApiFetchError,
-  fetchAdminBff,
 } from '@/lib/admin-api-fetch'
-import type { ClientProjectSummary } from '@/lib/projects/types'
 import { bricolage_grot600 } from '@/styles/fonts'
-
-type CollaboratorRosterItem = {
-  id: string
-  email: string
-  status: 'INVITED' | 'ACTIVE' | 'SUSPENDED'
-  createdAt: string
-  projects: Array<{
-    id: string
-    title: string
-    organizationId: string
-    organizationName: string
-  }>
-}
 
 const statusLabel: Record<string, string> = {
   INVITED: 'Invited',
@@ -36,11 +29,29 @@ function collaboratorSignInUrl() {
 }
 
 export default function AgencyCollaboratorsManager() {
-  const [collaborators, setCollaborators] = useState<CollaboratorRosterItem[]>([])
-  const [projects, setProjects] = useState<ClientProjectSummary[]>([])
+  const collaboratorsQuery = useCollaboratorsRosterQuery()
+  const projectsQuery = useAdminProjectsQuery()
+  const inviteMutation = useInviteCollaboratorMutation()
+  const resendMutation = useResendCollaboratorInviteMutation()
+  const removeMutation = useRemoveCollaboratorMutation()
+  const assignMutation = useAssignCollaboratorToProjectMutation()
+
+  const collaborators = collaboratorsQuery.data ?? []
+  const projects = projectsQuery.data ?? []
+  const loading = collaboratorsQuery.isLoading || projectsQuery.isLoading
+  const loadError =
+    collaboratorsQuery.isError || projectsQuery.isError
+      ? collaboratorsQuery.error instanceof AdminApiFetchError
+        ? `${collaboratorsQuery.error.message} — ${adminFetchErrorHint(collaboratorsQuery.error.code)}`
+        : projectsQuery.error instanceof AdminApiFetchError
+          ? `${projectsQuery.error.message} — ${adminFetchErrorHint(projectsQuery.error.code)}`
+          : (collaboratorsQuery.error ?? projectsQuery.error) instanceof Error
+            ? (collaboratorsQuery.error ?? projectsQuery.error)?.message
+            : 'Could not load collaborators.'
+      : null
+
   const [email, setEmail] = useState('')
   const [inviteProjectIds, setInviteProjectIds] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -49,37 +60,6 @@ export default function AgencyCollaboratorsManager() {
   const [assignProjectId, setAssignProjectId] = useState('')
   const [signInUrlCopied, setSignInUrlCopied] = useState(false)
   const [signInPageUrl, setSignInPageUrl] = useState('/collaborate/login')
-
-  const load = useCallback(async (options?: { silent?: boolean }) => {
-    if (!options?.silent) {
-      setLoading(true)
-      setError(null)
-    }
-    try {
-      const [roster, projectList] = await Promise.all([
-        fetchAdminBff<CollaboratorRosterItem[]>('/api/collaborators'),
-        fetchAdminBff<ClientProjectSummary[]>('/api/projects'),
-      ])
-      setCollaborators(roster)
-      setProjects(projectList)
-    } catch (err) {
-      const message =
-        err instanceof AdminApiFetchError
-          ? `${err.message} — ${adminFetchErrorHint(err.code)}`
-          : err instanceof Error
-            ? err.message
-            : 'Could not load collaborators.'
-      setError(message)
-    } finally {
-      if (!options?.silent) {
-        setLoading(false)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    void load()
-  }, [load])
 
   useEffect(() => {
     setSignInPageUrl(collaboratorSignInUrl())
@@ -112,16 +92,9 @@ export default function AgencyCollaboratorsManager() {
     setSuccess(null)
     setDevSignInUrl(null)
     try {
-      const result = await fetchAdminBff<{
-        message: string
-        devSignInUrl?: string
-      }>('/api/collaborators', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim(),
-          projectIds: inviteProjectIds.length ? inviteProjectIds : undefined,
-        }),
+      const result = await inviteMutation.mutateAsync({
+        email: email.trim(),
+        projectIds: inviteProjectIds.length ? inviteProjectIds : undefined,
       })
       setEmail('')
       setInviteProjectIds([])
@@ -130,7 +103,6 @@ export default function AgencyCollaboratorsManager() {
         `${result.message} Share the sign-in page: ${signInUrl}`,
       )
       if (result.devSignInUrl) setDevSignInUrl(result.devSignInUrl)
-      await load({ silent: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invite failed')
     } finally {
@@ -154,10 +126,7 @@ export default function AgencyCollaboratorsManager() {
     setSuccess(null)
     setDevSignInUrl(null)
     try {
-      const result = await fetchAdminBff<{ message: string; devSignInUrl?: string }>(
-        `/api/collaborators/${userId}/resend-invite`,
-        { method: 'POST' },
-      )
+      const result = await resendMutation.mutateAsync(userId)
       setSuccess(result.message)
       if (result.devSignInUrl) setDevSignInUrl(result.devSignInUrl)
     } catch (err) {
@@ -170,16 +139,15 @@ export default function AgencyCollaboratorsManager() {
     setError(null)
     setSuccess(null)
     try {
-      const result = await fetchAdminBff<{ message: string; devSignInUrl?: string }>(
-        `/api/collaborators/${assignUserId}/projects/${assignProjectId}`,
-        { method: 'POST' },
-      )
+      const result = await assignMutation.mutateAsync({
+        userId: assignUserId,
+        projectId: assignProjectId,
+      })
       const signInUrl = collaboratorSignInUrl()
       setSuccess(`${result.message} Sign-in page: ${signInUrl}`)
       if (result.devSignInUrl) setDevSignInUrl(result.devSignInUrl)
       setAssignUserId(null)
       setAssignProjectId('')
-      await load({ silent: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not assign project')
     }
@@ -192,9 +160,8 @@ export default function AgencyCollaboratorsManager() {
     setError(null)
     setSuccess(null)
     try {
-      await fetchAdminBff(`/api/collaborators/${userId}`, { method: 'DELETE' })
+      await removeMutation.mutateAsync(userId)
       setSuccess('Collaborator removed from agency.')
-      await load({ silent: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not remove collaborator')
     }
@@ -213,8 +180,8 @@ export default function AgencyCollaboratorsManager() {
       {success ? (
         <AdminToast message={success} variant="success" onDismiss={() => setSuccess(null)} />
       ) : null}
-      {error ? (
-        <AdminToast message={error} variant="error" onDismiss={() => setError(null)} />
+      {error ?? loadError ? (
+        <AdminToast message={error ?? loadError ?? ''} variant="error" onDismiss={() => setError(null)} />
       ) : null}
 
       {devSignInUrl ? (

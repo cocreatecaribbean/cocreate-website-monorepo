@@ -10,19 +10,33 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common'
+import {
+  CreateCancellationRequestSchema,
+  type CreateCancellationRequestInput,
+  CreateChangeRequestSchema,
+  type CreateChangeRequestInput,
+  CreatePhaseApprovalSchema,
+  type CreatePhaseApprovalInput,
+  CreateProjectSchema,
+  type CreateProjectInput,
+  CreateRequestMessageSchema,
+  type CreateRequestMessageInput,
+  MarkAttentionReadSchema,
+  type MarkAttentionReadInput,
+  MarkInboxReadSchema,
+  type MarkInboxReadInput,
+  RegisterAttachmentSchema,
+  type RegisterAttachmentInput,
+  RegisterCoverSchema,
+  type RegisterCoverInput,
+  UpdateRequestSchema,
+  type UpdateRequestInput,
+  UploadUrlSchema,
+  type UploadUrlInput,
+} from '@cocreate/api-contracts/v1/requests/projects'
 import { ClientAuthGuard } from '../auth/guards/client-auth.guard'
 import type { ClientPortalRequest } from '../auth/guards/client-auth.guard'
-import { CreateCancellationRequestDto } from './dto/create-cancellation-request.dto'
-import { CreateChangeRequestDto } from './dto/create-change-request.dto'
-import { CreateRequestMessageDto } from './dto/create-request-message.dto'
-import { CreatePhaseApprovalDto } from './dto/create-phase-approval.dto'
-import { CreateProjectDto } from './dto/create-project.dto'
-import { RegisterAttachmentDto } from './dto/register-attachment.dto'
-import { MarkAttentionReadDto } from './dto/mark-attention-read.dto'
-import { MarkInboxReadDto } from './dto/mark-inbox-read.dto'
-import { UpdateRequestDto } from './dto/update-request.dto'
-import { UploadUrlDto } from './dto/upload-url.dto'
-import { RegisterCoverDto } from './dto/register-cover.dto'
+import { zodBody } from '../common/zod/zod-validation.pipe'
 import { ProjectsService } from './projects.service'
 
 @Controller({ path: 'client-portal', version: '1' })
@@ -36,8 +50,11 @@ export class ClientProjectsController {
   }
 
   @Post('projects')
-  createProject(@Req() req: ClientPortalRequest, @Body() dto: CreateProjectDto) {
-    return this.projects.createForClient(req.clientUser!, dto)
+  createProject(
+    @Req() req: ClientPortalRequest,
+    @Body(zodBody(CreateProjectSchema)) body: CreateProjectInput,
+  ) {
+    return this.projects.createForClient(req.clientUser!, body)
   }
 
   @Get('projects/requests/open')
@@ -56,8 +73,11 @@ export class ClientProjectsController {
   }
 
   @Post('approvals/mark-read')
-  markApprovalsRead(@Req() req: ClientPortalRequest, @Body() dto: MarkInboxReadDto) {
-    return this.projects.markApprovalsReadForClient(req.clientUser!, dto.requestId)
+  markApprovalsRead(
+    @Req() req: ClientPortalRequest,
+    @Body(zodBody(MarkInboxReadSchema)) body: MarkInboxReadInput,
+  ) {
+    return this.projects.markApprovalsReadForClient(req.clientUser!, body.requestId)
   }
 
   @Get('attention/unread-count')
@@ -71,58 +91,66 @@ export class ClientProjectsController {
   }
 
   @Post('attention/mark-read')
-  markAttentionRead(@Req() req: ClientPortalRequest, @Body() dto: MarkAttentionReadDto) {
-    return this.projects.markAttentionReadForClient(req.clientUser!, dto)
+  markAttentionRead(
+    @Req() req: ClientPortalRequest,
+    @Body(zodBody(MarkAttentionReadSchema)) body: MarkAttentionReadInput,
+  ) {
+    return this.projects.markAttentionReadForClient(req.clientUser!, body)
   }
 
   @Get('projects/:id')
-  getProject(@Req() req: ClientPortalRequest, @Param('id') id: string) {
-    return this.projects.getForClient(req.clientUser!, id)
+  getProject(
+    @Req() req: ClientPortalRequest,
+    @Param('id') id: string,
+    @Query('view') view?: string,
+  ) {
+    const detailView = view === 'full' ? 'full' : 'overview'
+    return this.projects.getForClient(req.clientUser!, id, detailView)
   }
 
   @Post('projects/:id/change-requests')
   createChangeRequest(
     @Req() req: ClientPortalRequest,
     @Param('id') id: string,
-    @Body() dto: CreateChangeRequestDto,
+    @Body(zodBody(CreateChangeRequestSchema)) body: CreateChangeRequestInput,
   ) {
-    return this.projects.createChangeRequest(req.clientUser!, id, dto)
+    return this.projects.createChangeRequest(req.clientUser!, id, body)
   }
 
   @Post('projects/:id/phase-approvals')
   createPhaseApproval(
     @Req() req: ClientPortalRequest,
     @Param('id') id: string,
-    @Body() dto: CreatePhaseApprovalDto,
+    @Body(zodBody(CreatePhaseApprovalSchema)) body: CreatePhaseApprovalInput,
   ) {
-    return this.projects.createPhaseApproval(req.clientUser!, id, dto)
+    return this.projects.createPhaseApproval(req.clientUser!, id, body)
   }
 
   @Post('projects/:id/cancellation-request')
   createCancellationRequest(
     @Req() req: ClientPortalRequest,
     @Param('id') id: string,
-    @Body() dto: CreateCancellationRequestDto,
+    @Body(zodBody(CreateCancellationRequestSchema)) body: CreateCancellationRequestInput,
   ) {
-    return this.projects.createCancellationRequest(req.clientUser!, id, dto)
+    return this.projects.createCancellationRequest(req.clientUser!, id, body)
   }
 
   @Post('projects/:id/cover/upload-url')
   coverUploadUrl(
     @Req() req: ClientPortalRequest,
     @Param('id') id: string,
-    @Body() dto: UploadUrlDto,
+    @Body(zodBody(UploadUrlSchema)) body: UploadUrlInput,
   ) {
-    return this.projects.createCoverUploadUrlForClient(req.clientUser!, id, dto)
+    return this.projects.createCoverUploadUrlForClient(req.clientUser!, id, body)
   }
 
   @Patch('projects/:id/cover')
   registerCover(
     @Req() req: ClientPortalRequest,
     @Param('id') id: string,
-    @Body() dto: RegisterCoverDto,
+    @Body(zodBody(RegisterCoverSchema)) body: RegisterCoverInput,
   ) {
-    return this.projects.registerCoverForClient(req.clientUser!, id, dto)
+    return this.projects.registerCoverForClient(req.clientUser!, id, body)
   }
 
   @Delete('projects/:id/cover')
@@ -134,18 +162,18 @@ export class ClientProjectsController {
   uploadUrl(
     @Req() req: ClientPortalRequest,
     @Param('id') id: string,
-    @Body() dto: UploadUrlDto,
+    @Body(zodBody(UploadUrlSchema)) body: UploadUrlInput,
   ) {
-    return this.projects.createUploadUrlForClient(req.clientUser!, id, dto)
+    return this.projects.createUploadUrlForClient(req.clientUser!, id, body)
   }
 
   @Post('projects/:id/attachments')
   registerAttachment(
     @Req() req: ClientPortalRequest,
     @Param('id') id: string,
-    @Body() dto: RegisterAttachmentDto,
+    @Body(zodBody(RegisterAttachmentSchema)) body: RegisterAttachmentInput,
   ) {
-    return this.projects.registerAttachmentForClient(req.clientUser!, id, dto)
+    return this.projects.registerAttachmentForClient(req.clientUser!, id, body)
   }
 
   @Get('files/library')
@@ -207,9 +235,9 @@ export class ClientProjectsController {
   addMessage(
     @Req() req: ClientPortalRequest,
     @Param('requestId') requestId: string,
-    @Body() dto: CreateRequestMessageDto,
+    @Body(zodBody(CreateRequestMessageSchema)) body: CreateRequestMessageInput,
   ) {
-    return this.projects.addRequestMessage(req.clientUser!, requestId, dto)
+    return this.projects.addRequestMessage(req.clientUser!, requestId, body)
   }
 
   @Post('project-requests/:requestId/messages/:messageId/approve')
@@ -225,9 +253,9 @@ export class ClientProjectsController {
   updateRequest(
     @Req() req: ClientPortalRequest,
     @Param('requestId') requestId: string,
-    @Body() dto: UpdateRequestDto,
+    @Body(zodBody(UpdateRequestSchema)) body: UpdateRequestInput,
   ) {
-    return this.projects.updateRequest(req.clientUser!, requestId, dto)
+    return this.projects.updateRequest(req.clientUser!, requestId, body)
   }
 
   @Get('notifications')

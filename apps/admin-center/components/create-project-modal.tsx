@@ -8,8 +8,9 @@ import {
   adminFetchErrorHint,
   fetchAdminBff,
 } from '@/lib/admin-api-fetch'
+import { useCreateProjectForAdminMutation } from '@/lib/api/mutations/projects'
+import { useClientsQuery } from '@/lib/api/queries/clients'
 import {
-  createProjectForAdmin,
   fetchOrganizationPortalStatus,
   type CreateProjectForAdminResult,
   type OrganizationPortalStatus,
@@ -18,12 +19,6 @@ import {
 import { bricolage_grot600 } from '@/styles/fonts'
 
 const INVITE_NEW_VALUE = '__invite_new__'
-
-type ClientRosterOption = {
-  id: string
-  name: string
-  slug: string
-}
 
 type RecipientRow = {
   key: string
@@ -97,8 +92,7 @@ export default function CreateProjectModal({
   onCreated,
 }: CreateProjectModalProps) {
   const [mounted, setMounted] = useState(false)
-  const [clients, setClients] = useState<ClientRosterOption[]>([])
-  const [loadingClients, setLoadingClients] = useState(false)
+  const clientsQuery = useClientsQuery()
   const [selectedClientId, setSelectedClientId] = useState('')
   const [portalStatus, setPortalStatus] = useState<OrganizationPortalStatus | null>(
     null,
@@ -113,6 +107,10 @@ export default function CreateProjectModal({
   const needsClientPicker = organizationIdProp === undefined
   const effectiveOrganizationId =
     organizationIdProp ?? (selectedClientId || undefined)
+  const createProjectMutation = useCreateProjectForAdminMutation(effectiveOrganizationId ?? '')
+
+  const clients = clientsQuery.data ?? []
+  const loadingClients = needsClientPicker && clientsQuery.isLoading
 
   const sortedClients = useMemo(
     () =>
@@ -182,24 +180,6 @@ export default function CreateProjectModal({
     }
   }, [open, onClose, submitting])
 
-  const loadClients = useCallback(async () => {
-    setLoadingClients(true)
-    try {
-      const roster = await fetchAdminBff<ClientRosterOption[]>('/api/clients')
-      setClients(roster)
-    } catch (err) {
-      const message =
-        err instanceof AdminApiFetchError
-          ? `${err.message} — ${adminFetchErrorHint(err.code)}`
-          : err instanceof Error
-            ? err.message
-            : 'Could not load clients'
-      setError(message)
-    } finally {
-      setLoadingClients(false)
-    }
-  }, [])
-
   const loadPortalStatus = useCallback(async (orgId: string) => {
     setLoadingPortal(true)
     setError(null)
@@ -231,10 +211,17 @@ export default function CreateProjectModal({
     setSelectedClientId('')
     setError(null)
 
-    if (needsClientPicker) {
-      void loadClients()
+    if (needsClientPicker && clientsQuery.isError) {
+      const err = clientsQuery.error
+      const message =
+        err instanceof AdminApiFetchError
+          ? `${err.message} — ${adminFetchErrorHint(err.code)}`
+          : err instanceof Error
+            ? err.message
+            : 'Could not load clients'
+      setError(message)
     }
-  }, [open, needsClientPicker, loadClients])
+  }, [open, needsClientPicker, clientsQuery.isError, clientsQuery.error])
 
   useEffect(() => {
     if (!open || !effectiveOrganizationId) {
@@ -299,7 +286,7 @@ export default function CreateProjectModal({
     setError(null)
     setSubmitting(true)
     try {
-      const result = await createProjectForAdmin(effectiveOrganizationId, {
+      const result = await createProjectMutation.mutateAsync({
         title: title.trim(),
         description: description.trim(),
         ...(recipientUserIds.length ? { recipientUserIds } : {}),

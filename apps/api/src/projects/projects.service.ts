@@ -33,21 +33,23 @@ import { ProjectNotificationMailService } from './project-notification-mail.serv
 import { ProjectNotificationsService } from './project-notifications.service'
 import { ProjectRealtimeService } from './project-realtime.service'
 import { ProjectStorageService } from './project-storage.service'
-import type { CreateCheckpointDto } from './dto/create-checkpoint.dto'
-import type { CreateCancellationRequestDto } from './dto/create-cancellation-request.dto'
-import type { CreateChangeRequestDto } from './dto/create-change-request.dto'
-import type { CreatePhaseApprovalDto } from './dto/create-phase-approval.dto'
-import type { CreateProjectDto } from './dto/create-project.dto'
-import type { CreateProjectForAdminDto } from './dto/create-project-for-admin.dto'
+import type {
+  CreateCheckpointInput,
+  CreateCancellationRequestInput,
+  CreateChangeRequestInput,
+  CreatePhaseApprovalInput,
+  CreateProjectInput,
+  CreateProjectForAdminInput,
+  ResolveCancellationInput,
+  RegisterAttachmentInput,
+  UpdateProjectInput,
+  CreateRequestMessageInput,
+  UpdateRequestInput,
+  UploadUrlInput,
+  RegisterCoverInput,
+} from '@cocreate/api-contracts/v1/requests/projects'
 import { ClientTeamService } from './client-team.service'
 import { SupabaseAuthService } from '../clients/supabase-auth.service'
-import type { ResolveCancellationDto } from './dto/resolve-cancellation.dto'
-import type { RegisterAttachmentDto } from './dto/register-attachment.dto'
-import type { UpdateProjectDto } from './dto/update-project.dto'
-import type { CreateRequestMessageDto } from './dto/create-request-message.dto'
-import type { UpdateRequestDto } from './dto/update-request.dto'
-import type { UploadUrlDto } from './dto/upload-url.dto'
-import type { RegisterCoverDto } from './dto/register-cover.dto'
 import {
   serializeActivity,
   serializeApprovalRecord,
@@ -154,6 +156,15 @@ export class ProjectsService {
       (project as { coverStoragePath?: string | null }).coverStoragePath,
     )
     return { ...base, coverImageUrl }
+  }
+
+  private serializeProjectsForList(
+    projects: Parameters<typeof serializeProject>[0][],
+  ) {
+    return projects.map((p) => ({
+      ...serializeProject(p),
+      coverImageUrl: null,
+    }))
   }
 
   private serializeProjectsWithCover(
@@ -532,6 +543,88 @@ export class ProjectsService {
     }
   }
 
+  private projectOverviewInclude() {
+    return {
+      organization: { select: { id: true, name: true, slug: true } },
+      createdBy: { select: userActorSelect },
+      approvedBy: { select: userActorSelect },
+      completedBy: { select: userActorSelect },
+      requests: {
+        orderBy: { createdAt: 'desc' as const },
+        select: {
+          id: true,
+          projectId: true,
+          type: true,
+          status: true,
+          title: true,
+          description: true,
+          targetPhase: true,
+          createdByUserId: true,
+          resolvedByUserId: true,
+          resolvedAt: true,
+          cancellationOutcome: true,
+          cancellationFeeAmount: true,
+          cancellationFeeNotes: true,
+          createdAt: true,
+          updatedAt: true,
+          createdBy: { select: userActorSelect },
+          resolvedBy: { select: userActorSelect },
+          messages: {
+            where: {
+              messageKind: ProjectMessageKind.CHECKPOINT,
+              requiresClientApproval: true,
+              supersededAt: null,
+              clientApprovedAt: null,
+            },
+            select: {
+              id: true,
+              messageKind: true,
+              requiresClientApproval: true,
+              supersededAt: true,
+              clientApprovedAt: true,
+            },
+          },
+        },
+      },
+      attachments: {
+        orderBy: { createdAt: 'desc' as const },
+        select: {
+          id: true,
+          projectId: true,
+          requestId: true,
+          storagePath: true,
+          fileName: true,
+          mimeType: true,
+          sizeBytes: true,
+          visibility: true,
+          uploadedByUserId: true,
+          createdAt: true,
+        },
+      },
+      activities: {
+        orderBy: { createdAt: 'desc' as const },
+        take: 10,
+        include: { actor: { select: userActorSelect } },
+      },
+    }
+  }
+
+  private projectIncludeForView(view: 'overview' | 'full') {
+    return view === 'full' ? this.projectDetailInclude() : this.projectOverviewInclude()
+  }
+
+  private mergeEnsuredRequest<
+    T extends { requests?: Array<{ type: ProjectRequestType }> },
+  >(project: T, request: { type: ProjectRequestType }): T {
+    if (project.requests?.some((r) => r.type === request.type)) {
+      return project
+    }
+    return {
+      ...project,
+      requests: [...(project.requests ?? []), request],
+    } as T
+  }
+
   private async getRequestForActor(
     requestId: string,
     actor: AuthenticatedAgencyUser | AuthenticatedClient,
@@ -572,10 +665,10 @@ export class ProjectsService {
       orderBy: { updatedAt: 'desc' },
       include: this.projectListInclude(),
     })
-    return this.serializeProjectsWithCover(projects)
+    return this.serializeProjectsForList(projects)
   }
 
-  async createForClient(client: AuthenticatedClient, dto: CreateProjectDto) {
+  async createForClient(client: AuthenticatedClient, dto: CreateProjectInput) {
     await this.clientAccess.assertCanCreateProject(client)
     const org = client.organization
     if (!org) throw new ForbiddenException('No organization linked to your account')
@@ -642,25 +735,25 @@ export class ProjectsService {
     return this.serializeProjectWithCover(full!)
   }
 
-  async getForClient(client: AuthenticatedClient, projectId: string) {
+  async getForClient(
+    client: AuthenticatedClient,
+    projectId: string,
+    view: 'overview' | 'full' = 'overview',
+  ) {
     await this.clientAccess.assertProjectAccess(client, projectId, 'VIEW')
 
-    const project = await this.prisma.clientProject.findUnique({
+    let project = await this.prisma.clientProject.findUnique({
       where: { id: projectId },
-      include: this.projectDetailInclude(),
+      include: this.projectIncludeForView(view),
     })
     if (!project) throw new NotFoundException('Project not found')
 
     if (project.status === ClientProjectStatus.ACTIVE) {
-      await this.ensureProgressThread(
+      const progress = await this.ensureProgressThread(
         projectId,
         project.approvedByUserId ?? project.createdByUserId,
       )
-      const refreshed = await this.prisma.clientProject.findUnique({
-        where: { id: projectId },
-        include: this.projectDetailInclude(),
-      })
-      return this.serializeProjectWithCover(this.stripInternalFromProject(refreshed!))
+      project = this.mergeEnsuredRequest(project, progress)
     }
 
     return this.serializeProjectWithCover(this.stripInternalFromProject(project))
@@ -669,7 +762,7 @@ export class ProjectsService {
   async createChangeRequest(
     client: AuthenticatedClient,
     projectId: string,
-    dto: CreateChangeRequestDto,
+    dto: CreateChangeRequestInput,
   ) {
     const project = await this.getProjectForClient(client, projectId)
     if (project.status === ClientProjectStatus.SUBMITTED) {
@@ -684,7 +777,7 @@ export class ProjectsService {
   async createPhaseApproval(
     client: AuthenticatedClient,
     projectId: string,
-    dto: CreatePhaseApprovalDto,
+    dto: CreatePhaseApprovalInput,
   ) {
     const project = await this.getProjectForClient(client, projectId)
     if (project.status !== ClientProjectStatus.ACTIVE) {
@@ -743,7 +836,7 @@ export class ProjectsService {
   async createCancellationRequest(
     client: AuthenticatedClient,
     projectId: string,
-    dto: CreateCancellationRequestDto,
+    dto: CreateCancellationRequestInput,
   ) {
     const project = await this.getProjectForClient(client, projectId)
     if (
@@ -931,7 +1024,7 @@ export class ProjectsService {
       orderBy: { updatedAt: 'desc' },
       include: this.projectListInclude(),
     })
-    return this.serializeProjectsWithCover(projects)
+    return this.serializeProjectsForList(projects)
   }
 
   async listForOrganization(actor: AuthenticatedAgencyUser, organizationId: string) {
@@ -961,27 +1054,27 @@ export class ProjectsService {
       projects,
       actor.id,
     )
-    return this.serializeProjectsWithCover(withInternal)
+    return this.serializeProjectsForList(withInternal)
   }
 
-  async getForAdmin(actor: AuthenticatedAgencyUser, projectId: string) {
+  async getForAdmin(
+    actor: AuthenticatedAgencyUser,
+    projectId: string,
+    view: 'overview' | 'full' = 'overview',
+  ) {
     await this.agencyAccess.assertCanAccessProject(actor, projectId)
     let project = await this.prisma.clientProject.findUnique({
       where: { id: projectId },
-      include: this.projectDetailInclude(),
+      include: this.projectIncludeForView(view),
     })
     if (!project) throw new NotFoundException('Project not found')
 
     if (!this.projectHasInternalThread(project)) {
-      await this.ensureInternalThread(
+      const internal = await this.ensureInternalThread(
         projectId,
         this.resolveThreadAuthorId(project, actor.id),
       )
-      project = await this.prisma.clientProject.findUnique({
-        where: { id: projectId },
-        include: this.projectDetailInclude(),
-      })
-      if (!project) throw new NotFoundException('Project not found')
+      project = this.mergeEnsuredRequest(project, internal)
     }
 
     return this.serializeProjectWithCover(project)
@@ -1113,7 +1206,7 @@ export class ProjectsService {
   async createForAdmin(
     admin: AuthenticatedAgencyUser,
     organizationId: string,
-    dto: CreateProjectForAdminDto,
+    dto: CreateProjectForAdminInput,
   ) {
     if (!this.agencyAccess.isCoreTeam(admin)) {
       throw new ForbiddenException('Only core team can create projects')
@@ -1442,7 +1535,7 @@ export class ProjectsService {
   async updateProject(
     admin: AuthenticatedAgencyUser,
     projectId: string,
-    dto: UpdateProjectDto,
+    dto: UpdateProjectInput,
   ) {
     if (!this.agencyAccess.isCoreTeam(admin)) {
       throw new ForbiddenException('Only core team can update project settings')
@@ -1507,7 +1600,7 @@ export class ProjectsService {
   async createReviewRequest(
     admin: AuthenticatedAdmin,
     projectId: string,
-    dto: CreateCheckpointDto,
+    dto: CreateCheckpointInput,
   ) {
     return this.sendProgressCheckpoint(admin, projectId, dto)
   }
@@ -1515,7 +1608,7 @@ export class ProjectsService {
   async sendProgressCheckpoint(
     admin: AuthenticatedAgencyUser,
     projectId: string,
-    dto: CreateCheckpointDto,
+    dto: CreateCheckpointInput,
   ) {
     if (!this.agencyAccess.isCoreTeam(admin)) {
       throw new ForbiddenException('Only core team can send progress checkpoints')
@@ -1625,7 +1718,7 @@ export class ProjectsService {
   async resolveCancellation(
     admin: AuthenticatedAgencyUser,
     requestId: string,
-    dto: ResolveCancellationDto,
+    dto: ResolveCancellationInput,
   ) {
     if (!this.agencyAccess.isCoreTeam(admin)) {
       throw new ForbiddenException('Only core team can resolve cancellations')
@@ -1712,7 +1805,7 @@ export class ProjectsService {
   async addRequestMessage(
     actor: AuthenticatedAgencyUser | AuthenticatedClient,
     requestId: string,
-    dto: CreateRequestMessageDto,
+    dto: CreateRequestMessageInput,
   ) {
     const request = await this.getRequestForActor(requestId, actor)
     const terminal: ProjectRequestStatus[] = [
@@ -1834,7 +1927,7 @@ export class ProjectsService {
   async updateRequest(
     actor: AuthenticatedAgencyUser | AuthenticatedClient,
     requestId: string,
-    dto: UpdateRequestDto,
+    dto: UpdateRequestInput,
   ) {
     const request = await this.getRequestForActor(requestId, actor)
     if (!('organization' in actor) || !actor.organization) {
@@ -1914,7 +2007,7 @@ export class ProjectsService {
   async createUploadUrlForClient(
     client: AuthenticatedClient,
     projectId: string,
-    dto: UploadUrlDto,
+    dto: UploadUrlInput,
   ) {
     const project = await this.getProjectForClient(client, projectId)
     return this.storage.createUploadUrl({
@@ -1929,7 +2022,7 @@ export class ProjectsService {
   async createUploadUrlForAdmin(
     actor: AuthenticatedAgencyUser,
     projectId: string,
-    dto: UploadUrlDto,
+    dto: UploadUrlInput,
   ) {
     await this.agencyAccess.assertCanAccessProject(actor, projectId)
     const project = await this.getProjectById(projectId)
@@ -1945,7 +2038,7 @@ export class ProjectsService {
   async registerAttachmentForClient(
     client: AuthenticatedClient,
     projectId: string,
-    dto: RegisterAttachmentDto,
+    dto: RegisterAttachmentInput,
   ) {
     const project = await this.getProjectForClient(client, projectId)
     this.storage.assertPathBelongsToProject(
@@ -1988,7 +2081,7 @@ export class ProjectsService {
   async registerAttachmentForAdmin(
     admin: AuthenticatedAgencyUser,
     projectId: string,
-    dto: RegisterAttachmentDto,
+    dto: RegisterAttachmentInput,
   ) {
     await this.agencyAccess.assertCanAccessProject(admin, projectId)
     const project = await this.getProjectById(projectId)
@@ -2150,7 +2243,7 @@ export class ProjectsService {
   async createCoverUploadUrlForClient(
     client: AuthenticatedClient,
     projectId: string,
-    dto: UploadUrlDto,
+    dto: UploadUrlInput,
   ) {
     const project = await this.getProjectForClient(client, projectId, 'MANAGE')
     return this.storage.createCoverUploadUrl({
@@ -2165,7 +2258,7 @@ export class ProjectsService {
   async registerCoverForClient(
     client: AuthenticatedClient,
     projectId: string,
-    dto: RegisterCoverDto,
+    dto: RegisterCoverInput,
   ) {
     const project = await this.getProjectForClient(client, projectId, 'MANAGE')
     this.storage.assertCoverPathBelongsToProject(

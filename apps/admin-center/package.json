@@ -6,11 +6,14 @@
     "dev": "next dev --turbopack --port 3002",
     "build": "next build",
     "start": "next start --port 3002",
-    "lint": "next lint"
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@cocreate/api-client": "workspace:*",
+    "@cocreate/api-contracts": "workspace:*",
     "@cocreate/app-ui": "workspace:*",
+    "@cocreate/social-listening": "workspace:*",
     "@nivo/bar": "^0.88.0",
     "@nivo/core": "^0.88.0",
     "@nivo/heatmap": "^0.88.0",
@@ -19,6 +22,7 @@
     "@nivo/stream": "^0.88.0",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.8",
+    "@tanstack/react-query": "catalog:web",
     "emoji-picker-react": "^4.12.2",
     "lucide-react": "catalog:web",
     "next": "catalog:web",
@@ -27,6 +31,7 @@
     "react-dom": "catalog:react"
   },
   "devDependencies": {
+    "@tanstack/react-query-devtools": "catalog:web",
     "@tailwindcss/postcss": "catalog:web",
     "@types/node": "catalog:tooling",
     "@types/react": "catalog:react",

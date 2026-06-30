@@ -1,9 +1,15 @@
 import { Body, Controller, Get, Patch, Post, Req, UseGuards } from '@nestjs/common'
+import {
+  AvatarUploadUrlSchema,
+  type AvatarUploadUrlInput,
+  RegisterAvatarSchema,
+  type RegisterAvatarInput,
+  UpdateAdminProfileSchema,
+  type UpdateAdminProfileInput,
+} from '@cocreate/api-contracts/v1/requests/users'
 import { AdminAuthGuard, type AdminRequest } from '../auth/guards/admin-auth.guard'
+import { zodBody } from '../common/zod/zod-validation.pipe'
 import { AdminProfileService } from './admin-profile.service'
-import { UpdateAdminProfileDto } from './dto/update-admin-profile.dto'
-import { AvatarUploadUrlDto } from './dto/avatar-upload-url.dto'
-import { RegisterAvatarDto } from './dto/register-avatar.dto'
 
 @Controller({ path: 'auth/admin', version: '1' })
 export class AdminProfileController {
@@ -23,7 +29,7 @@ export class AdminProfileController {
   @UseGuards(AdminAuthGuard)
   async updateProfile(
     @Req() request: AdminRequest,
-    @Body() body: UpdateAdminProfileDto,
+    @Body(zodBody(UpdateAdminProfileSchema)) body: UpdateAdminProfileInput,
   ) {
     if (!request.adminUser) {
       return { ok: false as const, message: 'Profile requires admin sign-in' }
@@ -36,7 +42,7 @@ export class AdminProfileController {
   @UseGuards(AdminAuthGuard)
   async avatarUploadUrl(
     @Req() request: AdminRequest,
-    @Body() body: AvatarUploadUrlDto,
+    @Body(zodBody(AvatarUploadUrlSchema)) body: AvatarUploadUrlInput,
   ) {
     if (!request.adminUser) {
       return { ok: false as const, message: 'Profile requires admin sign-in' }
@@ -49,7 +55,7 @@ export class AdminProfileController {
   @UseGuards(AdminAuthGuard)
   async registerAvatar(
     @Req() request: AdminRequest,
-    @Body() body: RegisterAvatarDto,
+    @Body(zodBody(RegisterAvatarSchema)) body: RegisterAvatarInput,
   ) {
     if (!request.adminUser) {
       return { ok: false as const, message: 'Profile requires admin sign-in' }

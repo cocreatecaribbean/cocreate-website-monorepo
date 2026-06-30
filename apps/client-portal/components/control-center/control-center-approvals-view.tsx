@@ -1,19 +1,22 @@
 'use client'
 
-import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import MarkApprovalsReadOnView from '@/components/control-center/mark-approvals-read-on-view'
 import RequestMessageThread from '@/components/control-center/request-message-thread'
 import type { ClientApprovalRecordItem, ProjectRequestItem } from '@/lib/projects/api-types'
 import { CONTROL_CENTER_VIEW_QUERY } from '@/lib/control-center/nav'
 import {
-  approveCheckpointMessage,
-  fetchApprovalHistory,
-  fetchOpenApprovals,
-  fetchRequestThread,
-  sendRequestMessage,
-} from '@/lib/projects/fetch-projects-client'
+  useApproveCheckpointMutation,
+  useSendRequestMessageMutation,
+} from '@/lib/api/mutations/approvals'
+import {
+  useApprovalHistoryQuery,
+  useOpenApprovalsQuery,
+} from '@/lib/api/queries/approvals'
+import { useRequestThreadQuery } from '@/lib/api/queries/projects'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/api/query-keys'
 import { bricolage_grot600 } from '@/styles/fonts'
 import { CheckCircle2 } from 'lucide-react'
 
@@ -35,31 +38,24 @@ export default function ControlCenterApprovalsView() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
   const deepLinkRequestId = searchParams.get('requestId')
 
   const [tab, setTab] = useState<'active' | 'history'>('active')
-  const [items, setItems] = useState<ProjectRequestItem[]>([])
-  const [history, setHistory] = useState<ClientApprovalRecordItem[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(deepLinkRequestId)
-  const [selected, setSelected] = useState<ProjectRequestItem | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [threadLoading, setThreadLoading] = useState(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    const [pending, records] = await Promise.all([
-      fetchOpenApprovals(),
-      fetchApprovalHistory(),
-    ])
-    setItems(pending)
-    setHistory(records)
-    setLoading(false)
-    return pending
-  }, [])
+  const { data: items = [], isLoading: loading } = useOpenApprovalsQuery()
+  const { data: history = [] } = useApprovalHistoryQuery()
+  const { data: threadData, isLoading: threadLoading } = useRequestThreadQuery(selectedId)
 
-  useEffect(() => {
-    void load()
-  }, [load])
+  const sendMessage = useSendRequestMessageMutation(selectedId ?? '')
+  const approveCheckpoint = useApproveCheckpointMutation(selectedId ?? '')
+
+  const selected = useMemo(() => {
+    if (!selectedId || !threadData) return null
+    const listItem = items.find((item) => item.id === selectedId)
+    return mergeThreadWithListItem(threadData, listItem)
+  }, [selectedId, threadData, items])
 
   useEffect(() => {
     if (deepLinkRequestId) {
@@ -68,56 +64,10 @@ export default function ControlCenterApprovalsView() {
     }
   }, [deepLinkRequestId])
 
-  useEffect(() => {
-    if (!selectedId) {
-      setSelected(null)
-      setThreadLoading(false)
-      return
-    }
-
-    setThreadLoading(true)
-    let cancelled = false
-
-    void (async () => {
-      const optimistic = items.find((item) => item.id === selectedId)
-      if (optimistic) {
-        setSelected(optimistic)
-      }
-
-      const thread = await fetchRequestThread(selectedId)
-      if (cancelled) return
-      if (thread.ok) {
-        setSelected(mergeThreadWithListItem(thread.data, optimistic))
-      } else if (!optimistic) {
-        setSelected(null)
-      }
-      setThreadLoading(false)
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [selectedId, items])
-
-  const refreshSelectedThreadOnly = useCallback(async () => {
-    if (!selectedId) return
-    const listItem = items.find((item) => item.id === selectedId)
-    const thread = await fetchRequestThread(selectedId)
-    if (thread.ok) {
-      setSelected(mergeThreadWithListItem(thread.data, listItem))
-    }
-  }, [selectedId, items])
-
-  const refreshSelected = async () => {
-    const pending = await load()
+  const invalidateApprovals = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.approvals.all })
     if (selectedId) {
-      const listItem = pending.find((item) => item.id === selectedId)
-      const thread = await fetchRequestThread(selectedId)
-      if (thread.ok) {
-        setSelected(mergeThreadWithListItem(thread.data, listItem))
-      }
-    } else if (pending.length > 0) {
-      setSelectedId(pending[0]!.id)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.requests.detail(selectedId) })
     }
   }
 
@@ -165,7 +115,7 @@ export default function ControlCenterApprovalsView() {
           </section>
         ) : (
           <ul className="portal-glass-card divide-y divide-chambray/6 overflow-hidden">
-            {history.map((record) => (
+            {history.map((record: ClientApprovalRecordItem) => (
               <li key={record.id} className="px-4 py-4">
                 <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>
                   {record.title}
@@ -260,18 +210,17 @@ export default function ControlCenterApprovalsView() {
               <RequestMessageThread
                 request={selected}
                 viewerRole="CLIENT"
-                onThreadUpdate={() => void refreshSelectedThreadOnly()}
+                invalidateQueryKeys={[
+                  queryKeys.requests.detail(selected.id),
+                  queryKeys.approvals.all,
+                ]}
                 onSendMessage={async (body, attachmentIds) => {
-                  const result = await sendRequestMessage(selected.id, body, attachmentIds)
-                  if (result.ok) await refreshSelectedThreadOnly()
+                  const result = await sendMessage.mutateAsync({ body, attachmentIds })
                   return { ok: result.ok, message: result.ok ? undefined : result.message }
                 }}
                 onApproveCheckpoint={async (messageId) => {
-                  const result = await approveCheckpointMessage(selected.id, messageId)
-                  if (result.ok) {
-                    await refreshSelectedThreadOnly()
-                    void load()
-                  }
+                  const result = await approveCheckpoint.mutateAsync(messageId)
+                  if (result.ok) invalidateApprovals()
                   return { ok: result.ok, message: result.ok ? undefined : result.message }
                 }}
               />

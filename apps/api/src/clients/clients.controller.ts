@@ -1,11 +1,18 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
+import {
+  InviteClientSchema,
+  type InviteClientInput,
+  LogoUploadUrlSchema,
+  type LogoUploadUrlInput,
+  UpdateBrand24ProjectSchema,
+  type UpdateBrand24ProjectInput,
+  UpdateSocialListeningSchema,
+  type UpdateSocialListeningInput,
+} from '@cocreate/api-contracts/v1/requests/clients'
 import { AdminAuthGuard } from '../auth/guards/admin-auth.guard'
+import { zodBody } from '../common/zod/zod-validation.pipe'
 import { ClientsService } from './clients.service'
 import { ClientLogoStorageService } from './client-logo-storage.service'
-import { InviteClientDto } from './dto/invite-client.dto'
-import { LogoUploadUrlDto } from './dto/logo-upload-url.dto'
-import { UpdateBrand24ProjectDto } from './dto/update-brand24-project.dto'
-import { UpdateSocialListeningDto } from './dto/update-social-listening.dto'
 
 @Controller({ path: 'admin/clients', version: '1' })
 @UseGuards(AdminAuthGuard)
@@ -16,13 +23,13 @@ export class ClientsController {
   ) {}
 
   @Post('logo/upload-url')
-  logoUploadUrl(@Body() dto: LogoUploadUrlDto) {
-    return this.logoStorage.createUploadUrl(dto)
+  logoUploadUrl(@Body(zodBody(LogoUploadUrlSchema)) body: LogoUploadUrlInput) {
+    return this.logoStorage.createUploadUrl(body)
   }
 
   @Post('invite')
-  invite(@Body() dto: InviteClientDto) {
-    return this.clientsService.inviteClient(dto)
+  invite(@Body(zodBody(InviteClientSchema)) body: InviteClientInput) {
+    return this.clientsService.inviteClient(body)
   }
 
   @Get()
@@ -33,22 +40,22 @@ export class ClientsController {
   @Patch('organizations/:organizationId/social-listening')
   updateSocialListening(
     @Param('organizationId') organizationId: string,
-    @Body() dto: UpdateSocialListeningDto,
+    @Body(zodBody(UpdateSocialListeningSchema)) body: UpdateSocialListeningInput,
   ) {
     return this.clientsService.updateSocialListeningSubscription(
       organizationId,
-      dto.enabled,
+      body.enabled,
     )
   }
 
   @Patch('organizations/:organizationId/brand24-project')
   updateBrand24Project(
     @Param('organizationId') organizationId: string,
-    @Body() dto: UpdateBrand24ProjectDto,
+    @Body(zodBody(UpdateBrand24ProjectSchema)) body: UpdateBrand24ProjectInput,
   ) {
     return this.clientsService.updateBrand24Project(
       organizationId,
-      dto.brand24ProjectId,
+      body.brand24ProjectId,
     )
   }
 

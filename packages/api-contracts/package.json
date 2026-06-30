@@ -2,9 +2,89 @@
   "name": "@cocreate/api-contracts",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./v1/client-portal": "./src/v1/client-portal.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./v1/client-portal": {
+      "types": "./dist/v1/client-portal.d.ts",
+      "require": "./dist/v1/client-portal.js",
+      "import": "./dist/v1/client-portal.js",
+      "default": "./dist/v1/client-portal.js"
+    },
+    "./v1/admin-portal": {
+      "types": "./dist/v1/admin-portal.d.ts",
+      "require": "./dist/v1/admin-portal.js",
+      "import": "./dist/v1/admin-portal.js",
+      "default": "./dist/v1/admin-portal.js"
+    },
+    "./v1/social-listening": {
+      "types": "./dist/v1/social-listening.d.ts",
+      "require": "./dist/v1/social-listening.js",
+      "import": "./dist/v1/social-listening.js",
+      "default": "./dist/v1/social-listening.js"
+    },
+    "./v1/shared/projects": {
+      "types": "./dist/v1/shared/projects.d.ts",
+      "require": "./dist/v1/shared/projects.js",
+      "import": "./dist/v1/shared/projects.js",
+      "default": "./dist/v1/shared/projects.js"
+    },
+    "./v1/requests/newsletter": {
+      "types": "./dist/v1/requests/newsletter.d.ts",
+      "require": "./dist/v1/requests/newsletter.js",
+      "import": "./dist/v1/requests/newsletter.js",
+      "default": "./dist/v1/requests/newsletter.js"
+    },
+    "./v1/requests/projects": {
+      "types": "./dist/v1/requests/projects.d.ts",
+      "require": "./dist/v1/requests/projects.js",
+      "import": "./dist/v1/requests/projects.js",
+      "default": "./dist/v1/requests/projects.js"
+    },
+    "./v1/requests/users": {
+      "types": "./dist/v1/requests/users.d.ts",
+      "require": "./dist/v1/requests/users.js",
+      "import": "./dist/v1/requests/users.js",
+      "default": "./dist/v1/requests/users.js"
+    },
+    "./v1/requests/clients": {
+      "types": "./dist/v1/requests/clients.d.ts",
+      "require": "./dist/v1/requests/clients.js",
+      "import": "./dist/v1/requests/clients.js",
+      "default": "./dist/v1/requests/clients.js"
+    },
+    "./v1/requests/billing": {
+      "types": "./dist/v1/requests/billing.d.ts",
+      "require": "./dist/v1/requests/billing.js",
+      "import": "./dist/v1/requests/billing.js",
+      "default": "./dist/v1/requests/billing.js"
+    },
+    "./v1/requests/social-listening": {
+      "types": "./dist/v1/requests/social-listening.d.ts",
+      "require": "./dist/v1/requests/social-listening.js",
+      "import": "./dist/v1/requests/social-listening.js",
+      "default": "./dist/v1/requests/social-listening.js"
+    },
+    "./v1/requests/social-listening-admin": {
+      "types": "./dist/v1/requests/social-listening-admin.d.ts",
+      "require": "./dist/v1/requests/social-listening-admin.js",
+      "import": "./dist/v1/requests/social-listening-admin.js",
+      "default": "./dist/v1/requests/social-listening-admin.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json -w --preserveWatchOutput",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "catalog:web"
+  },
+  "devDependencies": {
+    "typescript": "catalog:tooling"
   }
 }

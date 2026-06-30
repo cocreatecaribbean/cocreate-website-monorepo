@@ -8,16 +8,20 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common'
+import {
+  CancelSubscriptionClientSchema,
+  type CancelSubscriptionClientInput,
+  SubscribeBillingSchema,
+  type SubscribeBillingInput,
+  ToggleAutoRenewSchema,
+  type ToggleAutoRenewInput,
+} from '@cocreate/api-contracts/v1/requests/billing'
 import { ClientAuthGuard, type ClientPortalRequest } from '../auth/guards/client-auth.guard'
 import { ClientOrgRole, SocialListeningSubscriptionCancelledBy } from '@cocreate/database'
+import { zodBody } from '../common/zod/zod-validation.pipe'
 import { FygaroService } from './fygaro.service'
 import { ResendBillingService } from './resend-billing.service'
 import { SubscriptionService } from './subscription.service'
-import {
-  CancelSubscriptionClientDto,
-  SubscribeDto,
-  ToggleAutoRenewDto,
-} from './dto/client-billing.dto'
 
 @Controller({ path: 'client-portal/social-listening', version: '1' })
 @UseGuards(ClientAuthGuard)
@@ -48,13 +52,16 @@ export class ClientBillingController {
   }
 
   @Post('subscribe')
-  async subscribe(@Req() request: ClientPortalRequest, @Body() dto: SubscribeDto) {
+  async subscribe(
+    @Req() request: ClientPortalRequest,
+    @Body(zodBody(SubscribeBillingSchema)) body: SubscribeBillingInput,
+  ) {
     const client = this.assertOwner(request)
     const organizationId = client.organization!.id
 
     const subscription = await this.subscriptions.createPendingFygaroSubscription({
       organizationId,
-      planId: dto.plan,
+      planId: body.plan,
       createdByUserId: client.id,
     })
 
@@ -67,7 +74,7 @@ export class ClientBillingController {
 
     const checkoutUrl = this.fygaro.buildCheckoutUrlForPlanId({
       subscriptionId: subscription.id,
-      planId: dto.plan,
+      planId: body.plan,
       eventType: 'initial',
     })
 
@@ -115,12 +122,12 @@ export class ClientBillingController {
   @Patch('subscription/auto-renew')
   async toggleAutoRenew(
     @Req() request: ClientPortalRequest,
-    @Body() dto: ToggleAutoRenewDto,
+    @Body(zodBody(ToggleAutoRenewSchema)) body: ToggleAutoRenewInput,
   ) {
     const client = this.assertOwner(request)
     const updated = await this.subscriptions.toggleAutoRenew(
       client.organization!.id,
-      dto.enabled,
+      body.enabled,
       SocialListeningSubscriptionCancelledBy.CLIENT,
     )
     return {
@@ -131,7 +138,7 @@ export class ClientBillingController {
   @Post('subscription/cancel')
   async cancel(
     @Req() request: ClientPortalRequest,
-    @Body() dto: CancelSubscriptionClientDto,
+    @Body(zodBody(CancelSubscriptionClientSchema)) body: CancelSubscriptionClientInput,
   ) {
     const client = this.assertOwner(request)
     const organizationId = client.organization!.id
@@ -139,7 +146,7 @@ export class ClientBillingController {
       organizationId,
       immediate: false,
       cancelledBy: SocialListeningSubscriptionCancelledBy.CLIENT,
-      cancelReason: dto.cancelReason,
+      cancelReason: body.cancelReason,
     })
 
     const ownerEmail = await this.subscriptions.getOwnerEmail(organizationId)

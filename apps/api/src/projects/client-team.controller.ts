@@ -9,14 +9,21 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common'
+import {
+  AddProjectMemberSchema,
+  type AddProjectMemberInput,
+  InviteTeamMemberSchema,
+  type InviteTeamMemberInput,
+  RequestTeamInviteSchema,
+  type RequestTeamInviteInput,
+  UpdateTeamMemberSchema,
+  type UpdateTeamMemberInput,
+} from '@cocreate/api-contracts/v1/requests/projects'
 import { ClientAuthGuard, type ClientPortalRequest } from '../auth/guards/client-auth.guard'
 import { ClientOwnerGuard } from '../auth/guards/client-owner.guard'
 import { ClientTeamHubGuard } from '../auth/guards/client-team-hub.guard'
+import { zodBody } from '../common/zod/zod-validation.pipe'
 import { ClientTeamService } from './client-team.service'
-import { InviteTeamMemberDto } from './dto/invite-team-member.dto'
-import { UpdateTeamMemberDto } from './dto/update-team-member.dto'
-import { AddProjectMemberDto } from './dto/add-project-member.dto'
-import { RequestTeamInviteDto } from './dto/request-team-invite.dto'
 
 @Controller({ path: 'client-portal', version: '1' })
 @UseGuards(ClientAuthGuard)
@@ -39,18 +46,18 @@ export class ClientTeamController {
   @UseGuards(ClientOwnerGuard)
   inviteTeamMember(
     @Req() request: ClientPortalRequest,
-    @Body() dto: InviteTeamMemberDto,
+    @Body(zodBody(InviteTeamMemberSchema)) body: InviteTeamMemberInput,
   ) {
-    return this.team.inviteToOrganizationAsClient(request.clientUser!, dto)
+    return this.team.inviteToOrganizationAsClient(request.clientUser!, body)
   }
 
   @Post('team/invite-requests')
   @UseGuards(ClientTeamHubGuard)
   requestTeamInvite(
     @Req() request: ClientPortalRequest,
-    @Body() dto: RequestTeamInviteDto,
+    @Body(zodBody(RequestTeamInviteSchema)) body: RequestTeamInviteInput,
   ) {
-    return this.team.requestOrgInviteAsProjectManager(request.clientUser!, dto)
+    return this.team.requestOrgInviteAsProjectManager(request.clientUser!, body)
   }
 
   @Patch('team/:userId')
@@ -58,9 +65,9 @@ export class ClientTeamController {
   updateTeamMember(
     @Req() request: ClientPortalRequest,
     @Param('userId') userId: string,
-    @Body() dto: UpdateTeamMemberDto,
+    @Body(zodBody(UpdateTeamMemberSchema)) body: UpdateTeamMemberInput,
   ) {
-    return this.team.updateTeamMemberAsClient(request.clientUser!, userId, dto)
+    return this.team.updateTeamMemberAsClient(request.clientUser!, userId, body)
   }
 
   @Get('projects/:projectId/members')
@@ -75,9 +82,9 @@ export class ClientTeamController {
   addProjectMember(
     @Req() request: ClientPortalRequest,
     @Param('projectId') projectId: string,
-    @Body() dto: AddProjectMemberDto,
+    @Body(zodBody(AddProjectMemberSchema)) body: AddProjectMemberInput,
   ) {
-    return this.team.addProjectMember(request.clientUser!, projectId, dto)
+    return this.team.addProjectMember(request.clientUser!, projectId, body)
   }
 
   @Delete('projects/:projectId/members/:userId')

@@ -1,8 +1,8 @@
 'use client'
 
 import { useMemo } from 'react'
-import SocialListeningPanel from '@client-portal/components/social-listening/social-listening-panel'
-import type { SocialListeningAnalyticsPayload } from '@client-portal/lib/social-listening/api-types'
+import { SocialListeningPanel } from '@cocreate/social-listening/ui'
+import type { SocialListeningAnalyticsPayload } from '@cocreate/api-contracts/v1/social-listening'
 import { createAdminSocialListeningDataSource } from '@/lib/social-listening/admin-data-source'
 
 type SocialListeningAdminAnalyticsViewProps = {

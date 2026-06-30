@@ -11,6 +11,7 @@
     "dev:studio": "doppler run -- turbo dev --filter=@cocreate/studio",
     "build": "turbo build",
     "lint": "turbo lint",
+    "typecheck": "turbo type-check",
     "db:generate": "doppler run -- pnpm --filter @cocreate/database db:generate",
     "db:push": "doppler run -- pnpm --filter @cocreate/database db:push",
     "db:migrate": "doppler run -- pnpm --filter @cocreate/database exec prisma migrate deploy",

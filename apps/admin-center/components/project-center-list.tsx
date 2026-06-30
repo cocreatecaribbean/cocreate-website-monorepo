@@ -1,12 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   adminFetchErrorHint,
   AdminApiFetchError,
-  fetchAdminBff,
 } from '@/lib/admin-api-fetch'
+import { useAdminProjectsQuery } from '@/lib/api/queries/projects'
 import ProjectStatusAttribution from '@/components/project-status-attribution'
 import type { ClientProjectSummary } from '@/lib/projects/types'
 import { bricolage_grot600 } from '@/styles/fonts'
@@ -18,15 +18,18 @@ type ProjectGroup = {
   projects: ClientProjectSummary[]
 }
 
-type ProjectCenterListProps = {
-  refreshToken?: number
-}
-
-export default function ProjectCenterList({ refreshToken = 0 }: ProjectCenterListProps) {
-  const [projects, setProjects] = useState<ClientProjectSummary[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+export default function ProjectCenterList() {
+  const { data: projects = [], isLoading, error: queryError, isError } = useAdminProjectsQuery()
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+
+  const error = isError
+    ? queryError instanceof AdminApiFetchError
+      ? `${queryError.message} — ${adminFetchErrorHint(queryError.code)}`
+      : queryError instanceof Error
+        ? queryError.message
+        : 'Could not load projects.'
+    : null
+
   const groupedProjects = useMemo<ProjectGroup[]>(() => {
     const groups = new Map<string, ProjectGroup>()
 
@@ -62,25 +65,6 @@ export default function ProjectCenterList({ refreshToken = 0 }: ProjectCenterLis
     })
   }
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const data = await fetchAdminBff<ClientProjectSummary[]>('/api/projects')
-        setProjects(data)
-      } catch (err) {
-        const message =
-          err instanceof AdminApiFetchError
-            ? `${err.message} — ${adminFetchErrorHint(err.code)}`
-            : err instanceof Error
-              ? err.message
-              : 'Could not load projects.'
-        setError(message)
-      } finally {
-        setLoading(false)
-      }
-    })()
-  }, [refreshToken])
-
   return (
     <section className="admin-glass-card admin-animate-in overflow-hidden">
       <div className="border-b border-white/50 bg-linear-to-r from-sanmarino/10 via-transparent to-casablanca/10 px-5 py-4 sm:px-6">
@@ -88,7 +72,7 @@ export default function ProjectCenterList({ refreshToken = 0 }: ProjectCenterLis
       </div>
       {error ? (
         <p className="px-6 py-4 text-sm text-red-700">{error}</p>
-      ) : loading ? (
+      ) : isLoading ? (
         <p className="px-6 py-8 text-sm text-app-muted">Loading…</p>
       ) : (
         <ul className="divide-y divide-chambray/6">

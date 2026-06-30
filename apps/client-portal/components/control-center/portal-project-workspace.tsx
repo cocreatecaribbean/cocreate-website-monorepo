@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { LucideIcon } from 'lucide-react'
 import {
   Bell,
@@ -17,12 +18,14 @@ import ProjectCoverEditor from '@/components/project-cover-editor'
 import ProjectStatusAttribution, { ProjectTimeline } from '@/components/project-status-attribution'
 import ProjectTeamAside from '@/components/project-team-aside'
 import type { PortalProjectTabId } from '@/lib/control-center/project-workspace'
-import type { ClientProjectDetail } from '@/lib/projects/api-types'
+import type { ClientProjectDetail, ProjectRequestItem } from '@/lib/projects/api-types'
+import { queryKeys } from '@/lib/api/query-keys'
+import { useRequestThreadQuery } from '@/lib/api/queries/projects'
 import {
-  approveCheckpointMessage,
   createCancellationRequest,
   fetchAttachmentDownloadUrl,
   sendRequestMessage,
+  approveCheckpointMessage,
 } from '@/lib/projects/fetch-projects-client'
 import { useProjectMembers } from '@/lib/team/use-project-members'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
@@ -47,12 +50,34 @@ const TABS: Array<{ id: PortalProjectTabId; label: string; icon: LucideIcon }> =
   { id: 'team', label: 'Team', icon: Users },
 ]
 
+type LazyThreadProps = {
+  request: ProjectRequestItem
+  loadMessages: boolean
+  viewerRole: 'CLIENT'
+  readOnly?: boolean
+  invalidateQueryKeys: import('@tanstack/react-query').QueryKey[]
+  onSendMessage: (
+    body: string,
+    attachmentIds?: string[],
+  ) => Promise<{ ok: boolean; message?: string }>
+  onApproveCheckpoint?: (messageId: string) => Promise<{ ok: boolean; message?: string }>
+}
+
+function LazyRequestMessageThread({
+  request,
+  loadMessages,
+  ...props
+}: LazyThreadProps) {
+  const { data } = useRequestThreadQuery(loadMessages ? request.id : null)
+  const resolved = data ?? request
+  return <RequestMessageThread request={resolved} {...props} />
+}
+
 type PortalProjectWorkspaceProps = {
   project: ClientProjectDetail
   initialTab?: PortalProjectTabId
   onBack: () => void
   onRefresh: () => Promise<void>
-  onRefreshThread: (requestId: string) => Promise<void>
   onTabChange?: (tab: PortalProjectTabId) => void
 }
 
@@ -61,9 +86,9 @@ export default function PortalProjectWorkspace({
   initialTab = 'overview',
   onBack,
   onRefresh,
-  onRefreshThread,
   onTabChange,
 }: PortalProjectWorkspaceProps) {
+  const queryClient = useQueryClient()
   const [tab, setTab] = useState<PortalProjectTabId>(initialTab)
   const [message, setMessage] = useState<string | null>(null)
   const [cancelReason, setCancelReason] = useState('')
@@ -135,18 +160,29 @@ export default function PortalProjectWorkspace({
     await onRefresh()
   }
 
+  const invalidateThread = useCallback(
+    async (requestId: string) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.requests.detail(requestId) })
+      await onRefresh()
+    },
+    [queryClient, onRefresh],
+  )
+
   const threadProps = (req: NonNullable<typeof onboarding>) => ({
     request: req,
     viewerRole: 'CLIENT' as const,
-    onThreadUpdate: () => void onRefreshThread(req.id),
+    invalidateQueryKeys: [
+      queryKeys.requests.detail(req.id),
+      queryKeys.projects.detail(project.id),
+    ],
     onSendMessage: async (body: string, attachmentIds?: string[]) => {
       const result = await sendRequestMessage(req.id, body, attachmentIds)
-      if (result.ok) await onRefreshThread(req.id)
+      if (result.ok) await invalidateThread(req.id)
       return { ok: result.ok, message: result.ok ? undefined : result.message }
     },
     onApproveCheckpoint: async (messageId: string) => {
       const result = await approveCheckpointMessage(req.id, messageId)
-      if (result.ok) await onRefreshThread(req.id)
+      if (result.ok) await invalidateThread(req.id)
       return { ok: result.ok, message: result.ok ? undefined : result.message }
     },
   })
@@ -277,8 +313,9 @@ export default function PortalProjectWorkspace({
                     </p>
                   ) : null}
                   <div className="mt-4">
-                    <RequestMessageThread
+                    <LazyRequestMessageThread
                       {...threadProps(cancellation)}
+                      loadMessages={tab === 'overview'}
                       readOnly={['RESOLVED', 'REJECTED'].includes(cancellation.status)}
                     />
                   </div>
@@ -326,8 +363,9 @@ export default function PortalProjectWorkspace({
                     : 'Discussion before your project is accepted.'}
                 </p>
                 <div className="mt-4">
-                  <RequestMessageThread
+                  <LazyRequestMessageThread
                     {...threadProps(onboarding)}
+                    loadMessages={tab === 'onboarding'}
                     readOnly={onboardingClosed}
                   />
                 </div>
@@ -345,7 +383,10 @@ export default function PortalProjectWorkspace({
                   Updates, progress checks, and replies with CoCreate.
                 </p>
                 <div className="mt-4">
-                  <RequestMessageThread {...threadProps(progress)} />
+                  <LazyRequestMessageThread
+                    {...threadProps(progress)}
+                    loadMessages={tab === 'progress'}
+                  />
                 </div>
               </section>
             ) : (

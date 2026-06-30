@@ -13,7 +13,7 @@ import type { AuthenticatedClient } from '../auth/auth.service'
 import { ClientAccessService } from '../auth/client-access.service'
 import { Brand24Service } from './brand24.service'
 import { parseUtcDateOnly } from './social-listening-dates'
-import type { CreateListeningSetupDto } from './dto/create-listening-setup.dto'
+import type { CreateListeningSetupInput } from '@cocreate/api-contracts/v1/requests/social-listening'
 import { SocialListeningSnapshotService } from './social-listening-snapshot.service'
 import {
   enumerateUtcDatesInclusive,
@@ -124,7 +124,7 @@ export class SocialListeningService {
 
   async createListeningSetupForClient(
     client: AuthenticatedClient,
-    dto: CreateListeningSetupDto,
+    dto: CreateListeningSetupInput,
   ) {
     this.assertSocialListeningUser(client)
     const organizationId = client.organization?.id
@@ -141,7 +141,7 @@ export class SocialListeningService {
 
   async createListeningSetup(params: {
     organizationId: string
-    dto: CreateListeningSetupDto
+    dto: CreateListeningSetupInput
     actor: 'CLIENT' | 'ADMIN'
     userId?: string
   }) {

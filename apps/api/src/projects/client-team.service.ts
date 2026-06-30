@@ -17,11 +17,13 @@ import type { AuthenticatedAdmin, AuthenticatedClient } from '../auth/auth.servi
 import { ClientAccessService } from '../auth/client-access.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { SupabaseAuthService } from '../clients/supabase-auth.service'
-import type { InviteTeamMemberDto } from './dto/invite-team-member.dto'
-import type { UpdateTeamMemberDto } from './dto/update-team-member.dto'
-import type { AddProjectMemberDto } from './dto/add-project-member.dto'
-import type { RequestTeamInviteDto } from './dto/request-team-invite.dto'
-import type { RejectTeamInviteDto } from './dto/reject-team-invite.dto'
+import type {
+  InviteTeamMemberInput,
+  UpdateTeamMemberInput,
+  AddProjectMemberInput,
+  RequestTeamInviteInput,
+  RejectTeamInviteInput,
+} from '@cocreate/api-contracts/v1/requests/projects'
 import { ProjectNotificationsService } from './project-notifications.service'
 import { ProjectStorageService } from './project-storage.service'
 
@@ -304,7 +306,7 @@ export class ClientTeamService {
 
   async inviteToOrganization(
     organizationId: string,
-    dto: InviteTeamMemberDto,
+    dto: InviteTeamMemberInput,
     invitedByUserId: string,
     projectInvite?: { projectTitle: string; organizationName: string },
   ) {
@@ -401,7 +403,7 @@ export class ClientTeamService {
 
   async inviteToOrganizationAsClient(
     client: AuthenticatedClient,
-    dto: InviteTeamMemberDto,
+    dto: InviteTeamMemberInput,
   ) {
     if (!this.clientAccess.canManageOrgTeam(client)) {
       throw new ForbiddenException('Organization owner access required')
@@ -416,7 +418,7 @@ export class ClientTeamService {
   async inviteToOrganizationAsAdmin(
     _admin: AuthenticatedAdmin,
     organizationId: string,
-    dto: InviteTeamMemberDto,
+    dto: InviteTeamMemberInput,
     projectInvite?: { projectTitle: string; organizationName: string },
   ) {
     return this.inviteToOrganization(
@@ -430,7 +432,7 @@ export class ClientTeamService {
   async updateTeamMemberAsClient(
     client: AuthenticatedClient,
     memberUserId: string,
-    dto: UpdateTeamMemberDto,
+    dto: UpdateTeamMemberInput,
   ) {
     if (!this.clientAccess.canManageOrgRoles(client)) {
       throw new ForbiddenException('You cannot manage organization roles')
@@ -462,7 +464,7 @@ export class ClientTeamService {
   async updateTeamMemberAsAdmin(
     organizationId: string,
     memberUserId: string,
-    dto: UpdateTeamMemberDto,
+    dto: UpdateTeamMemberInput,
   ) {
     return this.updateTeamMember(organizationId, memberUserId, dto)
   }
@@ -470,7 +472,7 @@ export class ClientTeamService {
   private async updateTeamMember(
     organizationId: string,
     memberUserId: string,
-    dto: UpdateTeamMemberDto,
+    dto: UpdateTeamMemberInput,
     actorUserId?: string,
   ) {
     const member = await this.prisma.user.findFirst({
@@ -638,7 +640,7 @@ export class ClientTeamService {
   async addProjectMember(
     client: AuthenticatedClient,
     projectId: string,
-    dto: AddProjectMemberDto,
+    dto: AddProjectMemberInput,
   ) {
     await this.clientAccess.assertCanManageProjectMembership(client, projectId)
 
@@ -733,7 +735,7 @@ export class ClientTeamService {
 
   async requestOrgInviteAsProjectManager(
     client: AuthenticatedClient,
-    dto: RequestTeamInviteDto,
+    dto: RequestTeamInviteInput,
   ) {
     if (!this.clientAccess.canRequestOrgInvite(client)) {
       throw new ForbiddenException('Only project managers can request new invites')
@@ -866,7 +868,7 @@ export class ClientTeamService {
     admin: AuthenticatedAdmin,
     organizationId: string,
     requestId: string,
-    dto: RejectTeamInviteDto,
+    dto: RejectTeamInviteInput,
   ) {
     const row = await this.prisma.clientTeamInviteRequest.findFirst({
       where: { id: requestId, organizationId },

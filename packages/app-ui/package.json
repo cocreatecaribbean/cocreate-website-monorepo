@@ -6,6 +6,22 @@
     "./styles.css": "./src/styles.css",
     "./tokens.css": "./src/tokens.css",
     "./components.css": "./src/components.css",
-    "./aliases.css": "./src/aliases.css"
+    "./aliases.css": "./src/aliases.css",
+    "./query-provider": "./src/query-provider.tsx"
+  },
+  "peerDependencies": {
+    "react": "catalog:react",
+    "react-dom": "catalog:react"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "catalog:web",
+    "@tanstack/react-query-devtools": "catalog:web"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:react",
+    "@types/react-dom": "catalog:react",
+    "react": "catalog:react",
+    "react-dom": "catalog:react",
+    "typescript": "catalog:tooling"
   }
 }
