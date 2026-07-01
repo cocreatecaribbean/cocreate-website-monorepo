@@ -210,6 +210,37 @@ export class ProjectsService {
     return project
   }
 
+  private requestListInclude() {
+    return {
+      createdBy: { select: userActorSelect },
+      resolvedBy: { select: userActorSelect },
+      attachments: true,
+    }
+  }
+
+  private pendingCheckpointRequestInclude() {
+    return {
+      ...this.requestListInclude(),
+      messages: {
+        where: {
+          messageKind: ProjectMessageKind.CHECKPOINT,
+          requiresClientApproval: true,
+          supersededAt: null,
+          clientApprovedAt: null,
+        },
+        orderBy: { createdAt: 'desc' as const },
+        take: 1,
+        include: {
+          author: { select: userActorSelect },
+          attachmentLinks: { include: { attachment: true } },
+        },
+      },
+      project: {
+        include: { organization: { select: { id: true, name: true } } },
+      },
+    }
+  }
+
   private requestInclude() {
     return {
       createdBy: { select: userActorSelect },
@@ -664,13 +695,29 @@ export class ProjectsService {
 
   // ─── Client projects ────────────────────────────────────────────────────────
 
-  async listForClient(client: AuthenticatedClient) {
+  async listForClient(
+    client: AuthenticatedClient,
+    options?: { cursor?: string; limit?: number },
+  ) {
+    const limit = Math.min(100, Math.max(1, options?.limit ?? 100))
     const projects = await this.prisma.clientProject.findMany({
       where: this.clientAccess.accessibleProjectsWhere(client),
       orderBy: { updatedAt: 'desc' },
       include: this.projectListInclude(),
+      take: limit + 1,
+      ...(options?.cursor
+        ? {
+            cursor: { id: options.cursor },
+            skip: 1,
+          }
+        : {}),
     })
-    return this.serializeProjectsWithCover(projects)
+    const hasMore = projects.length > limit
+    const page = hasMore ? projects.slice(0, limit) : projects
+    return {
+      projects: this.serializeProjectsForList(page),
+      nextCursor: hasMore ? page[page.length - 1]!.id : null,
+    }
   }
 
   async createForClient(client: AuthenticatedClient, dto: CreateProjectInput) {
@@ -814,14 +861,9 @@ export class ProjectsService {
         },
       },
       orderBy: { updatedAt: 'desc' },
-      include: {
-        ...this.requestInclude(),
-        project: {
-          include: { organization: { select: { id: true, name: true } } },
-        },
-      },
+      include: this.pendingCheckpointRequestInclude(),
     })
-    return requests.map(serializeRequest)
+    return requests.map((r) => serializeRequest(r, { omitStoragePath: true }))
   }
 
   async listApprovalHistoryForClient(client: AuthenticatedClient) {
@@ -1057,27 +1099,9 @@ export class ProjectsService {
     const projects = await this.prisma.clientProject.findMany({
       where: { organizationId },
       orderBy: { updatedAt: 'desc' },
-      include: {
-        organization: { select: { id: true, name: true, slug: true } },
-        createdBy: { select: userActorSelect },
-        approvedBy: { select: userActorSelect },
-        completedBy: { select: userActorSelect },
-        requests: {
-          orderBy: { createdAt: 'desc' },
-          include: this.requestInclude(),
-        },
-        activities: {
-          orderBy: { createdAt: 'desc' },
-          take: 25,
-          include: { actor: { select: userActorSelect } },
-        },
-      },
+      include: this.projectListInclude(),
     })
-    const withInternal = await this.ensureInternalThreadsForProjects(
-      projects,
-      actor.id,
-    )
-    return this.serializeProjectsForList(withInternal)
+    return this.serializeProjectsForList(projects)
   }
 
   async getForAdmin(
@@ -1134,13 +1158,13 @@ export class ProjectsService {
       },
       orderBy: { createdAt: 'desc' },
       include: {
-        ...this.requestInclude(),
+        ...this.requestListInclude(),
         project: {
           include: { organization: { select: { id: true, name: true } } },
         },
       },
     })
-    return requests.map(serializeRequest)
+    return requests.map((r) => serializeRequest(r, { omitStoragePath: true }))
   }
 
   async getRequestThread(
@@ -1152,6 +1176,46 @@ export class ProjectsService {
       ...request,
       project: request.project,
     })
+  }
+
+  async listRequestMessages(
+    actor: AuthenticatedAgencyUser | AuthenticatedClient,
+    requestId: string,
+    options?: { cursor?: string; limit?: number },
+  ) {
+    await this.getRequestForActor(requestId, actor)
+    const limit = Math.min(100, Math.max(1, options?.limit ?? 50))
+    const cursorMessage = options?.cursor
+      ? await this.prisma.projectRequestMessage.findUnique({
+          where: { id: options.cursor },
+          select: { createdAt: true, requestId: true },
+        })
+      : null
+    if (options?.cursor && (!cursorMessage || cursorMessage.requestId !== requestId)) {
+      throw new BadRequestException('Invalid message cursor')
+    }
+
+    const rows = await this.prisma.projectRequestMessage.findMany({
+      where: {
+        requestId,
+        ...(cursorMessage ? { createdAt: { lt: cursorMessage.createdAt } } : {}),
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      include: {
+        author: { select: userActorSelect },
+        attachmentLinks: { include: { attachment: true } },
+      },
+    })
+
+    const hasMore = rows.length > limit
+    const pageRows = hasMore ? rows.slice(0, limit) : rows
+    const messages = [...pageRows].reverse().map(serializeMessage)
+
+    return {
+      messages,
+      nextCursor: hasMore ? pageRows[pageRows.length - 1]!.id : null,
+    }
   }
 
   async listActivityForOrganization(organizationId: string) {

@@ -6,9 +6,9 @@ import {
   fetchClientPortalProfile,
   resolveCanUseSocialListening,
 } from '@/lib/client-session'
-import { fetchSocialListeningAnalytics } from '@/lib/social-listening/fetch-analytics-server'
 import ClientPortalShell from '@/components/client-portal-shell'
 import ClientPortalDashboard from '@/components/client-portal-dashboard'
+import { PortalProfileProvider } from '@/components/portal-profile-provider'
 import { alkatra600, bricolage_grot500 } from '@/styles/fonts'
 
 export default async function ClientPortalHomePage() {
@@ -60,25 +60,23 @@ export default async function ClientPortalHomePage() {
 
   const displayEmail = profile.user.email
   const hasSocialListening = resolveCanUseSocialListening(profile)
-  const socialListeningAnalytics = hasSocialListening
-    ? await fetchSocialListeningAnalytics()
-    : null
 
   return (
-    <ClientPortalShell
-      userEmail={displayEmail}
-      organizationName={profile.organization?.name ?? null}
-      organizationLogoUrl={profile.organization?.logoUrl ?? null}
-      hasSocialListening={hasSocialListening}
-    >
-      <ClientPortalDashboard
+    <PortalProfileProvider profile={profile}>
+      <ClientPortalShell
         userEmail={displayEmail}
         organizationName={profile.organization?.name ?? null}
         organizationLogoUrl={profile.organization?.logoUrl ?? null}
         hasSocialListening={hasSocialListening}
-        isOwner={profile.user.clientOrgRole === 'OWNER'}
-        socialListeningAnalytics={socialListeningAnalytics}
-      />
-    </ClientPortalShell>
+      >
+        <ClientPortalDashboard
+          userEmail={displayEmail}
+          organizationName={profile.organization?.name ?? null}
+          organizationLogoUrl={profile.organization?.logoUrl ?? null}
+          hasSocialListening={hasSocialListening}
+          isOwner={profile.user.clientOrgRole === 'OWNER'}
+        />
+      </ClientPortalShell>
+    </PortalProfileProvider>
   )
 }

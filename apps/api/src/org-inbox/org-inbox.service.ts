@@ -418,25 +418,31 @@ export class OrgInboxService {
       },
       select: { id: true },
     })
+    if (conversations.length === 0) return { unreadCount: 0 }
 
-    let unreadCount = 0
-    for (const conversation of conversations) {
-      const cursor = await this.prisma.orgInboxReadCursor.findUnique({
-        where: {
-          conversationId_userId: {
-            conversationId: conversation.id,
-            userId: client.id,
-          },
-        },
-      })
-      unreadCount += await this.prisma.orgInboxMessage.count({
-        where: {
-          conversationId: conversation.id,
+    const conversationIds = conversations.map((c) => c.id)
+    const cursors = await this.prisma.orgInboxReadCursor.findMany({
+      where: {
+        userId: client.id,
+        conversationId: { in: conversationIds },
+      },
+      select: { conversationId: true, lastReadAt: true },
+    })
+    const cursorByConversation = new Map(
+      cursors.map((c) => [c.conversationId, c.lastReadAt]),
+    )
+
+    const unreadCount = await this.prisma.orgInboxMessage.count({
+      where: {
+        OR: conversationIds.map((conversationId) => ({
+          conversationId,
           authorUserId: { not: client.id },
-          ...(cursor ? { createdAt: { gt: cursor.lastReadAt } } : {}),
-        },
-      })
-    }
+          ...(cursorByConversation.has(conversationId)
+            ? { createdAt: { gt: cursorByConversation.get(conversationId)! } }
+            : {}),
+        })),
+      },
+    })
 
     return { unreadCount }
   }
@@ -445,25 +451,31 @@ export class OrgInboxService {
     const conversations = await this.prisma.orgInboxConversation.findMany({
       select: { id: true },
     })
+    if (conversations.length === 0) return { unreadCount: 0 }
 
-    let unreadCount = 0
-    for (const conversation of conversations) {
-      const cursor = await this.prisma.orgInboxReadCursor.findUnique({
-        where: {
-          conversationId_userId: {
-            conversationId: conversation.id,
-            userId: adminId,
-          },
-        },
-      })
-      unreadCount += await this.prisma.orgInboxMessage.count({
-        where: {
-          conversationId: conversation.id,
+    const conversationIds = conversations.map((c) => c.id)
+    const cursors = await this.prisma.orgInboxReadCursor.findMany({
+      where: {
+        userId: adminId,
+        conversationId: { in: conversationIds },
+      },
+      select: { conversationId: true, lastReadAt: true },
+    })
+    const cursorByConversation = new Map(
+      cursors.map((c) => [c.conversationId, c.lastReadAt]),
+    )
+
+    const unreadCount = await this.prisma.orgInboxMessage.count({
+      where: {
+        OR: conversationIds.map((conversationId) => ({
+          conversationId,
           authorRole: OrgInboxAuthorRole.CLIENT,
-          ...(cursor ? { createdAt: { gt: cursor.lastReadAt } } : {}),
-        },
-      })
-    }
+          ...(cursorByConversation.has(conversationId)
+            ? { createdAt: { gt: cursorByConversation.get(conversationId)! } }
+            : {}),
+        })),
+      },
+    })
 
     return { unreadCount }
   }

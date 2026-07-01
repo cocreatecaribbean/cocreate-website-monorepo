@@ -29,21 +29,21 @@ export function useClientProjectsQuery(organizationId: string) {
   })
 }
 
-export function useClientInboxQuery(organizationId: string) {
+export function useClientInboxQuery(organizationId: string, enabled = true) {
   return useQuery({
     queryKey: adminQueryKeys.inbox.list(organizationId),
     queryFn: () =>
       fetchAdminBff<ProjectRequestItem[]>(`/api/clients/${organizationId}/inbox`),
-    enabled: Boolean(organizationId),
+    enabled: Boolean(organizationId) && enabled,
   })
 }
 
-export function useClientActivityQuery(organizationId: string) {
+export function useClientActivityQuery(organizationId: string, enabled = true) {
   return useQuery({
     queryKey: adminQueryKeys.clients.activity(organizationId),
     queryFn: () =>
       fetchAdminBff<ProjectActivityItem[]>(`/api/clients/${organizationId}/activity`),
-    enabled: Boolean(organizationId),
+    enabled: Boolean(organizationId) && enabled,
   })
 }
 
@@ -60,9 +60,11 @@ export function useInboxUnreadCountQuery(
 }
 
 export function useClientDetailQuery(organizationId: string) {
-  const clientsQuery = useClientsQuery()
-  return {
-    ...clientsQuery,
-    data: clientsQuery.data?.find((c) => c.id === organizationId) ?? null,
-  }
+  return useQuery({
+    queryKey: adminQueryKeys.clients.detail(organizationId),
+    queryFn: () =>
+      fetchAdminBff<ClientOrganizationRosterItem>(`/api/clients/${organizationId}`),
+    enabled: Boolean(organizationId),
+    staleTime: 5 * 60 * 1000,
+  })
 }

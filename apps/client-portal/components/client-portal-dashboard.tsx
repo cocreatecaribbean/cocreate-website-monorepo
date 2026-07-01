@@ -8,6 +8,7 @@ import SocialListeningPanel from '@/components/social-listening/social-listening
 import PortalSettingsPanel from '@/components/portal-settings-panel'
 import SocialListeningBillingPanel from '@/components/social-listening/social-listening-billing-panel'
 import type { SocialListeningAnalyticsPayload } from '@/lib/social-listening/api-types'
+import { fetchSocialListeningAnalyticsWithStatus } from '@/lib/social-listening/fetch-analytics-client'
 import { alkatra600, bricolage_grot500, bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import { SOCIAL_LISTENING_PLANS } from '@cocreate/social-listening-plans'
 import { subscribeToPlan } from '@/lib/social-listening/fetch-billing-client'
@@ -38,7 +39,6 @@ type ClientPortalDashboardProps = {
   organizationLogoUrl?: string | null
   hasSocialListening: boolean
   isOwner: boolean
-  socialListeningAnalytics: SocialListeningAnalyticsPayload | null
 }
 
 export default function ClientPortalDashboard(props: ClientPortalDashboardProps) {
@@ -61,7 +61,6 @@ function ClientPortalDashboardContent({
   organizationLogoUrl,
   hasSocialListening,
   isOwner,
-  socialListeningAnalytics,
 }: ClientPortalDashboardProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -71,6 +70,28 @@ function ClientPortalDashboardContent({
     searchParams.get('ccView'),
   )
   const [billingNotice, setBillingNotice] = useState<string | null>(null)
+  const [socialListeningAnalytics, setSocialListeningAnalytics] =
+    useState<SocialListeningAnalyticsPayload | null>(null)
+  const [socialListeningLoading, setSocialListeningLoading] = useState(false)
+
+  useEffect(() => {
+    if (activeTab !== 'social-listening' || !hasSocialListening || socialListeningAnalytics) {
+      return
+    }
+    let cancelled = false
+    setSocialListeningLoading(true)
+    void fetchSocialListeningAnalyticsWithStatus()
+      .then((result) => {
+        if (cancelled || result.status !== 'ok') return
+        setSocialListeningAnalytics(result.payload)
+      })
+      .finally(() => {
+        if (!cancelled) setSocialListeningLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, hasSocialListening, socialListeningAnalytics])
 
   useEffect(() => {
     const billing = searchParams.get('billing')
@@ -184,6 +205,8 @@ function ClientPortalDashboardContent({
         <div className="mt-6" role="tabpanel">
           {activeTab === 'control-center' ? (
             <ControlCenterPanel organizationName={organizationName} />
+          ) : hasSocialListening && socialListeningLoading ? (
+            <p className="text-sm text-app-muted">Loading analytics…</p>
           ) : hasSocialListening && socialListeningAnalytics ? (
             <>
               {billingNotice ? (

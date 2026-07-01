@@ -71,8 +71,9 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
 
   const clientQuery = useClientDetailQuery(organizationId)
   const projectsQuery = useClientProjectsQuery(organizationId)
-  const inboxQuery = useClientInboxQuery(organizationId)
-  const activityQuery = useClientActivityQuery(organizationId)
+  const needsInboxData = tab === 'inbox' || tab === 'overview'
+  const inboxQuery = useClientInboxQuery(organizationId, needsInboxData)
+  const activityQuery = useClientActivityQuery(organizationId, tab === 'activity')
   const unreadQuery = useInboxUnreadCountQuery(organizationId, canTrackUnread)
   const markInboxReadMutation = useMarkInboxReadMutation(organizationId)
   const approveProjectMutation = useApproveClientProjectMutation(organizationId)
@@ -85,14 +86,17 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const loading =
     clientQuery.isLoading ||
     projectsQuery.isLoading ||
-    inboxQuery.isLoading ||
-    activityQuery.isLoading
+    (needsInboxData && inboxQuery.isLoading) ||
+    (tab === 'activity' && activityQuery.isLoading)
+  const tabContentLoading =
+    (tab === 'inbox' && inboxQuery.isLoading) ||
+    (tab === 'activity' && activityQuery.isLoading)
 
   const queryError =
     clientQuery.error ??
     projectsQuery.error ??
-    inboxQuery.error ??
-    activityQuery.error
+    (needsInboxData ? inboxQuery.error : null) ??
+    (tab === 'activity' ? activityQuery.error : null)
   const loadError = queryError
     ? queryError instanceof AdminApiFetchError
       ? `${queryError.message} — ${adminFetchErrorHint(queryError.code)}`
@@ -102,6 +106,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
     : null
 
   const [tab, setTab] = useState<TabId>(initialTab)
+  const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null)
   const messagesThreadOpen =
     tab === 'messages' && Boolean(searchParams.get('conversationId'))
   const [error, setError] = useState<string | null>(null)
@@ -112,6 +117,17 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
   const deepLinkAppliedRef = useRef(false)
   const tabBtnRefs = useRef<Partial<Record<TabId, HTMLButtonElement | null>>>({})
+
+  useEffect(() => {
+    if (tab !== 'inbox') return
+    if (inbox.length === 0) {
+      setSelectedInboxId(null)
+      return
+    }
+    if (!selectedInboxId || !inbox.some((item) => item.id === selectedInboxId)) {
+      setSelectedInboxId(inbox[0]!.id)
+    }
+  }, [tab, inbox, selectedInboxId])
 
   useEffect(() => {
     tabBtnRefs.current[tab]?.scrollIntoView({
@@ -400,7 +416,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         {success ? (
           <AdminToast message={success} variant="success" onDismiss={() => setSuccess(null)} />
         ) : null}
-        {loading ? (
+        {loading && tabContentLoading ? (
           <p className="text-sm text-app-muted">Loading workspace…</p>
         ) : tab === 'overview' ? (
           <div className="space-y-6">
@@ -538,56 +554,86 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
             </div>
           </Suspense>
         ) : tab === 'inbox' ? (
-          <div className="space-y-4">
-            {inbox.length === 0 ? (
-              <p className="text-sm text-app-muted">Inbox is clear.</p>
-            ) : (
-              inbox.map((item) => (
-                <section key={item.id} className="admin-glass-card p-5">
-                  <p className="text-xs font-semibold tracking-wide text-sanmarino uppercase">
-                    {requestTypeLabel[item.type] ?? item.type}
-                  </p>
-                  <p className={`mt-1 text-chambray ${bricolage_grot600.className}`}>{item.title}</p>
-                  <p className="text-sm text-app-muted">{item.projectTitle}</p>
-                  <div className="mt-4">
-                    {canTrackUnread ? (
-                      <MarkInboxReadOnView
-                        organizationId={organizationId}
-                        requestId={item.id}
-                        enabled
-                        onMarked={() => {
-                          void unreadQuery.refetch()
-                        }}
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,280px)_1fr]">
+            <ul className="admin-glass-card divide-y divide-chambray/6 overflow-hidden">
+              {inbox.length === 0 ? (
+                <li className="px-5 py-8 text-sm text-app-muted">Inbox is clear.</li>
+              ) : (
+                inbox.map((item) => {
+                  const selected = item.id === selectedInboxId
+                  return (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedInboxId(item.id)}
+                        className={`w-full px-5 py-4 text-left transition ${
+                          selected ? 'bg-chambray/8' : 'hover:bg-chambray/5'
+                        }`}
+                      >
+                        <p className="text-xs font-semibold tracking-wide text-sanmarino uppercase">
+                          {requestTypeLabel[item.type] ?? item.type}
+                        </p>
+                        <p className={`mt-1 text-sm text-chambray ${bricolage_grot600.className}`}>
+                          {item.title}
+                        </p>
+                        <p className="text-xs text-app-muted">{item.projectTitle}</p>
+                      </button>
+                    </li>
+                  )
+                })
+              )}
+            </ul>
+            {selectedInboxId ? (
+              (() => {
+                const item = inbox.find((entry) => entry.id === selectedInboxId)
+                if (!item) return null
+                return (
+                  <section className="admin-glass-card p-5">
+                    <p className="text-xs font-semibold tracking-wide text-sanmarino uppercase">
+                      {requestTypeLabel[item.type] ?? item.type}
+                    </p>
+                    <p className={`mt-1 text-chambray ${bricolage_grot600.className}`}>{item.title}</p>
+                    <p className="text-sm text-app-muted">{item.projectTitle}</p>
+                    <div className="mt-4">
+                      {canTrackUnread ? (
+                        <MarkInboxReadOnView
+                          organizationId={organizationId}
+                          requestId={item.id}
+                          enabled
+                          onMarked={() => {
+                            void unreadQuery.refetch()
+                          }}
+                        />
+                      ) : null}
+                      <RequestMessageThread
+                        request={item}
+                        viewerRole="ADMIN"
+                        currentUserId={currentUserId}
+                        showResolveActions={item.type !== 'CANCELLATION'}
+                        invalidateQueryKeys={[adminQueryKeys.requests.detail(item.id)]}
+                        onSendMessage={(body, attachmentIds) =>
+                          sendAdminMessage(item.id, body, attachmentIds)
+                        }
+                        onThreadUpdate={() => void refreshThread(item.id)}
+                        onResolve={
+                          item.type !== 'CANCELLATION'
+                            ? async (status) => {
+                                await resolveRequest(item.id, status)
+                              }
+                            : undefined
+                        }
                       />
-                    ) : null}
-                    <RequestMessageThread
-                      request={item}
-                      viewerRole="ADMIN"
-                      currentUserId={currentUserId}
-                      showResolveActions={item.type !== 'CANCELLATION'}
-                      invalidateQueryKeys={[adminQueryKeys.requests.detail(item.id)]}
-                      onSendMessage={(body, attachmentIds) =>
-                        sendAdminMessage(item.id, body, attachmentIds)
-                      }
-                      onThreadUpdate={() => void refreshThread(item.id)}
-                      onResolve={
-                        item.type !== 'CANCELLATION'
-                          ? async (status) => {
-                              await resolveRequest(item.id, status)
-                            }
-                          : undefined
-                      }
-                    />
-                    {item.type === 'CANCELLATION' &&
-                    !['RESOLVED', 'REJECTED'].includes(item.status) ? (
-                      <CancellationResolveForm
-                        onResolve={(payload) => resolveCancellation(item.id, payload)}
-                      />
-                    ) : null}
-                  </div>
-                </section>
-              ))
-            )}
+                      {item.type === 'CANCELLATION' &&
+                      !['RESOLVED', 'REJECTED'].includes(item.status) ? (
+                        <CancellationResolveForm
+                          onResolve={(payload) => resolveCancellation(item.id, payload)}
+                        />
+                      ) : null}
+                    </div>
+                  </section>
+                )
+              })()
+            ) : null}
           </div>
         ) : (
           <ul className="admin-glass-card divide-y divide-chambray/6 overflow-hidden">

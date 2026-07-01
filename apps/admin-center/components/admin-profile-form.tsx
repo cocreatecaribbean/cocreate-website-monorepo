@@ -1,11 +1,13 @@
 'use client'
 
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { UserCircle } from 'lucide-react'
 import AdminToast from '@/components/admin-toast'
+import AvatarCropModal from '@/components/avatar-crop-modal'
 import { useAdminSession } from '@/components/admin-session-provider'
 import {
+  resolveAvatarMimeType,
   useUpdateAdminAvatarMutation,
   useUpdateAdminProfileMutation,
 } from '@/lib/api/mutations/profile'
@@ -13,9 +15,13 @@ import { useAdminProfileQuery, useProfileOptionsQuery } from '@/lib/api/queries/
 import { isSuperAdminSession } from '@/lib/admin-session'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 
+const AVATAR_ACCEPT = 'image/jpeg,image/png,image/webp'
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024
+
 export default function AdminProfileForm() {
   const { session } = useAdminSession()
   const isSuperAdmin = isSuperAdminSession(session?.role ?? null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const profileQuery = useAdminProfileQuery()
   const optionsQuery = useProfileOptionsQuery()
@@ -28,7 +34,10 @@ export default function AdminProfileForm() {
   const [displayName, setDisplayName] = useState('')
   const [selectedJobTitleIds, setSelectedJobTitleIds] = useState<string[]>([])
   const [toast, setToast] = useState<string | null>(null)
+  const [toastVariant, setToastVariant] = useState<'success' | 'error'>('success')
   const [initialized, setInitialized] = useState(false)
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null)
+  const [cropModalOpen, setCropModalOpen] = useState(false)
 
   useEffect(() => {
     if (!profile || initialized) return
@@ -39,9 +48,32 @@ export default function AdminProfileForm() {
 
   useEffect(() => {
     if (profileQuery.isError || optionsQuery.isError) {
+      setToastVariant('error')
       setToast('Could not load profile')
     }
   }, [profileQuery.isError, optionsQuery.isError])
+
+  useEffect(() => {
+    return () => {
+      if (cropImageSrc) URL.revokeObjectURL(cropImageSrc)
+    }
+  }, [cropImageSrc])
+
+  const showToast = (message: string, variant: 'success' | 'error') => {
+    setToastVariant(variant)
+    setToast(message)
+  }
+
+  const closeCropModal = () => {
+    setCropModalOpen(false)
+    if (cropImageSrc) {
+      URL.revokeObjectURL(cropImageSrc)
+      setCropImageSrc(null)
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
 
   const toggleJobTitle = (id: string) => {
     setSelectedJobTitleIds((current) =>
@@ -59,23 +91,53 @@ export default function AdminProfileForm() {
       })
       if (data.profile) {
         setSelectedJobTitleIds(data.profile.jobTitleOptionIds ?? [])
-        setToast('Profile saved')
+        showToast('Profile saved', 'success')
       }
     } catch {
-      setToast('Could not save profile')
+      showToast('Could not save profile', 'error')
     }
   }
 
-  const onAvatarChange = async (file: File | null) => {
+  const onAvatarFileSelected = (file: File | null) => {
     if (!file) return
     setToast(null)
+
+    if (file.size > MAX_AVATAR_BYTES) {
+      showToast('Image must be 5 MB or smaller', 'error')
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+
+    try {
+      resolveAvatarMimeType(file.name, file.type)
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Avatar must be a JPEG, PNG, or WebP image',
+        'error',
+      )
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+
+    if (cropImageSrc) URL.revokeObjectURL(cropImageSrc)
+    const objectUrl = URL.createObjectURL(file)
+    setCropImageSrc(objectUrl)
+    setCropModalOpen(true)
+  }
+
+  const onAvatarCropped = async (blob: Blob) => {
+    const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' })
     try {
       const reg = await updateAvatarMutation.mutateAsync(file)
       if (reg.profile) {
-        setToast('Photo updated')
+        showToast('Photo updated', 'success')
       }
-    } catch {
-      setToast('Could not upload photo')
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Could not upload photo',
+        'error',
+      )
+      throw err
     }
   }
 
@@ -119,14 +181,15 @@ export default function AdminProfileForm() {
             <label className="admin-btn-ghost cursor-pointer text-sm">
               {uploading ? 'Uploading…' : 'Upload image'}
               <input
+                ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept={AVATAR_ACCEPT}
                 className="sr-only"
-                disabled={uploading}
-                onChange={(e) => void onAvatarChange(e.target.files?.[0] ?? null)}
+                disabled={uploading || cropModalOpen}
+                onChange={(e) => onAvatarFileSelected(e.target.files?.[0] ?? null)}
               />
             </label>
-            <p className="text-xs text-app-muted">JPG or PNG, max 5 MB</p>
+            <p className="text-xs text-app-muted">JPG, PNG, or WebP, max 5 MB</p>
           </div>
         </div>
 
@@ -191,8 +254,19 @@ export default function AdminProfileForm() {
         </button>
       </form>
 
+      <AvatarCropModal
+        open={cropModalOpen}
+        imageSrc={cropImageSrc}
+        onClose={closeCropModal}
+        onConfirm={onAvatarCropped}
+      />
+
       {toast ? (
-        <AdminToast message={toast} variant="success" onDismiss={() => setToast(null)} />
+        <AdminToast
+          message={toast}
+          variant={toastVariant}
+          onDismiss={() => setToast(null)}
+        />
       ) : null}
     </div>
   )

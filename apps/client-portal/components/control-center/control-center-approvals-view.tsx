@@ -47,7 +47,7 @@ export default function ControlCenterApprovalsView() {
   const [selectedId, setSelectedId] = useState<string | null>(deepLinkRequestId)
 
   const { data: items = [], isLoading: loading } = useOpenApprovalsQuery()
-  const { data: history = [] } = useApprovalHistoryQuery()
+  const { data: history = [] } = useApprovalHistoryQuery({ enabled: tab === 'history' })
   const { data: threadData, isLoading: threadLoading } = useRequestThreadQuery(selectedId)
 
   const sendMessage = useSendRequestMessageMutation(selectedId ?? '')

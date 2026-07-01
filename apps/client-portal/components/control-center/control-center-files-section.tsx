@@ -1,11 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useRef, useState } from 'react'
 import FilePreviewModal from '@/components/file-preview-modal'
 import type { ClientFilesLibrary, ProjectAttachmentWithUsage } from '@/lib/projects/api-types'
 import { useUploadProjectFilesMutation } from '@/lib/api/mutations/files'
 import { useFilesLibraryQuery } from '@/lib/api/queries/files'
-import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-projects-client'
+import { useAttachmentDownloadUrl } from '@/lib/api/queries/projects'
 import { bricolage_grot600 } from '@/styles/fonts'
 import { Download, FileText, FolderKanban, Loader2, Search, Upload } from 'lucide-react'
 
@@ -29,33 +29,24 @@ function formatRelativeTime(iso: string) {
 function FileRow({
   file,
   onPreview,
-  fetchDownloadUrl,
   projectTitle,
 }: {
   file: ProjectAttachmentWithUsage
   onPreview: (file: ProjectAttachmentWithUsage, url: string | null) => void
-  fetchDownloadUrl: (attachmentId: string) => Promise<string | null>
   projectTitle?: string
 }) {
-  const [thumbUrl, setThumbUrl] = useState<string | null>(null)
   const isImage = file.mimeType.startsWith('image/')
-
-  useEffect(() => {
-    if (!isImage) return
-    void fetchDownloadUrl(file.id).then(setThumbUrl)
-  }, [fetchDownloadUrl, file.id, isImage])
+  const { data: downloadUrl } = useAttachmentDownloadUrl(file.id)
 
   const openPreview = async () => {
-    const url = thumbUrl ?? (await fetchDownloadUrl(file.id))
-    onPreview(file, url)
+    onPreview(file, downloadUrl ?? null)
   }
 
   const onDownload = async (event: React.MouseEvent) => {
     event.stopPropagation()
-    const url = thumbUrl ?? (await fetchDownloadUrl(file.id))
-    if (!url) return
+    if (!downloadUrl) return
     const anchor = document.createElement('a')
-    anchor.href = url
+    anchor.href = downloadUrl
     anchor.download = file.fileName
     anchor.rel = 'noopener noreferrer'
     anchor.click()
@@ -76,9 +67,9 @@ function FileRow({
         aria-label={`Preview ${file.fileName}`}
       >
         <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-sanmarino/10 text-sanmarino">
-          {isImage && thumbUrl ? (
+          {isImage && downloadUrl ? (
             <img
-              src={thumbUrl}
+              src={downloadUrl}
               alt={file.fileName}
               className="h-full w-full object-cover"
             />
@@ -197,7 +188,6 @@ function ProjectFilesBlock({
                   <FileRow
                     key={file.id}
                     file={file}
-                    fetchDownloadUrl={fetchAttachmentDownloadUrl}
                     onPreview={onPreview}
                   />
                 ))}
@@ -216,7 +206,6 @@ function ProjectFilesBlock({
                   <FileRow
                     key={file.id}
                     file={file}
-                    fetchDownloadUrl={fetchAttachmentDownloadUrl}
                     onPreview={onPreview}
                   />
                 ))}
@@ -231,12 +220,13 @@ function ProjectFilesBlock({
 
 export default function ControlCenterFilesSection() {
   const [query, setQuery] = useState('')
+  const deferredSearch = useDeferredValue(query.trim())
   const [projectId, setProjectId] = useState('')
   const [preview, setPreview] = useState<{
     file: ProjectAttachmentWithUsage
     url: string | null
   } | null>(null)
-  const search = query.trim()
+  const search = deferredSearch
 
   const {
     data: library = { projects: [], files: [], nextCursor: null },

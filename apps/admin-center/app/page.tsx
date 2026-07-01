@@ -11,6 +11,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import AdminPageHeader from '@/components/admin-page-header'
 import AdminRecentUpdates from '@/components/admin-recent-updates'
+import { AdminHomeHydrator } from '@/components/admin-home-hydrator'
 import { fetchAdminRecentActivity } from '@/lib/dashboard/fetch-dashboard-activity'
 import {
   buildAdminDashboardKpis,
@@ -56,6 +57,7 @@ export default async function AdminHomePage() {
   const stats = buildAdminDashboardKpis(dashboardStats)
 
   return (
+    <AdminHomeHydrator stats={dashboardStats} activity={recentActivity}>
     <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.03]">
         <Image
@@ -204,5 +206,6 @@ export default async function AdminHomePage() {
         </section>
       </div>
     </main>
+    </AdminHomeHydrator>
   )
 }

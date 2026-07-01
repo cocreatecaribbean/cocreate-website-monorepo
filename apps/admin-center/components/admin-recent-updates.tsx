@@ -13,7 +13,7 @@ export default function AdminRecentUpdates({ items }: AdminRecentUpdatesProps) {
   }
 
   return (
-    <div className="mt-5 min-h-0 max-h-80 flex-1 overflow-y-auto overscroll-y-contain pr-0.5 lg:max-h-none">
+    <div className="mt-5 min-h-0 max-h-80 overflow-y-auto overscroll-y-contain pr-0.5">
       <ul className="divide-y divide-chambray/6">
       {items.map((item) => {
         const detail = [item.organizationName, item.projectTitle].filter(Boolean).join(' · ')

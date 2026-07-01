@@ -72,11 +72,26 @@ async function portalFetch<T>(
   return { ok: true, data: data as T }
 }
 
-export async function fetchProjects(): Promise<ClientProjectSummary[]> {
-  const result = await portalFetch<unknown>('/client-portal/projects')
-  if (!result.ok) return []
-  const parsed = parseApiResponseSafe(z.array(ClientProjectSummarySchema), result.data)
-  return parsed ?? []
+export async function fetchProjects(options?: {
+  cursor?: string
+  limit?: number
+}): Promise<{ projects: ClientProjectSummary[]; nextCursor: string | null }> {
+  const params = new URLSearchParams()
+  if (options?.cursor) params.set('cursor', options.cursor)
+  if (options?.limit) params.set('limit', String(options.limit))
+  const query = params.toString()
+  const result = await portalFetch<unknown>(
+    `/client-portal/projects${query ? `?${query}` : ''}`,
+  )
+  if (!result.ok) return { projects: [], nextCursor: null }
+  const paginatedSchema = z.object({
+    projects: z.array(ClientProjectSummarySchema),
+    nextCursor: z.string().nullable(),
+  })
+  const parsedPaginated = parseApiResponseSafe(paginatedSchema, result.data)
+  if (parsedPaginated) return parsedPaginated
+  const parsedArray = parseApiResponseSafe(z.array(ClientProjectSummarySchema), result.data)
+  return { projects: parsedArray ?? [], nextCursor: null }
 }
 
 export async function fetchDashboardStats(): Promise<ClientDashboardStats | null> {

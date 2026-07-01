@@ -112,16 +112,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  if (accessToken) {
-    const access = await verifyClientAccess(accessToken)
-    if (access === 'unauthorized') {
-      return signOutRedirect(request, response, 'session_expired')
-    }
-    if (access === 'forbidden') {
-      return signOutRedirect(request, response, 'client_required')
-    }
-  }
-
   return response
 }
 

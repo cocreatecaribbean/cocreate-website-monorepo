@@ -374,6 +374,8 @@ model ProjectActivity {
   createdAt    DateTime      @default(now())
 
   @@index([projectId, createdAt])
+  @@index([action, createdAt])
+  @@index([projectId, action, createdAt])
 }
 
 /// In-portal notification for a specific user

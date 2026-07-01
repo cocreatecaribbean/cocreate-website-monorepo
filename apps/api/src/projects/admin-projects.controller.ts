@@ -206,6 +206,20 @@ export class AdminProjectsController {
     return this.projects.authorizeThreadRealtime(this.actor(req), requestId)
   }
 
+  @Get('project-requests/:requestId/messages')
+  listMessages(
+    @Req() req: AdminRequest,
+    @Param('requestId') requestId: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined
+    return this.projects.listRequestMessages(this.actor(req), requestId, {
+      cursor: cursor?.trim() || undefined,
+      limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+    })
+  }
+
   @Post('project-requests/:requestId/messages')
   addMessage(
     @Req() req: AdminRequest,

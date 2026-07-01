@@ -37,6 +37,11 @@ export class ClientsController {
     return this.clientsService.listClientRoster()
   }
 
+  @Get(':organizationId')
+  getOne(@Param('organizationId') organizationId: string) {
+    return this.clientsService.getClientRosterItem(organizationId)
+  }
+
   @Patch('organizations/:organizationId/social-listening')
   updateSocialListening(
     @Param('organizationId') organizationId: string,

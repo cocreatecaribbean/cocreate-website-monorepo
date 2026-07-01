@@ -200,6 +200,24 @@ export class ClientsService {
     return organizations.map((org) => this.mapOrganizationRoster(org))
   }
 
+  async getClientRosterItem(
+    organizationId: string,
+  ): Promise<ClientOrganizationRosterItem> {
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      include: {
+        users: {
+          where: { role: UserRole.CLIENT },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    })
+    if (!organization) {
+      throw new NotFoundException('Organization not found')
+    }
+    return this.mapOrganizationRoster(organization)
+  }
+
   async updateSocialListeningSubscription(
     organizationId: string,
     enabled: boolean,

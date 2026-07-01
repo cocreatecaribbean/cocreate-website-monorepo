@@ -68,9 +68,12 @@ export default function AdminOrgInboxThreadView({
 
   useEffect(() => {
     void markAdminOrgInboxRead(conversationId).then(() => {
-      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.orgInbox.all })
+      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.orgInbox.unreadCount() })
+      void queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.orgInbox.orgConversations(organizationId),
+      })
     })
-  }, [conversationId, queryClient])
+  }, [conversationId, organizationId, queryClient])
 
   const messages = messagesQuery.data ?? []
   const { panelRef, scrollToBottom } = useThreadAutoScroll(messages, conversationId)

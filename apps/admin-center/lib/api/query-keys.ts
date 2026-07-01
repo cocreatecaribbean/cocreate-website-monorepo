@@ -13,6 +13,8 @@ export const adminQueryKeys = {
   dashboard: {
     all: ['admin', 'dashboard'] as const,
     stats: () => [...adminQueryKeys.dashboard.all, 'stats'] as const,
+    activity: (limit = 15) =>
+      [...adminQueryKeys.dashboard.all, 'activity', limit] as const,
   },
   notifications: {
     all: ['admin', 'notifications'] as const,

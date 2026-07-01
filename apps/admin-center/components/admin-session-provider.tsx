@@ -16,6 +16,11 @@ import {
   fetchAdminBff,
 } from '@/lib/admin-api-fetch'
 import type { AdminPortalRole } from '@/lib/admin-session'
+import {
+  clearAdminSessionCache,
+  readAdminSessionCache,
+  writeAdminSessionCache,
+} from '@/lib/admin-session-cache'
 
 type AdminSession = {
   mode: 'user' | 'api_key'
@@ -53,8 +58,10 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [hint, setHint] = useState<string | null>(null)
 
-  const refresh = useCallback(async () => {
-    setLoading(true)
+  const refresh = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true)
+    }
     setError(null)
     setHint(null)
 
@@ -75,20 +82,30 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
       }>('/api/session')
 
       if (data.mode === 'api_key') {
-        setSession({ mode: 'api_key', userId: null, email: null, status: null, role: null })
+        const apiKeySession = {
+          mode: 'api_key' as const,
+          userId: null,
+          email: null,
+          status: null,
+          role: null,
+        }
+        setSession(apiKeySession)
+        writeAdminSessionCache(apiKeySession)
         return
       }
 
       if (data.admin?.email) {
-        setSession({
-          mode: 'user',
+        const nextSession = {
+          mode: 'user' as const,
           userId: data.admin.id,
           email: data.admin.email,
           status: data.admin.status,
-          role: data.admin.role ?? 'ADMIN',
+          role: data.admin.role ?? ('ADMIN' as AdminPortalRole),
           displayName: data.admin.profile?.displayName ?? null,
           profileComplete: data.admin.profile?.profileComplete ?? false,
-        })
+        }
+        setSession(nextSession)
+        writeAdminSessionCache(nextSession)
         return
       }
 
@@ -111,10 +128,18 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const clearQueryCache = useCallback(() => {
+    clearAdminSessionCache()
     queryClient.clear()
   }, [queryClient])
 
   useEffect(() => {
+    const cached = readAdminSessionCache()
+    if (cached) {
+      setSession(cached)
+      setLoading(false)
+      void refresh({ silent: true })
+      return
+    }
     void refresh()
   }, [refresh])
 

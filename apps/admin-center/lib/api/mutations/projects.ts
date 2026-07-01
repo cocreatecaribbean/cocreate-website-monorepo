@@ -61,8 +61,6 @@ export function useSendAdminRequestMessageMutation(requestId: string) {
       }),
     onSuccess: (message) => {
       appendRequestMessageToCache(queryClient, requestId, message)
-      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.projects.all })
-      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.inbox.all })
     },
   })
 }

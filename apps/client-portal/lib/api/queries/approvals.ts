@@ -16,10 +16,11 @@ export function useOpenApprovalsQuery() {
   })
 }
 
-export function useApprovalHistoryQuery() {
+export function useApprovalHistoryQuery(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.approvals.history(),
     queryFn: fetchApprovalHistory,
+    enabled: options?.enabled ?? true,
   })
 }
 

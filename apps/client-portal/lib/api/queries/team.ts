@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { queryKeys } from '@/lib/api/query-keys'
+import { usePortalProfileSeed } from '@/components/portal-profile-provider'
 import {
   fetchOrgTeam,
   fetchPortalProfile,
@@ -11,9 +12,12 @@ import {
 } from '@/lib/team/fetch-team-client'
 
 export function usePortalProfileQuery() {
+  const seed = usePortalProfileSeed()
   return useQuery({
     queryKey: queryKeys.profile.portal(),
     queryFn: fetchPortalProfile,
+    initialData: seed ?? undefined,
+    staleTime: 5 * 60 * 1000,
   })
 }
 

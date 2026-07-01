@@ -12,10 +12,15 @@ const BUCKET = 'admin-avatars'
 const UPLOAD_TTL_SEC = 3600
 const DOWNLOAD_TTL_SEC = 86400
 
+const ALLOWED_AVATAR_MIME = ['image/jpeg', 'image/png', 'image/webp'] as const
+
+const BUCKET_MISSING_MESSAGE = `Avatar storage bucket "${BUCKET}" is missing or misconfigured. Create a private bucket with that exact name in Supabase Storage (see docs/supabase-database-setup.md).`
+
 @Injectable()
 export class ProfileStorageService {
   private readonly logger = new Logger(ProfileStorageService.name)
   private readonly client: SupabaseClient | null
+  private bucketVerified: boolean | null = null
 
   constructor(private readonly config: ConfigService) {
     const url = this.config.get<string>('SUPABASE_URL')
@@ -30,6 +35,65 @@ export class ProfileStorageService {
 
   get isConfigured(): boolean {
     return Boolean(this.client)
+  }
+
+  private isVagueStorageError(message: string): boolean {
+    return /related resource|resource was not found|parent resource/i.test(message)
+  }
+
+  formatStorageError(message: string): string {
+    if (this.isVagueStorageError(message)) {
+      return BUCKET_MISSING_MESSAGE
+    }
+    return message
+  }
+
+  private resolveAvatarMimeType(fileName: string, mimeType: string): string {
+    const trimmed = mimeType.trim().toLowerCase()
+    if (
+      ALLOWED_AVATAR_MIME.includes(trimmed as (typeof ALLOWED_AVATAR_MIME)[number])
+    ) {
+      return trimmed
+    }
+
+    const ext = fileName.split('.').pop()?.toLowerCase()
+    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
+    if (ext === 'png') return 'image/png'
+    if (ext === 'webp') return 'image/webp'
+
+    throw new BadRequestException(
+      'Avatar must be a JPEG, PNG, or WebP image (max 5 MB)',
+    )
+  }
+
+  private async ensureBucketExists(): Promise<void> {
+    if (!this.client) {
+      throw new ServiceUnavailableException(
+        'Avatar storage is not configured (Supabase)',
+      )
+    }
+    if (this.bucketVerified === true) return
+
+    const { data: bucket, error: getError } = await this.client.storage.getBucket(BUCKET)
+
+    if (getError && !/not found|does not exist/i.test(getError.message)) {
+      this.logger.error(`Avatar bucket lookup failed: ${getError.message}`)
+      throw new BadRequestException(this.formatStorageError(getError.message))
+    }
+
+    if (!bucket) {
+      const { error: createError } = await this.client.storage.createBucket(BUCKET, {
+        public: false,
+      })
+      if (createError && !/already exists|duplicate/i.test(createError.message)) {
+        this.logger.error(`Avatar bucket create failed: ${createError.message}`)
+        throw new BadRequestException(
+          `${BUCKET_MISSING_MESSAGE} (${createError.message})`,
+        )
+      }
+    }
+
+    this.bucketVerified = true
   }
 
   buildAvatarPath(userId: string, fileName: string) {
@@ -56,9 +120,9 @@ export class ProfileStorageService {
       )
     }
 
-    if (!params.mimeType.startsWith('image/')) {
-      throw new BadRequestException('Avatar must be an image file')
-    }
+    await this.ensureBucketExists()
+
+    this.resolveAvatarMimeType(params.fileName, params.mimeType)
 
     if (params.sizeBytes > 5 * 1024 * 1024) {
       throw new BadRequestException('Avatar must be 5 MB or smaller')
@@ -73,7 +137,7 @@ export class ProfileStorageService {
     if (error || !data) {
       this.logger.error(`Avatar upload URL failed: ${error?.message}`)
       throw new BadRequestException(
-        error?.message ?? 'Could not create upload URL',
+        this.formatStorageError(error?.message ?? 'Could not create upload URL'),
       )
     }
 
@@ -92,13 +156,15 @@ export class ProfileStorageService {
       )
     }
 
+    await this.ensureBucketExists()
+
     const { data, error } = await this.client.storage
       .from(BUCKET)
       .createSignedUrl(storagePath, DOWNLOAD_TTL_SEC)
 
     if (error || !data?.signedUrl) {
       throw new BadRequestException(
-        error?.message ?? 'Could not create avatar URL',
+        this.formatStorageError(error?.message ?? 'Could not create avatar URL'),
       )
     }
 

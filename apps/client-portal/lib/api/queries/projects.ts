@@ -33,7 +33,18 @@ export function prefetchRequestThread(queryClient: QueryClient, requestId: strin
 export function useProjectsQuery() {
   return useQuery({
     queryKey: queryKeys.projects.list(),
-    queryFn: fetchProjects,
+    queryFn: async () => {
+      const page = await fetchProjects()
+      return page.projects
+    },
+    staleTime: FIVE_MINUTES,
+  })
+}
+
+export function useProjectsInfiniteQuery() {
+  return useQuery({
+    queryKey: [...queryKeys.projects.list(), 'paginated'] as const,
+    queryFn: () => fetchProjects({ limit: 30 }),
     staleTime: FIVE_MINUTES,
   })
 }

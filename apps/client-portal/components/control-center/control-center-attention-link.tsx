@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ATTENTION_PAGE_PATH, formatAttentionStatusLabel } from '@/lib/control-center/attention-items'
 import { queryKeys } from '@/lib/api/query-keys'
 import { useUnreadAttentionCountQuery } from '@/lib/api/queries/notifications'
+import { fetchAttentionItems } from '@/lib/projects/fetch-projects-client'
 import { bricolage_grot600 } from '@/styles/fonts'
 
 export default function ControlCenterAttentionLink({
@@ -31,6 +32,7 @@ export default function ControlCenterAttentionLink({
       onMouseEnter={() => {
         void queryClient.prefetchQuery({
           queryKey: queryKeys.attention.items(),
+          queryFn: fetchAttentionItems,
         })
       }}
       className={`mt-1.5 flex cursor-pointer items-center gap-1.5 text-xs text-casablanca/90 transition hover:text-casablanca hover:underline ${bricolage_grot600.className}`}

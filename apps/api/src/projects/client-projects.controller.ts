@@ -45,8 +45,16 @@ export class ClientProjectsController {
   constructor(private readonly projects: ProjectsService) {}
 
   @Get('projects')
-  listProjects(@Req() req: ClientPortalRequest) {
-    return this.projects.listForClient(req.clientUser!)
+  listProjects(
+    @Req() req: ClientPortalRequest,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined
+    return this.projects.listForClient(req.clientUser!, {
+      cursor: cursor?.trim() || undefined,
+      limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+    })
   }
 
   @Post('projects')
@@ -229,6 +237,20 @@ export class ClientProjectsController {
     @Param('requestId') requestId: string,
   ) {
     return this.projects.authorizeThreadRealtime(req.clientUser!, requestId)
+  }
+
+  @Get('project-requests/:requestId/messages')
+  listMessages(
+    @Req() req: ClientPortalRequest,
+    @Param('requestId') requestId: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined
+    return this.projects.listRequestMessages(req.clientUser!, requestId, {
+      cursor: cursor?.trim() || undefined,
+      limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+    })
   }
 
   @Post('project-requests/:requestId/messages')

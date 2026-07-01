@@ -11,7 +11,7 @@ import PortalTeamHub from '@/components/portal-team-hub'
 import { ATTENTION_PAGE_PATH } from '@/lib/control-center/attention-items'
 import type { ControlCenterViewId } from '@/lib/control-center/nav'
 import { buildClientDashboardKpis } from '@/lib/dashboard/format-dashboard-stats'
-import { useClientRecentActivity } from '@/lib/dashboard/use-client-recent-activity'
+import { useSharedClientRecentActivity } from '@/lib/dashboard/use-shared-client-recent-activity'
 import { useDashboardStatsQuery } from '@/lib/api/queries/projects'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import {
@@ -122,7 +122,8 @@ function KpiGrid({
 }
 
 function OverviewSection() {
-  const { items: recentActivity, loading: activityLoading } = useClientRecentActivity(8)
+  const { overviewItems: recentActivity, isLoading: activityLoading } =
+    useSharedClientRecentActivity()
   const {
     data: statsData,
     isLoading: kpiLoading,
@@ -184,7 +185,7 @@ function OverviewSection() {
 }
 
 function ActivitySection() {
-  const { items, loading } = useClientRecentActivity(25)
+  const { allItems: items, isLoading: loading } = useSharedClientRecentActivity()
 
   return (
     <div className="space-y-6">

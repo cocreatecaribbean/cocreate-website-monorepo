@@ -1,18 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { fetchPortalProfile } from '@/lib/team/fetch-team-client'
+import { usePortalProfileQuery } from '@/lib/api/queries/team'
 
 export function usePortalPermissions() {
-  const [canAccessTeamHub, setCanAccessTeamHub] = useState(false)
-  const [loaded, setLoaded] = useState(false)
-
-  useEffect(() => {
-    void fetchPortalProfile().then((profile) => {
-      setCanAccessTeamHub(Boolean(profile?.permissions.canAccessTeamHub))
-      setLoaded(true)
-    })
-  }, [])
-
-  return { canAccessTeamHub, loaded }
+  const { data: profile, isLoading } = usePortalProfileQuery()
+  return {
+    canAccessTeamHub: Boolean(profile?.permissions.canAccessTeamHub),
+    loaded: !isLoading,
+  }
 }

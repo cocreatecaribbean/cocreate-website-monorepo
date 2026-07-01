@@ -1,11 +1,13 @@
 'use client'
 
-import { FormEvent, useCallback, useRef, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import EmojiPickerButton from '@/components/emoji-picker-button'
 import MessageAttachmentComposer, {
   resolvePendingMessageAttachments,
 } from '@/components/message-attachment-composer'
 import { insertAtTextareaCursor } from '@/lib/insert-at-textarea-cursor'
+import { useAdminRequestThreadQuery } from '@/lib/api/queries/projects'
+import { fetchAdminBff } from '@/lib/admin-api-fetch'
 import { useThreadAutoScroll } from '@/lib/projects/use-thread-auto-scroll'
 import type { ProjectRequestItem, ProjectRequestMessage } from '@/lib/projects/types'
 import { formatActorWithTitle } from '@/lib/projects/project-display'
@@ -80,7 +82,20 @@ export default function RequestMessageThread({
   onThreadUpdate,
   invalidateQueryKeys,
 }: RequestMessageThreadProps) {
-  useRequestThreadRealtime(request.id, () => onThreadUpdate?.(), {
+  const needsThreadFetch = !request.messages?.length
+  const { data: fetchedThread } = useAdminRequestThreadQuery(
+    needsThreadFetch ? request.id : null,
+  )
+  const activeRequest = fetchedThread ?? request
+
+  useEffect(() => {
+    setOlderMessages([])
+    setHasMoreOlder(
+      (activeRequest.messageCount ?? activeRequest.messages?.length ?? 0) >= 50,
+    )
+  }, [activeRequest.id, activeRequest.messageCount, activeRequest.messages?.length])
+
+  useRequestThreadRealtime(activeRequest.id, () => onThreadUpdate?.(), {
     enabled: Boolean(onThreadUpdate || invalidateQueryKeys?.length),
     invalidateQueryKeys,
   })
@@ -90,36 +105,59 @@ export default function RequestMessageThread({
   const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<string[]>([])
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [pendingMessages, setPendingMessages] = useState<ProjectRequestMessage[]>([])
+  const [olderMessages, setOlderMessages] = useState<ProjectRequestMessage[]>([])
+  const [hasMoreOlder, setHasMoreOlder] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const baseMessages: ProjectRequestMessage[] =
-    request.messages && request.messages.length > 0
-      ? request.messages
-      : request.description
+    activeRequest.messages && activeRequest.messages.length > 0
+      ? activeRequest.messages
+      : activeRequest.description
         ? [
             {
               id: 'initial',
-              requestId: request.id,
+              requestId: activeRequest.id,
               authorUserId: '',
               authorEmail: null,
-              authorRole: initialAuthorRole(request),
-              body: request.description,
-              createdAt: request.createdAt,
+              authorRole: initialAuthorRole(activeRequest),
+              body: activeRequest.description,
+              createdAt: activeRequest.createdAt,
             },
           ]
         : []
 
-  const messages = [...baseMessages, ...pendingMessages]
+  const messages = [...olderMessages, ...baseMessages, ...pendingMessages]
 
-  const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(request.status)
+  const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(activeRequest.status)
   const canCompose = !readOnly && !isClosed
-  const attachmentsByMessage = indexAttachmentsByMessage(baseMessages, request.attachments)
-  const { panelRef, scrollToBottom } = useThreadAutoScroll(messages, request.id)
+  const attachmentsByMessage = indexAttachmentsByMessage(baseMessages, activeRequest.attachments)
+  const { panelRef, scrollToBottom } = useThreadAutoScroll(messages, activeRequest.id)
   const fetchDownloadUrl = useCallback(
     (attachmentId: string) => fetchAttachmentDownloadUrl(attachmentId),
     [],
   )
+
+  const loadOlderMessages = async () => {
+    const oldest = [...olderMessages, ...baseMessages].find(
+      (message) => !isPendingRequestMessage(message) && message.id !== 'initial',
+    )
+    if (!oldest || loadingOlder) return
+    setLoadingOlder(true)
+    try {
+      const page = await fetchAdminBff<{
+        messages: ProjectRequestMessage[]
+        nextCursor: string | null
+      }>(
+        `/api/project-requests/${activeRequest.id}/messages?cursor=${encodeURIComponent(oldest.id)}&limit=50`,
+      )
+      setOlderMessages((prev) => [...page.messages, ...prev])
+      setHasMoreOlder(Boolean(page.nextCursor))
+    } finally {
+      setLoadingOlder(false)
+    }
+  }
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -131,7 +169,7 @@ export default function RequestMessageThread({
     const savedPendingFiles = [...pendingFiles]
     const hasUploads = savedPendingFiles.length > 0
     const optimistic = createOptimisticRequestMessage({
-      requestId: request.id,
+      requestId: activeRequest.id,
       body: bodyText,
       authorRole: viewerRole === 'CLIENT' ? 'CLIENT' : 'ADMIN',
       authorUserId: viewerRole === 'ADMIN' ? currentUserId ?? undefined : undefined,
@@ -148,7 +186,7 @@ export default function RequestMessageThread({
     try {
       if (hasUploads) setUploading(true)
       const uploaded = await resolvePendingMessageAttachments(
-        request.projectId,
+        activeRequest.projectId,
         savedPendingFiles,
         uploadVisibility ? { visibility: uploadVisibility } : undefined,
       )
@@ -188,6 +226,16 @@ export default function RequestMessageThread({
   return (
     <div className="admin-message-thread-shell max-h-[min(56svh,520px)]">
       <div ref={panelRef} className="admin-thread-panel">
+        {hasMoreOlder ? (
+          <button
+            type="button"
+            disabled={loadingOlder}
+            onClick={() => void loadOlderMessages()}
+            className="mb-3 text-xs text-sanmarino hover:underline disabled:opacity-50"
+          >
+            {loadingOlder ? 'Loading older messages…' : 'Load older messages'}
+          </button>
+        ) : null}
         {messages.length === 0 ? (
           <p className="text-sm text-app-muted">No messages yet.</p>
         ) : (
@@ -265,7 +313,7 @@ export default function RequestMessageThread({
               placeholder={
                 viewerRole === 'CLIENT'
                   ? 'Write your response to CoCreate…'
-                  : request.type === 'INTERNAL'
+                  : activeRequest.type === 'INTERNAL'
                     ? 'Message the team…'
                     : 'Follow up with the client…'
               }
@@ -274,7 +322,7 @@ export default function RequestMessageThread({
             />
           </div>
           <MessageAttachmentComposer
-            projectId={request.projectId}
+            projectId={activeRequest.projectId}
             disabled={uploading}
             libraryVisibility={libraryVisibility}
             selectedIds={selectedAttachmentIds}
@@ -319,7 +367,7 @@ export default function RequestMessageThread({
           </div>
         </form>
       ) : isClosed ? (
-        <p className="shrink-0 text-sm text-app-muted">This conversation is closed ({request.status}).</p>
+        <p className="shrink-0 text-sm text-app-muted">This conversation is closed ({activeRequest.status}).</p>
       ) : readOnly ? (
         <p className="shrink-0 text-sm text-app-muted">Archived (read only).</p>
       ) : null}

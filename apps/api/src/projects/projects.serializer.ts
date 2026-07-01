@@ -251,8 +251,14 @@ function isFullThreadMessage(
   )
 }
 
-export function serializeRequest(request: RequestWithRelations) {
+export function serializeRequest(
+  request: RequestWithRelations,
+  options?: { omitStoragePath?: boolean },
+) {
   const fullMessages = request.messages?.filter(isFullThreadMessage) ?? []
+  const serializeAtt = options?.omitStoragePath
+    ? serializeAttachmentForPortal
+    : serializeAttachment
 
   return {
     id: request.id,
@@ -277,7 +283,7 @@ export function serializeRequest(request: RequestWithRelations) {
     cancellationFeeNotes: request.cancellationFeeNotes ?? null,
     createdAt: request.createdAt.toISOString(),
     updatedAt: request.updatedAt.toISOString(),
-    attachments: request.attachments?.map(serializeAttachment),
+    attachments: request.attachments?.map(serializeAtt),
     messages: fullMessages.length ? fullMessages.map(serializeMessage) : undefined,
     messageCount: fullMessages.length,
   }
@@ -289,6 +295,19 @@ export function serializeAttachment(attachment: ProjectAttachment) {
     projectId: attachment.projectId,
     requestId: attachment.requestId,
     storagePath: attachment.storagePath,
+    fileName: attachment.fileName,
+    mimeType: attachment.mimeType,
+    sizeBytes: attachment.sizeBytes,
+    uploadedByUserId: attachment.uploadedByUserId,
+    createdAt: attachment.createdAt.toISOString(),
+  }
+}
+
+export function serializeAttachmentForPortal(attachment: ProjectAttachment) {
+  return {
+    id: attachment.id,
+    projectId: attachment.projectId,
+    requestId: attachment.requestId,
     fileName: attachment.fileName,
     mimeType: attachment.mimeType,
     sizeBytes: attachment.sizeBytes,
