@@ -49,6 +49,8 @@ fetch(nestApiUrl('/admin/admins'))
 
 See [Types and contracts](./types-and-contracts.md) for the full package map and import cheat sheet.
 
+Product releases (git tags, changelog) are documented in [Versioning policy](./versioning.md).
+
 ## Breaking change policy
 
 1. **Within v1:** additive fields only (new optional properties). Do not rename or remove fields.
@@ -58,7 +60,7 @@ See [Types and contracts](./types-and-contracts.md) for the full package map and
 
 ## Smoke checklist (after versioning changes)
 
-- `GET /health` → 200
+- `GET /health` → 200 with `version` (and `gitSha` when deploy env is set)
 - `GET /v1/auth/admin/me` without token → 401
 - `GET /admin/admins` (unversioned) → 404
 - Admin Center login + roster
