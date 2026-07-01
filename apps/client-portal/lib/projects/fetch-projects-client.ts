@@ -1,7 +1,21 @@
 'use client'
 import { nestApiUrl } from '@cocreate/api-client'
 
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { z } from 'zod'
+import {
+  ClientApprovalRecordItemSchema,
+  ClientDashboardStatsSchema,
+  ClientFilesLibrarySchema,
+  ClientProjectDetailSchema,
+  ClientProjectSummarySchema,
+  ClientRecentActivityItemSchema,
+  PortalNotificationItemSchema,
+  ProjectRequestItemSchema,
+  ProjectRequestMessageSchema,
+} from '@cocreate/api-contracts/v1/client-portal'
+
+import { parseApiResponseSafe } from '@/lib/api/parse-response'
+import { getPortalAccessToken } from '@/lib/api/portal-access-token'
 import type { ClientRecentActivityItem } from '@/lib/dashboard/types'
 import type {
   ClientApprovalRecordItem,
@@ -17,30 +31,34 @@ import type {
 } from '@/lib/projects/api-types'
 
 
-async function getBrowserAccessToken(): Promise<string | null> {
-  const supabase = createSupabaseBrowserClient()
-  const { data } = await supabase.auth.getSession()
-  return data.session?.access_token ?? null
-}
-
 async function portalFetch<T>(
   path: string,
   init?: RequestInit,
 ): Promise<{ ok: true; data: T } | { ok: false; status: number; message: string }> {
-  const token = await getBrowserAccessToken()
+  const token = await getPortalAccessToken()
   if (!token) {
     return { ok: false, status: 401, message: 'Not signed in' }
   }
 
-  const response = await fetch(nestApiUrl(path), {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-      ...init?.headers,
-    },
-    cache: 'no-store',
-  })
+  let response: Response
+  try {
+    response = await fetch(nestApiUrl(path), {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+        ...init?.headers,
+      },
+      cache: 'no-store',
+    })
+  } catch {
+    return {
+      ok: false,
+      status: 0,
+      message:
+        'Could not reach the API. Ensure apps/api is running on port 3001.',
+    }
+  }
 
   const data = await response.json().catch(() => null)
   if (!response.ok) {
@@ -55,32 +73,41 @@ async function portalFetch<T>(
 }
 
 export async function fetchProjects(): Promise<ClientProjectSummary[]> {
-  const result = await portalFetch<ClientProjectSummary[]>('/client-portal/projects')
-  return result.ok ? result.data : []
+  const result = await portalFetch<unknown>('/client-portal/projects')
+  if (!result.ok) return []
+  const parsed = parseApiResponseSafe(z.array(ClientProjectSummarySchema), result.data)
+  return parsed ?? []
 }
 
 export async function fetchDashboardStats(): Promise<ClientDashboardStats | null> {
-  const result = await portalFetch<ClientDashboardStats>('/client-portal/dashboard/stats')
-  return result.ok ? result.data : null
+  const result = await portalFetch<unknown>('/client-portal/dashboard/stats')
+  if (!result.ok) return null
+  return parseApiResponseSafe(ClientDashboardStatsSchema, result.data)
 }
 
 export async function fetchClientRecentActivity(
   limit = 15,
 ): Promise<ClientRecentActivityItem[]> {
-  const result = await portalFetch<ClientRecentActivityItem[]>(
+  const result = await portalFetch<unknown>(
     `/client-portal/dashboard/recent-activity?limit=${encodeURIComponent(String(limit))}`,
   )
-  return result.ok ? result.data : []
+  if (!result.ok) return []
+  const parsed = parseApiResponseSafe(
+    z.array(ClientRecentActivityItemSchema),
+    result.data,
+  )
+  return parsed ?? []
 }
 
 export async function fetchProject(
   id: string,
   view: 'overview' | 'full' = 'overview',
 ): Promise<ClientProjectDetail | null> {
-  const result = await portalFetch<ClientProjectDetail>(
+  const result = await portalFetch<unknown>(
     `/client-portal/projects/${id}?view=${encodeURIComponent(view)}`,
   )
-  return result.ok ? result.data : null
+  if (!result.ok) return null
+  return parseApiResponseSafe(ClientProjectDetailSchema, result.data)
 }
 
 export async function createProject(payload: {
@@ -96,10 +123,14 @@ export async function createProject(payload: {
 }
 
 export async function fetchOpenApprovals(): Promise<ProjectRequestItem[]> {
-  const result = await portalFetch<ProjectRequestItem[]>(
-    '/client-portal/projects/requests/open',
-  )
-  return result.ok ? result.data : []
+  const result = await portalFetch<unknown>('/client-portal/projects/requests/open')
+  if (!result.ok) return []
+  const parsed = parseApiResponseSafe(z.array(ProjectRequestItemSchema), result.data)
+  if (parsed) return parsed
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('[fetchOpenApprovals] Response parse failed; using raw array fallback')
+  }
+  return Array.isArray(result.data) ? (result.data as ProjectRequestItem[]) : []
 }
 
 export async function fetchUnreadApprovalsCount(): Promise<number> {
@@ -117,10 +148,15 @@ export async function markApprovalsRead(requestId?: string): Promise<void> {
 }
 
 export async function fetchApprovalHistory(): Promise<ClientApprovalRecordItem[]> {
-  const result = await portalFetch<ClientApprovalRecordItem[]>(
+  const result = await portalFetch<unknown>(
     '/client-portal/approvals/history',
   )
-  return result.ok ? result.data : []
+  if (!result.ok) return []
+  const parsed = parseApiResponseSafe(
+    z.array(ClientApprovalRecordItemSchema),
+    result.data,
+  )
+  return parsed ?? []
 }
 
 export async function createCancellationRequest(
@@ -198,20 +234,28 @@ function buildFilesQuery(query?: FilesQuery): string {
 }
 
 export async function fetchFilesLibrary(query?: FilesQuery): Promise<ClientFilesLibrary> {
-  const result = await portalFetch<ClientFilesLibrary>(
+  const result = await portalFetch<unknown>(
     `/client-portal/files/library${buildFilesQuery(query)}`,
   )
-  return result.ok ? result.data : { projects: [], files: [], nextCursor: null }
+  if (!result.ok) return { projects: [], files: [], nextCursor: null }
+  return (
+    parseApiResponseSafe(ClientFilesLibrarySchema, result.data) ?? {
+      projects: [],
+      files: [],
+      nextCursor: null,
+    }
+  )
 }
 
 export async function fetchProjectFiles(
   projectId: string,
   query?: Omit<FilesQuery, 'projectId'>,
 ): Promise<ClientFilesLibrary | null> {
-  const result = await portalFetch<ClientFilesLibrary>(
+  const result = await portalFetch<unknown>(
     `/client-portal/projects/${projectId}/files${buildFilesQuery(query)}`,
   )
-  return result.ok ? result.data : null
+  if (!result.ok) return null
+  return parseApiResponseSafe(ClientFilesLibrarySchema, result.data)
 }
 
 export async function resolveRequest(requestId: string, status: 'RESOLVED' | 'REJECTED') {
@@ -238,10 +282,10 @@ export function navigateToProject(projectId: string) {
 
 export async function fetchNotifications(unreadOnly?: boolean) {
   const query = unreadOnly ? '?unreadOnly=true' : ''
-  const result = await portalFetch<PortalNotificationItem[]>(
-    `/client-portal/notifications${query}`,
-  )
-  return result.ok ? result.data : []
+  const result = await portalFetch<unknown>(`/client-portal/notifications${query}`)
+  if (!result.ok) return []
+  const parsed = parseApiResponseSafe(z.array(PortalNotificationItemSchema), result.data)
+  return parsed ?? []
 }
 
 export async function fetchUnreadNotificationCount(): Promise<number> {
@@ -259,10 +303,10 @@ export async function fetchUnreadAttentionCount(): Promise<number> {
 }
 
 export async function fetchAttentionItems(): Promise<PortalNotificationItem[]> {
-  const result = await portalFetch<PortalNotificationItem[]>(
-    '/client-portal/attention/items',
-  )
-  return result.ok ? result.data : []
+  const result = await portalFetch<unknown>('/client-portal/attention/items')
+  if (!result.ok) return []
+  const parsed = parseApiResponseSafe(z.array(PortalNotificationItemSchema), result.data)
+  return parsed ?? []
 }
 
 export async function markAttentionRead(params: {
@@ -315,10 +359,24 @@ export async function registerAttachment(
 export async function fetchAttachmentDownloadUrl(
   attachmentId: string,
 ): Promise<string | null> {
-  const result = await portalFetch<{
-    download: { signedUrl: string }
-  }>(`/client-portal/attachments/${attachmentId}/download`)
-  return result.ok ? result.data.download.signedUrl : null
+  try {
+    const response = await fetch(`/api/attachments/${attachmentId}/download`, {
+      cache: 'no-store',
+    })
+    const data = await response.json().catch(() => null)
+    if (!response.ok) return null
+    if (
+      typeof data === 'object' &&
+      data &&
+      'download' in data &&
+      typeof (data as { download: { signedUrl?: string } }).download?.signedUrl === 'string'
+    ) {
+      return (data as { download: { signedUrl: string } }).download.signedUrl
+    }
+    return null
+  } catch {
+    return null
+  }
 }
 
 export async function requestProjectCoverUploadUrl(

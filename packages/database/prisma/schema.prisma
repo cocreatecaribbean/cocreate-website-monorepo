@@ -69,6 +69,7 @@ model Organization {
   brandAssets                 OrganizationBrandAsset[]
   socialListeningSubscription SocialListeningSubscription?
   socialListeningSetups       SocialListeningSetup[]
+  orgInboxConversations      OrgInboxConversation[]
 
   @@index([slug])
 }
@@ -171,6 +172,7 @@ enum PortalNotificationType {
   CANCELLATION_REQUESTED
   CANCELLATION_RESOLVED
   TEAM_INVITE_REQUEST
+  ORG_INBOX_MESSAGE
 }
 
 enum ProjectMessageAuthorRole {
@@ -550,6 +552,68 @@ model SocialListeningSetup {
   @@index([organizationId, createdAt])
 }
 
+// ─── Org-wide client ↔ CoCreate messaging ───────────────────────────────────
+
+enum OrgInboxVisibility {
+  ORG_WIDE
+  RESTRICTED
+}
+
+enum OrgInboxAuthorRole {
+  CLIENT
+  ADMIN
+}
+
+model OrgInboxConversation {
+  id              String              @id @default(cuid())
+  organizationId  String
+  organization    Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUserId String
+  createdBy       User                @relation("OrgInboxCreatedBy", fields: [createdByUserId], references: [id])
+  visibility      OrgInboxVisibility
+  subject         String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  participants    OrgInboxParticipant[]
+  messages        OrgInboxMessage[]
+  readCursors     OrgInboxReadCursor[]
+
+  @@index([organizationId, updatedAt])
+}
+
+model OrgInboxParticipant {
+  conversationId String
+  conversation   OrgInboxConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User                 @relation("OrgInboxParticipant", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId])
+}
+
+model OrgInboxMessage {
+  id             String               @id @default(cuid())
+  conversationId String
+  conversation   OrgInboxConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  authorUserId   String
+  author         User                 @relation("OrgInboxMessageAuthor", fields: [authorUserId], references: [id])
+  authorRole     OrgInboxAuthorRole
+  body           String               @db.Text
+  createdAt      DateTime             @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model OrgInboxReadCursor {
+  conversationId String
+  conversation   OrgInboxConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User                 @relation("OrgInboxReadCursor", fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime             @default(now())
+
+  @@id([conversationId, userId])
+}
+
 /// Portal account — agency admins (ADMIN) or client contacts (CLIENT)
 model User {
   id             String        @id @default(cuid())
@@ -586,6 +650,10 @@ model User {
   teamInvitesReviewed       ClientTeamInviteRequest[] @relation("TeamInviteReviewedBy")
   teamInvitesResulting      ClientTeamInviteRequest[] @relation("TeamInviteResultingUser")
   profile                 UserProfile?
+  orgInboxConversationsCreated OrgInboxConversation[] @relation("OrgInboxCreatedBy")
+  orgInboxParticipations    OrgInboxParticipant[]     @relation("OrgInboxParticipant")
+  orgInboxMessages          OrgInboxMessage[]         @relation("OrgInboxMessageAuthor")
+  orgInboxReadCursors       OrgInboxReadCursor[]      @relation("OrgInboxReadCursor")
 
   @@index([organizationId])
   @@index([organizationId, clientOrgRole])

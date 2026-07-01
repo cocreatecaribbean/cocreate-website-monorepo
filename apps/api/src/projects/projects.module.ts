@@ -35,6 +35,11 @@ import { AgencyCollaboratorsService } from './agency-collaborators.service'
     ProjectNotificationsService,
     ProjectNotificationMailService,
   ],
-  exports: [ProjectsService, ClientTeamService],
+  exports: [
+    ProjectsService,
+    ClientTeamService,
+    ProjectNotificationsService,
+    ProjectRealtimeService,
+  ],
 })
 export class ProjectsModule {}

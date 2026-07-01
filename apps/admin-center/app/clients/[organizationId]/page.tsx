@@ -14,7 +14,8 @@ export default async function ClientWorkspacePage({ params, searchParams }: Page
     tab === 'activity' ||
     tab === 'projects' ||
     tab === 'files' ||
-    tab === 'team'
+    tab === 'team' ||
+    tab === 'messages'
       ? tab
       : 'projects'
 

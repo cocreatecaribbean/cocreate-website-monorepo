@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -52,6 +53,14 @@ export class AdminClientTeamController {
     @Body(zodBody(UpdateTeamMemberSchema)) body: UpdateTeamMemberInput,
   ) {
     return this.team.updateTeamMemberAsAdmin(organizationId, userId, body)
+  }
+
+  @Delete('team/:userId')
+  removeTeamMember(
+    @Param('organizationId') organizationId: string,
+    @Param('userId') userId: string,
+  ) {
+    return this.team.suspendTeamMember(organizationId, userId)
   }
 
   @Post('team/:userId/suspend')

@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import AttentionItemsPage from '@/components/control-center/attention-items-page'
 import ClientPortalShell from '@/components/client-portal-shell'
-import { fetchClientPortalProfile } from '@/lib/client-session'
+import { fetchClientPortalProfile, resolveCanUseSocialListening } from '@/lib/client-session'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export default async function AttentionPage() {
@@ -36,11 +36,14 @@ export default async function AttentionPage() {
     )
   }
 
+  const hasSocialListening = resolveCanUseSocialListening(profile)
+
   return (
     <ClientPortalShell
       userEmail={profile.user.email}
       organizationName={profile.organization?.name ?? null}
       organizationLogoUrl={profile.organization?.logoUrl ?? null}
+      hasSocialListening={hasSocialListening}
     >
       <main className="relative mx-auto w-full max-w-[88rem] px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         <AttentionItemsPage organizationName={profile.organization?.name ?? null} />

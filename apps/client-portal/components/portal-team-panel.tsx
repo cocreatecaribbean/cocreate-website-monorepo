@@ -147,11 +147,70 @@ export default function PortalTeamPanel({ canManage }: { canManage: boolean }) {
         </form>
       ) : null}
 
-      <div className="mt-8 overflow-x-auto">
+      <div className="mt-8">
         {loading ? (
           <p className="text-sm text-app-muted">Loading team…</p>
         ) : (
-          <table className="w-full min-w-[32rem] text-left text-sm">
+          <>
+            <ul className="space-y-3 lg:hidden">
+              {members.map((member) => (
+                <li
+                  key={member.id}
+                  className="rounded-xl border border-chambray/10 p-4 dark:border-white/10"
+                >
+                  <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>
+                    {member.email}
+                  </p>
+                  <dl className="mt-3 space-y-2 text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <dt className="text-app-muted">Role</dt>
+                      <dd>
+                        {canManage && member.clientOrgRole !== 'OWNER' ? (
+                          <select
+                            value={member.clientOrgRole ?? 'MEMBER'}
+                            onChange={(e) =>
+                              onRoleChange(member, e.target.value as ClientOrgRole)
+                            }
+                            className="portal-input rounded-lg px-2 py-1 text-sm"
+                          >
+                            <option value="PROJECT_MANAGER">Project manager</option>
+                            <option value="MEMBER">Member</option>
+                          </select>
+                        ) : (
+                          roleLabels[member.clientOrgRole ?? 'MEMBER']
+                        )}
+                      </dd>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <dt className="text-app-muted">Status</dt>
+                      <dd className="capitalize">{member.status.toLowerCase()}</dd>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <dt className="text-app-muted">Social Listening</dt>
+                      <dd>
+                        {member.clientOrgRole === 'OWNER' ? (
+                          'Included with subscription'
+                        ) : canManage ? (
+                          <button
+                            type="button"
+                            onClick={() => onToggleSocial(member)}
+                            className="min-h-10 text-sanmarino underline"
+                          >
+                            {member.canAccessSocialListening ? 'On' : 'Off'}
+                          </button>
+                        ) : member.canAccessSocialListening ? (
+                          'Yes'
+                        ) : (
+                          'No'
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto lg:block">
+              <table className="w-full min-w-[32rem] text-left text-sm">
             <thead>
               <tr className="border-b border-black/10 text-app-muted dark:border-white/10">
                 <th className="py-2 pr-4 font-medium">Email</th>
@@ -205,6 +264,8 @@ export default function PortalTeamPanel({ canManage }: { canManage: boolean }) {
               ))}
             </tbody>
           </table>
+            </div>
+          </>
         )}
       </div>
     </section>

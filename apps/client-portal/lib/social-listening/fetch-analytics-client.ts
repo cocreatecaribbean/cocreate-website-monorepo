@@ -6,6 +6,9 @@ import type {
   SocialListeningAnalyticsPayload,
   SocialListeningComparePayload,
 } from '@client-portal/lib/social-listening/api-types'
+import type { CreateListeningSetupPayload } from '@cocreate/api-contracts/v1/requests/social-listening'
+
+export type { CreateListeningSetupPayload }
 
 
 async function getBrowserAccessToken(): Promise<string | null> {
@@ -61,13 +64,6 @@ export async function fetchSocialListeningSnapshotDates(): Promise<string[]> {
     '/client-portal/social-listening/analytics/snapshots',
   )
   return json?.dates ?? []
-}
-
-export type CreateListeningSetupPayload = {
-  keywords: { value: string; matchType: 'broad' | 'exact' }[]
-  platforms: string[]
-  startDate: string
-  endDate: string
 }
 
 export async function createListeningSetup(

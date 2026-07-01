@@ -19,3 +19,13 @@ export async function PATCH(request: Request, context: RouteContext) {
     },
   )
 }
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  const { organizationId, userId } = await context.params
+  const headers = await adminApiHeaders(true)
+  return proxyAdminApi(
+    `/admin/clients/organizations/${organizationId}/team/${userId}`,
+    headers,
+    { method: 'DELETE' },
+  )
+}

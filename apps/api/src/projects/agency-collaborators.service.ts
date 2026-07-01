@@ -396,4 +396,39 @@ export class AgencyCollaboratorsService {
 
     return { ok: true as const }
   }
+
+  async syncProjects(
+    actor: AuthenticatedAgencyUser,
+    userId: string,
+    projectIds: string[],
+  ) {
+    this.assertCoreTeam(actor)
+    await this.getCollaboratorUser(userId)
+
+    const uniqueProjectIds = [...new Set(projectIds.filter(Boolean))]
+    for (const projectId of uniqueProjectIds) {
+      await this.agencyAccess.assertCanManageCollaborators(actor, projectId)
+    }
+
+    const current = await this.prisma.agencyProjectMember.findMany({
+      where: { userId },
+      select: { projectId: true },
+    })
+    const currentIds = new Set(current.map((row) => row.projectId))
+    const targetIds = new Set(uniqueProjectIds)
+
+    for (const projectId of currentIds) {
+      if (!targetIds.has(projectId)) {
+        await this.removeFromProject(actor, projectId, userId)
+      }
+    }
+
+    for (const projectId of targetIds) {
+      if (!currentIds.has(projectId)) {
+        await this.assignExistingToProject(actor, projectId, userId)
+      }
+    }
+
+    return { ok: true as const }
+  }
 }

@@ -20,7 +20,7 @@ import ProjectTeamAside from '@/components/project-team-aside'
 import type { PortalProjectTabId } from '@/lib/control-center/project-workspace'
 import type { ClientProjectDetail, ProjectRequestItem } from '@/lib/projects/api-types'
 import { queryKeys } from '@/lib/api/query-keys'
-import { useRequestThreadQuery } from '@/lib/api/queries/projects'
+import { useRequestThreadQuery, prefetchRequestThread } from '@/lib/api/queries/projects'
 import {
   createCancellationRequest,
   fetchAttachmentDownloadUrl,
@@ -63,12 +63,25 @@ type LazyThreadProps = {
   onApproveCheckpoint?: (messageId: string) => Promise<{ ok: boolean; message?: string }>
 }
 
+function ThreadLoadingSkeleton() {
+  return (
+    <div className="space-y-3 py-2" aria-busy="true" aria-label="Loading messages">
+      <div className="h-16 animate-pulse rounded-lg bg-chambray/8" />
+      <div className="ml-8 h-12 animate-pulse rounded-lg bg-chambray/6" />
+      <div className="h-14 animate-pulse rounded-lg bg-chambray/8" />
+    </div>
+  )
+}
+
 function LazyRequestMessageThread({
   request,
   loadMessages,
   ...props
 }: LazyThreadProps) {
-  const { data } = useRequestThreadQuery(loadMessages ? request.id : null)
+  const { data, isLoading } = useRequestThreadQuery(loadMessages ? request.id : null)
+  if (loadMessages && isLoading && !data) {
+    return <ThreadLoadingSkeleton />
+  }
   const resolved = data ?? request
   return <RequestMessageThread request={resolved} {...props} />
 }
@@ -126,6 +139,28 @@ export default function PortalProjectWorkspace({
   useEffect(() => {
     setCoverImageUrl(project.coverImageUrl ?? null)
   }, [project.coverImageUrl, project.id])
+
+  useEffect(() => {
+    const progressThread = findThread(project, 'PROGRESS')
+    const onboardingThread = findThread(project, 'ONBOARDING')
+    if (progressThread) void prefetchRequestThread(queryClient, progressThread.id)
+    if (onboardingThread) void prefetchRequestThread(queryClient, onboardingThread.id)
+  }, [project.id, queryClient])
+
+  const prefetchThreadForTab = useCallback(
+    (tabId: PortalProjectTabId) => {
+      if (tabId === 'progress') {
+        const progressThread = findThread(project, 'PROGRESS')
+        if (progressThread) void prefetchRequestThread(queryClient, progressThread.id)
+        return
+      }
+      if (tabId === 'onboarding') {
+        const onboardingThread = findThread(project, 'ONBOARDING')
+        if (onboardingThread) void prefetchRequestThread(queryClient, onboardingThread.id)
+      }
+    },
+    [project, queryClient],
+  )
 
   const setTabAndNotify = useCallback(
     (next: PortalProjectTabId) => {
@@ -240,6 +275,8 @@ export default function PortalProjectWorkspace({
                 key={item.id}
                 type="button"
                 onClick={() => setTabAndNotify(item.id)}
+                onMouseEnter={() => prefetchThreadForTab(item.id)}
+                onFocus={() => prefetchThreadForTab(item.id)}
                 className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm transition ${bricolage_grot600.className} ${
                   active
                     ? 'bg-chambray text-white'

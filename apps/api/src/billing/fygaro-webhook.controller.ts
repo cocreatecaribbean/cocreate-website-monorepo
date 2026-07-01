@@ -63,6 +63,25 @@ export class FygaroWebhookController {
     }
 
     const prismaEventType = mapEventType(parsed.eventType)
+    if (
+      parsed.eventType === 'renewal_failed' ||
+      parsed.eventType === 'payment_failed'
+    ) {
+      const sub = await this.subscriptions.getById(parsed.subscriptionId)
+      await this.subscriptions.markPastDue(parsed.subscriptionId)
+      const failedOwnerEmail = await this.subscriptions.getOwnerEmail(sub.organizationId)
+      if (failedOwnerEmail && sub.currentPeriodEnd) {
+        const portalBase = this.billingEmail.getClientPortalUrl().replace(/\/$/, '')
+        await this.billingEmail.sendAutoRenewFailed({
+          subscriptionId: sub.id,
+          periodEnd: sub.currentPeriodEnd,
+          to: failedOwnerEmail,
+          updatePaymentUrl: `${portalBase}/?tab=social-listening&billing=update-payment`,
+        })
+      }
+      return { ok: true, handled: 'payment_failed' }
+    }
+
     if (!prismaEventType) {
       return { ok: true, skipped: 'unknown_event_type' }
     }

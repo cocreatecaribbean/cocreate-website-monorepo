@@ -5,7 +5,7 @@ import ControlCenterApprovalsView from '@/components/control-center/control-cent
 import ControlCenterFilesSection from '@/components/control-center/control-center-files-section'
 import ControlCenterProjectsView from '@/components/control-center/control-center-projects-view'
 import ClientPortalRecentUpdates from '@/components/client-portal-recent-updates'
-import PortalSectionPlaceholder from '@/components/portal/section-placeholder'
+import OrgInboxMessagesView from '@/components/control-center/org-inbox-messages-view'
 import PortalSettingsPanel from '@/components/portal-settings-panel'
 import PortalTeamHub from '@/components/portal-team-hub'
 import { ATTENTION_PAGE_PATH } from '@/lib/control-center/attention-items'
@@ -13,14 +13,12 @@ import type { ControlCenterViewId } from '@/lib/control-center/nav'
 import { buildClientDashboardKpis } from '@/lib/dashboard/format-dashboard-stats'
 import { useClientRecentActivity } from '@/lib/dashboard/use-client-recent-activity'
 import { useDashboardStatsQuery } from '@/lib/api/queries/projects'
-import { alkatra600, bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
+import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import {
   ArrowRight,
   CheckCircle2,
   FileText,
   FolderKanban,
-  MessageSquare,
-  Sparkles,
 } from 'lucide-react'
 
 const KPI_META = [
@@ -62,7 +60,7 @@ export default function ControlCenterContent({
     case 'activity':
       return <ActivitySection />
     case 'messages':
-      return <MessagesSection />
+      return <OrgInboxMessagesView />
     case 'team':
       return <PortalTeamHub />
     case 'settings':
@@ -76,13 +74,21 @@ function KpiGrid({
   delayOffset = 0,
   stats,
   loading,
+  error,
 }: {
   delayOffset?: number
   stats: ReturnType<typeof buildClientDashboardKpis> | null
   loading: boolean
+  error?: boolean
 }) {
   const delays = ['', 'portal-animate-in-delay-1', 'portal-animate-in-delay-2'] as const
-  const rows = stats ?? KPI_META.map((meta) => ({ ...meta, value: '—', hint: 'Loading…' }))
+  const rows =
+    stats ??
+    KPI_META.map((meta) => ({
+      ...meta,
+      value: '—',
+      hint: error ? 'Could not load stats' : loading ? 'Loading…' : 'No data yet',
+    }))
 
   return (
     <section className="grid gap-4 sm:grid-cols-3" aria-busy={loading}>
@@ -117,10 +123,14 @@ function KpiGrid({
 
 function OverviewSection() {
   const { items: recentActivity, loading: activityLoading } = useClientRecentActivity(8)
-  const { data: statsData, isLoading: kpiLoading } = useDashboardStatsQuery()
+  const {
+    data: statsData,
+    isLoading: kpiLoading,
+    isError: kpiError,
+  } = useDashboardStatsQuery()
   const kpiStats = statsData
     ? buildClientDashboardKpis(statsData)
-    : kpiLoading
+    : kpiLoading || kpiError
       ? null
       : buildClientDashboardKpis({
           activeProjects: 0,
@@ -132,7 +142,7 @@ function OverviewSection() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <KpiGrid stats={kpiStats} loading={kpiLoading} />
+      <KpiGrid stats={kpiStats} loading={kpiLoading} error={kpiError} />
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="portal-glass-card portal-animate-in portal-animate-in-delay-3 p-5 sm:p-6">
           <p className="portal-eyebrow">Quick actions</p>
@@ -195,66 +205,10 @@ function ActivitySection() {
   )
 }
 
-function MessagesSection() {
-  return (
-    <div className="space-y-6">
-      <section className="portal-glass-card portal-gradient-hero portal-animate-in relative overflow-hidden p-8 sm:p-10">
-        <div
-          className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-casablanca/20 blur-3xl"
-          aria-hidden
-        />
-        <div className="relative max-w-xl">
-          <p className="portal-eyebrow">Your team</p>
-          <h3 className={`mt-2 text-2xl text-chambray ${alkatra600.className}`}>
-            Message CoCreate
-          </h3>
-          <p className="mt-3 text-sm leading-relaxed text-app-muted">
-            Questions about a deliverable, timeline, or approval? Your account team responds within
-            one business day.
-          </p>
-          <button type="button" className="portal-btn-primary mt-6 gap-2">
-            <MessageSquare className="h-4 w-4" aria-hidden />
-            Start a conversation
-          </button>
-        </div>
-      </section>
-      <section className="portal-surface-solid portal-animate-in portal-animate-in-delay-1 p-6">
-        <p className={`text-sm text-app-muted ${bricolage_grot600.className}`}>
-          Common topics
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {['Project timeline', 'File feedback', 'Billing question', 'New request'].map(
-            (topic) => (
-              <button
-                key={topic}
-                type="button"
-                className="portal-btn-ghost rounded-full px-4 py-2"
-              >
-                {topic}
-              </button>
-            ),
-          )}
-        </div>
-      </section>
-      <PreviewBanner />
-    </div>
-  )
-}
-
 function SettingsSection() {
   return (
     <div className="space-y-6">
       <PortalSettingsPanel />
-      <PreviewBanner />
     </div>
-  )
-}
-
-function PreviewBanner() {
-  return (
-    <p className="flex items-center justify-center gap-2 text-center text-xs tracking-wide text-app-muted uppercase">
-      <Sparkles className="h-3.5 w-3.5 text-sanmarino" aria-hidden />
-      Preview workspace · Live data coming soon
-    </p>
   )
 }

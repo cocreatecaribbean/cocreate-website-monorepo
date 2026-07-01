@@ -2,6 +2,7 @@
 
 import ControlCenterAttentionLink from '@/components/control-center/control-center-attention-link'
 import { useUnreadApprovalsCountQuery } from '@/lib/api/queries/approvals'
+import { useOrgInboxUnreadCountQuery } from '@/lib/api/queries/inbox'
 import {
   buildControlCenterNavItems,
   CONTROL_CENTER_SETTINGS,
@@ -10,11 +11,15 @@ import {
 } from '@/lib/control-center/nav'
 import { usePortalPermissions } from '@/lib/team/use-portal-permissions'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
+import { X } from 'lucide-react'
 
 type ControlCenterSidebarProps = {
   activeView: ControlCenterViewId
   onSelectView: (view: ControlCenterViewId) => void
   organizationName?: string | null
+  onNavigate?: () => void
+  showClose?: boolean
+  onClose?: () => void
 }
 
 function NavButton({
@@ -22,17 +27,22 @@ function NavButton({
   active,
   onSelect,
   badge,
+  onNavigate,
 }: {
   item: ControlCenterNavItem
   active: boolean
   onSelect: () => void
   badge?: string
+  onNavigate?: () => void
 }) {
   const Icon = item.icon
   return (
     <button
       type="button"
-      onClick={onSelect}
+      onClick={() => {
+        onSelect()
+        onNavigate?.()
+      }}
       aria-current={active ? 'page' : undefined}
       title={item.description}
       className={`
@@ -63,12 +73,17 @@ export default function ControlCenterSidebar({
   activeView,
   onSelectView,
   organizationName,
+  onNavigate,
+  showClose = false,
+  onClose,
 }: ControlCenterSidebarProps) {
   const workspaceLabel = organizationName?.trim() || 'Workspace'
   const { canAccessTeamHub } = usePortalPermissions()
   const navItems = buildControlCenterNavItems(canAccessTeamHub)
   const { data: unreadCount = 0 } = useUnreadApprovalsCountQuery()
+  const { data: inboxUnread = 0 } = useOrgInboxUnreadCountQuery()
   const approvalsBadge = unreadCount > 0 ? String(unreadCount) : undefined
+  const messagesBadge = inboxUnread > 0 ? String(inboxUnread) : undefined
 
   return (
     <aside
@@ -76,16 +91,30 @@ export default function ControlCenterSidebar({
       aria-label="Control center navigation"
     >
       <div className="border-b border-white/10 px-4 py-4">
-        <p
-          className={`text-[0.65rem] font-semibold tracking-[0.22em] text-white/45 uppercase ${bricolage_grot700.className}`}
-        >
-          Control Center
-        </p>
-        <p
-          className={`mt-3 truncate text-sm font-semibold tracking-wide text-white ${bricolage_grot700.className}`}
-        >
-          {workspaceLabel}
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p
+              className={`text-[0.65rem] font-semibold tracking-[0.22em] text-white/45 uppercase ${bricolage_grot700.className}`}
+            >
+              Control Center
+            </p>
+            <p
+              className={`mt-3 truncate text-sm font-semibold tracking-wide text-white ${bricolage_grot700.className}`}
+            >
+              {workspaceLabel}
+            </p>
+          </div>
+          {showClose ? (
+            <button
+              type="button"
+              aria-label="Close menu"
+              onClick={onClose}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 lg:hidden"
+            >
+              <X className="h-5 w-5" strokeWidth={1.75} />
+            </button>
+          ) : null}
+        </div>
         <ControlCenterAttentionLink />
       </div>
 
@@ -96,7 +125,14 @@ export default function ControlCenterSidebar({
             item={item}
             active={activeView === item.id}
             onSelect={() => onSelectView(item.id)}
-            badge={item.id === 'approvals' ? approvalsBadge : undefined}
+            onNavigate={onNavigate}
+            badge={
+              item.id === 'approvals'
+                ? approvalsBadge
+                : item.id === 'messages'
+                  ? messagesBadge
+                  : undefined
+            }
           />
         ))}
       </nav>
@@ -106,6 +142,7 @@ export default function ControlCenterSidebar({
           item={CONTROL_CENTER_SETTINGS}
           active={activeView === CONTROL_CENTER_SETTINGS.id}
           onSelect={() => onSelectView(CONTROL_CENTER_SETTINGS.id)}
+          onNavigate={onNavigate}
         />
       </div>
     </aside>

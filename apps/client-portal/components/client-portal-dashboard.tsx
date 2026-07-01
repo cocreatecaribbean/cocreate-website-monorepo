@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import ControlCenterPanel from '@/components/control-center/control-center-panel'
 import OrganizationLogo from '@/components/organization-logo'
@@ -22,9 +22,12 @@ const tabs: { id: TabId; label: string; shortLabel?: string }[] = [
 
 const TAB_QUERY_KEY = 'tab'
 
-function parseTabFromSearch(value: string | null): TabId {
+function parseTabFromSearch(value: string | null, ccView: string | null): TabId {
   if (value === 'social-listening' || value === 'control-center') {
     return value
+  }
+  if (ccView === 'social-listening') {
+    return 'social-listening'
   }
   return 'control-center'
 }
@@ -63,7 +66,33 @@ function ClientPortalDashboardContent({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const activeTab = parseTabFromSearch(searchParams.get(TAB_QUERY_KEY))
+  const activeTab = parseTabFromSearch(
+    searchParams.get(TAB_QUERY_KEY),
+    searchParams.get('ccView'),
+  )
+  const [billingNotice, setBillingNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    const billing = searchParams.get('billing')
+    if (!billing) return
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.set(TAB_QUERY_KEY, 'social-listening')
+    params.delete('ccView')
+    params.delete('billing')
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+
+    if (billing === 'success') {
+      setBillingNotice('Payment received. Your subscription will update shortly.')
+    } else if (billing === 'renew') {
+      setBillingNotice('Use Renew below to complete checkout.')
+    } else if (billing === 'auto-renew') {
+      setBillingNotice('Turn on auto-renew below to avoid interruption.')
+    } else if (billing === 'update-payment') {
+      setBillingNotice('Use Update payment below to refresh your card on file.')
+    }
+  }, [pathname, router, searchParams])
 
   const setActiveTab = useCallback(
     (tab: TabId) => {
@@ -121,7 +150,7 @@ function ClientPortalDashboardContent({
         </p>
 
         <div
-          className="portal-surface mt-8 inline-flex w-full max-w-full flex-col gap-0.5 p-1 sm:inline-flex sm:w-auto sm:flex-row"
+          className="portal-surface mt-8 hidden w-full max-w-full flex-col gap-0.5 p-1 lg:inline-flex lg:w-auto lg:flex-row"
           role="tablist"
           aria-label="Portal sections"
         >
@@ -157,6 +186,11 @@ function ClientPortalDashboardContent({
             <ControlCenterPanel organizationName={organizationName} />
           ) : hasSocialListening && socialListeningAnalytics ? (
             <>
+              {billingNotice ? (
+                <p className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-950 ring-1 ring-emerald-200">
+                  {billingNotice}
+                </p>
+              ) : null}
               <SocialListeningBillingPanel isOwner={isOwner} />
               <SocialListeningPanel
                 initialAnalytics={socialListeningAnalytics}

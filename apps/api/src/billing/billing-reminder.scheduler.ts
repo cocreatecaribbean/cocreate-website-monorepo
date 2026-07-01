@@ -52,11 +52,11 @@ export class BillingReminderScheduler {
             subscriptionId: sub.id,
             periodEnd: sub.currentPeriodEnd,
             to: ownerEmail,
-            enableAutoRenewUrl: `${portalBase}/?ccView=social-listening&billing=auto-renew`,
+            enableAutoRenewUrl: `${portalBase}/?tab=social-listening&billing=auto-renew`,
           })
         }
         if (daysUntil === 7 || daysUntil === 3 || daysUntil === 1) {
-          let renewUrl = `${portalBase}/?ccView=social-listening&billing=renew`
+          let renewUrl = `${portalBase}/?tab=social-listening&billing=renew`
           if (this.fygaro.isConfigured()) {
             try {
               renewUrl = this.fygaro.buildCheckoutUrl({
@@ -75,7 +75,7 @@ export class BillingReminderScheduler {
             plan: sub.plan,
             daysUntil,
             renewUrl,
-            enableAutoRenewUrl: `${portalBase}/?ccView=social-listening&billing=auto-renew`,
+            enableAutoRenewUrl: `${portalBase}/?tab=social-listening&billing=auto-renew`,
           })
         }
       }

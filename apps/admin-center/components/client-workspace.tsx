@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import AdminFilesSection from '@/components/admin-files-section'
 import RequestMessageThread from '@/components/request-message-thread'
@@ -10,6 +10,7 @@ import ProjectStatusAttribution from '@/components/project-status-attribution'
 import AdminToast from '@/components/admin-toast'
 import MarkInboxReadOnView from '@/components/mark-inbox-read-on-view'
 import ClientTeamPanel from '@/components/client-team-panel'
+import AdminClientMessagesView from '@/components/admin-client-messages-view'
 import CreateProjectModal from '@/components/create-project-modal'
 import { CancellationResolveForm } from '@/components/project-workspace-shared'
 import { useAdminSession } from '@/components/admin-session-provider'
@@ -38,10 +39,11 @@ import {
   FolderKanban,
   Inbox,
   LayoutGrid,
+  MessageSquare,
   Users,
 } from 'lucide-react'
 
-type TabId = 'overview' | 'projects' | 'files' | 'inbox' | 'activity' | 'team'
+type TabId = 'overview' | 'projects' | 'files' | 'inbox' | 'messages' | 'activity' | 'team'
 
 const requestTypeLabel: Record<string, string> = {
   ONBOARDING: 'Onboarding',
@@ -104,6 +106,15 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const [highlightInviteRequestId, setHighlightInviteRequestId] = useState<string | null>(null)
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
   const deepLinkAppliedRef = useRef(false)
+  const tabBtnRefs = useRef<Partial<Record<TabId, HTMLButtonElement | null>>>({})
+
+  useEffect(() => {
+    tabBtnRefs.current[tab]?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'nearest',
+    })
+  }, [tab])
 
   useEffect(() => {
     if (tab !== 'inbox' || loading || !canTrackUnread) return
@@ -121,7 +132,8 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
       t === 'activity' ||
       t === 'projects' ||
       t === 'team' ||
-      t === 'files'
+      t === 'files' ||
+      t === 'messages'
     ) {
       setTab(t)
     }
@@ -292,13 +304,18 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         {client?.primaryContact ? (
           <p className="mt-1 text-sm text-app-muted">{client.primaryContact.email}</p>
         ) : null}
-        <nav className="mt-4 flex flex-wrap gap-2">
+        <nav
+          className="mt-4 flex gap-2 overflow-x-auto scroll-smooth pb-1"
+          style={{ scrollSnapType: 'x mandatory' }}
+          aria-label="Client workspace sections"
+        >
           {(
             [
               { id: 'overview' as const, label: 'Overview', icon: LayoutGrid },
               { id: 'projects' as const, label: 'Projects', icon: FolderKanban },
               { id: 'files' as const, label: 'Files', icon: FileText },
               { id: 'team' as const, label: 'Team', icon: Users },
+              { id: 'messages' as const, label: 'Messages', icon: MessageSquare },
               { id: 'inbox' as const, label: 'Inbox', icon: Inbox },
               { id: 'activity' as const, label: 'Activity', icon: CheckCircle2 },
             ] as const
@@ -308,14 +325,27 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
             return (
               <button
                 key={item.id}
+                ref={(el) => {
+                  tabBtnRefs.current[item.id] = el
+                }}
                 type="button"
-                onClick={() => setTab(item.id)}
+                onClick={() => {
+                  setTab(item.id)
+                  const params = new URLSearchParams(window.location.search)
+                  params.set('tab', item.id)
+                  if (item.id !== 'messages') {
+                    params.delete('conversationId')
+                  }
+                  router.replace(`/clients/${organizationId}?${params.toString()}`, {
+                    scroll: false,
+                  })
+                }}
                 aria-label={
                   item.id === 'inbox' && unreadCount > 0
                     ? `Inbox (${unreadCount} unread)`
                     : item.label
                 }
-                className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm transition ${bricolage_grot600.className} ${
+                className={`inline-flex shrink-0 snap-start items-center gap-2 rounded-xl px-3 py-1.5 text-sm transition ${bricolage_grot600.className} ${
                   active
                     ? 'bg-chambray text-white'
                     : 'bg-chambray/8 text-chambray hover:bg-chambray/12'
@@ -334,7 +364,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         </nav>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
+      <div className="flex-1 overflow-y-auto px-4 py-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
         {error ?? loadError ? (
           <p className="admin-alert-error mb-4">
             {error ?? loadError}
@@ -395,7 +425,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
             {projects.length === 0 ? null : (
               projects.map((project) => (
                 <section key={project.id} className="admin-glass-card overflow-hidden">
-                  <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                  <div className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
                     <div>
                       <p className={`text-chambray ${bricolage_grot600.className}`}>
                         {project.title}
@@ -457,6 +487,10 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
               ))
             )}
           </div>
+        ) : tab === 'messages' ? (
+          <Suspense fallback={<p className="text-sm text-app-muted">Loading messages…</p>}>
+            <AdminClientMessagesView organizationId={organizationId} />
+          </Suspense>
         ) : tab === 'inbox' ? (
           <div className="space-y-4">
             {inbox.length === 0 ? (

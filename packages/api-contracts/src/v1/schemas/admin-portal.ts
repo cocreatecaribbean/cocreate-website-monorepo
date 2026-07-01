@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { isoDateTimeString } from '../../zod/common'
 import { ClientOrgRoleSchema } from '../../zod/enums'
+import { ClientTeamMemberSchema, TeamInviteRequestSchema } from './shared/team'
+import type { ClientTeamMember } from './shared/team'
 import {
   ClientFilesLibrarySchema,
   ClientProjectPhaseSchema,
@@ -307,27 +309,27 @@ export const JobTitleOptionSchema = z.object({
 })
 export type JobTitleOption = z.infer<typeof JobTitleOptionSchema>
 
-export const TeamMemberSummarySchema = z.object({
-  id: z.string(),
-  email: z.string(),
-  status: z.string(),
-  clientOrgRole: ClientOrgRoleSchema.nullable(),
-  canAccessSocialListening: z.boolean(),
-})
+export const TeamMemberSummarySchema = ClientTeamMemberSchema
 export type TeamMemberSummary = z.infer<typeof TeamMemberSummarySchema>
 
-export const TeamMemberSchema = TeamMemberSummarySchema
-export type TeamMember = TeamMemberSummary
+export const TeamMemberSchema = ClientTeamMemberSchema
+export type TeamMember = ClientTeamMember
 
-export const TeamInviteRequestSummarySchema = z.object({
-  id: z.string(),
-  email: z.string(),
-  requestedClientOrgRole: ClientOrgRoleSchema,
-  status: z.string(),
-  requestedByEmail: z.string(),
-  createdAt: isoDateTimeString,
-})
+export const TeamInviteRequestSummarySchema = TeamInviteRequestSchema
 export type TeamInviteRequestSummary = z.infer<typeof TeamInviteRequestSummarySchema>
+
+export const AdminOrgTeamListResponseSchema = z.object({
+  ok: z.literal(true),
+  members: z.array(TeamMemberSummarySchema),
+})
+export type AdminOrgTeamListResponse = z.infer<typeof AdminOrgTeamListResponseSchema>
+
+export const AdminTeamInviteRequestsResponseSchema = z.object({
+  requests: z.array(TeamInviteRequestSummarySchema),
+})
+export type AdminTeamInviteRequestsResponse = z.infer<
+  typeof AdminTeamInviteRequestsResponseSchema
+>
 
 export const InviteRequestSchema = TeamInviteRequestSummarySchema
 export type InviteRequest = TeamInviteRequestSummary
@@ -463,3 +465,57 @@ export type {
   ProjectFilesGroup,
   ProjectRequestStatus,
 } from './shared/projects'
+
+export const AdminAuthMeResponseSchema = z.object({
+  ok: z.literal(true),
+  mode: z.enum(['user', 'api_key']),
+  admin: z
+    .object({
+      id: z.string(),
+      email: z.string(),
+      status: z.string(),
+      role: z.string(),
+      profile: AdminProfileSchema.nullable(),
+    })
+    .optional(),
+})
+export type AdminAuthMeResponse = z.infer<typeof AdminAuthMeResponseSchema>
+
+export const SignedUploadResponseSchema = z.object({
+  storagePath: z.string(),
+  signedUrl: z.string(),
+  token: z.string(),
+  expiresIn: z.number(),
+})
+export type SignedUploadResponse = z.infer<typeof SignedUploadResponseSchema>
+
+export const AttachmentDownloadResponseSchema = z.object({
+  download: z.object({
+    signedUrl: z.string(),
+  }),
+})
+export type AttachmentDownloadResponse = z.infer<typeof AttachmentDownloadResponseSchema>
+
+export {
+  OrgInboxAuthorRoleSchema,
+  OrgInboxConversationListResponseSchema,
+  OrgInboxConversationSchema,
+  OrgInboxMessageListResponseSchema,
+  OrgInboxMessageSchema,
+  OrgInboxRealtimeAuthResponseSchema,
+  OrgInboxSendMessageResponseSchema,
+  OrgInboxUnreadCountResponseSchema,
+  OrgInboxVisibilitySchema,
+} from './shared/org-inbox'
+
+export type {
+  OrgInboxAuthorRole,
+  OrgInboxConversation,
+  OrgInboxConversationListResponse,
+  OrgInboxMessage,
+  OrgInboxMessageListResponse,
+  OrgInboxRealtimeAuthResponse,
+  OrgInboxSendMessageResponse,
+  OrgInboxUnreadCountResponse,
+  OrgInboxVisibility,
+} from './shared/org-inbox'

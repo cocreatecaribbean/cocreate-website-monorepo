@@ -1,6 +1,14 @@
 import { z } from 'zod'
 import { isoDateTimeString } from '../../zod/common'
 import {
+  ClientOrgRoleSchema,
+  ClientProjectAccessLevelSchema,
+  SocialListeningBillingSourceSchema,
+  SocialListeningPlanSchema,
+  SocialListeningSubscriptionStatusSchema,
+} from '../../zod/enums'
+import type { ClientOrgRole, ClientProjectAccessLevel } from '../../zod/enums'
+import {
   ClientFilesLibrarySchema,
   ClientProjectPhaseSchema,
   ClientProjectStatusSchema,
@@ -12,6 +20,21 @@ import {
   ProjectRequestMessageBaseSchema,
   ProjectRequestStatusSchema,
 } from './shared/projects'
+import {
+  AssignableProjectMemberSchema,
+  ClientTeamMemberSchema,
+  OrgTeamListResponseSchema,
+  ProjectMemberMutationResponseSchema,
+  ProjectMemberSchema,
+  ProjectMembersResponseSchema,
+  ProjectTeamCardSchema,
+  TeamHubPermissionsSchema,
+  TeamHubResponseSchema,
+  TeamInviteMemberResponseSchema,
+  TeamInviteRequestMutationResponseSchema,
+  TeamInviteRequestSchema,
+  TeamMemberMutationResponseSchema,
+} from './shared/team'
 
 export const ProjectRequestTypeSchema = z.enum([
   'ONBOARDING',
@@ -21,7 +44,7 @@ export const ProjectRequestTypeSchema = z.enum([
 export type ProjectRequestType = z.infer<typeof ProjectRequestTypeSchema>
 
 export const ProjectRequestMessageSchema = ProjectRequestMessageBaseSchema.extend({
-  authorRole: z.enum(['ADMIN', 'CLIENT']),
+  authorRole: z.enum(['ADMIN', 'CLIENT', 'COLLABORATOR']),
 })
 export type ProjectRequestMessage = z.infer<typeof ProjectRequestMessageSchema>
 
@@ -84,6 +107,7 @@ export const ClientApprovalRecordItemSchema = z.object({
   summary: z.string().nullable(),
   targetPhase: ClientProjectPhaseSchema.nullable(),
   approvedAt: isoDateTimeString,
+  attachments: z.array(ProjectAttachmentSchema).optional(),
 })
 export type ClientApprovalRecordItem = z.infer<typeof ClientApprovalRecordItemSchema>
 
@@ -116,6 +140,135 @@ export const PortalNotificationItemSchema = z.object({
 })
 export type PortalNotificationItem = z.infer<typeof PortalNotificationItemSchema>
 
+export const PortalProfileUserSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  status: z.string(),
+  role: z.string(),
+  clientOrgRole: ClientOrgRoleSchema.nullable(),
+  canAccessSocialListening: z.boolean(),
+})
+export type PortalProfileUser = z.infer<typeof PortalProfileUserSchema>
+
+export const PortalProfileOrganizationSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  logoUrl: z.string().nullable(),
+  isSocialListeningSubscriber: z.boolean(),
+})
+export type PortalProfileOrganization = z.infer<typeof PortalProfileOrganizationSchema>
+
+export const PortalPermissionsSchema = z.object({
+  canManageOrgTeam: z.boolean(),
+  canAccessTeamHub: z.boolean(),
+  canManageOrgRoles: z.boolean(),
+  canInviteOrgMemberImmediately: z.boolean(),
+  canRequestOrgInvite: z.boolean(),
+  canToggleSocialListeningForTeam: z.boolean(),
+  canCreateProject: z.boolean(),
+  canUseSocialListening: z.boolean(),
+})
+export type PortalPermissions = z.infer<typeof PortalPermissionsSchema>
+
+export const PortalProfilePayloadSchema = z.object({
+  user: PortalProfileUserSchema,
+  organization: PortalProfileOrganizationSchema.nullable(),
+  permissions: PortalPermissionsSchema,
+})
+export type PortalProfilePayload = z.infer<typeof PortalProfilePayloadSchema>
+
+export const PortalProfileResponseSchema = PortalProfilePayloadSchema.extend({
+  ok: z.literal(true),
+})
+export type PortalProfileResponse = z.infer<typeof PortalProfileResponseSchema>
+
+/** Alias for client fetch helpers */
+export type PortalProfile = PortalProfilePayload
+
+export const ClientRecentActivityItemSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  projectTitle: z.string(),
+  action: z.string(),
+  summary: z.string().optional(),
+  actorEmail: z.string().nullable(),
+  actorName: z.string().nullable().optional(),
+  actorLabel: z.string().nullable().optional(),
+  createdAt: isoDateTimeString,
+  href: z.string(),
+})
+export type ClientRecentActivityItem = z.infer<typeof ClientRecentActivityItemSchema>
+
+export const ClientSubscriptionPaymentMethodSchema = z.object({
+  last4: z.string(),
+  brand: z.string().nullable(),
+  expMonth: z.number().nullable(),
+  expYear: z.number().nullable(),
+})
+
+export const ClientSubscriptionViewSchema = z.object({
+  plan: SocialListeningPlanSchema,
+  planId: z.string().nullable(),
+  planName: z.string(),
+  status: SocialListeningSubscriptionStatusSchema,
+  startedAt: isoDateTimeString.nullable(),
+  currentPeriodEnd: isoDateTimeString.nullable(),
+  autoRenewEnabled: z.boolean(),
+  cancelAtPeriodEnd: z.boolean(),
+  billingSource: SocialListeningBillingSourceSchema,
+  entitled: z.boolean(),
+  paymentMethod: ClientSubscriptionPaymentMethodSchema.nullable(),
+})
+export type ClientSubscriptionView = z.infer<typeof ClientSubscriptionViewSchema>
+
+export const ClientSubscriptionResponseSchema = z.object({
+  subscription: ClientSubscriptionViewSchema.nullable(),
+})
+export type ClientSubscriptionResponse = z.infer<typeof ClientSubscriptionResponseSchema>
+
+export {
+  AssignableProjectMemberSchema,
+  ClientTeamMemberSchema,
+  OrgTeamListResponseSchema,
+  ProjectMemberMutationResponseSchema,
+  ProjectMemberSchema,
+  ProjectMembersResponseSchema,
+  ProjectTeamCardSchema,
+  TeamHubPermissionsSchema,
+  TeamHubResponseSchema,
+  TeamInviteMemberResponseSchema,
+  TeamInviteRequestMutationResponseSchema,
+  TeamInviteRequestSchema,
+  TeamMemberMutationResponseSchema,
+} from './shared/team'
+import type { ClientTeamMember, TeamHubResponse } from './shared/team'
+
+export type {
+  AssignableProjectMember,
+  ClientTeamMember,
+  OrgTeamListResponse,
+  ProjectMember,
+  ProjectMemberMutationResponse,
+  ProjectMembersResponse,
+  ProjectTeamCard,
+  TeamHubPermissions,
+  TeamHubResponse,
+  TeamInviteMemberResponse,
+  TeamInviteRequest,
+  TeamInviteRequestMutationResponse,
+  TeamMemberMutationResponse,
+} from './shared/team'
+
+/** Client portal team member alias */
+export type TeamMember = ClientTeamMember
+
+/** Team hub page payload */
+export type TeamHub = TeamHubResponse
+
+export type { ClientOrgRole, ClientProjectAccessLevel }
+export { ClientOrgRoleSchema, ClientProjectAccessLevelSchema }
+
 export {
   ClientFilesLibrarySchema,
   ClientProjectPhaseSchema,
@@ -137,3 +290,29 @@ export type {
   ProjectFilesGroup,
   ProjectRequestStatus,
 } from './shared/projects'
+
+export {
+  OrgInboxAuthorRoleSchema,
+  OrgInboxConversationListResponseSchema,
+  OrgInboxConversationSchema,
+  OrgInboxCreateConversationResponseSchema,
+  OrgInboxMessageListResponseSchema,
+  OrgInboxMessageSchema,
+  OrgInboxRealtimeAuthResponseSchema,
+  OrgInboxSendMessageResponseSchema,
+  OrgInboxUnreadCountResponseSchema,
+  OrgInboxVisibilitySchema,
+} from './shared/org-inbox'
+
+export type {
+  OrgInboxAuthorRole,
+  OrgInboxConversation,
+  OrgInboxConversationListResponse,
+  OrgInboxCreateConversationResponse,
+  OrgInboxMessage,
+  OrgInboxMessageListResponse,
+  OrgInboxRealtimeAuthResponse,
+  OrgInboxSendMessageResponse,
+  OrgInboxUnreadCountResponse,
+  OrgInboxVisibility,
+} from './shared/org-inbox'

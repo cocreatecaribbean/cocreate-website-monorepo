@@ -277,7 +277,7 @@ export default function AgencyCollaboratorsManager() {
             {collaborators.map((row) => (
               <li
                 key={row.id}
-                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between"
+                className="flex flex-col gap-3 py-4 lg:flex-row lg:items-start lg:justify-between"
               >
                 <div className="min-w-0">
                   <p className={`text-chambray ${bricolage_grot600.className}`}>{row.email}</p>

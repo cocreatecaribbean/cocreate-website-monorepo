@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import '@cocreate/app-ui/styles.css';
+@source "../../../packages/app-ui/src";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -55,9 +56,6 @@
     @apply rounded-l-[1.65rem] bg-linear-to-b from-chambray via-[#2f3678] to-[#252b63] text-white shadow-[inset_-1px_0_0_rgba(255,255,255,0.06)];
   }
   .portal-sl-nav-item { cursor: pointer !important; }
-  .portal-sl-mobile-nav {
-    @apply rounded-2xl bg-linear-to-r from-chambray via-[#2f3678] to-chambray p-1 shadow-[0_8px_28px_rgba(57,65,154,0.2)] ring-1 ring-chambray/20;
-  }
   .portal-sl-main { @apply p-4 sm:p-6 lg:border-l lg:border-chambray/8 lg:pl-6; }
   .dark .portal-sl-main { @apply lg:border-white/10; }
   .portal-sl-shell { @apply lg:min-h-[520px]; }

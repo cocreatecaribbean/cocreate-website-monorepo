@@ -15,6 +15,7 @@ import { ProjectsModule } from './projects/projects.module'
 import { UsersModule } from './users/users.module'
 import { BillingModule } from './billing/billing.module'
 import { SocialListeningAdminModule } from './social-listening-admin/social-listening-admin.module'
+import { OrgInboxModule } from './org-inbox/org-inbox.module'
 import { DashboardModule } from './dashboard/dashboard.module'
 
 @Module({
@@ -37,6 +38,7 @@ import { DashboardModule } from './dashboard/dashboard.module'
     DashboardModule,
     BillingModule,
     SocialListeningAdminModule,
+    OrgInboxModule,
   ],
   controllers: [AppController],
   providers: [AppService],

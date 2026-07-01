@@ -1,4 +1,10 @@
 @layer components {
+  /*
+   * Responsive breakpoints (Tailwind defaults):
+   * - Dense rows / master-detail split: stack below lg (1024px), side-by-side at lg+
+   * - Shell nav: hamburger drawer below lg; persistent sidebar at lg+ (never horizontal strip)
+   * - Data tables: card layout or overflow-x-auto below lg
+   */
   .text-app-primary { color: var(--text-primary); }
   .text-app-muted { color: var(--text-muted); }
   .text-app-heading { color: var(--text-heading); }
@@ -161,7 +167,7 @@
   .admin-thread-panel,
   .cc-thread-panel {
     border-radius: var(--radius-panel);
-    @apply max-h-80 space-y-3 overflow-y-auto border border-chambray/8 p-4;
+    @apply min-h-0 max-h-none flex-1 space-y-3 overflow-y-auto border border-chambray/8 p-4;
     background-color: var(--surface-thread);
   }
   .dark .portal-thread-panel,
@@ -195,4 +201,34 @@
   .portal-shine-hover:hover::after,
   .admin-shine-hover:hover::after,
   .cc-shine-hover:hover::after { transform: translateX(100%); }
+
+  /* Hamburger drawer — opaque panel (classes must live in scanned CSS, not only in app-ui TSX) */
+  .portal-drawer-aside {
+    @apply fixed inset-y-0 left-0 z-50 flex w-[min(88vw,18rem)] flex-col shadow-2xl transition-transform duration-300 ease-out;
+    background-image: linear-gradient(to bottom, #39419a, #353d8f, #2a3170);
+  }
+  .portal-drawer-aside--open { @apply translate-x-0; }
+  .portal-drawer-aside--closed { @apply -translate-x-full pointer-events-none; }
+  .portal-drawer-aside--persistent {
+    @apply lg:static lg:z-auto lg:w-64 lg:shrink-0 lg:shadow-none xl:w-72;
+  }
+  .portal-drawer-aside--persistent.portal-drawer-aside--closed {
+    @apply lg:translate-x-0 lg:pointer-events-auto;
+  }
+  .portal-drawer-aside--overlay { @apply lg:hidden; }
+  .portal-drawer-backdrop {
+    @apply fixed inset-0 z-40 bg-chambray/40 backdrop-blur-sm lg:hidden;
+  }
+  .portal-drawer-nav-item {
+    @apply flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] transition-all duration-200;
+  }
+  .portal-drawer-nav-item--active {
+    @apply bg-white/18 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] ring-1 ring-white/15;
+  }
+  .portal-drawer-nav-item--idle {
+    @apply text-white/85 hover:bg-white/10 hover:text-white;
+  }
+  .portal-drawer-nav-icon { @apply text-white/70; }
+  .portal-drawer-nav-item--active .portal-drawer-nav-icon { @apply text-casablanca; }
+  .portal-drawer-nav-item--idle:hover .portal-drawer-nav-icon { color: white; }
 }

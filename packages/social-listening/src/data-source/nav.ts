@@ -28,6 +28,7 @@ export const SOCIAL_LISTENING_SETUP = {
 export type SocialListeningNavItem = {
   id: SocialListeningViewId
   label: string
+  shortLabel: string
   description: string
   icon: LucideIcon
 }
@@ -36,30 +37,35 @@ export const SOCIAL_LISTENING_NAV: SocialListeningNavItem[] = [
   {
     id: 'mentions',
     label: 'Mentions',
+    shortLabel: 'Mentions',
     description: 'Volume, timing, and sentiment trends',
     icon: MessageSquare,
   },
   {
     id: 'summary',
     label: 'Summary',
+    shortLabel: 'Summary',
     description: 'Key metrics and sentiment split',
     icon: PieChart,
   },
   {
     id: 'analysis',
     label: 'Analysis',
+    shortLabel: 'Stats',
     description: 'Reach, engagement, and performance',
     icon: LineChart,
   },
   {
     id: 'sources',
     label: 'Sources',
+    shortLabel: 'Sources',
     description: 'Where conversations happen',
     icon: BarChart3,
   },
   {
     id: 'quotes',
     label: 'Quotes',
+    shortLabel: 'Quotes',
     description: 'Notable posts and snippets',
     icon: Quote,
   },
@@ -68,6 +74,7 @@ export const SOCIAL_LISTENING_NAV: SocialListeningNavItem[] = [
 export const SOCIAL_LISTENING_REPORTS: SocialListeningNavItem = {
   id: 'reports',
   label: 'Reports',
+  shortLabel: 'Reports',
   description: 'Exports and scheduled digests',
   icon: FileText,
 }
@@ -93,6 +100,7 @@ export const SOCIAL_LISTENING_VIEW_QUERY = 'view'
 export const DEFAULT_SETTINGS_NAV = {
   id: 'settings' as const,
   label: 'Settings',
+  shortLabel: 'Settings',
   description: 'Appearance and portal preferences',
   icon: Settings,
   queryKey: 'ccView',

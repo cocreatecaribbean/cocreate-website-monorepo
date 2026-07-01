@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { Menu } from 'lucide-react'
+import PortalDrawerShell from '@cocreate/app-ui/portal-drawer-shell'
 import AdminSidebar from '@/components/admin-sidebar'
 import CollaborateShell from '@/components/collaborate-shell'
 import {
@@ -48,33 +49,12 @@ function AdminShellChrome({ children }: { children: React.ReactNode }) {
     setMenuOpen(false)
   }, [pathname])
 
-  useEffect(() => {
-    document.body.style.overflow = menuOpen ? 'hidden' : ''
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [menuOpen])
-
   return (
-    <div className="flex h-svh overflow-hidden">
-      {menuOpen ? (
-        <button
-          type="button"
-          aria-label="Close menu"
-          className="fixed inset-0 z-40 bg-chambray/40 backdrop-blur-sm lg:hidden"
-          onClick={() => setMenuOpen(false)}
-        />
-      ) : null}
-
-      <aside
-        className={`
-          fixed inset-y-0 left-0 z-50 flex w-[min(88vw,18rem)] flex-col
-          bg-linear-to-b from-chambray via-[#353d8f] to-[#2a3170] shadow-2xl
-          transition-transform duration-300 ease-out
-          lg:static lg:z-auto lg:w-64 lg:shrink-0 lg:translate-x-0 lg:shadow-none xl:w-72
-          ${menuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        `}
-      >
+    <PortalDrawerShell
+      open={menuOpen}
+      onOpenChange={setMenuOpen}
+      variant="persistent"
+      sidebar={
         <Suspense
           fallback={
             <div className="flex h-full flex-col px-4 py-6 sm:px-6 sm:py-8" aria-hidden>
@@ -93,9 +73,8 @@ function AdminShellChrome({ children }: { children: React.ReactNode }) {
             onClose={() => setMenuOpen(false)}
           />
         </Suspense>
-      </aside>
-
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      }
+      mobileHeader={
         <header className="admin-surface sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden">
           <button
             type="button"
@@ -126,10 +105,10 @@ function AdminShellChrome({ children }: { children: React.ReactNode }) {
           </Link>
           <div className="h-11 w-11 shrink-0" aria-hidden />
         </header>
-
-        <AdminAccessBanner />
-        {children}
-      </div>
-    </div>
+      }
+    >
+      <AdminAccessBanner />
+      {children}
+    </PortalDrawerShell>
   )
 }

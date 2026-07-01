@@ -24,63 +24,16 @@ import type {
   RequestTeamInviteInput,
   RejectTeamInviteInput,
 } from '@cocreate/api-contracts/v1/requests/projects'
+import type {
+  AssignableProjectMember,
+  ClientTeamMember,
+  ProjectMember,
+  ProjectTeamCard,
+  TeamHubPermissions,
+  TeamInviteRequest,
+} from '@cocreate/api-contracts/v1/shared/team'
 import { ProjectNotificationsService } from './project-notifications.service'
 import { ProjectStorageService } from './project-storage.service'
-
-export type TeamMemberSummary = {
-  id: string
-  email: string
-  status: UserStatus
-  clientOrgRole: ClientOrgRole | null
-  canAccessSocialListening: boolean
-  createdAt: Date
-  updatedAt: Date
-}
-
-export type ProjectMemberSummary = {
-  id: string
-  userId: string
-  email: string
-  clientOrgRole: ClientOrgRole | null
-  access: ClientProjectAccessLevel
-  grantedByUserId: string
-  createdAt: Date
-}
-
-export type AssignableProjectMemberSummary = {
-  userId: string
-  email: string
-  clientOrgRole: ClientOrgRole | null
-}
-
-export type TeamHubPermissions = {
-  canManageOrgRoles: boolean
-  canInviteImmediately: boolean
-  canRequestInvite: boolean
-  canToggleSocialListening: boolean
-}
-
-export type ProjectTeamCard = {
-  id: string
-  title: string
-  status: string
-  phase: string
-  creatorUserId: string
-  creatorEmail: string
-  coverImageUrl: string | null
-  canManage: boolean
-  members: ProjectMemberSummary[]
-}
-
-export type TeamInviteRequestSummary = {
-  id: string
-  email: string
-  requestedClientOrgRole: ClientOrgRole
-  status: ClientTeamInviteRequestStatus
-  requestedByEmail: string
-  createdAt: Date
-  rejectionReason?: string | null
-}
 
 @Injectable()
 export class ClientTeamService {
@@ -122,15 +75,15 @@ export class ClientTeamService {
     canAccessSocialListening: boolean
     createdAt: Date
     updatedAt: Date
-  }): TeamMemberSummary {
+  }): ClientTeamMember {
     return {
       id: user.id,
       email: user.email,
       status: user.status,
       clientOrgRole: user.clientOrgRole,
       canAccessSocialListening: user.canAccessSocialListening,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
     }
   }
 
@@ -203,7 +156,7 @@ export class ClientTeamService {
           })
         : []
 
-    const membersByProject = new Map<string, ProjectMemberSummary[]>()
+    const membersByProject = new Map<string, ProjectMember[]>()
     for (const row of explicitMembers) {
       const list = membersByProject.get(row.projectId) ?? []
       list.push({
@@ -213,7 +166,7 @@ export class ClientTeamService {
         clientOrgRole: row.user.clientOrgRole,
         access: row.access,
         grantedByUserId: row.grantedByUserId,
-        createdAt: row.createdAt,
+        createdAt: row.createdAt.toISOString(),
       })
       membersByProject.set(row.projectId, list)
     }
@@ -264,21 +217,21 @@ export class ClientTeamService {
     createdAt: Date
     rejectionReason: string | null
     requestedBy: { email: string }
-  }): TeamInviteRequestSummary {
+  }): TeamInviteRequest {
     return {
       id: row.id,
       email: row.email,
       requestedClientOrgRole: row.requestedClientOrgRole,
       status: row.status,
       requestedByEmail: row.requestedBy.email,
-      createdAt: row.createdAt,
+      createdAt: row.createdAt.toISOString(),
       rejectionReason: row.rejectionReason,
     }
   }
 
   private async listPendingInviteRequestsForHub(
     client: AuthenticatedClient,
-  ): Promise<TeamInviteRequestSummary[]> {
+  ): Promise<TeamInviteRequest[]> {
     const organizationId = this.clientAccess.requireOrganizationId(client)
     const where = {
       organizationId,
@@ -614,15 +567,48 @@ export class ClientTeamService {
       orderBy: { createdAt: 'asc' },
     })
 
-    const members: ProjectMemberSummary[] = explicit.map((row) => ({
+    const members: ProjectMember[] = explicit.map((row) => ({
       id: row.id,
       userId: row.userId,
       email: row.user.email,
       clientOrgRole: row.user.clientOrgRole,
       access: row.access,
       grantedByUserId: row.grantedByUserId,
-      createdAt: row.createdAt,
+      createdAt: row.createdAt.toISOString(),
     }))
+
+    const canManage = await this.clientAccess.canManageProjectMembership(client, projectId)
+    let assignableMembers: AssignableProjectMember[] | undefined
+
+    if (canManage) {
+      const orgUsers = await this.prisma.user.findMany({
+        where: {
+          organizationId: project.organizationId,
+          role: UserRole.CLIENT,
+          status: { not: UserStatus.SUSPENDED },
+        },
+        select: {
+          id: true,
+          email: true,
+          clientOrgRole: true,
+        },
+        orderBy: [{ clientOrgRole: 'asc' }, { email: 'asc' }],
+      })
+      const assignedUserIds = new Set([
+        project.createdByUserId,
+        ...members.map((member) => member.userId),
+      ])
+      assignableMembers = orgUsers
+        .filter(
+          (user) =>
+            user.clientOrgRole !== ClientOrgRole.OWNER && !assignedUserIds.has(user.id),
+        )
+        .map((user) => ({
+          userId: user.id,
+          email: user.email,
+          clientOrgRole: user.clientOrgRole,
+        }))
+    }
 
     return {
       ok: true as const,
@@ -633,7 +619,8 @@ export class ClientTeamService {
         implicitAccess: 'MANAGE' as const,
       },
       members,
-      canManage: await this.clientAccess.canManageProjectMembership(client, projectId),
+      canManage,
+      assignableMembers,
     }
   }
 
@@ -706,7 +693,7 @@ export class ClientTeamService {
         clientOrgRole: row.user.clientOrgRole,
         access: row.access,
         grantedByUserId: row.grantedByUserId,
-        createdAt: row.createdAt,
+        createdAt: row.createdAt.toISOString(),
       },
     }
   }

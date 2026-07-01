@@ -15,8 +15,11 @@ import {
 import { useSuspendClientUserMutation } from '@/lib/api/mutations/clients'
 import { adminQueryKeys } from '@/lib/api/query-keys'
 import { useClientsQuery } from '@/lib/api/queries/clients'
+import type { ClientOrganizationRosterItem } from '@/lib/projects/types'
 import { bricolage_grot600 } from '@/styles/fonts'
 type ClientOrgRole = 'OWNER' | 'PROJECT_MANAGER' | 'MEMBER'
+
+const EMPTY_CLIENTS: ClientOrganizationRosterItem[] = []
 
 const orgRoleBadge: Record<ClientOrgRole, string> = {
   OWNER: 'Owner',
@@ -54,7 +57,8 @@ const statusLabel: Record<string, string> = {
 
 export default function ClientAccessManager() {
   const queryClient = useQueryClient()
-  const { data: clients = [], isLoading, error: queryError, isError } = useClientsQuery()
+  const { data, isLoading, error: queryError, isError } = useClientsQuery()
+  const clients = data ?? EMPTY_CLIENTS
   const suspendMutation = useSuspendClientUserMutation()
 
   const [companyName, setCompanyName] = useState('')
@@ -81,9 +85,20 @@ export default function ClientAccessManager() {
     : null
 
   useEffect(() => {
-    setBrand24Drafts(
-      Object.fromEntries(clients.map((c) => [c.id, c.brand24ProjectId ?? ''])),
+    const next = Object.fromEntries(
+      clients.map((c) => [c.id, c.brand24ProjectId ?? '']),
     )
+    setBrand24Drafts((prev) => {
+      const prevKeys = Object.keys(prev)
+      const nextKeys = Object.keys(next)
+      if (
+        prevKeys.length === nextKeys.length &&
+        nextKeys.every((id) => prev[id] === next[id])
+      ) {
+        return prev
+      }
+      return next
+    })
   }, [clients])
 
   const onLogoChange = async (file: File | null) => {
@@ -284,7 +299,7 @@ export default function ClientAccessManager() {
             className="admin-input"
           />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <label className="admin-btn-ghost cursor-pointer text-sm">
             {logoUploading ? 'Uploading…' : 'Upload client logo (optional)'}
             <input
@@ -351,125 +366,127 @@ export default function ClientAccessManager() {
           <ul className="mt-4 divide-y divide-chambray/6">
             {clients.map((client) => (
               <li key={client.id} className="py-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-3">
-                  {client.logoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={client.logoUrl}
-                      alt=""
-                      className="h-10 w-10 shrink-0 rounded-full object-contain"
-                    />
-                  ) : (
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-sanmarino/20 to-chambray/10 text-xs font-semibold text-chambray ring-1 ring-sanmarino/15">
-                      {client.name
-                        .split(/\s+/)
-                        .filter(Boolean)
-                        .slice(0, 2)
-                        .map((part) => part[0]?.toUpperCase() ?? '')
-                        .join('') || '?'}
-                    </span>
-                  )}
-                  <div className="min-w-0">
+                <div className="flex flex-col gap-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    {client.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={client.logoUrl}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-full object-contain"
+                      />
+                    ) : (
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-sanmarino/20 to-chambray/10 text-xs font-semibold text-chambray ring-1 ring-sanmarino/15">
+                        {client.name
+                          .split(/\s+/)
+                          .filter(Boolean)
+                          .slice(0, 2)
+                          .map((part) => part[0]?.toUpperCase() ?? '')
+                          .join('') || '?'}
+                      </span>
+                    )}
+                    <div className="min-w-0">
+                      <Link
+                        href={`/clients/${client.id}`}
+                        className="font-medium text-app-primary hover:text-sanmarino"
+                      >
+                        {client.name}
+                      </Link>
+                      <p className="flex flex-wrap items-center gap-2 text-sm text-app-muted">
+                        <span className="break-all">{client.primaryContact?.email ?? 'No contact'}</span>
+                        {client.primaryContact ? (
+                          <OrgRoleBadge role={client.primaryContact.clientOrgRole} />
+                        ) : null}
+                      </p>
+                      <p className="mt-1 text-xs text-app-muted">
+                        {client.primaryContact
+                          ? statusLabel[client.primaryContact.status] ??
+                            client.primaryContact.status
+                          : '—'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {client.isSocialListeningSubscriber ? (
+                    <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+                      <p className="text-xs text-app-muted sm:sr-only">
+                        Brand24 project ID (optional)
+                      </p>
+                      <input
+                        type="text"
+                        value={brand24Drafts[client.id] ?? ''}
+                        onChange={(e) =>
+                          setBrand24Drafts((prev) => ({
+                            ...prev,
+                            [client.id]: e.target.value,
+                          }))
+                        }
+                        placeholder="Brand24 project ID (optional)"
+                        className="admin-input min-h-10 min-w-0 flex-1 text-sm"
+                        aria-label="Brand24 project ID (optional)"
+                      />
+                      <button
+                        type="button"
+                        disabled={savingBrand24Id === client.id}
+                        onClick={() => void saveBrand24Project(client.id)}
+                        className="admin-btn-ghost min-h-10 shrink-0 px-4 sm:w-auto"
+                      >
+                        {savingBrand24Id === client.id ? 'Saving…' : 'Save ID'}
+                      </button>
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      href={`/social-listening/subscriptions/${client.id}`}
+                      className="admin-btn-ghost inline-flex min-h-10 items-center justify-center px-4"
+                    >
+                      Social Listening
+                    </Link>
+                    {client.primaryContact &&
+                    client.primaryContact.clientOrgRole !== 'OWNER' &&
+                    client.primaryContact.status !== 'SUSPENDED' ? (
+                      <button
+                        type="button"
+                        disabled={settingOwnerUserId === client.primaryContact.id}
+                        onClick={() =>
+                          void setAsOrgOwner(client.id, client.primaryContact!.id)
+                        }
+                        className="admin-btn-ghost min-h-10"
+                      >
+                        {settingOwnerUserId === client.primaryContact.id
+                          ? 'Setting…'
+                          : 'Set as org owner'}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedTeamOrgId((current) =>
+                          current === client.id ? null : client.id,
+                        )
+                      }
+                      className="admin-btn-ghost min-h-10"
+                    >
+                      {expandedTeamOrgId === client.id ? 'Hide team' : 'Manage team'}
+                    </button>
                     <Link
                       href={`/clients/${client.id}`}
-                      className="font-medium text-app-primary hover:text-sanmarino"
+                      className="admin-btn-primary min-h-10 px-4 text-center"
                     >
-                      {client.name}
+                      Workspace
                     </Link>
-                    <p className="flex flex-wrap items-center gap-2 text-sm text-app-muted">
-                      <span>{client.primaryContact?.email ?? 'No contact'}</span>
-                      {client.primaryContact ? (
-                        <OrgRoleBadge role={client.primaryContact.clientOrgRole} />
-                      ) : null}
-                    </p>
-                    <p className="mt-1 text-xs text-app-muted">
-                      {client.primaryContact
-                        ? statusLabel[client.primaryContact.status] ??
-                          client.primaryContact.status
-                        : '—'}
-                    </p>
+                    {client.primaryContact &&
+                    client.primaryContact.status !== 'SUSPENDED' ? (
+                      <button
+                        type="button"
+                        onClick={() => void suspend(client.primaryContact!.id)}
+                        className="admin-btn-ghost min-h-10"
+                      >
+                        Suspend
+                      </button>
+                    ) : null}
                   </div>
-                </div>
-                <div className="flex w-full flex-col gap-3 sm:max-w-md">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <input
-                      type="text"
-                      value={brand24Drafts[client.id] ?? ''}
-                      onChange={(e) =>
-                        setBrand24Drafts((prev) => ({
-                          ...prev,
-                          [client.id]: e.target.value,
-                        }))
-                      }
-                      placeholder="Brand24 project ID (optional)"
-                      className="admin-input min-h-10 flex-1 text-sm"
-                      disabled={!client.isSocialListeningSubscriber}
-                    />
-                    <button
-                      type="button"
-                      disabled={
-                        savingBrand24Id === client.id ||
-                        !client.isSocialListeningSubscriber
-                      }
-                      onClick={() => void saveBrand24Project(client.id)}
-                      className="admin-btn-ghost min-h-10 shrink-0 px-4"
-                    >
-                      {savingBrand24Id === client.id ? 'Saving…' : 'Save ID'}
-                    </button>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-                  <Link
-                    href={`/social-listening/subscriptions/${client.id}`}
-                    className="admin-btn-ghost inline-flex min-h-10 items-center justify-center px-4"
-                  >
-                    Social Listening
-                  </Link>
-                  {client.primaryContact &&
-                  client.primaryContact.clientOrgRole !== 'OWNER' &&
-                  client.primaryContact.status !== 'SUSPENDED' ? (
-                    <button
-                      type="button"
-                      disabled={settingOwnerUserId === client.primaryContact.id}
-                      onClick={() =>
-                        void setAsOrgOwner(client.id, client.primaryContact!.id)
-                      }
-                      className="admin-btn-ghost min-h-10 w-full sm:w-auto"
-                    >
-                      {settingOwnerUserId === client.primaryContact.id
-                        ? 'Setting…'
-                        : 'Set as org owner'}
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setExpandedTeamOrgId((current) =>
-                        current === client.id ? null : client.id,
-                      )
-                    }
-                    className="admin-btn-ghost min-h-10 w-full sm:w-auto"
-                  >
-                    {expandedTeamOrgId === client.id ? 'Hide team' : 'Manage team'}
-                  </button>
-                  <Link
-                    href={`/clients/${client.id}`}
-                    className="admin-btn-primary min-h-10 w-full text-center sm:w-auto"
-                  >
-                    Workspace
-                  </Link>
-                  {client.primaryContact &&
-                  client.primaryContact.status !== 'SUSPENDED' ? (
-                    <button
-                      type="button"
-                      onClick={() => void suspend(client.primaryContact!.id)}
-                      className="admin-btn-ghost min-h-10 w-full sm:w-auto"
-                    >
-                      Suspend
-                    </button>
-                  ) : null}
-                </div>
                 </div>
                 {expandedTeamOrgId === client.id ? (
                   <div className="mt-4 w-full min-w-0 border-t border-chambray/10 pt-4">

@@ -8,6 +8,7 @@ import {
 } from '@/lib/api/mutations/team'
 import { useProjectMembersQuery } from '@/lib/api/queries/team'
 import type {
+  AssignableProjectMember,
   ClientProjectAccessLevel,
 } from '@/lib/team/fetch-team-client'
 

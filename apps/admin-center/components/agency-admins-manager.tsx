@@ -172,9 +172,9 @@ export default function AgencyAdminsManager() {
             {admins.map((admin) => (
               <li
                 key={admin.id}
-                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 py-4 lg:flex-row lg:items-center lg:justify-between"
               >
-                <div>
+                <div className="min-w-0">
                   <p className={`text-chambray ${bricolage_grot600.className}`}>{admin.email}</p>
                   <p className="mt-1 text-xs text-slate-500">
                     {adminRoleLabel(admin.role)} · {statusLabel[admin.status] ?? admin.status}

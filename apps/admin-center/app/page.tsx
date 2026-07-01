@@ -143,7 +143,7 @@ export default async function AdminHomePage() {
               <Sparkles className="h-5 w-5 shrink-0 text-casablanca" strokeWidth={1.75} />
             </div>
 
-            <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-3">
               <Link
                 href="/team"
                 className="group admin-action-tile bg-linear-to-br from-white/80 to-chambray/5 dark:bg-linear-to-br dark:from-chambray/45 dark:via-chambray/15 dark:to-sanmarino/10 dark:ring-1 dark:ring-inset dark:ring-white/10"

@@ -67,7 +67,7 @@ function BrandFileRow({
   }
 
   return (
-    <li className="flex flex-col gap-3 border-b border-chambray/6 px-5 py-4 last:border-0 sm:grid sm:grid-cols-[1fr_110px_80px_72px] sm:items-center sm:gap-4">
+    <li className="flex flex-col gap-3 border-b border-chambray/6 px-5 py-4 last:border-0 lg:grid lg:grid-cols-[1fr_110px_80px_72px] lg:items-center lg:gap-4">
       <button
         type="button"
         onClick={() => void openPreview()}

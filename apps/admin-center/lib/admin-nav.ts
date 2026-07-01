@@ -2,6 +2,7 @@ export type AdminNavId =
   | 'dashboard'
   | 'project-center'
   | 'clients'
+  | 'messages'
   | 'social-listening'
   | 'team'
   | 'profile'
@@ -25,6 +26,7 @@ export function getActiveAdminNavId(pathname: string | null | undefined): AdminN
   const path = normalizeAdminPathname(pathname)
 
   if (path === '/') return 'dashboard'
+  if (path.startsWith('/messages')) return 'messages'
   if (path.startsWith('/settings/agency-profile')) return 'agency-profile'
   if (path.startsWith('/profile')) return 'profile'
   if (path.startsWith('/team')) return 'team'

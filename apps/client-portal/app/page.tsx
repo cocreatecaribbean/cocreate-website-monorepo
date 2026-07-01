@@ -69,6 +69,7 @@ export default async function ClientPortalHomePage() {
       userEmail={displayEmail}
       organizationName={profile.organization?.name ?? null}
       organizationLogoUrl={profile.organization?.logoUrl ?? null}
+      hasSocialListening={hasSocialListening}
     >
       <ClientPortalDashboard
         userEmail={displayEmail}

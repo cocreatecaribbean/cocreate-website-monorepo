@@ -135,9 +135,7 @@ export default function RequestMessageThread({
         ) : (
           messages.map((msg, messageIndex) => {
             const messageAttachments = attachmentsByMessage.get(messageIndex)
-            const isMine =
-              (viewerRole === 'ADMIN' && msg.authorRole === 'ADMIN') ||
-              (viewerRole === 'CLIENT' && msg.authorRole === 'CLIENT')
+            const isMine = viewerRole === 'CLIENT' && msg.authorRole === 'CLIENT'
             const showApprove =
               viewerRole === 'CLIENT' &&
               msg.isPendingApproval &&
@@ -152,12 +150,13 @@ export default function RequestMessageThread({
                 <p className="text-[0.65rem] font-medium text-app-muted">
                   {isMine
                     ? 'You'
-                    : msg.authorRole === 'ADMIN'
+                    : msg.authorRole === 'ADMIN' || msg.authorRole === 'COLLABORATOR'
                       ? formatActorWithTitle(
                           msg.authorDisplayName,
                           msg.authorJobTitle,
                           msg.authorEmail,
-                        ) ?? 'CoCreate team'
+                        ) ??
+                        (msg.authorRole === 'COLLABORATOR' ? 'Collaborator' : 'CoCreate team')
                       : formatActorWithTitle(
                           msg.authorDisplayName,
                           null,

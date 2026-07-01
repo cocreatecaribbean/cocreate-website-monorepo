@@ -37,9 +37,10 @@ export default function ControlCenterProjectsView() {
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
   const deepLinkHandled = useRef(false)
+  const markedAttentionProjectRef = useRef<string | null>(null)
 
   const { data: profile } = usePortalProfileQuery()
-  const canCreateProject = profile?.permissions.canCreateProject ?? true
+  const canCreateProject = profile?.permissions.canCreateProject ?? false
 
   const [openedProjectId, setOpenedProjectId] = useState<string | null>(null)
   const { data: projects = [], isLoading: loading } = useProjectsQuery()
@@ -50,7 +51,7 @@ export default function ControlCenterProjectsView() {
   } = useProjectQuery(openedProjectId)
 
   const createProjectMutation = useCreateProjectWithFilesMutation()
-  const markAttentionRead = useMarkAttentionReadMutation()
+  const { mutate: markAttentionRead } = useMarkAttentionReadMutation()
 
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')
@@ -89,9 +90,16 @@ export default function ControlCenterProjectsView() {
   }, [pathname, router, searchParams])
 
   useEffect(() => {
-    if (!openedProjectId || !detail || detail.id !== openedProjectId) return
-    markAttentionRead.mutate({ projectId: openedProjectId })
-  }, [openedProjectId, detail, markAttentionRead])
+    if (!openedProjectId) {
+      markedAttentionProjectRef.current = null
+      return
+    }
+    if (!detail || detail.id !== openedProjectId) return
+    if (markedAttentionProjectRef.current === openedProjectId) return
+
+    markedAttentionProjectRef.current = openedProjectId
+    markAttentionRead({ projectId: openedProjectId })
+  }, [openedProjectId, detail?.id, markAttentionRead])
 
   const openProject = useCallback((projectId: string, tab: PortalProjectTabId = 'overview') => {
     setInitialProjectTab(tab)

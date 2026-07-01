@@ -326,7 +326,23 @@ export function serializeActivity(
   }
 }
 
-export function serializeApprovalRecord(record: ClientApprovalRecord) {
+export function serializeApprovalRecord(
+  record: ClientApprovalRecord & {
+    message?: {
+      id?: string
+      createdAt?: Date
+      attachmentLinks?: Array<{ attachment: ProjectAttachment }>
+    } | null
+    request?: {
+      attachments?: ProjectAttachment[]
+      messages?: Array<{
+        id: string
+        createdAt: Date
+        attachmentLinks?: Array<{ attachmentId: string }>
+      }>
+    }
+  },
+) {
   return {
     id: record.id,
     projectId: record.projectId,
@@ -337,7 +353,50 @@ export function serializeApprovalRecord(record: ClientApprovalRecord) {
     targetPhase: record.targetPhase as ClientProjectPhase | null,
     approvedAt: record.approvedAt.toISOString(),
     approvedByUserId: record.approvedByUserId,
+    attachments: resolveApprovalRecordAttachments(record),
   }
+}
+
+function resolveApprovalRecordAttachments(
+  record: Parameters<typeof serializeApprovalRecord>[0],
+): ReturnType<typeof serializeAttachment>[] {
+  const linked =
+    record.message?.attachmentLinks?.map((link) =>
+      serializeAttachment(link.attachment),
+    ) ?? []
+  if (linked.length > 0) return linked
+
+  const request = record.request
+  const messages = request?.messages ?? []
+  const attachments = request?.attachments ?? []
+  if (!messages.length || !attachments.length) return []
+
+  const messageIndex = messages.findIndex((msg) => msg.id === record.messageId)
+  if (messageIndex < 0) return []
+
+  const linkedIds = new Set(
+    messages.flatMap((msg) =>
+      msg.attachmentLinks?.map((link) => link.attachmentId) ?? [],
+    ),
+  )
+  const unlinked = attachments.filter((attachment) => !linkedIds.has(attachment.id))
+  if (!unlinked.length) return []
+
+  const bucket: ProjectAttachment[] = []
+  for (const attachment of unlinked) {
+    const at = attachment.createdAt.getTime()
+    let index = messages.findIndex((msg, i) => {
+      const start = msg.createdAt.getTime()
+      const end = messages[i + 1]
+        ? messages[i + 1]!.createdAt.getTime()
+        : Number.POSITIVE_INFINITY
+      return at >= start && at < end
+    })
+    if (index < 0) index = messages.length - 1
+    if (index === messageIndex) bucket.push(attachment)
+  }
+
+  return bucket.map(serializeAttachment)
 }
 
 export function serializeNotification(notification: PortalNotification) {

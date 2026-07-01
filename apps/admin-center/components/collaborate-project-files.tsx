@@ -65,7 +65,7 @@ function FileRow({
   }
 
   return (
-    <li className="flex flex-col gap-3 border-b border-chambray/6 px-4 py-3 last:border-0 sm:grid sm:grid-cols-[1fr_100px_72px] sm:items-center sm:gap-4 sm:px-5 sm:py-4">
+    <li className="flex flex-col gap-3 border-b border-chambray/6 px-4 py-3 last:border-0 lg:grid lg:grid-cols-[1fr_100px_72px] lg:items-center lg:gap-4 lg:px-5 lg:py-4">
       <button
         type="button"
         onClick={() => void openPreview()}

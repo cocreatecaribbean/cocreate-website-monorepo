@@ -50,7 +50,7 @@ export class FygaroService {
       amount: formatPlanAmount(planDef),
       currency: planDef.currency,
       custom_reference: customReference,
-      return_url: `${clientPortalUrl.replace(/\/$/, '')}/?ccView=social-listening&billing=success`,
+      return_url: `${clientPortalUrl.replace(/\/$/, '')}/?tab=social-listening&billing=success`,
     }
 
     const header = Buffer.from(

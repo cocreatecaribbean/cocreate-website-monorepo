@@ -3,7 +3,12 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { fetchAdminBff } from '@/lib/admin-api-fetch'
+import { parseApiResponseSafe } from '@/lib/api/parse-response'
 import { adminQueryKeys } from '@/lib/api/query-keys'
+import {
+  AdminOrgTeamListResponseSchema,
+  AdminTeamInviteRequestsResponseSchema,
+} from '@cocreate/api-contracts/v1/admin-portal'
 import type {
   TeamInviteRequestSummary,
   TeamMemberSummary,
@@ -14,16 +19,19 @@ export function useClientTeamQuery(organizationId: string) {
     queryKey: adminQueryKeys.team.members(organizationId),
     queryFn: async () => {
       const [membersRes, invitesRes] = await Promise.all([
-        fetchAdminBff<{ members: TeamMemberSummary[] }>(
-          `/api/clients/${organizationId}/team`,
-        ),
-        fetchAdminBff<{ requests: TeamInviteRequestSummary[] }>(
+        fetchAdminBff<unknown>(`/api/clients/${organizationId}/team`),
+        fetchAdminBff<unknown>(
           `/api/clients/${organizationId}/team/invite-requests?status=PENDING`,
-        ).catch(() => ({ requests: [] as TeamInviteRequestSummary[] })),
+        ),
       ])
+      const membersParsed = parseApiResponseSafe(AdminOrgTeamListResponseSchema, membersRes)
+      const invitesParsed = parseApiResponseSafe(
+        AdminTeamInviteRequestsResponseSchema,
+        invitesRes,
+      )
       return {
-        members: membersRes.members,
-        inviteRequests: invitesRes.requests,
+        members: (membersParsed?.members ?? []) as TeamMemberSummary[],
+        inviteRequests: (invitesParsed?.requests ?? []) as TeamInviteRequestSummary[],
       }
     },
     enabled: Boolean(organizationId),

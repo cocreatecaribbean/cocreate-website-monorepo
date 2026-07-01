@@ -18,8 +18,10 @@ Central map for where TypeScript shapes live in the monorepo and how apps should
 | Subpath | Consumers |
 |---------|-----------|
 | `@cocreate/api-contracts/v1/shared/projects` | Shared enums and attachment shapes |
-| `@cocreate/api-contracts/v1/client-portal` | Client portal projects, dashboard, notifications |
-| `@cocreate/api-contracts/v1/admin-portal` | Admin roster, projects superset, dashboard, SL admin |
+| `@cocreate/api-contracts/v1/shared/team` | Client/admin team hub, org roster, project members |
+| `@cocreate/api-contracts/v1/shared/org-inbox` | Org-wide client ↔ agency messaging |
+| `@cocreate/api-contracts/v1/client-portal` | Client portal projects, dashboard, notifications, profile, billing, org inbox |
+| `@cocreate/api-contracts/v1/admin-portal` | Admin roster, projects superset, dashboard, SL admin, org inbox, auth/me |
 | `@cocreate/api-contracts/v1/social-listening` | HTTP payloads (`SocialListeningAnalyticsPayload`, compare, report templates) |
 | `@cocreate/api-contracts/v1/requests/*` | Request body/query Zod schemas (Nest `ZodValidationPipe`, optional client parse) |
 
@@ -32,6 +34,8 @@ Central map for where TypeScript shapes live in the monorepo and how apps should
 - **Nest validation:** `@Body(zodBody(FooSchema)) body: FooInput` via [`apps/api/src/common/zod/zod-validation.pipe.ts`](../apps/api/src/common/zod/zod-validation.pipe.ts)
 - **Wire enums:** `z.enum([...])` in contracts — keep literals in sync with Prisma (no `@cocreate/database` import in contracts)
 - **Tests:** `FooSchema.parse(fixture)` in [`apps/api/src/api-contracts.contract.spec.ts`](../apps/api/src/api-contracts.contract.spec.ts)
+- **Client fetch validation:** Use `parseApiResponse` / `parseApiResponseSafe` from [`apps/client-portal/lib/api/parse-response.ts`](../apps/client-portal/lib/api/parse-response.ts) at fetch boundaries for profile, team hub, projects, dashboard, files, notifications, billing, and org inbox. Parse failures log in development and return `null` (or empty arrays) consistent with network error handling.
+- **Admin fetch validation:** Same helpers in [`apps/admin-center/lib/api/parse-response.ts`](../apps/admin-center/lib/api/parse-response.ts) for org inbox and team roster queries.
 
 ## Frontend data fetching
 
@@ -91,6 +95,19 @@ flowchart TD
   sl --> shim
   shim --> nest
 ```
+
+## Centralized wire types (client portal)
+
+These surfaces are defined in `@cocreate/api-contracts/v1/client-portal` (and `v1/shared/team` for team primitives):
+
+| Endpoint | Schema |
+|----------|--------|
+| `GET /client-portal/me` | `PortalProfileResponseSchema` |
+| `GET /client-portal/team`, `/team/hub`, `/projects/:id/members` | `OrgTeamListResponseSchema`, `TeamHubResponseSchema`, `ProjectMembersResponseSchema` |
+| `GET /client-portal/dashboard/recent-activity` | `ClientRecentActivityItemSchema[]` |
+| `GET /client-portal/social-listening/subscription` | `ClientSubscriptionResponseSchema` |
+
+Admin `GET .../team` uses `TeamMemberSummarySchema` (alias of `ClientTeamMemberSchema`, includes `createdAt`/`updatedAt`).
 
 ## What stays in apps (not contracts)
 

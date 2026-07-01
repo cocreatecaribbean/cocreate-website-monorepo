@@ -8,7 +8,7 @@ import {
   type SocialListeningViewId,
 } from '@cocreate/social-listening/data-source'
 import type { MentionSnapshotHint } from '@cocreate/social-listening/core'
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { slFontSemibold, slFontBold } from './typography'
 
 type SocialListeningSidebarProps = {
@@ -20,22 +20,30 @@ type SocialListeningSidebarProps = {
   mentionHint?: MentionSnapshotHint
   showSettings?: boolean
   showSetupShortcut?: boolean
+  onNavigate?: () => void
+  showClose?: boolean
+  onClose?: () => void
 }
 
 function NavButton({
   item,
   active,
   onSelect,
+  onNavigate,
 }: {
   item: SocialListeningNavItem
   active: boolean
   onSelect: () => void
+  onNavigate?: () => void
 }) {
   const Icon = item.icon
   return (
     <button
       type="button"
-      onClick={onSelect}
+      onClick={() => {
+        onSelect()
+        onNavigate?.()
+      }}
       aria-current={active ? 'page' : undefined}
       title={item.description}
       className={`
@@ -60,6 +68,7 @@ function NavButton({
 const settingsNavItem: SocialListeningNavItem = {
   id: 'summary',
   label: DEFAULT_SETTINGS_NAV.label,
+  shortLabel: DEFAULT_SETTINGS_NAV.shortLabel,
   description: DEFAULT_SETTINGS_NAV.description,
   icon: DEFAULT_SETTINGS_NAV.icon,
 }
@@ -73,6 +82,9 @@ export default function SocialListeningSidebar({
   mentionHint,
   showSettings = true,
   showSetupShortcut = true,
+  onNavigate,
+  showClose = false,
+  onClose,
 }: SocialListeningSidebarProps) {
   const projectLabel = organizationName?.trim() || 'Your brand'
 
@@ -88,17 +100,32 @@ export default function SocialListeningSidebar({
           >
             Projects
           </p>
-          {showSetupShortcut ? (
-            <button
-              type="button"
-              onClick={() => onSelectView('setup')}
-              aria-label="Create new listening setup"
-              title="New listening setup"
-              className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-casablanca/90 text-chambray transition hover:bg-casablanca hover:ring-2 hover:ring-casablanca/40"
-            >
-              <Plus className="h-3.5 w-3.5" aria-hidden />
-            </button>
-          ) : null}
+          <div className="flex items-center gap-2">
+            {showSetupShortcut ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectView('setup')
+                  onNavigate?.()
+                }}
+                aria-label="Create new listening setup"
+                title="New listening setup"
+                className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-casablanca/90 text-chambray transition hover:bg-casablanca hover:ring-2 hover:ring-casablanca/40"
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            ) : null}
+            {showClose ? (
+              <button
+                type="button"
+                aria-label="Close menu"
+                onClick={onClose}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 lg:hidden"
+              >
+                <X className="h-5 w-5" strokeWidth={1.75} />
+              </button>
+            ) : null}
+          </div>
         </div>
         <p
           className={`mt-3 truncate text-sm font-semibold tracking-wide text-white uppercase ${slFontBold}`}
@@ -125,6 +152,7 @@ export default function SocialListeningSidebar({
             item={item}
             active={!settingsActive && activeView === item.id}
             onSelect={() => onSelectView(item.id)}
+            onNavigate={onNavigate}
           />
         ))}
       </nav>
@@ -134,12 +162,14 @@ export default function SocialListeningSidebar({
           item={SOCIAL_LISTENING_REPORTS}
           active={!settingsActive && activeView === SOCIAL_LISTENING_REPORTS.id}
           onSelect={() => onSelectView(SOCIAL_LISTENING_REPORTS.id)}
+          onNavigate={onNavigate}
         />
         {showSettings ? (
           <NavButton
             item={settingsNavItem}
             active={settingsActive}
             onSelect={onOpenSettings}
+            onNavigate={onNavigate}
           />
         ) : null}
       </div>

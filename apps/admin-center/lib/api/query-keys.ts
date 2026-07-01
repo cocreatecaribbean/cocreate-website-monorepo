@@ -86,4 +86,13 @@ export const adminQueryKeys = {
     all: ['admin', 'requests'] as const,
     detail: (requestId: string) => [...adminQueryKeys.requests.all, requestId] as const,
   },
+  orgInbox: {
+    all: ['admin', 'org-inbox'] as const,
+    conversations: () => [...adminQueryKeys.orgInbox.all, 'conversations'] as const,
+    orgConversations: (organizationId: string) =>
+      [...adminQueryKeys.orgInbox.all, 'org', organizationId] as const,
+    messages: (conversationId: string) =>
+      [...adminQueryKeys.orgInbox.all, 'messages', conversationId] as const,
+    unreadCount: () => [...adminQueryKeys.orgInbox.all, 'unread-count'] as const,
+  },
 } as const

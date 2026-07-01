@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { UserRole, UserStatus } from '@cocreate/database'
+import type { PortalProfileResponse } from '@cocreate/api-contracts/v1/client-portal'
 import { AuthService } from '../auth/auth.service'
 import { ClientAccessService } from '../auth/client-access.service'
 import { PrismaService } from '../prisma/prisma.service'
@@ -75,7 +76,9 @@ export class ClientPortalService {
     return { ok: true as const, ...payload }
   }
 
-  getSessionProfile(client: Awaited<ReturnType<AuthService['requireClient']>>) {
+  getSessionProfile(
+    client: Awaited<ReturnType<AuthService['requireClient']>>,
+  ): PortalProfileResponse {
     return {
       ok: true as const,
       user: {

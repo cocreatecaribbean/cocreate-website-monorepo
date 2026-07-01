@@ -33,6 +33,7 @@ import { ProjectNotificationMailService } from './project-notification-mail.serv
 import { ProjectNotificationsService } from './project-notifications.service'
 import { ProjectRealtimeService } from './project-realtime.service'
 import { ProjectStorageService } from './project-storage.service'
+import type { ClientRecentActivityItem } from '@cocreate/api-contracts/v1/client-portal'
 import type {
   CreateCheckpointInput,
   CreateCancellationRequestInput,
@@ -665,7 +666,7 @@ export class ProjectsService {
       orderBy: { updatedAt: 'desc' },
       include: this.projectListInclude(),
     })
-    return this.serializeProjectsForList(projects)
+    return this.serializeProjectsWithCover(projects)
   }
 
   async createForClient(client: AuthenticatedClient, dto: CreateProjectInput) {
@@ -825,6 +826,24 @@ export class ProjectsService {
       orderBy: { approvedAt: 'desc' },
       include: {
         project: { select: { id: true, title: true } },
+        message: {
+          include: {
+            attachmentLinks: { include: { attachment: true } },
+          },
+        },
+        request: {
+          include: {
+            attachments: true,
+            messages: {
+              orderBy: { createdAt: 'asc' as const },
+              select: {
+                id: true,
+                createdAt: true,
+                attachmentLinks: { select: { attachmentId: true } },
+              },
+            },
+          },
+        },
       },
     })
     return records.map((r) => ({
@@ -1426,7 +1445,10 @@ export class ProjectsService {
     })
   }
 
-  async listRecentActivityForClient(client: AuthenticatedClient, limit = 15) {
+  async listRecentActivityForClient(
+    client: AuthenticatedClient,
+    limit = 15,
+  ): Promise<ClientRecentActivityItem[]> {
     const capped = Math.min(25, Math.max(1, limit))
     const projectIds = await this.clientAccess.listAccessibleProjectIds(client)
     if (projectIds.length === 0) return []
@@ -1656,8 +1678,9 @@ export class ProjectsService {
         include: { author: { select: userActorSelect } },
       })
 
+      const createdAttachmentIds: string[] = []
       for (const attachment of attachments) {
-        await tx.projectAttachment.create({
+        const created = await tx.projectAttachment.create({
           data: {
             projectId: project.id,
             requestId: progress.id,
@@ -1667,6 +1690,17 @@ export class ProjectsService {
             sizeBytes: attachment.sizeBytes,
             uploadedByUserId: admin.id,
           },
+        })
+        createdAttachmentIds.push(created.id)
+      }
+
+      if (createdAttachmentIds.length > 0) {
+        await tx.projectRequestMessageAttachment.createMany({
+          data: createdAttachmentIds.map((attachmentId) => ({
+            messageId: checkpointMessage.id,
+            attachmentId,
+          })),
+          skipDuplicates: true,
         })
       }
 

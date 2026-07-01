@@ -7,7 +7,8 @@
     "./tokens.css": "./src/tokens.css",
     "./components.css": "./src/components.css",
     "./aliases.css": "./src/aliases.css",
-    "./query-provider": "./src/query-provider.tsx"
+    "./query-provider": "./src/query-provider.tsx",
+    "./portal-drawer-shell": "./src/portal-drawer-shell.tsx"
   },
   "peerDependencies": {
     "react": "catalog:react",

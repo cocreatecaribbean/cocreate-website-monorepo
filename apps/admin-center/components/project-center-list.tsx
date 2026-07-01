@@ -115,9 +115,9 @@ export default function ProjectCenterList() {
                           {group.projects.map((project) => (
                             <li
                               key={project.id}
-                              className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"
+                              className="flex flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-5"
                             >
-                              <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                              <div className="flex min-w-0 items-start gap-3 lg:gap-4">
                                 <div className="shrink-0 rounded-xl bg-linear-to-br from-sanmarino/15 to-chambray/5 p-2.5 text-sanmarino ring-1 ring-sanmarino/10 sm:p-3">
                                   <FolderKanban className="h-5 w-5" strokeWidth={1.75} />
                                 </div>
@@ -128,7 +128,7 @@ export default function ProjectCenterList() {
                                   <p className="mt-1 text-sm text-app-muted">{group.organizationName}</p>
                                 </div>
                               </div>
-                              <div className="flex min-w-0 flex-col items-start gap-2 pl-11 sm:items-end sm:pl-0">
+                              <div className="flex min-w-0 flex-col items-start gap-2 pl-11 lg:items-end lg:pl-0">
                                 <ProjectStatusAttribution project={project} />
                                 {project.organizationId ? (
                                   <Link

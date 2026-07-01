@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Req,
   UnauthorizedException,
@@ -12,6 +13,8 @@ import {
 import {
   CreateAgencyCollaboratorSchema,
   type CreateAgencyCollaboratorInput,
+  UpdateCollaboratorProjectsSchema,
+  type UpdateCollaboratorProjectsInput,
 } from '@cocreate/api-contracts/v1/requests/projects'
 import { AdminAuthGuard, type AdminRequest } from '../auth/guards/admin-auth.guard'
 import { isAgencyAdminRole } from '../auth/admin-roles'
@@ -65,6 +68,16 @@ export class AdminCollaboratorsController {
   ) {
     const actor = this.requireCoreTeam(req)
     return this.collaborators.assignExistingToProject(actor, projectId, userId)
+  }
+
+  @Patch(':userId/projects')
+  syncProjects(
+    @Req() req: AdminRequest,
+    @Param('userId') userId: string,
+    @Body(zodBody(UpdateCollaboratorProjectsSchema)) body: UpdateCollaboratorProjectsInput,
+  ) {
+    const actor = this.requireCoreTeam(req)
+    return this.collaborators.syncProjects(actor, userId, body.projectIds)
   }
 
   @Delete(':userId/projects/:projectId')

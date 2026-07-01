@@ -52,11 +52,23 @@ export const queryKeys = {
     all: ['requests'] as const,
     detail: (requestId: string) => [...queryKeys.requests.all, requestId] as const,
   },
+  attachments: {
+    all: ['attachments'] as const,
+    downloadUrl: (attachmentId: string) =>
+      [...queryKeys.attachments.all, 'download-url', attachmentId] as const,
+  },
   socialListening: {
     all: ['social-listening'] as const,
     analytics: (params?: Record<string, unknown>) =>
       [...queryKeys.socialListening.all, 'analytics', params ?? {}] as const,
     reports: () => [...queryKeys.socialListening.all, 'reports'] as const,
     subscription: () => [...queryKeys.socialListening.all, 'subscription'] as const,
+  },
+  inbox: {
+    all: ['inbox'] as const,
+    conversations: () => [...queryKeys.inbox.all, 'conversations'] as const,
+    messages: (conversationId: string) =>
+      [...queryKeys.inbox.all, 'messages', conversationId] as const,
+    unreadCount: () => [...queryKeys.inbox.all, 'unread-count'] as const,
   },
 } as const

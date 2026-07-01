@@ -109,6 +109,15 @@ export default function AdminProjectWorkspace({
   const [checkpointPhase, setCheckpointPhase] = useState('')
   const [submittingCheckpoint, setSubmittingCheckpoint] = useState(false)
   const threadScrollAppliedRef = useRef(false)
+  const tabBtnRefs = useRef<Partial<Record<ProjectWorkspaceTabId, HTMLButtonElement | null>>>({})
+
+  useEffect(() => {
+    tabBtnRefs.current[tab]?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'nearest',
+    })
+  }, [tab])
 
   const setTabWithUrl = useCallback(
     (next: ProjectWorkspaceTabId) => {
@@ -334,16 +343,23 @@ export default function AdminProjectWorkspace({
                 </div>
               </div>
             </div>
-            <nav className="mt-4 flex flex-wrap gap-2">
+            <nav
+              className="mt-4 flex gap-2 overflow-x-auto scroll-smooth pb-1"
+              style={{ scrollSnapType: 'x mandatory' }}
+              aria-label="Project workspace sections"
+            >
               {tabs.map((item) => {
                 const Icon = item.icon
                 const active = tab === item.id
                 return (
                   <button
                     key={item.id}
+                    ref={(el) => {
+                      tabBtnRefs.current[item.id] = el
+                    }}
                     type="button"
                     onClick={() => setTabWithUrl(item.id)}
-                    className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm transition ${bricolage_grot600.className} ${
+                    className={`inline-flex shrink-0 snap-start items-center gap-2 rounded-xl px-3 py-1.5 text-sm transition ${bricolage_grot600.className} ${
                       active
                         ? 'bg-chambray text-white'
                         : 'bg-chambray/8 text-chambray hover:bg-chambray/12'
@@ -359,7 +375,7 @@ export default function AdminProjectWorkspace({
         ) : null}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
+      <div className="flex-1 overflow-y-auto px-4 py-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
         {error ?? loadError ? (
           <p className="admin-alert-error mb-4">
             {error ?? loadError}

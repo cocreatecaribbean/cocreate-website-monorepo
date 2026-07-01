@@ -15,6 +15,10 @@ combined.env
 # Build outputs
 dist/
 build/
+packages/api-contracts/src/**/*.js
+packages/api-contracts/src/**/*.js.map
+packages/api-contracts/src/**/*.d.ts
+!packages/api-contracts/src/**/*.ts
 
 # Prisma
 packages/database/generated/

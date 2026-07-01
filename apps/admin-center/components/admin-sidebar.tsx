@@ -8,6 +8,7 @@ import {
   FolderKanban,
   LayoutDashboard,
   LogOut,
+  MessageSquare,
   Radio,
   Settings2,
   Shield,
@@ -24,6 +25,7 @@ import {
   normalizeAdminPathname,
   type AdminNavId,
 } from '@/lib/admin-nav'
+import { useAdminOrgInboxUnreadCountQuery } from '@/lib/api/queries/org-inbox'
 import ThemeToggle from '@/components/theme-toggle'
 
 type NavItem = {
@@ -51,6 +53,12 @@ const navItems: NavItem[] = [
     label: 'Clients',
     href: '/client-access',
     icon: Users,
+  },
+  {
+    id: 'messages',
+    label: 'Messages',
+    href: '/messages',
+    icon: MessageSquare,
   },
   {
     id: 'social-listening',
@@ -115,6 +123,7 @@ export default function AdminSidebar({
   const activeNavId = getActiveAdminNavId(pathname)
   const router = useRouter()
   const { session, loading: sessionLoading, clearQueryCache } = useAdminSession()
+  const { data: orgInboxUnread = 0 } = useAdminOrgInboxUnreadCountQuery()
   const items =
     session?.mode === 'api_key' || isSuperAdminSession(session?.role ?? null)
       ? [...navItems, ...superAdminNavItems]
@@ -180,6 +189,11 @@ export default function AdminSidebar({
                 strokeWidth={1.75}
               />
               {item.label}
+              {item.id === 'messages' && orgInboxUnread > 0 ? (
+                <span className="ml-auto rounded-full bg-casablanca/90 px-2 py-0.5 text-xs text-chambray tabular-nums">
+                  {orgInboxUnread}
+                </span>
+              ) : null}
             </Link>
           )
         })}

@@ -170,3 +170,10 @@ export const MarkInboxReadSchema = z.object({
   requestId: z.string().optional(),
 })
 export type MarkInboxReadInput = z.infer<typeof MarkInboxReadSchema>
+
+export const UpdateCollaboratorProjectsSchema = z.object({
+  projectIds: z.array(z.string()),
+})
+export type UpdateCollaboratorProjectsInput = z.infer<
+  typeof UpdateCollaboratorProjectsSchema
+>

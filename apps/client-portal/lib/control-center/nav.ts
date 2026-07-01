@@ -23,6 +23,7 @@ export type ControlCenterViewId =
 export type ControlCenterNavItem = {
   id: ControlCenterViewId
   label: string
+  shortLabel: string
   description: string
   icon: LucideIcon
 }
@@ -31,36 +32,42 @@ export const CONTROL_CENTER_NAV: ControlCenterNavItem[] = [
   {
     id: 'overview',
     label: 'Overview',
+    shortLabel: 'Home',
     description: 'Snapshot of projects, files, and actions',
     icon: LayoutDashboard,
   },
   {
     id: 'projects',
     label: 'Projects',
+    shortLabel: 'Projects',
     description: 'Active workstreams with your CoCreate team',
     icon: FolderKanban,
   },
   {
     id: 'approvals',
     label: 'Approvals',
-    description: 'Progress checks and approval history',
+    shortLabel: 'Review',
+    description: 'Review checkpoints and approval history',
     icon: CheckCircle2,
   },
   {
     id: 'files',
     label: 'Files',
+    shortLabel: 'Files',
     description: 'Deliverables and shared assets',
     icon: FileText,
   },
   {
     id: 'activity',
     label: 'Activity',
+    shortLabel: 'Feed',
     description: 'Recent updates across your workspace',
     icon: Bell,
   },
   {
     id: 'messages',
     label: 'Messages',
+    shortLabel: 'Chat',
     description: 'Direct line to your account team',
     icon: MessageSquare,
   },
@@ -69,6 +76,7 @@ export const CONTROL_CENTER_NAV: ControlCenterNavItem[] = [
 export const CONTROL_CENTER_TEAM: ControlCenterNavItem = {
   id: 'team',
   label: 'Team',
+  shortLabel: 'Team',
   description: 'Organization members and project access',
   icon: Users,
 }
@@ -84,6 +92,7 @@ export function buildControlCenterNavItems(canAccessTeamHub: boolean): ControlCe
 export const CONTROL_CENTER_SETTINGS: ControlCenterNavItem = {
   id: PORTAL_SETTINGS.id,
   label: PORTAL_SETTINGS.label,
+  shortLabel: PORTAL_SETTINGS.label,
   description: PORTAL_SETTINGS.description,
   icon: PORTAL_SETTINGS.icon,
 }

@@ -91,6 +91,13 @@ export class ClientBillingController {
       return { ok: false as const, message: 'No subscription found' }
     }
 
+    if (!this.fygaro.isConfigured()) {
+      return {
+        ok: false as const,
+        message: 'Online checkout is not configured yet. Contact CoCreate to renew your plan.',
+      }
+    }
+
     const checkoutUrl = this.fygaro.buildCheckoutUrl({
       subscriptionId: subscription.id,
       plan: subscription.plan,
@@ -108,6 +115,14 @@ export class ClientBillingController {
     )
     if (!subscription) {
       return { ok: false as const, message: 'No subscription found' }
+    }
+
+    if (!this.fygaro.isConfigured()) {
+      return {
+        ok: false as const,
+        message:
+          'Online checkout is not configured yet. Contact CoCreate to update payment details.',
+      }
     }
 
     const checkoutUrl = this.fygaro.buildCheckoutUrl({

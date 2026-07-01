@@ -20,6 +20,7 @@ import {
   planIdToPrismaPlan,
   type SocialListeningPlanId,
 } from '@cocreate/social-listening-plans'
+import type { ClientSubscriptionView } from '@cocreate/api-contracts/v1/client-portal'
 import { PrismaService } from '../prisma/prisma.service'
 
 export type FygaroWebhookCard = {
@@ -548,7 +549,7 @@ export class SubscriptionService {
       paymentMethodExpMonth: number | null
       paymentMethodExpYear: number | null
     } | null,
-  ) {
+  ): ClientSubscriptionView | null {
     if (!subscription) return null
     const planDef = getPlanByPrismaPlan(subscription.plan)
     return {

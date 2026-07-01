@@ -11,7 +11,7 @@ type ControlCenterPanelProps = {
 export default function ControlCenterPanel({ organizationName }: ControlCenterPanelProps) {
   return (
     <div className="space-y-6">
-      <section className="portal-glass-card portal-gradient-hero portal-shine-hover portal-animate-in relative overflow-hidden p-6 sm:p-8">
+      <section className="portal-glass-card portal-gradient-hero portal-shine-hover portal-animate-in relative overflow-hidden p-5 sm:p-8 lg:p-6">
         <div
           className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-sanmarino/20 blur-3xl"
           aria-hidden
@@ -28,7 +28,13 @@ export default function ControlCenterPanel({ organizationName }: ControlCenterPa
             Control Center
           </h2>
           <p
-            className={`mt-2 max-w-2xl text-sm leading-relaxed text-app-muted ${bricolage_grot600.className}`}
+            className={`mt-2 hidden max-w-2xl text-sm leading-relaxed text-app-muted md:block lg:hidden ${bricolage_grot600.className}`}
+          >
+            Projects, approvals, files, and messages in one place. Use the menu above to jump
+            straight to what you need.
+          </p>
+          <p
+            className={`mt-2 hidden max-w-2xl text-sm leading-relaxed text-app-muted lg:block ${bricolage_grot600.className}`}
           >
             Projects, approvals, files, and messages in one place. Use the sidebar to jump
             straight to what you need.

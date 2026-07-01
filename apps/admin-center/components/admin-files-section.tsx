@@ -74,7 +74,7 @@ function FileRow({
   }
 
   return (
-    <li className="flex flex-col gap-3 border-b border-chambray/6 px-5 py-4 last:border-0 sm:grid sm:grid-cols-[1fr_180px_110px_80px] sm:items-center sm:gap-4">
+    <li className="flex flex-col gap-3 border-b border-chambray/6 px-5 py-4 last:border-0 lg:grid lg:grid-cols-[1fr_180px_110px_80px] lg:items-center lg:gap-4">
       <button
         type="button"
         onClick={() => void openPreview()}
@@ -100,7 +100,7 @@ function FileRow({
       </button>
       <p className="truncate text-xs text-app-muted">{projectTitle ?? '—'}</p>
       <p className="text-xs text-app-muted">{formatRelativeTime(file.createdAt)}</p>
-      <div className="flex items-center justify-between gap-2 sm:justify-end">
+      <div className="flex items-center justify-between gap-2 lg:justify-end">
         <span className="text-xs text-app-muted">{formatBytes(file.sizeBytes)}</span>
         <button
           type="button"
@@ -273,8 +273,8 @@ export default function AdminFilesSection({
       <BrandGuidelinesSection organizationId={organizationId} />
 
       <section className="admin-glass-card p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <label className="relative flex-1">
+        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap">
+          <label className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-app-muted" />
             <input
               value={query}
@@ -286,7 +286,7 @@ export default function AdminFilesSection({
           <select
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
-            className="admin-input min-w-[220px]"
+            className="admin-input w-full lg:min-w-[220px] lg:w-auto"
           >
             <option value="">All projects</option>
             {projectOptions.map((project) => (
@@ -310,7 +310,7 @@ export default function AdminFilesSection({
         <p className="admin-glass-card p-6 text-sm text-red-700">{error}</p>
       ) : search ? (
         <section className="admin-glass-card overflow-hidden">
-          <div className="hidden border-b border-chambray/8 bg-chambray/[0.03] px-5 py-3 text-xs font-medium tracking-wide text-app-muted uppercase dark:border-white/10 dark:bg-white/5 sm:grid sm:grid-cols-[1fr_180px_110px_80px] sm:gap-4">
+          <div className="hidden border-b border-chambray/8 bg-chambray/[0.03] px-5 py-3 text-xs font-medium tracking-wide text-app-muted uppercase dark:border-white/10 dark:bg-white/5 lg:grid lg:grid-cols-[1fr_180px_110px_80px] lg:gap-4">
             <span>File</span>
             <span>Project</span>
             <span>Updated</span>

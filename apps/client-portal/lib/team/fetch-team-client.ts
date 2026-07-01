@@ -1,111 +1,95 @@
 'use client'
 import { nestApiUrl } from '@cocreate/api-client'
+import { z } from 'zod'
+import {
+  OrgTeamListResponseSchema,
+  PortalProfileResponseSchema,
+  ProjectMemberMutationResponseSchema,
+  ProjectMembersResponseSchema,
+  TeamHubResponseSchema,
+  TeamInviteMemberResponseSchema,
+  TeamInviteRequestMutationResponseSchema,
+  TeamMemberMutationResponseSchema,
+  type AssignableProjectMember,
+  type ClientOrgRole,
+  type ClientProjectAccessLevel,
+  type OrgTeamListResponse,
+  type PortalPermissions,
+  type PortalProfile,
+  type PortalProfileOrganization,
+  type PortalProfileUser,
+  type ProjectMember,
+  type ProjectMemberMutationResponse,
+  type ProjectMembersResponse,
+  type ProjectTeamCard,
+  type TeamHub,
+  type TeamHubPermissions,
+  type TeamInviteMemberResponse,
+  type TeamInviteRequest,
+  type TeamInviteRequestMutationResponse,
+  type TeamMember,
+  type TeamMemberMutationResponse,
+} from '@cocreate/api-contracts/v1/client-portal'
 
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { parseApiResponseSafe } from '@/lib/api/parse-response'
+import { getPortalAccessToken } from '@/lib/api/portal-access-token'
 
+function parseTeamMutationResponse<S extends z.ZodTypeAny>(
+  schema: S,
+  data: unknown,
+  message = 'Invalid server response',
+): z.infer<S> {
+  const parsed = parseApiResponseSafe(schema, data)
+  if (!parsed) throw new Error(message)
+  return parsed
+}
 
-import type {
+export type {
+  AssignableProjectMember,
   ClientOrgRole,
+  ClientProjectAccessLevel,
+  OrgTeamListResponse,
   PortalPermissions,
+  PortalProfile,
   PortalProfileOrganization,
   PortalProfileUser,
-} from '@/lib/portal-profile-types'
-
-export type { ClientOrgRole }
-export type ClientProjectAccessLevel = 'MANAGE' | 'VIEW'
-
-export type TeamMember = {
-  id: string
-  email: string
-  status: string
-  clientOrgRole: ClientOrgRole | null
-  canAccessSocialListening: boolean
-  createdAt: string
-  updatedAt: string
-}
-
-export type ProjectMember = {
-  id: string
-  userId: string
-  email: string
-  clientOrgRole: ClientOrgRole | null
-  access: ClientProjectAccessLevel
-  grantedByUserId: string
-  createdAt: string
-}
-
-export type AssignableProjectMember = {
-  userId: string
-  email: string
-  clientOrgRole: ClientOrgRole | null
-}
-
-export type { PortalPermissions }
-
-export type TeamHubPermissions = {
-  canManageOrgRoles: boolean
-  canInviteImmediately: boolean
-  canRequestInvite: boolean
-  canToggleSocialListening: boolean
-}
-
-export type ProjectTeamCard = {
-  id: string
-  title: string
-  status: string
-  phase: string
-  creatorUserId: string
-  creatorEmail: string
-  coverImageUrl?: string | null
-  canManage: boolean
-  members: ProjectMember[]
-}
-
-export type TeamInviteRequest = {
-  id: string
-  email: string
-  requestedClientOrgRole: ClientOrgRole
-  status: string
-  requestedByEmail: string
-  createdAt: string
-  rejectionReason?: string | null
-}
-
-export type TeamHub = {
-  ok: true
-  viewerRole: ClientOrgRole | null
-  permissions: TeamHubPermissions
-  members: TeamMember[]
-  projectsOwned: ProjectTeamCard[]
-  projectsShared: ProjectTeamCard[]
-  pendingInviteRequests: TeamInviteRequest[]
-}
-
-export type PortalProfile = {
-  user: PortalProfileUser
-  organization: PortalProfileOrganization | null
-  permissions: PortalPermissions
+  ProjectMember,
+  ProjectMemberMutationResponse,
+  ProjectMembersResponse,
+  ProjectTeamCard,
+  TeamHub,
+  TeamHubPermissions,
+  TeamInviteMemberResponse,
+  TeamInviteRequest,
+  TeamInviteRequestMutationResponse,
+  TeamMember,
+  TeamMemberMutationResponse,
 }
 
 async function getToken() {
-  const supabase = createSupabaseBrowserClient()
-  const { data } = await supabase.auth.getSession()
-  return data.session?.access_token ?? null
+  return getPortalAccessToken()
 }
 
 async function teamFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getToken()
   if (!token) throw new Error('Not signed in')
 
-  const response = await fetch(nestApiUrl(path), {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-      ...init?.headers,
-    },
-    cache: 'no-store',
-  })
+  let response: Response
+  try {
+    response = await fetch(nestApiUrl(path), {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+        ...init?.headers,
+      },
+      cache: 'no-store',
+    })
+  } catch {
+    throw new Error(
+      'Could not reach the API. Ensure apps/api is running on port 3001.',
+    )
+  }
 
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
@@ -120,81 +104,83 @@ async function teamFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function fetchPortalProfile(): Promise<PortalProfile | null> {
   try {
-    const data = await teamFetch<PortalProfile & { ok?: boolean }>('/client-portal/me')
-    return data
+    const data = await teamFetch<unknown>('/client-portal/me')
+    const parsed = parseApiResponseSafe(PortalProfileResponseSchema, data)
+    if (!parsed) return null
+    return {
+      user: parsed.user,
+      organization: parsed.organization,
+      permissions: parsed.permissions,
+    }
   } catch {
     return null
   }
 }
 
-export async function fetchOrgTeam() {
-  return teamFetch<{
-    ok: true
-    members: TeamMember[]
-    canManage: boolean
-    permissions?: TeamHubPermissions
-  }>('/client-portal/team')
+export async function fetchOrgTeam(): Promise<OrgTeamListResponse | null> {
+  const data = await teamFetch<unknown>('/client-portal/team')
+  return parseApiResponseSafe(OrgTeamListResponseSchema, data)
 }
 
-export async function fetchTeamHub() {
-  return teamFetch<TeamHub>('/client-portal/team/hub')
+export async function fetchTeamHub(): Promise<TeamHub | null> {
+  const data = await teamFetch<unknown>('/client-portal/team/hub')
+  return parseApiResponseSafe(TeamHubResponseSchema, data)
 }
 
 export async function requestTeamInvite(body: {
   email: string
   clientOrgRole: ClientOrgRole
-}) {
-  return teamFetch<{ ok: true; request: TeamInviteRequest }>(
-    '/client-portal/team/invite-requests',
-    { method: 'POST', body: JSON.stringify(body) },
-  )
+}): Promise<TeamInviteRequestMutationResponse> {
+  const data = await teamFetch<unknown>('/client-portal/team/invite-requests', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+  return parseTeamMutationResponse(TeamInviteRequestMutationResponseSchema, data)
 }
 
 export async function inviteTeamMember(body: {
   email: string
   clientOrgRole: ClientOrgRole
   canAccessSocialListening?: boolean
-}) {
-  return teamFetch<{ ok: true; member: TeamMember; invitation?: { devSignInUrl?: string } }>(
-    '/client-portal/team/invite',
-    { method: 'POST', body: JSON.stringify(body) },
-  )
+}): Promise<TeamInviteMemberResponse> {
+  const data = await teamFetch<unknown>('/client-portal/team/invite', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+  return parseTeamMutationResponse(TeamInviteMemberResponseSchema, data)
 }
 
 export async function updateTeamMember(
   userId: string,
   body: { clientOrgRole?: ClientOrgRole; canAccessSocialListening?: boolean },
-) {
-  return teamFetch<{ ok: true; member: TeamMember }>(`/client-portal/team/${userId}`, {
+): Promise<TeamMemberMutationResponse> {
+  const data = await teamFetch<unknown>(`/client-portal/team/${userId}`, {
     method: 'PATCH',
     body: JSON.stringify(body),
   })
+  return parseTeamMutationResponse(TeamMemberMutationResponseSchema, data)
 }
 
-export async function fetchProjectMembers(projectId: string) {
-  return teamFetch<{
-    ok: true
-    projectId: string
-    creator: { userId: string; email: string; implicitAccess: 'MANAGE' }
-    members: ProjectMember[]
-    assignableMembers: AssignableProjectMember[]
-    canManage: boolean
-  }>(`/client-portal/projects/${projectId}/members`)
+export async function fetchProjectMembers(
+  projectId: string,
+): Promise<ProjectMembersResponse | null> {
+  const data = await teamFetch<unknown>(`/client-portal/projects/${projectId}/members`)
+  return parseApiResponseSafe(ProjectMembersResponseSchema, data)
 }
 
 export async function addProjectMember(
   projectId: string,
   body: { email: string; access: ClientProjectAccessLevel },
-) {
-  return teamFetch<{ ok: true; member: ProjectMember }>(
-    `/client-portal/projects/${projectId}/members`,
-    { method: 'POST', body: JSON.stringify(body) },
-  )
+): Promise<ProjectMemberMutationResponse> {
+  const data = await teamFetch<unknown>(`/client-portal/projects/${projectId}/members`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+  return parseTeamMutationResponse(ProjectMemberMutationResponseSchema, data)
 }
 
 export async function removeProjectMember(projectId: string, userId: string) {
-  return teamFetch<{ ok: true }>(
-    `/client-portal/projects/${projectId}/members/${userId}`,
-    { method: 'DELETE' },
-  )
+  await teamFetch<unknown>(`/client-portal/projects/${projectId}/members/${userId}`, {
+    method: 'DELETE',
+  })
 }

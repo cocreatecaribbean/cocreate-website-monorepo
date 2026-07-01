@@ -19,17 +19,21 @@ const NavDesktop: React.FC = () => {
     
     <div
       id="desktop-nav"
-      className="pointer-events-auto fixed top-10 left-1/2 z-[250] flex h-fit w-fit -translate-x-1/2 flex-row items-center justify-center gap-10 rounded-full border border-white/20 bg-white/70 px-10 py-5 backdrop-blur-lg"
+      className="pointer-events-auto fixed top-10 left-1/2 z-[250] flex h-fit w-fit max-w-[calc(100vw-2.5rem)] -translate-x-1/2 flex-row flex-nowrap items-center justify-center gap-[clamp(1.25rem,3vw,2.5rem)] rounded-full border border-white/20 bg-white/70 px-[clamp(1.25rem,3.5vw,2.5rem)] py-[clamp(0.875rem,1.5vw,1.25rem)] backdrop-blur-lg"
     >
-      <div>
+      <div className="shrink-0">
         <Link href={"/"} onClick={closeSearch}>
-          <Image className="w-30" src={logo} alt="logo" />
+          <Image
+            className="h-auto w-[clamp(5rem,12vw,7.5rem)] shrink-0"
+            src={logo}
+            alt="logo"
+          />
         </Link>
       </div>
       <ul
-        className={`flex flex-row items-center justify-between gap-8 ${fonts.bricolage_grot500.className}`}
+        className={`flex min-w-0 flex-row flex-nowrap items-center gap-[clamp(1.5rem,3.5vw,2.5rem)] ${fonts.bricolage_grot500.className}`}
       >
-        <div className="flex flex-row items-center gap-10">
+        <div className="flex flex-row flex-nowrap items-center gap-[clamp(1.5rem,3.5vw,2.5rem)]">
           {menu_names.map((item, id) => {
             const isActive = !isClientPortalOpen && pathname === `/${item}`;
             const label = getMenuLabel(item);
@@ -57,7 +61,7 @@ const NavDesktop: React.FC = () => {
                     }
                   `}
                 >
-                  <span className="relative z-[1]">{label}</span>
+                  <span className="relative z-[1] whitespace-nowrap">{label}</span>
                 </Link>
               </li>
             );
@@ -89,7 +93,7 @@ const NavDesktop: React.FC = () => {
                     }
                   `}
             >
-              <span className="relative z-[1]">{clientPortalNav.label}</span>
+              <span className="relative z-[1] whitespace-nowrap">{clientPortalNav.label}</span>
             </button>
           </li>
           <button
@@ -98,7 +102,7 @@ const NavDesktop: React.FC = () => {
             onClick={openSearch}
             className="relative inline-block cursor-pointer text-slate-900 transition-all duration-300 hover:-translate-y-2 hover:text-sanmarino"
           >
-            <span className="relative z-[1] inline-flex translate-y-[3px] items-center">
+            <span className="relative z-[1] inline-flex shrink-0 translate-y-[3px] items-center whitespace-nowrap">
               <Search className="h-5 w-5" strokeWidth={2.25} />
             </span>
           </button>

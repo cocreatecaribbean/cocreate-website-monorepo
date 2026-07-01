@@ -28,7 +28,8 @@
     "next": "catalog:web",
     "next-themes": "^0.4.6",
     "react": "catalog:react",
-    "react-dom": "catalog:react"
+    "react-dom": "catalog:react",
+    "zod": "catalog:web"
   },
   "devDependencies": {
     "@tanstack/react-query-devtools": "catalog:web",

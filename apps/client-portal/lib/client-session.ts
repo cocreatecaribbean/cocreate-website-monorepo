@@ -1,4 +1,7 @@
 import { nestApiUrl } from '@cocreate/api-client'
+import { PortalProfileResponseSchema } from '@cocreate/api-contracts/v1/client-portal'
+
+import { parseApiResponseSafe } from '@/lib/api/parse-response'
 import { getAccessToken } from '@/lib/supabase/server'
 import {
   resolveCanUseSocialListening,
@@ -10,7 +13,6 @@ import {
 export type { ClientOrgRole, PortalPermissions }
 
 export type ClientPortalProfile = PortalProfilePayload
-
 
 export async function fetchClientPortalProfile(): Promise<ClientPortalProfile | null> {
   const token = await getAccessToken()
@@ -28,25 +30,14 @@ export async function fetchClientPortalProfile(): Promise<ClientPortalProfile | 
 
   if (!response.ok) return null
 
-  const data = (await response.json()) as ClientPortalProfile & { ok?: boolean }
-  if (!data.user) return null
+  const data = await response.json().catch(() => null)
+  const parsed = parseApiResponseSafe(PortalProfileResponseSchema, data)
+  if (!parsed) return null
 
   return {
-    user: data.user,
-    organization: data.organization ?? null,
-    permissions: data.permissions ?? {
-      canManageOrgTeam: false,
-      canAccessTeamHub: false,
-      canManageOrgRoles: false,
-      canInviteOrgMemberImmediately: false,
-      canRequestOrgInvite: false,
-      canToggleSocialListeningForTeam: false,
-      canCreateProject: false,
-      canUseSocialListening: resolveCanUseSocialListening({
-        user: data.user,
-        organization: data.organization ?? null,
-      }),
-    },
+    user: parsed.user,
+    organization: parsed.organization,
+    permissions: parsed.permissions,
   }
 }
 

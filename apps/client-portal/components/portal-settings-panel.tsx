@@ -52,7 +52,7 @@ export default function PortalSettingsPanel({
           </div>
         </div>
         <div className="mt-6">
-          <ThemeToggle />
+          <ThemeToggle variant="settings" />
         </div>
       </section>
       {showPreviewBanner ? (

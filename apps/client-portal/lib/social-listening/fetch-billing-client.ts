@@ -1,33 +1,20 @@
 'use client'
 import { nestApiUrl } from '@cocreate/api-client'
+import {
+  ClientSubscriptionResponseSchema,
+  type ClientSubscriptionView,
+} from '@cocreate/api-contracts/v1/client-portal'
 
+import { parseApiResponseSafe } from '@/lib/api/parse-response'
 import { createSupabaseBrowserClient } from '@client-portal/lib/supabase/client'
 import type { SocialListeningPlanId } from '@cocreate/social-listening-plans'
 
+export type { ClientSubscriptionView }
 
 async function getToken(): Promise<string | null> {
   const supabase = createSupabaseBrowserClient()
   const { data } = await supabase.auth.getSession()
   return data.session?.access_token ?? null
-}
-
-export type ClientSubscriptionView = {
-  plan: string
-  planId: string | null
-  planName: string
-  status: string
-  startedAt: string | null
-  currentPeriodEnd: string | null
-  autoRenewEnabled: boolean
-  cancelAtPeriodEnd: boolean
-  billingSource: string
-  entitled: boolean
-  paymentMethod: {
-    last4: string
-    brand: string | null
-    expMonth: number | null
-    expYear: number | null
-  } | null
 }
 
 export async function fetchClientSubscription(): Promise<ClientSubscriptionView | null> {
@@ -38,8 +25,9 @@ export async function fetchClientSubscription(): Promise<ClientSubscriptionView 
     cache: 'no-store',
   })
   if (!res.ok) return null
-  const data = (await res.json()) as { subscription: ClientSubscriptionView | null }
-  return data.subscription
+  const data = await res.json().catch(() => null)
+  const parsed = parseApiResponseSafe(ClientSubscriptionResponseSchema, data)
+  return parsed?.subscription ?? null
 }
 
 export async function subscribeToPlan(plan: SocialListeningPlanId): Promise<{

@@ -1,8 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { ExternalLink, FileText } from 'lucide-react'
+// AttachmentItem uses useAttachmentDownloadUrl (React Query), not useEffect.
+import { useState } from 'react'
+import { ExternalLink, FileText, Play } from 'lucide-react'
+import FilePreviewModal from '@/components/file-preview-modal'
 import ImageLightbox from '@/components/image-lightbox'
+import { useAttachmentDownloadUrl } from '@/lib/api/queries/projects'
+import { useInView } from '@/lib/hooks/use-in-view'
 
 const URL_PATTERN = /https?:\/\/[^\s<>"']+/gi
 
@@ -116,6 +120,7 @@ type RequestAttachmentsProps = {
   fetchDownloadUrl: (attachmentId: string) => Promise<string | null>
   variant?: 'portal' | 'admin'
   showHeading?: boolean
+  compact?: boolean
   className?: string
 }
 
@@ -175,27 +180,46 @@ function AttachmentItem({
   attachment,
   fetchDownloadUrl,
   variant,
+  compact = false,
 }: {
   attachment: ThreadAttachment
   fetchDownloadUrl: (attachmentId: string) => Promise<string | null>
   variant: 'portal' | 'admin'
+  compact?: boolean
 }) {
-  const [url, setUrl] = useState<string | null>(null)
   const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [manualUrl, setManualUrl] = useState<string | null>(null)
+  const { ref, inView } = useInView()
   const isImage = attachment.mimeType.startsWith('image/')
+  const isVideo = attachment.mimeType.startsWith('video/')
+  const previewable = isImage || isVideo
 
-  useEffect(() => {
-    if (!isImage) return
-    void fetchDownloadUrl(attachment.id).then(setUrl)
-  }, [attachment.id, fetchDownloadUrl, isImage])
+  const { data: fetchedUrl, isFetched, isError } = useAttachmentDownloadUrl(
+    previewable ? attachment.id : null,
+    { enabled: inView && previewable },
+  )
+  const url = manualUrl ?? fetchedUrl ?? null
+  const previewUnavailable = previewable && isFetched && !url
+
+  const resolveUrl = async () => {
+    if (url) return url
+    const downloadUrl = await fetchDownloadUrl(attachment.id)
+    if (downloadUrl) setManualUrl(downloadUrl)
+    return downloadUrl
+  }
 
   const openFile = async () => {
-    const downloadUrl = url ?? (await fetchDownloadUrl(attachment.id))
+    const downloadUrl = await resolveUrl()
     if (!downloadUrl) return
 
     if (isImage) {
-      setUrl(downloadUrl)
       setLightboxOpen(true)
+      return
+    }
+
+    if (isVideo) {
+      setPreviewOpen(true)
       return
     }
 
@@ -204,9 +228,10 @@ function AttachmentItem({
 
   const cardClass =
     'rounded-xl border border-chambray/10 bg-white/30 p-3 dark:border-white/10 dark:bg-white/5'
+  const mediaClass = compact ? 'max-h-32 w-full rounded-lg object-contain' : 'max-h-64 w-full rounded-lg object-contain'
 
   return (
-    <div className={cardClass}>
+    <div ref={ref} className={cardClass}>
       {isImage && url ? (
         <>
           <button
@@ -219,7 +244,7 @@ function AttachmentItem({
             <img
               src={url}
               alt={attachment.fileName}
-              className="max-h-64 w-full rounded-lg object-contain"
+              className={mediaClass}
             />
           </button>
           <ImageLightbox
@@ -229,16 +254,54 @@ function AttachmentItem({
             onClose={() => setLightboxOpen(false)}
           />
         </>
+      ) : isVideo && url ? (
+        <>
+          <video
+            src={url}
+            controls
+            className={mediaClass}
+            preload="metadata"
+          />
+          {!compact ? (
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(true)}
+              className="mt-2 flex w-full items-center gap-2 text-left text-xs text-sanmarino hover:text-chambray dark:hover:text-casablanca"
+            >
+              <Play className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              Preview video
+            </button>
+          ) : null}
+          <FilePreviewModal
+            open={previewOpen}
+            fileName={attachment.fileName}
+            mimeType={attachment.mimeType}
+            url={url}
+            onClose={() => setPreviewOpen(false)}
+          />
+        </>
       ) : (
-        <button
-          type="button"
-          onClick={() => void openFile()}
-          className="flex w-full items-center gap-2 text-left text-sm text-sanmarino hover:text-chambray dark:hover:text-casablanca"
-        >
-          {isImage ? <FileText className="h-4 w-4 shrink-0" aria-hidden /> : <FileText className="h-4 w-4 shrink-0" aria-hidden />}
-          <span className="min-w-0 flex-1 truncate">{attachment.fileName}</span>
-          <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => void openFile()}
+            disabled={previewable && inView && !isFetched && !isError}
+            className="flex w-full items-center gap-2 text-left text-sm text-sanmarino hover:text-chambray disabled:opacity-60 dark:hover:text-casablanca"
+          >
+            {isVideo ? (
+              <Play className="h-4 w-4 shrink-0" aria-hidden />
+            ) : (
+              <FileText className="h-4 w-4 shrink-0" aria-hidden />
+            )}
+            <span className="min-w-0 flex-1 truncate">{attachment.fileName}</span>
+            <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          </button>
+          {previewUnavailable ? (
+            <p className="mt-1 text-xs text-app-muted">
+              Preview unavailable — try Open when the connection is restored.
+            </p>
+          ) : null}
+        </>
       )}
     </div>
   )
@@ -249,6 +312,7 @@ export function RequestAttachments({
   fetchDownloadUrl,
   variant = 'portal',
   showHeading = true,
+  compact = false,
   className = '',
 }: RequestAttachmentsProps) {
   if (!attachments?.length) return null
@@ -260,13 +324,14 @@ export function RequestAttachments({
           Files to review
         </p>
       ) : null}
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className={`grid gap-2 ${compact ? 'grid-cols-1' : 'sm:grid-cols-2'}`}>
         {attachments.map((attachment) => (
           <AttachmentItem
             key={attachment.id}
             attachment={attachment}
             fetchDownloadUrl={fetchDownloadUrl}
             variant={variant}
+            compact={compact}
           />
         ))}
       </div>

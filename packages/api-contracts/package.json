@@ -33,6 +33,12 @@
       "import": "./dist/v1/shared/projects.js",
       "default": "./dist/v1/shared/projects.js"
     },
+    "./v1/shared/team": {
+      "types": "./dist/v1/shared/team.d.ts",
+      "require": "./dist/v1/shared/team.js",
+      "import": "./dist/v1/shared/team.js",
+      "default": "./dist/v1/shared/team.js"
+    },
     "./v1/requests/newsletter": {
       "types": "./dist/v1/requests/newsletter.d.ts",
       "require": "./dist/v1/requests/newsletter.js",
@@ -74,6 +80,18 @@
       "require": "./dist/v1/requests/social-listening-admin.js",
       "import": "./dist/v1/requests/social-listening-admin.js",
       "default": "./dist/v1/requests/social-listening-admin.js"
+    },
+    "./v1/requests/org-inbox": {
+      "types": "./dist/v1/requests/org-inbox.d.ts",
+      "require": "./dist/v1/requests/org-inbox.js",
+      "import": "./dist/v1/requests/org-inbox.js",
+      "default": "./dist/v1/requests/org-inbox.js"
+    },
+    "./v1/shared/org-inbox": {
+      "types": "./dist/v1/shared/org-inbox.d.ts",
+      "require": "./dist/v1/shared/org-inbox.js",
+      "import": "./dist/v1/shared/org-inbox.js",
+      "default": "./dist/v1/shared/org-inbox.js"
     }
   },
   "scripts": {
