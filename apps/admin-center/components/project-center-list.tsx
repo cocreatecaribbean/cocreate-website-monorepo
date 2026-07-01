@@ -122,9 +122,20 @@ export default function ProjectCenterList() {
                                   <FolderKanban className="h-5 w-5" strokeWidth={1.75} />
                                 </div>
                                 <div className="min-w-0">
-                                  <p className={`wrap-break-word text-app-primary ${bricolage_grot600.className}`}>
-                                    {project.title}
-                                  </p>
+                                  {project.organizationId ? (
+                                    <Link
+                                      href={`/clients/${project.organizationId}/projects/${project.id}`}
+                                      className={`wrap-break-word text-app-primary underline-offset-4 hover:text-sanmarino hover:underline ${bricolage_grot600.className}`}
+                                    >
+                                      {project.title}
+                                    </Link>
+                                  ) : (
+                                    <p
+                                      className={`wrap-break-word text-app-primary ${bricolage_grot600.className}`}
+                                    >
+                                      {project.title}
+                                    </p>
+                                  )}
                                   <p className="mt-1 text-sm text-app-muted">{group.organizationName}</p>
                                 </div>
                               </div>

@@ -25,11 +25,10 @@ import {
   PROJECT_TAB_QUERY,
   type PortalProjectTabId,
 } from '@/lib/control-center/project-workspace'
+import { CC_SHOW_PROJECTS_LIST_KEY } from '@/lib/control-center/use-control-center-nav'
 import ProjectCover from '@/components/project-cover'
 import { bricolage_grot600 } from '@/styles/fonts'
 import { Bell, Calendar, ExternalLink, Plus } from 'lucide-react'
-
-const SHOW_PROJECTS_LIST_KEY = 'cc-show-projects-list'
 
 export default function ControlCenterProjectsView() {
   const router = useRouter()
@@ -60,26 +59,20 @@ export default function ControlCenterProjectsView() {
   const [error, setError] = useState<string | null>(null)
   const [initialProjectTab, setInitialProjectTab] = useState<PortalProjectTabId>('overview')
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (sessionStorage.getItem(CC_SHOW_PROJECTS_LIST_KEY) !== '1') return
+    sessionStorage.removeItem(CC_SHOW_PROJECTS_LIST_KEY)
+    setOpenedProjectId(null)
+  }, [searchParams])
+
   useLayoutEffect(() => {
     if (deepLinkHandled.current) return
-    deepLinkHandled.current = true
-
-    if (typeof window !== 'undefined' && sessionStorage.getItem(SHOW_PROJECTS_LIST_KEY) === '1') {
-      sessionStorage.removeItem(SHOW_PROJECTS_LIST_KEY)
-      setOpenedProjectId(null)
-      const params = new URLSearchParams(searchParams.toString())
-      if (params.has('projectId')) {
-        params.delete('projectId')
-        params.delete(PROJECT_TAB_QUERY)
-        const query = params.toString()
-        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
-      }
-      return
-    }
 
     const deepLinkId = searchParams.get('projectId')
     if (!deepLinkId) return
 
+    deepLinkHandled.current = true
     setInitialProjectTab(parsePortalProjectTab(searchParams.get(PROJECT_TAB_QUERY)))
     setOpenedProjectId(deepLinkId)
     const params = new URLSearchParams(searchParams.toString())
@@ -263,9 +256,15 @@ export default function ControlCenterProjectsView() {
               />
               <div className="flex flex-col p-6">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className={`text-base text-chambray ${bricolage_grot600.className}`}>
+                  <button
+                    type="button"
+                    onClick={() => openProject(project.id)}
+                    onMouseEnter={() => void prefetchClientProjectOverview(queryClient, project.id)}
+                    onFocus={() => void prefetchClientProjectOverview(queryClient, project.id)}
+                    className={`text-left text-base text-chambray underline-offset-4 hover:text-sanmarino hover:underline ${bricolage_grot600.className}`}
+                  >
                     {project.title}
-                  </h3>
+                  </button>
                   <ProjectStatusBadge project={project} />
                 </div>
                 <p className="mt-2 line-clamp-3 text-sm text-app-muted">{project.description}</p>

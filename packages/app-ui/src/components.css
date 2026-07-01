@@ -174,6 +174,16 @@
   .dark .admin-thread-panel,
   .dark .cc-thread-panel { @apply border-white/10; }
 
+  .portal-message-thread-shell,
+  .admin-message-thread-shell {
+    @apply flex min-h-0 flex-col overflow-hidden;
+  }
+  .portal-message-thread-shell .portal-thread-panel,
+  .admin-message-thread-shell .admin-thread-panel,
+  .admin-message-thread-shell .portal-thread-panel {
+    @apply min-h-0 flex-1 overflow-y-auto;
+  }
+
   .portal-msg-mine,
   .admin-msg-mine,
   .cc-msg-mine { background-color: var(--msg-mine-bg); color: var(--msg-mine-text); }

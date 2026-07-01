@@ -3,12 +3,28 @@
 import { useEffect, useRef } from 'react'
 import { useQueryClient, type QueryKey } from '@tanstack/react-query'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { adminQueryKeys } from '@/lib/api/query-keys'
 import { authorizeAdminOrgInboxRealtime } from '@/lib/inbox/fetch-org-inbox-admin'
+import type { OrgInboxMessage } from '@/lib/inbox/fetch-org-inbox-admin'
+import { appendInboxMessageToCache } from '@/lib/inbox/optimistic-inbox-message'
 import {
   isOrgInboxRealtimeEnabled,
   ORG_INBOX_REALTIME_EVENT,
+  type OrgInboxRealtimePayload,
 } from '@/lib/inbox/org-inbox-realtime'
 import type { RealtimeChannel } from '@supabase/supabase-js'
+
+const INVALIDATE_DEBOUNCE_MS = 50
+
+function isInboxMessagesKey(key: QueryKey, conversationId: string): boolean {
+  return (
+    Array.isArray(key) &&
+    key[0] === 'admin' &&
+    key[1] === 'org-inbox' &&
+    key[2] === 'messages' &&
+    key[3] === conversationId
+  )
+}
 
 export function useAdminOrgInboxRealtime(
   conversationId: string | undefined,
@@ -25,7 +41,17 @@ export function useAdminOrgInboxRealtime(
     let channel: RealtimeChannel | null = null
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
-    const scheduleUpdate = () => {
+    const invalidateNonMessageKeys = () => {
+      const keys = keysRef.current
+      if (!keys?.length) return
+      for (const queryKey of keys) {
+        if (!isInboxMessagesKey(queryKey, conversationId)) {
+          void queryClient.invalidateQueries({ queryKey })
+        }
+      }
+    }
+
+    const scheduleInvalidate = () => {
       if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
         if (cancelled) return
@@ -35,7 +61,19 @@ export function useAdminOrgInboxRealtime(
             void queryClient.invalidateQueries({ queryKey })
           }
         }
-      }, 300)
+      }, INVALIDATE_DEBOUNCE_MS)
+    }
+
+    const handlePayload = (payload: OrgInboxRealtimePayload) => {
+      if (payload.message) {
+        queryClient.setQueryData<OrgInboxMessage[]>(
+          adminQueryKeys.orgInbox.messages(conversationId),
+          (current) => appendInboxMessageToCache(current, payload.message!),
+        )
+        invalidateNonMessageKeys()
+        return
+      }
+      scheduleInvalidate()
     }
 
     void (async () => {
@@ -46,8 +84,8 @@ export function useAdminOrgInboxRealtime(
         const supabase = createSupabaseBrowserClient()
         channel = supabase.channel(auth.channel)
         channel
-          .on('broadcast', { event: ORG_INBOX_REALTIME_EVENT }, () => {
-            scheduleUpdate()
+          .on('broadcast', { event: ORG_INBOX_REALTIME_EVENT }, ({ payload }) => {
+            handlePayload(payload as OrgInboxRealtimePayload)
           })
           .subscribe()
       } catch {

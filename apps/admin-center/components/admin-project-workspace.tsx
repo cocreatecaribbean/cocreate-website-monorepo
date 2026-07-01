@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import AdminToast from '@/components/admin-toast'
 import ProjectCollaboratorsPanel from '@/components/project-collaborators-panel'
@@ -21,37 +21,49 @@ import {
   useCreateCheckpointMutation,
 } from '@/lib/api/mutations/projects'
 import { adminQueryKeys } from '@/lib/api/query-keys'
+import { appendRequestMessageToCache } from '@/lib/projects/append-request-message-cache'
+import type { ProjectRequestMessage } from '@/lib/projects/types'
 import { useAdminProjectWorkspaceQuery } from '@/lib/api/queries/projects'
 import {
   findProjectThread,
   formatPhaseLabel,
   ProgressCheckPanel,
   ProjectThreadPanel,
+  tabForThreadType,
 } from '@/components/project-workspace-shared'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import {
   ArrowLeft,
+  Bell,
   FolderKanban,
   LayoutGrid,
-  MessageSquare,
   Shield,
+  Sparkles,
   Users,
 } from 'lucide-react'
 
 export type ProjectWorkspaceTabId =
   | 'overview'
-  | 'threads'
+  | 'onboarding'
+  | 'progress'
   | 'team-review'
   | 'collaborators'
 
 const TAB_IDS: ProjectWorkspaceTabId[] = [
   'overview',
-  'threads',
+  'onboarding',
+  'progress',
   'team-review',
   'collaborators',
 ]
 
-function parseTab(value: string | null): ProjectWorkspaceTabId {
+function parseTab(
+  value: string | null,
+  isOnboarded: boolean,
+): ProjectWorkspaceTabId {
+  if (value === 'threads') {
+    return isOnboarded ? 'progress' : 'onboarding'
+  }
   if (value && TAB_IDS.includes(value as ProjectWorkspaceTabId)) {
     return value as ProjectWorkspaceTabId
   }
@@ -133,13 +145,34 @@ export default function AdminProjectWorkspace({
   )
 
   useEffect(() => {
-    setTab(parseTab(searchParams.get('tab') ?? initialTab))
-  }, [searchParams, initialTab])
+    const isOnboarded = project ? project.status !== 'SUBMITTED' : false
+    const raw = searchParams.get('tab') ?? initialTab
+    const next = parseTab(raw, isOnboarded)
+    setTab(next)
+    if (raw === 'threads' && project) {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('tab', next)
+      router.replace(
+        `/clients/${organizationId}/projects/${projectId}?${params.toString()}`,
+        { scroll: false },
+      )
+    }
+  }, [searchParams, initialTab, project, organizationId, projectId, router])
 
   useEffect(() => {
     if (loading || !project || threadScrollAppliedRef.current) return
     const threadId = searchParams.get('thread')
     if (!threadId) return
+
+    const request = project.requests?.find((r) => r.id === threadId)
+    if (request) {
+      const targetTab = tabForThreadType(request.type)
+      if (tab !== targetTab) {
+        setTabWithUrl(targetTab)
+        return
+      }
+    }
+
     threadScrollAppliedRef.current = true
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     requestAnimationFrame(() => {
@@ -148,7 +181,7 @@ export default function AdminProjectWorkspace({
         block: 'nearest',
       })
     })
-  }, [loading, project, searchParams])
+  }, [loading, project, searchParams, tab, setTabWithUrl])
 
   const refreshUnreadCount = useCallback(async () => {
     if (!canTrackUnread) return
@@ -172,15 +205,21 @@ export default function AdminProjectWorkspace({
   const sendAdminMessage = useCallback(
     async (requestId: string, body: string, attachmentIds?: string[]) => {
       try {
-        await fetchAdminBff(`/api/project-requests/${requestId}/messages`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            body,
-            attachmentIds: attachmentIds?.length ? attachmentIds : undefined,
-          }),
+        const message = await fetchAdminBff<ProjectRequestMessage>(
+          `/api/project-requests/${requestId}/messages`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              body,
+              attachmentIds: attachmentIds?.length ? attachmentIds : undefined,
+            }),
+          },
+        )
+        appendRequestMessageToCache(queryClient, requestId, message)
+        await queryClient.invalidateQueries({
+          queryKey: adminQueryKeys.projects.workspace(organizationId, projectId),
         })
-        await refreshThread(requestId)
         return { ok: true as const }
       } catch (err) {
         return {
@@ -189,7 +228,7 @@ export default function AdminProjectWorkspace({
         }
       }
     },
-    [refreshThread],
+    [organizationId, projectId, queryClient],
   )
 
   const approveProject = async () => {
@@ -276,7 +315,7 @@ export default function AdminProjectWorkspace({
       setCheckpointFiles(null)
       setCheckpointPhase('')
       setShowProgressCheck(false)
-      setTabWithUrl('threads')
+      setTabWithUrl('progress')
     } catch (err) {
       const message =
         err instanceof AdminApiFetchError
@@ -300,14 +339,30 @@ export default function AdminProjectWorkspace({
     ? ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(onboarding.status)
     : false
 
-  const tabs = [
-    { id: 'overview' as const, label: 'Overview', icon: LayoutGrid },
-    { id: 'threads' as const, label: 'Client threads', icon: MessageSquare },
-    { id: 'team-review' as const, label: 'Team review', icon: Shield },
-    ...(isCoreTeam
-      ? [{ id: 'collaborators' as const, label: 'Collaborators', icon: Users }]
-      : []),
-  ]
+  const isOnboarded = project ? project.status !== 'SUBMITTED' : false
+  const showProgressThread = Boolean(progress && isOnboarded)
+
+  useEffect(() => {
+    if (!isOnboarded && tab === 'progress') {
+      setTabWithUrl('overview')
+    }
+  }, [isOnboarded, tab, setTabWithUrl])
+
+  const tabs = useMemo(
+    () =>
+      [
+        { id: 'overview' as const, label: 'Overview', icon: LayoutGrid },
+        { id: 'onboarding' as const, label: 'Onboarding', icon: Sparkles },
+        ...(isOnboarded
+          ? [{ id: 'progress' as const, label: 'Progress', icon: Bell }]
+          : []),
+        { id: 'team-review' as const, label: 'Team review', icon: Shield },
+        ...(isCoreTeam
+          ? [{ id: 'collaborators' as const, label: 'Collaborators', icon: Users }]
+          : []),
+      ],
+    [isCoreTeam, isOnboarded],
+  )
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
@@ -471,51 +526,14 @@ export default function AdminProjectWorkspace({
                 title="Project timeline (all actions)"
               />
             ) : null}
-          </div>
-        ) : tab === 'threads' ? (
-          <div className="space-y-4">
-            {onboarding ? (
-              <ProjectThreadPanel
-                title="Onboarding conversation"
-                subtitle={
-                  onboardingClosed
-                    ? 'Closed — archived for records'
-                    : 'Before project is onboarded'
-                }
-                request={onboarding}
-                readOnly={onboardingClosed}
-                organizationId={organizationId}
-                loadMessages={tab === 'threads'}
-                markReadEnabled={canTrackUnread}
-                onInboxMarked={() => void refreshUnreadCount()}
-                onSendMessage={(body, attachmentIds) =>
-                  sendAdminMessage(onboarding.id, body, attachmentIds)
-                }
-                onThreadUpdate={() => void refreshThread(onboarding.id)}
-              />
-            ) : null}
-            {progress && project.status !== 'SUBMITTED' ? (
-              <ProjectThreadPanel
-                title="Project progress"
-                subtitle="Progress checks and client replies"
-                request={progress}
-                organizationId={organizationId}
-                loadMessages={tab === 'threads'}
-                markReadEnabled={canTrackUnread}
-                onInboxMarked={() => void refreshUnreadCount()}
-                onSendMessage={(body, attachmentIds) =>
-                  sendAdminMessage(progress.id, body, attachmentIds)
-                }
-                onThreadUpdate={() => void refreshThread(progress.id)}
-              />
-            ) : null}
+
             {cancellation ? (
               <ProjectThreadPanel
                 title="Cancellation"
                 subtitle={cancellation.cancellationOutcome ?? 'Open'}
                 request={cancellation}
                 organizationId={organizationId}
-                loadMessages={tab === 'threads'}
+                loadMessages={tab === 'overview'}
                 markReadEnabled={canTrackUnread}
                 onInboxMarked={() => void refreshUnreadCount()}
                 onSendMessage={(body, attachmentIds) =>
@@ -527,10 +545,48 @@ export default function AdminProjectWorkspace({
                 }
               />
             ) : null}
-            {!onboarding && !progress && !cancellation ? (
-              <p className="text-sm text-app-muted">No client-facing threads on this project yet.</p>
-            ) : null}
           </div>
+        ) : tab === 'onboarding' ? (
+          onboarding ? (
+            <ProjectThreadPanel
+              title="Onboarding conversation"
+              subtitle={
+                onboardingClosed
+                  ? 'Closed after project was onboarded — kept for your records.'
+                  : 'Discussion before the project is accepted.'
+              }
+              request={onboarding}
+              readOnly={onboardingClosed}
+              organizationId={organizationId}
+              loadMessages={tab === 'onboarding'}
+              markReadEnabled={canTrackUnread}
+              onInboxMarked={() => void refreshUnreadCount()}
+              onSendMessage={(body, attachmentIds) =>
+                sendAdminMessage(onboarding.id, body, attachmentIds)
+              }
+              onThreadUpdate={() => void refreshThread(onboarding.id)}
+            />
+          ) : (
+            <p className="text-sm text-app-muted">No onboarding conversation yet.</p>
+          )
+        ) : tab === 'progress' ? (
+          showProgressThread && progress ? (
+            <ProjectThreadPanel
+              title="Project progress"
+              subtitle="Updates, progress checks, and replies with the client."
+              request={progress}
+              organizationId={organizationId}
+              loadMessages={tab === 'progress'}
+              markReadEnabled={canTrackUnread}
+              onInboxMarked={() => void refreshUnreadCount()}
+              onSendMessage={(body, attachmentIds) =>
+                sendAdminMessage(progress.id, body, attachmentIds)
+              }
+              onThreadUpdate={() => void refreshThread(progress.id)}
+            />
+          ) : (
+            <p className="text-sm text-app-muted">No progress conversation yet.</p>
+          )
         ) : tab === 'team-review' ? (
           internal ? (
             <TeamReviewPanel

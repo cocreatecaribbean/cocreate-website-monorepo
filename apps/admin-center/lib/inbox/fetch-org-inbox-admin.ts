@@ -4,6 +4,7 @@ import {
   OrgInboxConversationListResponseSchema,
   OrgInboxMessageListResponseSchema,
   OrgInboxRealtimeAuthResponseSchema,
+  OrgInboxSendMessageResponseSchema,
   OrgInboxUnreadCountResponseSchema,
   type OrgInboxConversation,
   type OrgInboxMessage,
@@ -49,12 +50,17 @@ export async function fetchAdminOrgInboxMessages(
 export async function sendAdminOrgInboxMessage(
   conversationId: string,
   body: string,
-): Promise<void> {
-  await fetchAdminBff(`/api/messages/conversations/${conversationId}/messages`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ body }),
-  })
+): Promise<OrgInboxMessage | null> {
+  const data = await fetchAdminBff<unknown>(
+    `/api/messages/conversations/${conversationId}/messages`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body }),
+    },
+  )
+  const parsed = parseApiResponseSafe(OrgInboxSendMessageResponseSchema, data)
+  return parsed?.message ?? null
 }
 
 export async function markAdminOrgInboxRead(conversationId: string): Promise<void> {

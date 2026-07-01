@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import AdminFilesSection from '@/components/admin-files-section'
@@ -12,7 +12,7 @@ import MarkInboxReadOnView from '@/components/mark-inbox-read-on-view'
 import ClientTeamPanel from '@/components/client-team-panel'
 import AdminClientMessagesView from '@/components/admin-client-messages-view'
 import CreateProjectModal from '@/components/create-project-modal'
-import { CancellationResolveForm } from '@/components/project-workspace-shared'
+import { CancellationResolveForm, tabForThreadType } from '@/components/project-workspace-shared'
 import { useAdminSession } from '@/components/admin-session-provider'
 import { isCoreTeamSession } from '@/lib/admin-session'
 import {
@@ -23,6 +23,8 @@ import {
 import { useApproveClientProjectMutation } from '@/lib/api/mutations/projects'
 import { useMarkInboxReadMutation } from '@/lib/api/mutations/clients'
 import { adminQueryKeys } from '@/lib/api/query-keys'
+import { appendRequestMessageToCache } from '@/lib/projects/append-request-message-cache'
+import type { ProjectRequestMessage } from '@/lib/projects/types'
 import {
   useClientActivityQuery,
   useClientDetailQuery,
@@ -59,6 +61,7 @@ type ClientWorkspaceProps = {
 
 export default function ClientWorkspace({ organizationId, initialTab = 'projects' }: ClientWorkspaceProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const queryClient = useQueryClient()
   const { session } = useAdminSession()
   const currentUserId = session?.mode === 'user' ? session.userId : null
@@ -99,6 +102,8 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
     : null
 
   const [tab, setTab] = useState<TabId>(initialTab)
+  const messagesThreadOpen =
+    tab === 'messages' && Boolean(searchParams.get('conversationId'))
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [approvingId, setApprovingId] = useState<string | null>(null)
@@ -155,8 +160,13 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
     deepLinkAppliedRef.current = true
 
     if (projectId) {
+      const project = projects.find((p) => p.id === projectId)
+      const thread = threadId
+        ? project?.requests?.find((r) => r.id === threadId)
+        : undefined
+      const tab = thread ? tabForThreadType(thread.type) : 'overview'
       const query = threadId
-        ? `?tab=threads&thread=${encodeURIComponent(threadId)}`
+        ? `?tab=${tab}&thread=${encodeURIComponent(threadId)}`
         : ''
       router.replace(`/clients/${organizationId}/projects/${projectId}${query}`)
       return
@@ -165,8 +175,10 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
     if (threadId) {
       const project = projects.find((p) => p.requests?.some((r) => r.id === threadId))
       if (project) {
+        const thread = project.requests?.find((r) => r.id === threadId)
+        const tab = thread ? tabForThreadType(thread.type) : 'overview'
         router.replace(
-          `/clients/${organizationId}/projects/${project.id}?tab=threads&thread=${encodeURIComponent(threadId)}`,
+          `/clients/${organizationId}/projects/${project.id}?tab=${tab}&thread=${encodeURIComponent(threadId)}`,
         )
       }
     }
@@ -190,15 +202,24 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
     attachmentIds?: string[],
   ) => {
     try {
-      await fetchAdminBff(`/api/project-requests/${requestId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          body,
-          attachmentIds: attachmentIds?.length ? attachmentIds : undefined,
-        }),
+      const message = await fetchAdminBff<ProjectRequestMessage>(
+        `/api/project-requests/${requestId}/messages`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            body,
+            attachmentIds: attachmentIds?.length ? attachmentIds : undefined,
+          }),
+        },
+      )
+      appendRequestMessageToCache(queryClient, requestId, message)
+      await queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.projects.byOrganization(organizationId),
       })
-      await refreshThread(requestId)
+      await queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.inbox.list(organizationId),
+      })
       return { ok: true }
     } catch (err) {
       return {
@@ -364,7 +385,13 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         </nav>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
+      <div
+        className={
+          tab === 'messages' && messagesThreadOpen
+            ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8'
+            : 'flex-1 overflow-y-auto px-4 py-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8'
+        }
+      >
         {error ?? loadError ? (
           <p className="admin-alert-error mb-4">
             {error ?? loadError}
@@ -428,7 +455,18 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                   <div className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
                     <div>
                       <p className={`text-chambray ${bricolage_grot600.className}`}>
-                        {project.title}
+                        <Link
+                          href={`/clients/${organizationId}/projects/${project.id}`}
+                          className="underline-offset-4 hover:text-sanmarino hover:underline"
+                          onMouseEnter={() =>
+                            void prefetchAdminProjectOverview(queryClient, project.id)
+                          }
+                          onFocus={() =>
+                            void prefetchAdminProjectOverview(queryClient, project.id)
+                          }
+                        >
+                          {project.title}
+                        </Link>
                         {project.hasPendingCheckpoint ? (
                           <span className="ml-2 rounded-full bg-casablanca/25 px-2 py-0.5 text-xs">
                             Awaiting client approval
@@ -489,7 +527,15 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
           </div>
         ) : tab === 'messages' ? (
           <Suspense fallback={<p className="text-sm text-app-muted">Loading messages…</p>}>
-            <AdminClientMessagesView organizationId={organizationId} />
+            <div
+              className={
+                messagesThreadOpen
+                  ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden'
+                  : ''
+              }
+            >
+              <AdminClientMessagesView organizationId={organizationId} />
+            </div>
           </Suspense>
         ) : tab === 'inbox' ? (
           <div className="space-y-4">
@@ -519,6 +565,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                       viewerRole="ADMIN"
                       currentUserId={currentUserId}
                       showResolveActions={item.type !== 'CANCELLATION'}
+                      invalidateQueryKeys={[adminQueryKeys.requests.detail(item.id)]}
                       onSendMessage={(body, attachmentIds) =>
                         sendAdminMessage(item.id, body, attachmentIds)
                       }

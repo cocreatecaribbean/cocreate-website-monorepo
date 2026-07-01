@@ -11,6 +11,10 @@ import type { ProjectRequestItem, ProjectRequestMessage } from '@/lib/projects/a
 import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-projects-client'
 import { formatActorWithTitle } from '@/lib/projects/project-display'
 import { LinkifiedBody, indexAttachmentsByMessage, RequestAttachments } from '@/lib/projects/thread-content'
+import {
+  createOptimisticRequestMessage,
+  isPendingRequestMessage,
+} from '@/lib/projects/optimistic-request-message'
 import { useRequestThreadRealtime } from '@/lib/projects/use-request-thread-realtime'
 import { bricolage_grot600 } from '@/styles/fonts'
 
@@ -58,11 +62,12 @@ export default function RequestMessageThread({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<string[]>([])
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
-  const [sending, setSending] = useState(false)
+  const [pendingMessages, setPendingMessages] = useState<ProjectRequestMessage[]>([])
+  const [uploading, setUploading] = useState(false)
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const messages: ProjectRequestMessage[] =
+  const baseMessages: ProjectRequestMessage[] =
     request.messages && request.messages.length > 0
       ? request.messages
       : request.description
@@ -79,9 +84,11 @@ export default function RequestMessageThread({
           ]
         : []
 
+  const messages = [...baseMessages, ...pendingMessages]
+
   const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(request.status)
   const canCompose = !readOnly && !isClosed
-  const attachmentsByMessage = indexAttachmentsByMessage(messages, request.attachments)
+  const attachmentsByMessage = indexAttachmentsByMessage(baseMessages, request.attachments)
   const { panelRef, scrollToBottom } = useThreadAutoScroll(messages, request.id)
   const fetchDownloadUrl = useCallback(
     (attachmentId: string) => fetchAttachmentDownloadUrl(attachmentId),
@@ -90,32 +97,64 @@ export default function RequestMessageThread({
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!reply.trim()) return
-    setSending(true)
-    setError(null)
-    const uploaded = await resolvePendingMessageAttachments(
-      request.projectId,
-      pendingFiles,
-    )
-    if (!uploaded.ok) {
-      setError(uploaded.message ?? 'Could not upload attachments')
-      setSending(false)
-      return
-    }
+    if (!reply.trim() || uploading) return
 
-    const attachmentIds = [
-      ...new Set([...selectedAttachmentIds, ...uploaded.attachmentIds]),
-    ]
-    const result = await onSendMessage(reply.trim(), attachmentIds)
-    if (!result.ok) {
-      setError(result.message ?? 'Could not send message')
-    } else {
-      setReply('')
-      setSelectedAttachmentIds([])
-      setPendingFiles([])
-      scrollToBottom(true)
+    const bodyText = reply.trim()
+    const savedReply = bodyText
+    const savedSelectedIds = [...selectedAttachmentIds]
+    const savedPendingFiles = [...pendingFiles]
+    const hasUploads = savedPendingFiles.length > 0
+    const optimistic = createOptimisticRequestMessage({
+      requestId: request.id,
+      body: bodyText,
+      authorRole: viewerRole === 'CLIENT' ? 'CLIENT' : 'ADMIN',
+    })
+    const optimisticId = optimistic.id
+
+    setPendingMessages((prev) => [...prev, optimistic])
+    setReply('')
+    setSelectedAttachmentIds([])
+    setPendingFiles([])
+    setError(null)
+    scrollToBottom(true)
+
+    try {
+      if (hasUploads) setUploading(true)
+      const uploaded = await resolvePendingMessageAttachments(
+        request.projectId,
+        savedPendingFiles,
+      )
+      if (!uploaded.ok) {
+        setPendingMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+        setReply(savedReply)
+        setSelectedAttachmentIds(savedSelectedIds)
+        setPendingFiles(savedPendingFiles)
+        setError(uploaded.message ?? 'Could not upload attachments')
+        return
+      }
+
+      const attachmentIds = [
+        ...new Set([...savedSelectedIds, ...uploaded.attachmentIds]),
+      ]
+      const result = await onSendMessage(bodyText, attachmentIds)
+      if (!result.ok) {
+        setPendingMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+        setReply(savedReply)
+        setSelectedAttachmentIds(savedSelectedIds)
+        setPendingFiles(savedPendingFiles)
+        setError(result.message ?? 'Could not send message')
+      } else {
+        setPendingMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+      }
+    } catch {
+      setPendingMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+      setReply(savedReply)
+      setSelectedAttachmentIds(savedSelectedIds)
+      setPendingFiles(savedPendingFiles)
+      setError('Could not send message')
+    } finally {
+      setUploading(false)
     }
-    setSending(false)
   }
 
   const onApprove = async (messageId: string) => {
@@ -128,14 +167,17 @@ export default function RequestMessageThread({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="portal-message-thread-shell max-h-[min(56svh,520px)]">
       <div ref={panelRef} className="portal-thread-panel">
         {messages.length === 0 ? (
           <p className="text-sm text-app-muted">No messages yet.</p>
         ) : (
-          messages.map((msg, messageIndex) => {
-            const messageAttachments = attachmentsByMessage.get(messageIndex)
+          messages.map((msg) => {
+            const baseIndex = baseMessages.findIndex((entry) => entry.id === msg.id)
+            const messageAttachments =
+              baseIndex >= 0 ? attachmentsByMessage.get(baseIndex) : undefined
             const isMine = viewerRole === 'CLIENT' && msg.authorRole === 'CLIENT'
+            const isPending = isPendingRequestMessage(msg.id)
             const showApprove =
               viewerRole === 'CLIENT' &&
               msg.isPendingApproval &&
@@ -172,7 +214,7 @@ export default function RequestMessageThread({
                 <div
                   className={`mt-1 max-w-[90%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
                     isMine ? 'portal-msg-mine' : 'portal-msg-theirs'
-                  } ${bricolage_grot600.className}`}
+                  } ${isPending ? 'opacity-80' : ''} ${bricolage_grot600.className}`}
                 >
                   {msg.messageKind === 'CHECKPOINT' ? (
                     <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wide text-sanmarino">
@@ -217,7 +259,7 @@ export default function RequestMessageThread({
       </div>
 
       {canCompose ? (
-        <form onSubmit={(e) => void onSubmit(e)} className="space-y-2">
+        <form onSubmit={(e) => void onSubmit(e)} className="shrink-0 space-y-2 border-t border-chambray/10 pt-4">
           <div className="relative">
             <textarea
               ref={textareaRef}
@@ -235,7 +277,7 @@ export default function RequestMessageThread({
           <MessageAttachmentComposer
             projectId={request.projectId}
             variant="portal"
-            disabled={sending}
+            disabled={uploading}
             selectedIds={selectedAttachmentIds}
             pendingFiles={pendingFiles}
             onSelectedIdsChange={setSelectedAttachmentIds}
@@ -245,13 +287,13 @@ export default function RequestMessageThread({
           <div className="flex flex-wrap items-center gap-2">
             <EmojiPickerButton
               variant="portal"
-              disabled={sending}
+              disabled={uploading}
               onSelect={(emoji) =>
                 insertAtTextareaCursor(textareaRef.current, emoji, reply, setReply)
               }
             />
-            <button type="submit" disabled={sending} className={btnPrimary}>
-              {sending ? 'Sending…' : 'Send message'}
+            <button type="submit" disabled={uploading || !reply.trim()} className={btnPrimary}>
+              {uploading ? 'Uploading…' : 'Send message'}
             </button>
             {showResolveActions && onResolve ? (
               <>
@@ -274,9 +316,9 @@ export default function RequestMessageThread({
           </div>
         </form>
       ) : isClosed ? (
-        <p className="text-sm text-app-muted">This conversation is closed ({request.status}).</p>
+        <p className="shrink-0 text-sm text-app-muted">This conversation is closed ({request.status}).</p>
       ) : readOnly ? (
-        <p className="text-sm text-app-muted">Archived conversation (read only).</p>
+        <p className="shrink-0 text-sm text-app-muted">Archived conversation (read only).</p>
       ) : null}
     </div>
   )

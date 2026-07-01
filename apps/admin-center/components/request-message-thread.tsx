@@ -11,6 +11,10 @@ import type { ProjectRequestItem, ProjectRequestMessage } from '@/lib/projects/t
 import { formatActorWithTitle } from '@/lib/projects/project-display'
 import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-project-files'
 import { LinkifiedBody, indexAttachmentsByMessage, RequestAttachments } from '@/lib/projects/thread-content'
+import {
+  createOptimisticRequestMessage,
+  isPendingRequestMessage,
+} from '@/lib/projects/optimistic-request-message'
 import { useRequestThreadRealtime } from '@/lib/projects/use-request-thread-realtime'
 import { bricolage_grot600 } from '@/styles/fonts'
 
@@ -28,6 +32,7 @@ type RequestMessageThreadProps = {
   onResolve?: (status: 'RESOLVED' | 'REJECTED') => Promise<void>
   showResolveActions?: boolean
   onThreadUpdate?: () => void
+  invalidateQueryKeys?: import('@tanstack/react-query').QueryKey[]
 }
 
 function initialAuthorRole(request: ProjectRequestItem): 'ADMIN' | 'CLIENT' {
@@ -73,19 +78,22 @@ export default function RequestMessageThread({
   showResolveActions = false,
   readOnly = false,
   onThreadUpdate,
+  invalidateQueryKeys,
 }: RequestMessageThreadProps) {
   useRequestThreadRealtime(request.id, () => onThreadUpdate?.(), {
-    enabled: Boolean(onThreadUpdate),
+    enabled: Boolean(onThreadUpdate || invalidateQueryKeys?.length),
+    invalidateQueryKeys,
   })
 
   const [reply, setReply] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<string[]>([])
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
-  const [sending, setSending] = useState(false)
+  const [pendingMessages, setPendingMessages] = useState<ProjectRequestMessage[]>([])
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const messages: ProjectRequestMessage[] =
+  const baseMessages: ProjectRequestMessage[] =
     request.messages && request.messages.length > 0
       ? request.messages
       : request.description
@@ -102,9 +110,11 @@ export default function RequestMessageThread({
           ]
         : []
 
+  const messages = [...baseMessages, ...pendingMessages]
+
   const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(request.status)
   const canCompose = !readOnly && !isClosed
-  const attachmentsByMessage = indexAttachmentsByMessage(messages, request.attachments)
+  const attachmentsByMessage = indexAttachmentsByMessage(baseMessages, request.attachments)
   const { panelRef, scrollToBottom } = useThreadAutoScroll(messages, request.id)
   const fetchDownloadUrl = useCallback(
     (attachmentId: string) => fetchAttachmentDownloadUrl(attachmentId),
@@ -113,45 +123,81 @@ export default function RequestMessageThread({
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!reply.trim()) return
-    setSending(true)
-    setError(null)
-    const uploaded = await resolvePendingMessageAttachments(
-      request.projectId,
-      pendingFiles,
-      uploadVisibility ? { visibility: uploadVisibility } : undefined,
-    )
-    if (!uploaded.ok) {
-      setError(uploaded.message ?? 'Could not upload attachments')
-      setSending(false)
-      return
-    }
+    if (!reply.trim() || uploading) return
 
-    const attachmentIds = [
-      ...new Set([...selectedAttachmentIds, ...uploaded.attachmentIds]),
-    ]
-    const result = await onSendMessage(reply.trim(), attachmentIds)
-    if (!result.ok) {
-      setError(result.message ?? 'Could not send message')
-    } else {
-      setReply('')
-      setSelectedAttachmentIds([])
-      setPendingFiles([])
-      scrollToBottom(true)
+    const bodyText = reply.trim()
+    const savedReply = bodyText
+    const savedSelectedIds = [...selectedAttachmentIds]
+    const savedPendingFiles = [...pendingFiles]
+    const hasUploads = savedPendingFiles.length > 0
+    const optimistic = createOptimisticRequestMessage({
+      requestId: request.id,
+      body: bodyText,
+      authorRole: viewerRole === 'CLIENT' ? 'CLIENT' : 'ADMIN',
+      authorUserId: viewerRole === 'ADMIN' ? currentUserId ?? undefined : undefined,
+    })
+    const optimisticId = optimistic.id
+
+    setPendingMessages((prev) => [...prev, optimistic])
+    setReply('')
+    setSelectedAttachmentIds([])
+    setPendingFiles([])
+    setError(null)
+    scrollToBottom(true)
+
+    try {
+      if (hasUploads) setUploading(true)
+      const uploaded = await resolvePendingMessageAttachments(
+        request.projectId,
+        savedPendingFiles,
+        uploadVisibility ? { visibility: uploadVisibility } : undefined,
+      )
+      if (!uploaded.ok) {
+        setPendingMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+        setReply(savedReply)
+        setSelectedAttachmentIds(savedSelectedIds)
+        setPendingFiles(savedPendingFiles)
+        setError(uploaded.message ?? 'Could not upload attachments')
+        return
+      }
+
+      const attachmentIds = [
+        ...new Set([...savedSelectedIds, ...uploaded.attachmentIds]),
+      ]
+      const result = await onSendMessage(bodyText, attachmentIds)
+      if (!result.ok) {
+        setPendingMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+        setReply(savedReply)
+        setSelectedAttachmentIds(savedSelectedIds)
+        setPendingFiles(savedPendingFiles)
+        setError(result.message ?? 'Could not send message')
+      } else {
+        setPendingMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+      }
+    } catch {
+      setPendingMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+      setReply(savedReply)
+      setSelectedAttachmentIds(savedSelectedIds)
+      setPendingFiles(savedPendingFiles)
+      setError('Could not send message')
+    } finally {
+      setUploading(false)
     }
-    setSending(false)
   }
 
   return (
-    <div className="space-y-4">
+    <div className="admin-message-thread-shell max-h-[min(56svh,520px)]">
       <div ref={panelRef} className="admin-thread-panel">
         {messages.length === 0 ? (
           <p className="text-sm text-app-muted">No messages yet.</p>
         ) : (
-          messages.map((msg, messageIndex) => {
-            const messageAttachments = attachmentsByMessage.get(messageIndex)
+          messages.map((msg) => {
+            const baseIndex = baseMessages.findIndex((entry) => entry.id === msg.id)
+            const messageAttachments =
+              baseIndex >= 0 ? attachmentsByMessage.get(baseIndex) : undefined
             const isMine = messageIsMine(msg, viewerRole, currentUserId)
             const authorLabel = messageAuthorLabel(msg, isMine)
+            const isPending = isPendingRequestMessage(msg.id)
             return (
               <div
                 key={msg.id}
@@ -170,7 +216,7 @@ export default function RequestMessageThread({
                 <div
                   className={`mt-1 max-w-[90%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
                     isMine ? 'admin-msg-mine' : 'admin-msg-theirs'
-                  } ${bricolage_grot600.className}`}
+                  } ${isPending ? 'opacity-80' : ''} ${bricolage_grot600.className}`}
                 >
                   {msg.messageKind === 'CHECKPOINT' ? (
                     <span className="mb-1 block text-[0.65rem] font-semibold uppercase tracking-wide text-sanmarino">
@@ -210,7 +256,7 @@ export default function RequestMessageThread({
       </div>
 
       {canCompose ? (
-        <form onSubmit={(e) => void onSubmit(e)} className="space-y-2">
+        <form onSubmit={(e) => void onSubmit(e)} className="shrink-0 space-y-2 border-t border-chambray/10 pt-4">
           <div className="relative">
             <textarea
               ref={textareaRef}
@@ -229,7 +275,7 @@ export default function RequestMessageThread({
           </div>
           <MessageAttachmentComposer
             projectId={request.projectId}
-            disabled={sending}
+            disabled={uploading}
             libraryVisibility={libraryVisibility}
             selectedIds={selectedAttachmentIds}
             pendingFiles={pendingFiles}
@@ -240,13 +286,17 @@ export default function RequestMessageThread({
           <div className="flex flex-wrap items-center gap-2">
             <EmojiPickerButton
               variant="admin"
-              disabled={sending}
+              disabled={uploading}
               onSelect={(emoji) =>
                 insertAtTextareaCursor(textareaRef.current, emoji, reply, setReply)
               }
             />
-            <button type="submit" disabled={sending} className="admin-btn-primary text-sm">
-              {sending ? 'Sending…' : 'Send message'}
+            <button
+              type="submit"
+              disabled={uploading || !reply.trim()}
+              className="admin-btn-primary text-sm"
+            >
+              {uploading ? 'Uploading…' : 'Send message'}
             </button>
             {showResolveActions && onResolve ? (
               <>
@@ -269,9 +319,9 @@ export default function RequestMessageThread({
           </div>
         </form>
       ) : isClosed ? (
-        <p className="text-sm text-app-muted">This conversation is closed ({request.status}).</p>
+        <p className="shrink-0 text-sm text-app-muted">This conversation is closed ({request.status}).</p>
       ) : readOnly ? (
-        <p className="text-sm text-app-muted">Archived (read only).</p>
+        <p className="shrink-0 text-sm text-app-muted">Archived (read only).</p>
       ) : null}
     </div>
   )

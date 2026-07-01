@@ -8,7 +8,11 @@ import { queryKeys } from '@/lib/api/query-keys'
 import { useUnreadAttentionCountQuery } from '@/lib/api/queries/notifications'
 import { bricolage_grot600 } from '@/styles/fonts'
 
-export default function ControlCenterAttentionLink() {
+export default function ControlCenterAttentionLink({
+  onNavigate,
+}: {
+  onNavigate?: () => void
+}) {
   const queryClient = useQueryClient()
   const { data: count = 0, refetch } = useUnreadAttentionCountQuery()
 
@@ -23,6 +27,7 @@ export default function ControlCenterAttentionLink() {
   return (
     <Link
       href={ATTENTION_PAGE_PATH}
+      onClick={() => onNavigate?.()}
       onMouseEnter={() => {
         void queryClient.prefetchQuery({
           queryKey: queryKeys.attention.items(),

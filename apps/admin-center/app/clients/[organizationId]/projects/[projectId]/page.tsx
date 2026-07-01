@@ -9,9 +9,13 @@ type PageProps = {
 }
 
 function parseTab(value: string | undefined): ProjectWorkspaceTabId {
+  if (value === 'threads') {
+    return 'onboarding'
+  }
   if (
     value === 'overview' ||
-    value === 'threads' ||
+    value === 'onboarding' ||
+    value === 'progress' ||
     value === 'team-review' ||
     value === 'collaborators'
   ) {

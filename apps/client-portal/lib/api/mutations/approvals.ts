@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { queryKeys } from '@/lib/api/query-keys'
+import { appendRequestMessageToCache } from '@/lib/projects/append-request-message-cache'
 import {
   approveCheckpointMessage,
   markApprovalsRead,
@@ -35,9 +36,7 @@ export function useSendRequestMessageMutation(requestId: string) {
     }) => sendRequestMessage(requestId, body, attachmentIds),
     onSuccess: (result) => {
       if (!result.ok) return
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.requests.detail(requestId),
-      })
+      appendRequestMessageToCache(queryClient, requestId, result.data)
       void queryClient.invalidateQueries({ queryKey: queryKeys.approvals.all })
     },
   })

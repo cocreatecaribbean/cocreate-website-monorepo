@@ -64,7 +64,7 @@ const NavMobile: React.FC = () => {
 
   useEffect(() => {
     setMounted(true)
-    const mq = window.matchMedia('(max-width: 767px)')
+    const mq = window.matchMedia('(max-width: 1023px)')
     const syncViewport = () => {
       const mobile = mq.matches
       setIsMobileViewport(mobile)

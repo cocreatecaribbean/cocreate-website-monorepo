@@ -17,7 +17,7 @@ One org-wide conversation per organization; optional additional restricted threa
 
 - **Channel:** `org-inbox:{conversationId}`
 - **Event:** `inbox:update`
-- **Pattern:** Nest persists message → publishes Supabase Realtime **broadcast** → clients invalidate React Query (300ms debounce)
+- **Pattern:** Nest persists message → publishes Supabase Realtime **broadcast** (with full `message` in payload) → clients append to React Query cache immediately; non-message events debounce 50ms then invalidate
 - Same approach as project request threads (`ProjectRealtimeService.publishOrgInboxUpdate`)
 
 **Required env (API):** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`

@@ -91,12 +91,16 @@ export class ProjectsService {
     return `${portalBase}/auth/callback`
   }
 
-  private async notifyThreadUpdate(
+  private notifyThreadUpdate(
     requestId: string,
     reason: 'message' | 'checkpoint' | 'status' | 'attachment',
-    messageId?: string,
-  ) {
-    await this.realtime.publishThreadUpdate(requestId, { reason, messageId })
+    extra?: { messageId?: string; message?: ReturnType<typeof serializeMessage> },
+  ): void {
+    void this.realtime.publishThreadUpdate(requestId, {
+      reason,
+      messageId: extra?.messageId,
+      message: extra?.message,
+    })
   }
 
   async authorizeThreadRealtime(
@@ -1030,7 +1034,7 @@ export class ProjectsService {
         include: { author: { select: userActorSelect } },
       }))!,
     )
-    await this.notifyThreadUpdate(requestId, 'checkpoint', messageId)
+    await this.notifyThreadUpdate(requestId, 'checkpoint', { messageId })
     return approved
   }
 
@@ -1745,7 +1749,7 @@ export class ProjectsService {
         },
       },
     })
-    await this.notifyThreadUpdate(progress.id, 'checkpoint', message.id)
+    await this.notifyThreadUpdate(progress.id, 'checkpoint', { messageId: message.id })
     return serializeRequest(full!)
   }
 
@@ -1905,6 +1909,16 @@ export class ProjectsService {
       messageId: message.id,
     })
 
+    const serialized = serializeMessage(messageWithAttachments ?? message)
+
+    void this.notifyThreadUpdate(requestId, 'message', {
+      messageId: message.id,
+      message: serialized,
+    })
+    if (dto.attachmentIds?.length) {
+      void this.notifyThreadUpdate(requestId, 'attachment')
+    }
+
     const adminLink = `${this.notifications.adminClientWorkspaceLink(request.project.organizationId)}?tab=projects&thread=${requestId}`
     const clientLink =
       request.type === ProjectRequestType.PROGRESS
@@ -1913,7 +1927,7 @@ export class ProjectsService {
     const snippet = dto.body.trim().slice(0, 200)
 
     if (isClient) {
-      await this.notifications.notifyAdmins({
+      void this.notifications.notifyAdmins({
         organizationId: request.project.organizationId,
         type: PortalNotificationType.REQUEST_MESSAGE,
         title: `Client replied: ${request.title}`,
@@ -1929,7 +1943,7 @@ export class ProjectsService {
         },
       })
     } else if (request.type !== ProjectRequestType.INTERNAL) {
-      await this.notifications.notifyOrgClients({
+      void this.notifications.notifyOrgClients({
         organizationId: request.project.organizationId,
         type: PortalNotificationType.REQUEST_MESSAGE,
         title: `CoCreate replied: ${request.title}`,
@@ -1944,18 +1958,14 @@ export class ProjectsService {
           actionLink: clientLink,
         },
       })
-      await this.notifications.markInboxReadForRequest(
+      void this.notifications.markInboxReadForRequest(
         actor.id,
         request.project.organizationId,
         requestId,
       )
     }
 
-    if (dto.attachmentIds?.length) {
-      await this.notifyThreadUpdate(requestId, 'attachment')
-    }
-    await this.notifyThreadUpdate(requestId, 'message', message.id)
-    return serializeMessage(messageWithAttachments ?? message)
+    return serialized
   }
 
   async updateRequest(

@@ -5,6 +5,7 @@ import { useAdminSession } from '@/components/admin-session-provider'
 import RequestMessageThread from '@/components/request-message-thread'
 import MarkInboxReadOnView from '@/components/mark-inbox-read-on-view'
 import { useAdminRequestThreadQuery } from '@/lib/api/queries/projects'
+import { adminQueryKeys } from '@/lib/api/query-keys'
 import type { ClientProjectSummary, ProjectRequestItem } from '@/lib/projects/types'
 import { bricolage_grot600 } from '@/styles/fonts'
 
@@ -13,6 +14,14 @@ export function findProjectThread(
   type: ProjectRequestItem['type'],
 ) {
   return project.requests?.find((r) => r.type === type) ?? null
+}
+
+export function tabForThreadType(
+  type: ProjectRequestItem['type'],
+): 'onboarding' | 'progress' | 'overview' {
+  if (type === 'ONBOARDING') return 'onboarding'
+  if (type === 'PROGRESS') return 'progress'
+  return 'overview'
 }
 
 export function formatPhaseLabel(phase: string): string {
@@ -184,10 +193,13 @@ export function ProjectThreadPanel({
   const resolvedRequest = threadQuery.data ?? request
 
   return (
-    <div id={`thread-panel-${request.id}`} className="rounded-xl border border-chambray/8 p-4">
-      <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>{title}</p>
-      <p className="text-xs text-app-muted">{subtitle}</p>
-      <div className="mt-3">
+    <section
+      id={`thread-panel-${request.id}`}
+      className="admin-glass-card p-5 sm:p-6"
+    >
+      <p className={`text-chambray ${bricolage_grot600.className}`}>{title}</p>
+      <p className="mt-1 text-xs text-app-muted">{subtitle}</p>
+      <div className="mt-4">
         {markReadEnabled ? (
           <MarkInboxReadOnView
             organizationId={organizationId}
@@ -203,6 +215,7 @@ export function ProjectThreadPanel({
           readOnly={readOnly}
           onSendMessage={onSendMessage}
           onThreadUpdate={onThreadUpdate}
+          invalidateQueryKeys={[adminQueryKeys.requests.detail(request.id)]}
         />
         {cancellationResolve &&
         request.type === 'CANCELLATION' &&
@@ -210,7 +223,7 @@ export function ProjectThreadPanel({
           <CancellationResolveForm onResolve={cancellationResolve} />
         ) : null}
       </div>
-    </div>
+    </section>
   )
 }
 

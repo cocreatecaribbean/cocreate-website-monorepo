@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 
+import { useAdminSession } from '@/components/admin-session-provider'
 import { LinkifiedBody } from '@/lib/projects/thread-content'
 import { useThreadAutoScroll } from '@/lib/projects/use-thread-auto-scroll'
 import { adminQueryKeys } from '@/lib/api/query-keys'
@@ -12,7 +13,13 @@ import {
   fetchAdminOrgInboxMessages,
   markAdminOrgInboxRead,
   sendAdminOrgInboxMessage,
+  type OrgInboxMessage,
 } from '@/lib/inbox/fetch-org-inbox-admin'
+import {
+  createOptimisticInboxMessage,
+  isPendingInboxMessage,
+  replacePendingInboxMessage,
+} from '@/lib/inbox/optimistic-inbox-message'
 import { useAdminOrgInboxRealtime } from '@/lib/inbox/use-org-inbox-realtime-admin'
 import {
   conversationSubject,
@@ -32,6 +39,7 @@ export default function AdminOrgInboxThreadView({
   onBack,
 }: AdminOrgInboxThreadViewProps) {
   const queryClient = useQueryClient()
+  const { session } = useAdminSession()
   const [body, setBody] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -64,25 +72,54 @@ export default function AdminOrgInboxThreadView({
     })
   }, [conversationId, queryClient])
 
+  const messages = messagesQuery.data ?? []
+  const { panelRef, scrollToBottom } = useThreadAutoScroll(messages, conversationId)
+
   const sendMutation = useMutation({
     mutationFn: (text: string) => sendAdminOrgInboxMessage(conversationId, text),
-    onSuccess: () => {
+    onMutate: async (text) => {
+      if (session?.mode !== 'user' || !session.userId || !session.email) return
+      const queryKey = adminQueryKeys.orgInbox.messages(conversationId)
+      await queryClient.cancelQueries({ queryKey })
+      const previous = queryClient.getQueryData<OrgInboxMessage[]>(queryKey)
+      const optimistic = createOptimisticInboxMessage(conversationId, text, {
+        userId: session.userId,
+        email: session.email,
+        role: 'ADMIN',
+      })
+      queryClient.setQueryData(queryKey, [...(previous ?? []), optimistic])
       setBody('')
-      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.orgInbox.all })
+      scrollToBottom(true)
+      return { previous, optimisticId: optimistic.id }
     },
-    onError: (err) => {
+    onSuccess: (serverMessage, _text, context) => {
+      if (!context) return
+      const queryKey = adminQueryKeys.orgInbox.messages(conversationId)
+      queryClient.setQueryData<OrgInboxMessage[]>(queryKey, (current) =>
+        replacePendingInboxMessage(current ?? [], context.optimisticId, serverMessage),
+      )
+      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.orgInbox.conversations() })
+      void queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.orgInbox.orgConversations(organizationId),
+      })
+      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.orgInbox.unreadCount() })
+    },
+    onError: (err, text, context) => {
+      if (!context) return
+      queryClient.setQueryData(
+        adminQueryKeys.orgInbox.messages(conversationId),
+        context.previous,
+      )
+      setBody(text)
       setError(err instanceof Error ? err.message : 'Send failed')
     },
   })
-
-  const messages = messagesQuery.data ?? []
-  const { panelRef } = useThreadAutoScroll(messages, conversationId)
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault()
     if (!body.trim()) return
     setError(null)
-    void sendMutation.mutateAsync(body.trim())
+    sendMutation.mutate(body.trim())
   }
 
   if (conversationsQuery.isLoading || messagesQuery.isLoading) {
@@ -101,28 +138,28 @@ export default function AdminOrgInboxThreadView({
   }
 
   return (
-    <div className="space-y-4">
+    <>
       <button
         type="button"
         onClick={onBack}
-        className={`inline-flex items-center gap-2 text-sm text-sanmarino hover:text-chambray lg:hidden ${bricolage_grot600.className}`}
+        className={`inline-flex shrink-0 items-center gap-2 text-sm text-sanmarino hover:text-chambray lg:hidden ${bricolage_grot600.className}`}
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
         Back to threads
       </button>
 
-      <section className="admin-glass-card flex min-h-[360px] flex-col p-4">
-        <p className={`text-sm ${bricolage_grot600.className}`}>
+      <section className="admin-glass-card admin-message-thread-shell flex h-[min(calc(100dvh-11rem),680px)] min-h-[360px] flex-col p-4">
+        <p className={`shrink-0 text-sm ${bricolage_grot600.className}`}>
           {conversationSubject(conversation)}
         </p>
-        <p className="mt-1 text-xs text-app-muted">
+        <p className="mt-1 shrink-0 text-xs text-app-muted">
           {conversation.createdByEmail
             ? `Started by ${conversation.createdByEmail}`
             : 'Started by client'}
           {' · '}
           {formatConversationDate(conversation.createdAt)}
         </p>
-        <div ref={panelRef} className="mt-4 flex-1 space-y-3 overflow-y-auto">
+        <div ref={panelRef} className="admin-thread-panel mt-4">
           {messages.length === 0 ? (
             <p className="text-sm text-app-muted">No messages yet.</p>
           ) : (
@@ -133,7 +170,7 @@ export default function AdminOrgInboxThreadView({
                   msg.authorRole === 'ADMIN'
                     ? 'ml-auto bg-sanmarino/15'
                     : 'bg-chambray/8'
-                }`}
+                } ${isPendingInboxMessage(msg.id) ? 'opacity-80' : ''}`}
               >
                 <p className="text-xs text-app-muted">
                   {msg.authorEmail} · {new Date(msg.createdAt).toLocaleString()}
@@ -143,8 +180,8 @@ export default function AdminOrgInboxThreadView({
             ))
           )}
         </div>
-        {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
-        <form onSubmit={onSubmit} className="mt-4 flex gap-2 border-t pt-4">
+        {error ? <p className="mt-2 shrink-0 text-sm text-red-600">{error}</p> : null}
+        <form onSubmit={onSubmit} className="mt-4 flex shrink-0 gap-2 border-t pt-4">
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
@@ -152,11 +189,11 @@ export default function AdminOrgInboxThreadView({
             className="admin-input flex-1 text-sm"
             placeholder="Reply to client…"
           />
-          <button type="submit" className="admin-btn-primary self-end">
+          <button type="submit" disabled={!body.trim()} className="admin-btn-primary self-end">
             Send
           </button>
         </form>
       </section>
-    </div>
+    </>
   )
 }

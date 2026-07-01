@@ -15,7 +15,7 @@ import {
   type ControlCenterNavItem,
   type ControlCenterViewId,
 } from '@/lib/control-center/nav'
-import { PROJECT_TAB_QUERY } from '@/lib/control-center/project-workspace'
+import { applyControlCenterViewParams } from '@/lib/control-center/use-control-center-nav'
 import { resolveCanUseSocialListening } from '@/lib/portal-profile-types'
 import { usePortalPermissions } from '@/lib/team/use-portal-permissions'
 import { bricolage_grot600 } from '@/styles/fonts'
@@ -153,19 +153,7 @@ function ClientPortalNavDrawerInner({
   const selectCcView = (view: ControlCenterViewId) => {
     navigate((params) => {
       params.delete(TAB_QUERY_KEY)
-      if (view === 'overview') {
-        params.delete(CONTROL_CENTER_VIEW_QUERY)
-      } else {
-        params.set(CONTROL_CENTER_VIEW_QUERY, view)
-      }
-      if (view === 'projects' && typeof window !== 'undefined') {
-        sessionStorage.setItem('cc-show-projects-list', '1')
-      }
-      params.delete('projectId')
-      params.delete(PROJECT_TAB_QUERY)
-      params.delete('requestId')
-      params.delete('conversationId')
-      params.delete(DEFAULT_SETTINGS_NAV.queryKey)
+      applyControlCenterViewParams(params, view)
     })
   }
 
@@ -246,7 +234,7 @@ function ClientPortalNavDrawerInner({
       {workspace === 'control-center' ? (
         <>
           <div className="mb-3 px-3">
-            <ControlCenterAttentionLink />
+            <ControlCenterAttentionLink onNavigate={onClose} />
           </div>
           <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
             {ccNavItems.map((item) => (

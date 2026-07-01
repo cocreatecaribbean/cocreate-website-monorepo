@@ -57,10 +57,10 @@ export default function RootLayout({
           <ScrollToTop/>
           <Footer/>
         </ScrollSmoothWrapper>
-        <nav className="pointer-events-none relative z-[250] hidden h-0 w-full md:block">
+        <nav className="pointer-events-none relative z-[250] hidden h-0 w-full lg:block">
           <NavDesktop />
         </nav>
-        <nav className="pointer-events-none relative z-[250] block h-0 w-full md:hidden">
+        <nav className="pointer-events-none relative z-[250] block h-0 w-full lg:hidden">
           <NavMobile />
         </nav>
         </ClientPortalProvider>

@@ -20,6 +20,7 @@ import ProjectTeamAside from '@/components/project-team-aside'
 import type { PortalProjectTabId } from '@/lib/control-center/project-workspace'
 import type { ClientProjectDetail, ProjectRequestItem } from '@/lib/projects/api-types'
 import { queryKeys } from '@/lib/api/query-keys'
+import { appendRequestMessageToCache } from '@/lib/projects/append-request-message-cache'
 import { useRequestThreadQuery, prefetchRequestThread } from '@/lib/api/queries/projects'
 import {
   createCancellationRequest,
@@ -212,7 +213,10 @@ export default function PortalProjectWorkspace({
     ],
     onSendMessage: async (body: string, attachmentIds?: string[]) => {
       const result = await sendRequestMessage(req.id, body, attachmentIds)
-      if (result.ok) await invalidateThread(req.id)
+      if (result.ok) {
+        appendRequestMessageToCache(queryClient, req.id, result.data)
+        void queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(project.id) })
+      }
       return { ok: result.ok, message: result.ok ? undefined : result.message }
     },
     onApproveCheckpoint: async (messageId: string) => {

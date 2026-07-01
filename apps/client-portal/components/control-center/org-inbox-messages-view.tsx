@@ -14,7 +14,13 @@ import {
   markOrgInboxRead,
   sendOrgInboxMessage,
   type OrgInboxConversation,
+  type OrgInboxMessage,
 } from '@/lib/inbox/fetch-inbox-client'
+import {
+  createOptimisticInboxMessage,
+  isPendingInboxMessage,
+  replacePendingInboxMessage,
+} from '@/lib/inbox/optimistic-inbox-message'
 import { useOrgInboxRealtime } from '@/lib/inbox/use-org-inbox-realtime'
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import { CONTROL_CENTER_VIEW_QUERY } from '@/lib/control-center/nav'
@@ -69,17 +75,43 @@ export default function OrgInboxMessagesView() {
     })
   }, [queryClient, conversationId])
 
-  const sendMutation = useMutation({
-    mutationFn: (text: string) => sendOrgInboxMessage(conversationId!, text),
-    onSuccess: () => {
-      setBody('')
-      void queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all })
-    },
-    onError: (err) => setError(err instanceof Error ? err.message : 'Send failed'),
-  })
-
   const messages = messagesQuery.data ?? []
   const { panelRef, scrollToBottom } = useThreadAutoScroll(messages, conversationId ?? '')
+
+  const sendMutation = useMutation({
+    mutationFn: (text: string) => sendOrgInboxMessage(conversationId!, text),
+    onMutate: async (text) => {
+      if (!conversationId || !profile?.user) return
+      const queryKey = queryKeys.inbox.messages(conversationId)
+      await queryClient.cancelQueries({ queryKey })
+      const previous = queryClient.getQueryData<OrgInboxMessage[]>(queryKey)
+      const optimistic = createOptimisticInboxMessage(conversationId, text, {
+        userId: profile.user.id,
+        email: profile.user.email,
+        role: 'CLIENT',
+      })
+      queryClient.setQueryData(queryKey, [...(previous ?? []), optimistic])
+      setBody('')
+      scrollToBottom(true)
+      return { previous, optimisticId: optimistic.id }
+    },
+    onSuccess: (serverMessage, _text, context) => {
+      if (!conversationId || !context) return
+      const queryKey = queryKeys.inbox.messages(conversationId)
+      queryClient.setQueryData<OrgInboxMessage[]>(queryKey, (current) =>
+        replacePendingInboxMessage(current ?? [], context.optimisticId, serverMessage),
+      )
+      void queryClient.invalidateQueries({ queryKey: queryKeys.inbox.conversations() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.inbox.unreadCount() })
+    },
+    onError: (err, text, context) => {
+      if (!conversationId || !context) return
+      queryClient.setQueryData(queryKeys.inbox.messages(conversationId), context.previous)
+      setBody(text)
+      setError(err instanceof Error ? err.message : 'Send failed')
+    },
+  })
+
   const selected = useMemo(
     () => conversations.find((c) => c.id === conversationId) ?? null,
     [conversations, conversationId],
@@ -100,12 +132,11 @@ export default function OrgInboxMessagesView() {
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
   }
 
-  const onSubmit = async (event: FormEvent) => {
+  const onSubmit = (event: FormEvent) => {
     event.preventDefault()
     if (!conversationId || !body.trim()) return
     setError(null)
-    await sendMutation.mutateAsync(body.trim())
-    scrollToBottom()
+    sendMutation.mutate(body.trim())
   }
 
   const onCreateRestricted = async () => {
@@ -178,21 +209,21 @@ export default function OrgInboxMessagesView() {
         </ul>
 
         {conversationId ? (
-          <section className="portal-glass-card flex min-h-[min(70vh,520px)] flex-col p-4 sm:min-h-[420px] sm:p-6">
+          <section className="portal-glass-card portal-message-thread-shell flex h-[min(calc(100dvh-10rem),640px)] min-h-[320px] flex-col p-4 sm:p-6 lg:h-[min(calc(100dvh-12rem),720px)]">
             <button
               type="button"
               onClick={clearConversation}
-              className={`mb-3 inline-flex min-h-10 items-center gap-2 text-sm text-sanmarino hover:text-chambray lg:hidden ${bricolage_grot600.className}`}
+              className={`mb-3 inline-flex min-h-10 shrink-0 items-center gap-2 text-sm text-sanmarino hover:text-chambray lg:hidden ${bricolage_grot600.className}`}
             >
               <ArrowLeft className="h-4 w-4" aria-hidden />
               Back to threads
             </button>
             {selected ? (
               <>
-                <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>
+                <p className={`shrink-0 text-sm text-chambray ${bricolage_grot600.className}`}>
                   {conversationLabel(selected)}
                 </p>
-                <div ref={panelRef} className="portal-thread-panel mt-4 flex-1">
+                <div ref={panelRef} className="portal-thread-panel mt-4">
                   {messagesQuery.isLoading ? (
                     <p className="text-sm text-app-muted">Loading…</p>
                   ) : messages.length === 0 ? (
@@ -214,7 +245,7 @@ export default function OrgInboxMessagesView() {
                               isMine
                                 ? 'bg-sanmarino/15 text-chambray'
                                 : 'bg-black/5 dark:bg-white/5'
-                            }`}
+                            } ${isPendingInboxMessage(msg.id) ? 'opacity-80' : ''}`}
                           >
                             <LinkifiedBody body={msg.body} />
                           </div>
@@ -224,11 +255,14 @@ export default function OrgInboxMessagesView() {
                   )}
                 </div>
                 {error ? (
-                  <p className="mt-2 text-sm text-red-600" role="alert">
+                  <p className="mt-2 shrink-0 text-sm text-red-600" role="alert">
                     {error}
                   </p>
                 ) : null}
-                <form onSubmit={onSubmit} className="mt-4 flex gap-2 border-t border-chambray/10 pt-4">
+                <form
+                  onSubmit={onSubmit}
+                  className="mt-4 flex shrink-0 gap-2 border-t border-chambray/10 pt-4"
+                >
                   <textarea
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
@@ -238,7 +272,7 @@ export default function OrgInboxMessagesView() {
                   />
                   <button
                     type="submit"
-                    disabled={!body.trim() || sendMutation.isPending}
+                    disabled={!body.trim()}
                     className="portal-btn-primary shrink-0 self-end"
                   >
                     Send

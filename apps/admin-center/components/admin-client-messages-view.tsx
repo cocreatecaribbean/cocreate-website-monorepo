@@ -37,11 +37,15 @@ export default function AdminClientMessagesView({
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-app-muted">
+    <div className={`space-y-4 ${conversationId ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden' : ''}`}>
+      <p className={`text-sm text-app-muted ${conversationId ? 'shrink-0' : ''}`}>
         General org chat with this client (not project approval threads — see Inbox).
       </p>
-      <div className="lg:grid lg:grid-cols-[minmax(0,280px)_1fr] lg:gap-6">
+      <div
+        className={`lg:grid lg:grid-cols-[minmax(0,280px)_1fr] lg:gap-6 ${
+          conversationId ? 'flex min-h-0 flex-1 flex-col lg:grid' : ''
+        }`}
+      >
         <div className={conversationId ? 'hidden lg:block' : ''}>
           <AdminOrgInboxConversationList
             organizationId={organizationId}
@@ -49,11 +53,13 @@ export default function AdminClientMessagesView({
           />
         </div>
         {conversationId ? (
-          <AdminOrgInboxThreadView
-            organizationId={organizationId}
-            conversationId={conversationId}
-            onBack={() => updateConversationId(null)}
-          />
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <AdminOrgInboxThreadView
+              organizationId={organizationId}
+              conversationId={conversationId}
+              onBack={() => updateConversationId(null)}
+            />
+          </div>
         ) : (
           <p className="hidden text-sm text-app-muted lg:block">Select a thread to read and reply.</p>
         )}

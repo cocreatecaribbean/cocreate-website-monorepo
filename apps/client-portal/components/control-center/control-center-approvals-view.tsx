@@ -74,6 +74,10 @@ export default function ControlCenterApprovalsView() {
     if (deepLinkRequestId) {
       setTab('active')
       setSelectedId(deepLinkRequestId)
+      return
+    }
+    if (window.matchMedia('(max-width: 1023px)').matches) {
+      setSelectedId(null)
     }
   }, [deepLinkRequestId])
 

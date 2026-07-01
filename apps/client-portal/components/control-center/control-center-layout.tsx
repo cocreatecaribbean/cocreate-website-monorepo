@@ -7,11 +7,11 @@ import {
   buildControlCenterNavItems,
   CONTROL_CENTER_NAV,
   CONTROL_CENTER_SETTINGS,
-  CONTROL_CENTER_VIEW_QUERY,
   parseControlCenterView,
+  CONTROL_CENTER_VIEW_QUERY,
   type ControlCenterViewId,
 } from '@/lib/control-center/nav'
-import { PROJECT_TAB_QUERY } from '@/lib/control-center/project-workspace'
+import { applyControlCenterViewParams } from '@/lib/control-center/use-control-center-nav'
 import { usePortalPermissions } from '@/lib/team/use-portal-permissions'
 
 type ControlCenterLayoutProps = {
@@ -33,22 +33,11 @@ function ControlCenterLayoutInner({
 
   const setActiveView = useCallback(
     (view: ControlCenterViewId) => {
-      const params = new URLSearchParams(searchParams.toString())
-      if (view === 'overview') {
-        params.delete(CONTROL_CENTER_VIEW_QUERY)
-      } else {
-        params.set(CONTROL_CENTER_VIEW_QUERY, view)
-      }
       if (view === 'projects') {
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('cc-show-projects-list', '1')
-        }
         setProjectsListKey((key) => key + 1)
       }
-      params.delete('projectId')
-      params.delete(PROJECT_TAB_QUERY)
-      params.delete('requestId')
-      params.delete('conversationId')
+      const params = new URLSearchParams(searchParams.toString())
+      applyControlCenterViewParams(params, view)
       const query = params.toString()
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
     },

@@ -62,7 +62,6 @@ export default function TeamReviewPanel({
   async function sendMessage(body: string, attachmentIds?: string[]) {
     try {
       await sendMessageMutation.mutateAsync({ body, attachmentIds })
-      await refreshThread()
       return { ok: true as const }
     } catch (err) {
       return {

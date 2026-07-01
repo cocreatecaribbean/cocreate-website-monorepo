@@ -19,7 +19,7 @@ const NavDesktop: React.FC = () => {
     
     <div
       id="desktop-nav"
-      className="pointer-events-auto fixed top-10 left-1/2 z-[250] flex h-fit w-fit max-w-[calc(100vw-2.5rem)] -translate-x-1/2 flex-row flex-nowrap items-center justify-center gap-[clamp(1.25rem,3vw,2.5rem)] rounded-full border border-white/20 bg-white/70 px-[clamp(1.25rem,3.5vw,2.5rem)] py-[clamp(0.875rem,1.5vw,1.25rem)] backdrop-blur-lg"
+      className="pointer-events-auto fixed inset-x-0 top-10 z-[250] mx-auto flex h-fit w-fit max-w-[calc(100vw-2.5rem)] flex-row flex-nowrap items-center justify-center gap-[clamp(1.25rem,3vw,2.5rem)] rounded-full border border-white/20 bg-white/70 px-[clamp(1.25rem,3.5vw,2.5rem)] py-[clamp(0.875rem,1.5vw,1.25rem)] backdrop-blur-lg"
     >
       <div className="shrink-0">
         <Link href={"/"} onClick={closeSearch}>

@@ -3,14 +3,17 @@
 import { useEffect, useRef } from 'react'
 import { useQueryClient, type QueryKey } from '@tanstack/react-query'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/api/query-keys'
 import { authorizeRequestThreadRealtime } from '@/lib/projects/fetch-projects-client'
+import { appendRequestMessageToCache } from '@/lib/projects/append-request-message-cache'
 import {
   isThreadRealtimeEnabled,
   THREAD_REALTIME_EVENT,
+  type ThreadRealtimePayload,
 } from '@/lib/projects/thread-realtime'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
-const REALTIME_AUTH_DEFER_MS = 500
+const INVALIDATE_DEBOUNCE_MS = 50
 
 export function useRequestThreadRealtime(
   requestId: string | undefined,
@@ -32,43 +35,62 @@ export function useRequestThreadRealtime(
     let cancelled = false
     let channel: RealtimeChannel | null = null
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
-    let authTimer: ReturnType<typeof setTimeout> | null = null
 
-    const scheduleUpdate = () => {
+    const invalidateAll = () => {
+      const keys = invalidateQueryKeysRef.current
+      if (keys?.length) {
+        for (const queryKey of keys) {
+          void queryClient.invalidateQueries({ queryKey })
+        }
+      } else {
+        onUpdateRef.current?.()
+      }
+    }
+
+    const scheduleInvalidate = () => {
       if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
         if (cancelled) return
+        invalidateAll()
+      }, INVALIDATE_DEBOUNCE_MS)
+    }
+
+    const handlePayload = (payload: ThreadRealtimePayload) => {
+      if (payload.reason === 'message' && payload.message) {
+        appendRequestMessageToCache(queryClient, requestId, payload.message)
         const keys = invalidateQueryKeysRef.current
         if (keys?.length) {
           for (const queryKey of keys) {
-            void queryClient.invalidateQueries({ queryKey })
+            const detailKey = queryKeys.requests.detail(requestId)
+            const isDetail =
+              Array.isArray(queryKey) &&
+              queryKey.length === detailKey.length &&
+              queryKey.every((part, index) => part === detailKey[index])
+            if (!isDetail) {
+              void queryClient.invalidateQueries({ queryKey })
+            }
           }
-        } else {
-          onUpdateRef.current?.()
         }
-      }, 300)
+        return
+      }
+      scheduleInvalidate()
     }
 
-    const connectRealtime = () => {
-      void (async () => {
-        const auth = await authorizeRequestThreadRealtime(requestId)
-        if (cancelled || !auth.ok || !auth.data.enabled || !auth.data.channel) return
+    void (async () => {
+      const auth = await authorizeRequestThreadRealtime(requestId)
+      if (cancelled || !auth.ok || !auth.data.enabled || !auth.data.channel) return
 
-        const supabase = createSupabaseBrowserClient()
-        channel = supabase.channel(auth.data.channel)
-        channel
-          .on('broadcast', { event: THREAD_REALTIME_EVENT }, () => {
-            scheduleUpdate()
-          })
-          .subscribe()
-      })()
-    }
-
-    authTimer = setTimeout(connectRealtime, REALTIME_AUTH_DEFER_MS)
+      const supabase = createSupabaseBrowserClient()
+      channel = supabase.channel(auth.data.channel)
+      channel
+        .on('broadcast', { event: THREAD_REALTIME_EVENT }, ({ payload }) => {
+          handlePayload(payload as ThreadRealtimePayload)
+        })
+        .subscribe()
+    })()
 
     return () => {
       cancelled = true
-      if (authTimer) clearTimeout(authTimer)
       if (debounceTimer) clearTimeout(debounceTimer)
       if (channel) {
         void createSupabaseBrowserClient().removeChannel(channel)

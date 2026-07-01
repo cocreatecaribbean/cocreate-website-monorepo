@@ -324,7 +324,9 @@ export class OrgInboxService {
     })
 
     const preview = dto.body.trim().slice(0, 200)
-    await this.notifications.notifyAdmins({
+    const serialized = this.serializeMessage(message)
+    void this.realtime.publishOrgInboxUpdate(conversationId, { message: serialized })
+    void this.notifications.notifyAdmins({
       organizationId,
       type: PortalNotificationType.ORG_INBOX_MESSAGE,
       title: conversation.subject ?? 'New client message',
@@ -332,9 +334,7 @@ export class OrgInboxService {
       href: this.adminMessagesHref(organizationId, conversationId),
     })
 
-    await this.realtime.publishOrgInboxUpdate(conversationId, { messageId: message.id })
-
-    return { ok: true as const, message: this.serializeMessage(message) }
+    return { ok: true as const, message: serialized }
   }
 
   async sendMessageAsAdmin(admin: AuthenticatedAdmin, conversationId: string, dto: SendOrgInboxMessageInput) {
@@ -370,9 +370,12 @@ export class OrgInboxService {
 
     const preview = dto.body.trim().slice(0, 200)
     const href = this.clientPortalMessagesHref(conversationId)
+    const serialized = this.serializeMessage(message)
+
+    void this.realtime.publishOrgInboxUpdate(conversationId, { message: serialized })
 
     if (conversation.visibility === OrgInboxVisibility.ORG_WIDE) {
-      await this.notifications.notifyOrgClients({
+      void this.notifications.notifyOrgClients({
         organizationId: conversation.organizationId,
         type: PortalNotificationType.ORG_INBOX_MESSAGE,
         title: 'Reply from CoCreate',
@@ -381,7 +384,7 @@ export class OrgInboxService {
       })
     } else {
       const userIds = conversation.participants.map((p) => p.userId)
-      await this.notifications.notifyClientUsers({
+      void this.notifications.notifyClientUsers({
         organizationId: conversation.organizationId,
         userIds,
         type: PortalNotificationType.ORG_INBOX_MESSAGE,
@@ -391,9 +394,7 @@ export class OrgInboxService {
       })
     }
 
-    await this.realtime.publishOrgInboxUpdate(conversationId, { messageId: message.id })
-
-    return { ok: true as const, message: this.serializeMessage(message) }
+    return { ok: true as const, message: serialized }
   }
 
   async markRead(userId: string, conversationId: string) {
