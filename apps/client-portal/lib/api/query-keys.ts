@@ -42,6 +42,8 @@ export const queryKeys = {
     open: () => [...queryKeys.approvals.all, 'open'] as const,
     history: () => [...queryKeys.approvals.all, 'history'] as const,
     unreadCount: () => [...queryKeys.approvals.all, 'unread-count'] as const,
+    comments: (approvalItemId: string) =>
+      [...queryKeys.approvals.all, 'comments', approvalItemId] as const,
   },
   attention: {
     all: ['attention'] as const,

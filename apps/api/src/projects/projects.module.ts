@@ -8,6 +8,7 @@ import { ProjectRealtimeService } from './project-realtime.service'
 import { ProjectStorageService } from './project-storage.service'
 import { OrganizationBrandAssetsService } from './organization-brand-assets.service'
 import { ProjectsService } from './projects.service'
+import { ProjectApprovalsService } from './project-approvals.service'
 import { ClientTeamService } from './client-team.service'
 import { ClientTeamController } from './client-team.controller'
 import { AdminClientTeamController } from './admin-client-team.controller'
@@ -27,6 +28,7 @@ import { AgencyCollaboratorsService } from './agency-collaborators.service'
   ],
   providers: [
     ProjectsService,
+    ProjectApprovalsService,
     AgencyCollaboratorsService,
     OrganizationBrandAssetsService,
     ClientTeamService,
@@ -37,9 +39,11 @@ import { AgencyCollaboratorsService } from './agency-collaborators.service'
   ],
   exports: [
     ProjectsService,
+    ProjectApprovalsService,
     ClientTeamService,
     ProjectNotificationsService,
     ProjectRealtimeService,
+    ProjectStorageService,
   ],
 })
 export class ProjectsModule {}

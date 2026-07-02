@@ -5,7 +5,6 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import {
-  ClientOrgRole,
   OrgInboxAuthorRole,
   OrgInboxVisibility,
   PortalNotificationType,
@@ -17,14 +16,18 @@ import { ClientAccessService } from '../auth/client-access.service'
 import { PrismaService } from '../prisma/prisma.service'
 import type {
   CreateOrgInboxConversationInput,
+  RegisterOrgInboxAttachmentInput,
   SendOrgInboxMessageInput,
 } from '@cocreate/api-contracts/v1/requests/org-inbox'
+import type { UploadUrlInput } from '@cocreate/api-contracts/v1/requests/projects'
 import type {
+  OrgInboxAttachment,
   OrgInboxConversation,
   OrgInboxMessage,
 } from '@cocreate/api-contracts/v1/shared/org-inbox'
 import { ProjectNotificationsService } from '../projects/project-notifications.service'
 import { ProjectRealtimeService } from '../projects/project-realtime.service'
+import { ProjectStorageService } from '../projects/project-storage.service'
 
 type ConversationRow = {
   id: string
@@ -36,7 +39,12 @@ type ConversationRow = {
   updatedAt: Date
   organization?: { name: string }
   createdBy?: { email: string }
-  messages?: { body: string; createdAt: Date; authorUserId: string }[]
+  messages?: {
+    body: string
+    createdAt: Date
+    authorUserId: string
+    attachmentLinks?: { attachment: { fileName: string } }[]
+  }[]
 }
 
 @Injectable()
@@ -46,6 +54,7 @@ export class OrgInboxService {
     private readonly clientAccess: ClientAccessService,
     private readonly notifications: ProjectNotificationsService,
     private readonly realtime: ProjectRealtimeService,
+    private readonly storage: ProjectStorageService,
   ) {}
 
   private clientPortalMessagesHref(conversationId: string) {
@@ -54,6 +63,22 @@ export class OrgInboxService {
 
   private adminMessagesHref(organizationId: string, conversationId: string) {
     return `/messages?organizationId=${encodeURIComponent(organizationId)}&conversationId=${encodeURIComponent(conversationId)}`
+  }
+
+  private serializeAttachment(row: {
+    id: string
+    fileName: string
+    mimeType: string
+    sizeBytes: number
+    createdAt: Date
+  }): OrgInboxAttachment {
+    return {
+      id: row.id,
+      fileName: row.fileName,
+      mimeType: row.mimeType,
+      sizeBytes: row.sizeBytes,
+      createdAt: row.createdAt.toISOString(),
+    }
   }
 
   private serializeMessage(
@@ -65,6 +90,13 @@ export class OrgInboxService {
       body: string
       createdAt: Date
       author: { email: string }
+      attachmentLinks?: Array<{ attachment: {
+        id: string
+        fileName: string
+        mimeType: string
+        sizeBytes: number
+        createdAt: Date
+      } }>
     },
   ): OrgInboxMessage {
     return {
@@ -75,7 +107,139 @@ export class OrgInboxService {
       authorRole: row.authorRole,
       body: row.body,
       createdAt: row.createdAt.toISOString(),
+      attachments:
+        row.attachmentLinks?.map((link) => this.serializeAttachment(link.attachment)) ??
+        [],
     }
+  }
+
+  private messageInclude() {
+    return {
+      author: { select: { email: true } },
+      attachmentLinks: { include: { attachment: true } },
+    }
+  }
+
+  private messagePreview(body: string, attachmentCount: number) {
+    const trimmed = body.trim().slice(0, 120)
+    if (trimmed) return trimmed
+    return attachmentCount > 0 ? 'Sent an attachment' : null
+  }
+
+  private async linkAttachmentsToMessage(
+    messageId: string,
+    conversationId: string,
+    organizationId: string,
+    attachmentIds: string[] | undefined,
+  ) {
+    const ids = [...new Set(attachmentIds ?? [])]
+    if (ids.length === 0) return
+
+    const attachments = await this.prisma.orgInboxAttachment.findMany({
+      where: {
+        id: { in: ids },
+        conversationId,
+        organizationId,
+      },
+      select: { id: true },
+    })
+    if (attachments.length !== ids.length) {
+      throw new BadRequestException(
+        'One or more attachments are invalid for this conversation',
+      )
+    }
+
+    await this.prisma.orgInboxMessageAttachment.createMany({
+      data: ids.map((attachmentId) => ({ messageId, attachmentId })),
+      skipDuplicates: true,
+    })
+  }
+
+  private async getConversationForActor(
+    viewer: AuthenticatedClient | AuthenticatedAdmin,
+    conversationId: string,
+  ) {
+    if (viewer.role === UserRole.CLIENT) {
+      return this.assertClientCanViewConversation(
+        viewer as AuthenticatedClient,
+        conversationId,
+      )
+    }
+    const conversation = await this.prisma.orgInboxConversation.findUnique({
+      where: { id: conversationId },
+    })
+    if (!conversation) throw new NotFoundException('Conversation not found')
+    return conversation
+  }
+
+  async createUploadUrl(
+    viewer: AuthenticatedClient | AuthenticatedAdmin,
+    conversationId: string,
+    dto: UploadUrlInput,
+  ) {
+    const conversation = await this.getConversationForActor(viewer, conversationId)
+    return this.storage.createInboxUploadUrl({
+      organizationId: conversation.organizationId,
+      conversationId,
+      fileName: dto.fileName,
+      mimeType: dto.mimeType,
+      sizeBytes: dto.sizeBytes,
+    })
+  }
+
+  async registerAttachment(
+    viewer: AuthenticatedClient | AuthenticatedAdmin,
+    conversationId: string,
+    dto: RegisterOrgInboxAttachmentInput,
+  ) {
+    const conversation = await this.getConversationForActor(viewer, conversationId)
+    this.storage.assertPathBelongsToInboxConversation(
+      dto.storagePath,
+      conversation.organizationId,
+      conversationId,
+    )
+
+    const row = await this.prisma.orgInboxAttachment.create({
+      data: {
+        organizationId: conversation.organizationId,
+        conversationId,
+        storagePath: dto.storagePath,
+        fileName: dto.fileName,
+        mimeType: dto.mimeType,
+        sizeBytes: dto.sizeBytes,
+        uploadedByUserId: viewer.id,
+      },
+    })
+
+    return this.serializeAttachment(row)
+  }
+
+  async getAttachmentDownloadUrl(
+    viewer: AuthenticatedClient | AuthenticatedAdmin,
+    attachmentId: string,
+  ) {
+    const attachment = await this.prisma.orgInboxAttachment.findUnique({
+      where: { id: attachmentId },
+      include: { conversation: { include: { participants: { select: { userId: true } } } } },
+    })
+    if (!attachment) throw new NotFoundException('Attachment not found')
+
+    if (viewer.role === UserRole.CLIENT) {
+      const client = viewer as AuthenticatedClient
+      const organizationId = this.clientAccess.requireOrganizationId(client)
+      if (attachment.organizationId !== organizationId) {
+        throw new NotFoundException('Attachment not found')
+      }
+      if (attachment.conversation.visibility === OrgInboxVisibility.RESTRICTED) {
+        const isParticipant = attachment.conversation.participants.some(
+          (p) => p.userId === client.id,
+        )
+        if (!isParticipant) throw new ForbiddenException('Access denied')
+      }
+    }
+
+    const download = await this.storage.createDownloadUrl(attachment.storagePath)
+    return { ok: true as const, download }
   }
 
   private async serializeConversation(
@@ -111,7 +275,12 @@ export class OrgInboxService {
       createdByEmail: row.createdBy?.email,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
-      lastMessagePreview: lastMessage?.body.slice(0, 120) ?? null,
+      lastMessagePreview: lastMessage
+        ? this.messagePreview(
+            lastMessage.body,
+            lastMessage.attachmentLinks?.length ?? 0,
+          )
+        : null,
       unreadCount,
     }
   }
@@ -123,7 +292,12 @@ export class OrgInboxService {
       messages: {
         orderBy: { createdAt: 'desc' as const },
         take: 1,
-        select: { body: true, createdAt: true, authorUserId: true },
+        select: {
+          body: true,
+          createdAt: true,
+          authorUserId: true,
+          attachmentLinks: { select: { attachment: { select: { fileName: true } } } },
+        },
       },
     }
   }
@@ -235,7 +409,7 @@ export class OrgInboxService {
     const messages = await this.prisma.orgInboxMessage.findMany({
       where: { conversationId },
       orderBy: { createdAt: 'asc' },
-      include: { author: { select: { email: true } } },
+      include: this.messageInclude(),
     })
 
     return {
@@ -289,14 +463,14 @@ export class OrgInboxService {
 
   async sendMessageAsClient(client: AuthenticatedClient, conversationId: string, dto: SendOrgInboxMessageInput) {
     const organizationId = this.clientAccess.requireOrganizationId(client)
-    let conversation = await this.assertClientCanViewConversation(client, conversationId)
+    const conversation = await this.assertClientCanViewConversation(client, conversationId)
 
-    if (
-      conversation.visibility === OrgInboxVisibility.ORG_WIDE &&
-      !this.clientAccess.canManageOrgTeam(client) &&
-      client.clientOrgRole === ClientOrgRole.MEMBER
-    ) {
-      // Members post to org-wide only — already viewing org-wide or restricted they're in
+    const body = dto.body.trim()
+    const attachmentIds = dto.attachmentIds ?? []
+    if (!body && attachmentIds.length === 0) {
+      throw new BadRequestException(
+        'Message must include text or at least one attachment',
+      )
     }
 
     const message = await this.prisma.$transaction(async (tx) => {
@@ -305,9 +479,9 @@ export class OrgInboxService {
           conversationId,
           authorUserId: client.id,
           authorRole: OrgInboxAuthorRole.CLIENT,
-          body: dto.body.trim(),
+          body,
         },
-        include: { author: { select: { email: true } } },
+        include: this.messageInclude(),
       })
       await tx.orgInboxConversation.update({
         where: { id: conversationId },
@@ -323,8 +497,24 @@ export class OrgInboxService {
       return created
     })
 
-    const preview = dto.body.trim().slice(0, 200)
-    const serialized = this.serializeMessage(message)
+    await this.linkAttachmentsToMessage(
+      message.id,
+      conversationId,
+      organizationId,
+      attachmentIds,
+    )
+
+    const messageWithAttachments =
+      attachmentIds.length > 0
+        ? await this.prisma.orgInboxMessage.findUniqueOrThrow({
+            where: { id: message.id },
+            include: this.messageInclude(),
+          })
+        : message
+
+    const preview =
+      body.slice(0, 200) || (attachmentIds.length ? 'Sent an attachment' : '')
+    const serialized = this.serializeMessage(messageWithAttachments)
     void this.realtime.publishOrgInboxUpdate(conversationId, { message: serialized })
     void this.notifications.notifyAdmins({
       organizationId,
@@ -344,15 +534,23 @@ export class OrgInboxService {
     })
     if (!conversation) throw new NotFoundException('Conversation not found')
 
+    const body = dto.body.trim()
+    const attachmentIds = dto.attachmentIds ?? []
+    if (!body && attachmentIds.length === 0) {
+      throw new BadRequestException(
+        'Message must include text or at least one attachment',
+      )
+    }
+
     const message = await this.prisma.$transaction(async (tx) => {
       const created = await tx.orgInboxMessage.create({
         data: {
           conversationId,
           authorUserId: admin.id,
           authorRole: OrgInboxAuthorRole.ADMIN,
-          body: dto.body.trim(),
+          body,
         },
-        include: { author: { select: { email: true } } },
+        include: this.messageInclude(),
       })
       await tx.orgInboxConversation.update({
         where: { id: conversationId },
@@ -368,9 +566,25 @@ export class OrgInboxService {
       return created
     })
 
-    const preview = dto.body.trim().slice(0, 200)
+    await this.linkAttachmentsToMessage(
+      message.id,
+      conversationId,
+      conversation.organizationId,
+      attachmentIds,
+    )
+
+    const messageWithAttachments =
+      attachmentIds.length > 0
+        ? await this.prisma.orgInboxMessage.findUniqueOrThrow({
+            where: { id: message.id },
+            include: this.messageInclude(),
+          })
+        : message
+
+    const preview =
+      body.slice(0, 200) || (attachmentIds.length ? 'Sent an attachment' : '')
     const href = this.clientPortalMessagesHref(conversationId)
-    const serialized = this.serializeMessage(message)
+    const serialized = this.serializeMessage(messageWithAttachments)
 
     void this.realtime.publishOrgInboxUpdate(conversationId, { message: serialized })
 

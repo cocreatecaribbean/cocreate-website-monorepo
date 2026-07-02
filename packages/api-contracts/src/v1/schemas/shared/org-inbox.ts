@@ -7,6 +7,15 @@ export type OrgInboxVisibility = z.infer<typeof OrgInboxVisibilitySchema>
 export const OrgInboxAuthorRoleSchema = z.enum(['CLIENT', 'ADMIN'])
 export type OrgInboxAuthorRole = z.infer<typeof OrgInboxAuthorRoleSchema>
 
+export const OrgInboxAttachmentSchema = z.object({
+  id: z.string(),
+  fileName: z.string(),
+  mimeType: z.string(),
+  sizeBytes: z.number(),
+  createdAt: isoDateTimeString,
+})
+export type OrgInboxAttachment = z.infer<typeof OrgInboxAttachmentSchema>
+
 export const OrgInboxConversationSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
@@ -30,6 +39,7 @@ export const OrgInboxMessageSchema = z.object({
   authorRole: OrgInboxAuthorRoleSchema,
   body: z.string(),
   createdAt: isoDateTimeString,
+  attachments: z.array(OrgInboxAttachmentSchema).default([]),
 })
 export type OrgInboxMessage = z.infer<typeof OrgInboxMessageSchema>
 

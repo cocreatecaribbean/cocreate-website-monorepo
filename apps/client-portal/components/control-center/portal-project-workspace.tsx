@@ -20,16 +20,22 @@ import ProjectTeamAside from '@/components/project-team-aside'
 import type { PortalProjectTabId } from '@/lib/control-center/project-workspace'
 import type { ClientProjectDetail, ProjectRequestItem } from '@/lib/projects/api-types'
 import { queryKeys } from '@/lib/api/query-keys'
+import {
+  useApproveApprovalItemMutation,
+  useRequestApprovalNeedsChangesMutation,
+} from '@/lib/api/mutations/approvals'
+import { useOpenApprovalsQuery } from '@/lib/api/queries/approvals'
+import { getPendingApprovalFilesFromOpenApprovals } from '@/lib/projects/fetch-projects-client'
 import { appendRequestMessageToCache } from '@/lib/projects/append-request-message-cache'
 import { useRequestThreadQuery, prefetchRequestThread } from '@/lib/api/queries/projects'
 import {
   createCancellationRequest,
   fetchAttachmentDownloadUrl,
   sendRequestMessage,
-  approveCheckpointMessage,
 } from '@/lib/projects/fetch-projects-client'
 import { useProjectMembers } from '@/lib/team/use-project-members'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
+import WorkspaceSectionNav from '@cocreate/app-ui/workspace-section-nav'
 
 function findThread(
   project: ClientProjectDetail,
@@ -61,7 +67,14 @@ type LazyThreadProps = {
     body: string,
     attachmentIds?: string[],
   ) => Promise<{ ok: boolean; message?: string }>
-  onApproveCheckpoint?: (messageId: string) => Promise<{ ok: boolean; message?: string }>
+  pendingApprovalFiles?: import('@/lib/projects/pending-approval-files').PendingApprovalFile[]
+  onApproveFile?: (
+    approvalItemId: string,
+  ) => Promise<{ ok: boolean; message?: string }>
+  onNeedsChangesFile?: (
+    approvalItemId: string,
+    body?: string,
+  ) => Promise<{ ok: boolean; message?: string }>
 }
 
 function ThreadLoadingSkeleton() {
@@ -103,6 +116,14 @@ export default function PortalProjectWorkspace({
   onTabChange,
 }: PortalProjectWorkspaceProps) {
   const queryClient = useQueryClient()
+  const { data: openApprovalsResult, refetch: refetchOpenApprovals } = useOpenApprovalsQuery()
+  const approveItem = useApproveApprovalItemMutation()
+  const requestNeedsChanges = useRequestApprovalNeedsChangesMutation()
+  const projectPendingApprovals = useMemo(() => {
+    return getPendingApprovalFilesFromOpenApprovals(openApprovalsResult).filter(
+      (file) => file.projectId === project.id,
+    )
+  }, [openApprovalsResult, project.id])
   const [tab, setTab] = useState<PortalProjectTabId>(initialTab)
   const [message, setMessage] = useState<string | null>(null)
   const [cancelReason, setCancelReason] = useState('')
@@ -118,6 +139,12 @@ export default function PortalProjectWorkspace({
   )
   const contentRef = useRef<HTMLDivElement>(null)
   const { canManage, loading: membersLoading } = useProjectMembers(project.id)
+
+  useEffect(() => {
+    if (tab === 'progress') {
+      void refetchOpenApprovals()
+    }
+  }, [refetchOpenApprovals, tab])
 
   const isOnboarded = project.status !== 'SUBMITTED'
   const visibleTabs = useMemo(
@@ -219,22 +246,36 @@ export default function PortalProjectWorkspace({
       }
       return { ok: result.ok, message: result.ok ? undefined : result.message }
     },
-    onApproveCheckpoint: async (messageId: string) => {
-      const result = await approveCheckpointMessage(req.id, messageId)
-      if (result.ok) await invalidateThread(req.id)
-      return { ok: result.ok, message: result.ok ? undefined : result.message }
-    },
   })
+
+  const progressThreadProps = progress
+    ? {
+        ...threadProps(progress),
+        pendingApprovalFiles: projectPendingApprovals,
+        onApproveFile: async (approvalItemId: string) => {
+          const result = await approveItem.mutateAsync(approvalItemId)
+          if (result.ok) {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.requests.detail(progress.id) })
+            void queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(project.id) })
+          }
+          return { ok: result.ok, message: result.ok ? undefined : result.message }
+        },
+        onNeedsChangesFile: async (approvalItemId: string, body?: string) => {
+          const result = await requestNeedsChanges.mutateAsync({ approvalItemId, body })
+          return { ok: result.ok, message: result.ok ? undefined : result.message }
+        },
+      }
+    : null
 
   const getAttachmentUrl = useCallback(
     async (attachmentId: string) => {
       const cached = attachmentUrlCache[attachmentId]
       if (cached) return cached
-      const url = await fetchAttachmentDownloadUrl(attachmentId)
-      if (url) {
-        setAttachmentUrlCache((prev) => ({ ...prev, [attachmentId]: url }))
+      const result = await fetchAttachmentDownloadUrl(attachmentId)
+      if (result.url) {
+        setAttachmentUrlCache((prev) => ({ ...prev, [attachmentId]: result.url! }))
       }
-      return url
+      return result.url
     },
     [attachmentUrlCache],
   )
@@ -270,29 +311,15 @@ export default function PortalProjectWorkspace({
             </div>
           </div>
         </div>
-        <nav className="mt-4 flex flex-wrap gap-2" aria-label="Project sections">
-          {visibleTabs.map((item) => {
-            const Icon = item.icon
-            const active = tab === item.id
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setTabAndNotify(item.id)}
-                onMouseEnter={() => prefetchThreadForTab(item.id)}
-                onFocus={() => prefetchThreadForTab(item.id)}
-                className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm transition ${bricolage_grot600.className} ${
-                  active
-                    ? 'bg-chambray text-white'
-                    : 'bg-chambray/8 text-chambray hover:bg-chambray/12'
-                }`}
-              >
-                <Icon className="h-3.5 w-3.5" aria-hidden />
-                {item.label}
-              </button>
-            )
-          })}
-        </nav>
+        <WorkspaceSectionNav
+          items={visibleTabs}
+          activeId={tab}
+          onSelect={setTabAndNotify}
+          onItemHover={prefetchThreadForTab}
+          ariaLabel="Project sections"
+          inputClassName="portal-input"
+          pillClassName={bricolage_grot600.className}
+        />
       </div>
 
       <div
@@ -425,7 +452,7 @@ export default function PortalProjectWorkspace({
                 </p>
                 <div className="mt-4">
                   <LazyRequestMessageThread
-                    {...threadProps(progress)}
+                    {...(progressThreadProps ?? threadProps(progress))}
                     loadMessages={tab === 'progress'}
                   />
                 </div>

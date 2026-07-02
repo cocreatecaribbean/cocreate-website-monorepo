@@ -46,10 +46,15 @@ export const CreatePhaseApprovalSchema = z.object({
 })
 export type CreatePhaseApprovalInput = z.infer<typeof CreatePhaseApprovalSchema>
 
-export const CreateRequestMessageSchema = z.object({
-  body: z.string().min(1).max(10000),
-  attachmentIds: z.array(z.string()).optional(),
-})
+export const CreateRequestMessageSchema = z
+  .object({
+    body: z.string().max(10000),
+    attachmentIds: z.array(z.string()).optional(),
+  })
+  .refine(
+    (data) => data.body.trim().length > 0 || (data.attachmentIds?.length ?? 0) > 0,
+    { message: 'Message must include text or at least one attachment' },
+  )
 export type CreateRequestMessageInput = z.infer<typeof CreateRequestMessageSchema>
 
 export const UpdateRequestSchema = z.object({
@@ -79,13 +84,28 @@ export type StagedCheckpointAttachmentInput = z.infer<
   typeof StagedCheckpointAttachmentSchema
 >
 
-export const CreateCheckpointSchema = z.object({
-  title: z.string().max(200),
-  body: z.string().max(8000),
-  reviewUrl: z.string().url().max(2048).optional(),
-  targetPhase: ClientProjectPhaseSchema.optional(),
-  attachments: z.array(StagedCheckpointAttachmentSchema).optional(),
-})
+export const CreateCheckpointSchema = z
+  .object({
+    title: z.string().max(200),
+    body: z.string().max(8000),
+    reviewUrl: z.string().url().max(2048).optional(),
+    targetPhase: ClientProjectPhaseSchema.optional(),
+    attachments: z.array(StagedCheckpointAttachmentSchema).optional(),
+    attachmentIds: z.array(z.string()).optional(),
+  })
+  .refine((data) => data.title.trim().length > 0, {
+    message: 'Title is required',
+  })
+  .refine(
+    (data) =>
+      data.body.trim().length > 0 ||
+      (data.attachments?.length ?? 0) > 0 ||
+      (data.attachmentIds?.length ?? 0) > 0,
+    {
+      message:
+        'Checkpoint must include a message, staged attachments, or attachment IDs',
+    },
+  )
 export type CreateCheckpointInput = z.infer<typeof CreateCheckpointSchema>
 
 export const RegisterAttachmentSchema = UploadUrlSchema.extend({
@@ -176,4 +196,46 @@ export const UpdateCollaboratorProjectsSchema = z.object({
 })
 export type UpdateCollaboratorProjectsInput = z.infer<
   typeof UpdateCollaboratorProjectsSchema
+>
+
+export const SendApprovalFilesSchema = z
+  .object({
+    title: z.string().max(200),
+    note: z.string().max(8000).optional(),
+    attachments: z.array(StagedCheckpointAttachmentSchema).optional(),
+    attachmentIds: z.array(z.string()).optional(),
+  })
+  .refine((data) => data.title.trim().length > 0, {
+    message: 'Title is required',
+  })
+  .refine(
+    (data) =>
+      (data.attachments?.length ?? 0) > 0 || (data.attachmentIds?.length ?? 0) > 0,
+    { message: 'At least one file is required for approval' },
+  )
+export type SendApprovalFilesInput = z.infer<typeof SendApprovalFilesSchema>
+
+export const RequestApprovalNeedsChangesSchema = z.object({
+  body: z.string().max(8000).optional(),
+})
+export type RequestApprovalNeedsChangesInput = z.infer<
+  typeof RequestApprovalNeedsChangesSchema
+>
+
+export const AddApprovalCommentSchema = z.object({
+  body: z.string().min(1).max(8000),
+})
+export type AddApprovalCommentInput = z.infer<typeof AddApprovalCommentSchema>
+
+export const SubmitApprovalRevisionSchema = z.object({
+  attachment: StagedCheckpointAttachmentSchema,
+  note: z.string().max(8000).optional(),
+})
+export type SubmitApprovalRevisionInput = z.infer<typeof SubmitApprovalRevisionSchema>
+
+export const RemoveThreadAttachmentQuerySchema = z.object({
+  messageId: z.string().min(1),
+})
+export type RemoveThreadAttachmentQuery = z.infer<
+  typeof RemoveThreadAttachmentQuerySchema
 >

@@ -7,6 +7,7 @@ import {
   uploadProjectFiles,
 } from '@/lib/projects/fetch-project-files'
 import { FileText, Paperclip, X } from 'lucide-react'
+import { useDismissOnOutsideClickAndEscape } from '@/lib/use-dismiss-on-outside-click'
 
 type MessageAttachmentComposerProps = {
   projectId: string
@@ -28,6 +29,7 @@ export default function MessageAttachmentComposer({
   onPendingFilesChange,
 }: MessageAttachmentComposerProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [library, setLibrary] = useState<ClientFilesLibrary | null>(null)
   const [loading, setLoading] = useState(false)
@@ -42,6 +44,8 @@ export default function MessageAttachmentComposer({
       .then(setLibrary)
       .finally(() => setLoading(false))
   }, [open, projectId, libraryVisibility])
+
+  useDismissOnOutsideClickAndEscape(open, popoverRef, () => setOpen(false))
 
   const libraryFiles: ProjectAttachment[] =
     library?.projects.flatMap((project) => [
@@ -78,7 +82,7 @@ export default function MessageAttachmentComposer({
 
   return (
     <div className="space-y-2">
-      <div className="relative flex flex-wrap items-center gap-2">
+      <div ref={popoverRef} className="relative flex flex-wrap items-center gap-2">
         <button
           type="button"
           disabled={disabled}
@@ -110,9 +114,19 @@ export default function MessageAttachmentComposer({
         />
         {open ? (
           <div className="absolute bottom-full left-0 z-50 mb-2 w-full max-w-md rounded-xl border border-chambray/10 bg-white p-3 shadow-lg dark:border-white/10 dark:bg-chambray">
-            <p className="mb-2 text-xs font-medium tracking-wide text-app-muted uppercase">
-              Project library
-            </p>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-xs font-medium tracking-wide text-app-muted uppercase">
+                Project library
+              </p>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-full p-1 hover:bg-chambray/10"
+                aria-label="Close file picker"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
             {loading ? (
               <p className="text-sm text-app-muted">Loading…</p>
             ) : libraryFiles.length === 0 ? (

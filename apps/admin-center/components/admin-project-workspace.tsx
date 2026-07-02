@@ -16,14 +16,25 @@ import {
   fetchAdminBff,
 } from '@/lib/admin-api-fetch'
 import { stageProjectFiles } from '@/lib/projects/fetch-project-files'
-import {
-  useApproveClientProjectMutation,
-  useCreateCheckpointMutation,
-} from '@/lib/api/mutations/projects'
+import { submitApprovalFiles } from '@/lib/projects/submit-approval-files'
+import { submitProgressCheckpoint } from '@/lib/projects/submit-progress-checkpoint'
+import AdminProjectApprovalsPanel from '@/components/admin-project-approvals-panel'
+import { useApproveClientProjectMutation } from '@/lib/api/mutations/projects'
 import { adminQueryKeys } from '@/lib/api/query-keys'
 import { appendRequestMessageToCache } from '@/lib/projects/append-request-message-cache'
 import type { ProjectRequestMessage } from '@/lib/projects/types'
 import { useAdminProjectWorkspaceQuery } from '@/lib/api/queries/projects'
+import { useProjectApprovalItemsQuery } from '@/lib/api/queries/approvals'
+import {
+  patchProjectApprovalCommentsCache,
+  patchProjectApprovalRevisionCache,
+  replacePendingProjectApprovalCommentCache,
+} from '@/lib/projects/approval-comment-cache'
+import { sendApprovalComment } from '@/lib/projects/send-approval-comment'
+import { submitApprovalRevision } from '@/lib/projects/submit-approval-revision'
+import type { ThreadApprovalItem } from '@/lib/projects/thread-approval-items'
+import { createOptimisticApprovalComment } from '@cocreate/app-ui/approval-comment-cache'
+import WorkspaceSectionNav from '@cocreate/app-ui/workspace-section-nav'
 import {
   findProjectThread,
   formatPhaseLabel,
@@ -35,6 +46,7 @@ import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import {
   ArrowLeft,
   Bell,
+  CheckSquare,
   FolderKanban,
   LayoutGrid,
   Shield,
@@ -42,33 +54,12 @@ import {
   Users,
 } from 'lucide-react'
 
-export type ProjectWorkspaceTabId =
-  | 'overview'
-  | 'onboarding'
-  | 'progress'
-  | 'team-review'
-  | 'collaborators'
+import {
+  parseProjectWorkspaceTab,
+  type ProjectWorkspaceTabId,
+} from '@/lib/project-workspace-tabs'
 
-const TAB_IDS: ProjectWorkspaceTabId[] = [
-  'overview',
-  'onboarding',
-  'progress',
-  'team-review',
-  'collaborators',
-]
-
-function parseTab(
-  value: string | null,
-  isOnboarded: boolean,
-): ProjectWorkspaceTabId {
-  if (value === 'threads') {
-    return isOnboarded ? 'progress' : 'onboarding'
-  }
-  if (value && TAB_IDS.includes(value as ProjectWorkspaceTabId)) {
-    return value as ProjectWorkspaceTabId
-  }
-  return 'overview'
-}
+export type { ProjectWorkspaceTabId } from '@/lib/project-workspace-tabs'
 
 type AdminProjectWorkspaceProps = {
   organizationId: string
@@ -93,7 +84,6 @@ export default function AdminProjectWorkspace({
 
   const workspaceQuery = useAdminProjectWorkspaceQuery(organizationId, projectId)
   const approveProjectMutation = useApproveClientProjectMutation(organizationId)
-  const createCheckpointMutation = useCreateCheckpointMutation(projectId)
 
   const project = workspaceQuery.data?.project ?? null
   const loading = workspaceQuery.isLoading
@@ -120,22 +110,16 @@ export default function AdminProjectWorkspace({
   const [checkpointFiles, setCheckpointFiles] = useState<FileList | null>(null)
   const [checkpointPhase, setCheckpointPhase] = useState('')
   const [submittingCheckpoint, setSubmittingCheckpoint] = useState(false)
+  const [threadCheckpointApproval, setThreadCheckpointApproval] = useState(false)
+  const [threadCheckpointTitle, setThreadCheckpointTitle] = useState('')
   const threadScrollAppliedRef = useRef(false)
-  const tabBtnRefs = useRef<Partial<Record<ProjectWorkspaceTabId, HTMLButtonElement | null>>>({})
-
-  useEffect(() => {
-    tabBtnRefs.current[tab]?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'nearest',
-      inline: 'nearest',
-    })
-  }, [tab])
 
   const setTabWithUrl = useCallback(
     (next: ProjectWorkspaceTabId) => {
       setTab(next)
       const params = new URLSearchParams(searchParams.toString())
       params.set('tab', next)
+      params.delete('thread')
       router.replace(
         `/clients/${organizationId}/projects/${projectId}?${params.toString()}`,
         { scroll: false },
@@ -145,9 +129,10 @@ export default function AdminProjectWorkspace({
   )
 
   useEffect(() => {
+    if (loading) return
     const isOnboarded = project ? project.status !== 'SUBMITTED' : false
     const raw = searchParams.get('tab') ?? initialTab
-    const next = parseTab(raw, isOnboarded)
+    const next = parseProjectWorkspaceTab(raw, isOnboarded)
     setTab(next)
     if (raw === 'threads' && project) {
       const params = new URLSearchParams(searchParams.toString())
@@ -157,7 +142,7 @@ export default function AdminProjectWorkspace({
         { scroll: false },
       )
     }
-  }, [searchParams, initialTab, project, organizationId, projectId, router])
+  }, [searchParams, initialTab, project, loading, organizationId, projectId, router])
 
   useEffect(() => {
     if (loading || !project || threadScrollAppliedRef.current) return
@@ -291,24 +276,43 @@ export default function AdminProjectWorkspace({
   }
 
   const submitCheckpoint = async () => {
-    if (!project || !checkpointTitle.trim() || !checkpointBody.trim()) return
+    if (!project || !checkpointTitle.trim()) return
+    const progressThread = findProjectThread(project, 'PROGRESS')
+    if (!progressThread) return
+    const hasContent =
+      checkpointBody.trim().length > 0 ||
+      (checkpointFiles && checkpointFiles.length > 0)
+    if (!hasContent) return
+
     setSubmittingCheckpoint(true)
     setCheckpointError(null)
     try {
-      const attachments =
+      const stagedAttachments =
         checkpointFiles && checkpointFiles.length > 0
           ? await stageProjectFiles(projectId, Array.from(checkpointFiles))
           : undefined
 
-      await createCheckpointMutation.mutateAsync({
-        title: checkpointTitle.trim(),
-        body: checkpointBody.trim(),
-        ...(checkpointReviewUrl.trim() ? { reviewUrl: checkpointReviewUrl.trim() } : {}),
-        ...(checkpointPhase ? { targetPhase: checkpointPhase } : {}),
-        ...(attachments?.length ? { attachments } : {}),
-      })
-
-      setSuccess('Progress check sent — client can approve or reply.')
+      if (stagedAttachments?.length) {
+        await submitApprovalFiles(queryClient, {
+          organizationId,
+          projectId,
+          progressRequestId: progressThread.id,
+          title: checkpointTitle.trim(),
+          note: checkpointBody.trim(),
+          stagedAttachments,
+        })
+        setSuccess('Files sent for approval — each file stays open until the client decides.')
+      } else {
+        await submitProgressCheckpoint(queryClient, {
+          organizationId,
+          projectId,
+          progressRequestId: progressThread.id,
+          title: checkpointTitle.trim(),
+          body: checkpointBody.trim(),
+          ...(checkpointReviewUrl.trim() ? { reviewUrl: checkpointReviewUrl.trim() } : {}),
+        })
+        setSuccess('Progress update sent.')
+      }
       setCheckpointTitle('')
       setCheckpointBody('')
       setCheckpointReviewUrl('')
@@ -331,10 +335,127 @@ export default function AdminProjectWorkspace({
     }
   }
 
+  const submitThreadCheckpoint = async (payload: {
+    title: string
+    body: string
+    attachmentIds: string[]
+    stagedAttachments?: import('@/lib/projects/fetch-project-files').StagedProjectFile[]
+  }) => {
+    if (!project) {
+      return { ok: false as const, message: 'Project not found' }
+    }
+    const progressThread = findProjectThread(project, 'PROGRESS')
+    if (!progressThread) {
+      return { ok: false as const, message: 'Progress thread not found' }
+    }
+    if (payload.attachmentIds.length === 0 && !payload.stagedAttachments?.length) {
+      return {
+        ok: false as const,
+        message: 'Attach at least one file to send for approval',
+      }
+    }
+
+    try {
+      await submitApprovalFiles(queryClient, {
+        organizationId,
+        projectId,
+        progressRequestId: progressThread.id,
+        title: payload.title,
+        note: payload.body,
+        attachmentIds: payload.attachmentIds,
+        stagedAttachments: payload.stagedAttachments,
+      })
+      setSuccess('Files sent for approval — each file stays open until the client decides.')
+      setThreadCheckpointTitle('')
+      setThreadCheckpointApproval(false)
+      return { ok: true as const }
+    } catch (err) {
+      const message =
+        err instanceof AdminApiFetchError
+          ? err.status === 400
+            ? err.message
+            : `${err.message} — ${adminFetchErrorHint(err.code)}`
+          : err instanceof Error
+            ? err.message
+            : 'Could not send files for approval'
+      return { ok: false as const, message }
+    }
+  }
+
   const internal = project ? findProjectThread(project, 'INTERNAL') : null
   const onboarding = project ? findProjectThread(project, 'ONBOARDING') : null
   const progress = project ? findProjectThread(project, 'PROGRESS') : null
   const cancellation = project ? findProjectThread(project, 'CANCELLATION') : null
+  const { data: threadApprovalItems = [] } = useProjectApprovalItemsQuery(project?.id, {
+    includeComments: true,
+    enabled: tab === 'progress' && Boolean(project?.id),
+  })
+  const approvalInvalidateQueryKeys = useMemo(
+    () =>
+      project?.id
+        ? [adminQueryKeys.approvals.project(project.id, { includeComments: true })]
+        : [],
+    [project?.id],
+  )
+  const handleApprovalReply = useCallback(
+    async (approvalItemId: string, body: string) => {
+      if (!project?.id) {
+        return { ok: false, message: 'Project not loaded' }
+      }
+
+      const queryKey = adminQueryKeys.approvals.project(project.id, { includeComments: true })
+      const previous = queryClient.getQueryData<ThreadApprovalItem[]>(queryKey)
+      const optimistic = createOptimisticApprovalComment({
+        approvalItemId,
+        body,
+        authorRole: 'ADMIN',
+        authorDisplayName: session?.displayName ?? session?.email ?? 'CoCreate team',
+        authorUserId: session?.userId ?? undefined,
+      })
+
+      patchProjectApprovalCommentsCache(queryClient, project.id, approvalItemId, optimistic)
+
+      const result = await sendApprovalComment(approvalItemId, body)
+      if (result.ok) {
+        replacePendingProjectApprovalCommentCache(
+          queryClient,
+          project.id,
+          approvalItemId,
+          optimistic.id,
+          result.comment,
+        )
+      } else {
+        queryClient.setQueryData(queryKey, previous)
+      }
+
+      return result
+    },
+    [project?.id, queryClient, session?.displayName, session?.email, session?.userId],
+  )
+  const handleApprovalUploadRevision = useCallback(
+    async (approvalItemId: string, file: File, note?: string) => {
+      if (!project?.id) {
+        return { ok: false, message: 'Project not loaded' }
+      }
+
+      const result = await submitApprovalRevision(project.id, approvalItemId, file, note)
+      if (result.ok) {
+        patchProjectApprovalRevisionCache(queryClient, project.id, approvalItemId, {
+          status: result.item.status,
+          revisionNumber: result.item.revisionNumber,
+          attachment: {
+            id: result.item.attachmentId,
+            fileName: result.item.fileName,
+            mimeType: result.item.mimeType,
+            createdAt: result.item.createdAt,
+          },
+          comment: result.comment,
+        })
+      }
+      return result
+    },
+    [project?.id, queryClient],
+  )
   const onboardingClosed = onboarding
     ? ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(onboarding.status)
     : false
@@ -343,10 +464,11 @@ export default function AdminProjectWorkspace({
   const showProgressThread = Boolean(progress && isOnboarded)
 
   useEffect(() => {
-    if (!isOnboarded && tab === 'progress') {
+    if (loading || !project) return
+    if (!isOnboarded && (tab === 'progress' || tab === 'approvals')) {
       setTabWithUrl('overview')
     }
-  }, [isOnboarded, tab, setTabWithUrl])
+  }, [isOnboarded, tab, setTabWithUrl, loading, project])
 
   const tabs = useMemo(
     () =>
@@ -354,7 +476,12 @@ export default function AdminProjectWorkspace({
         { id: 'overview' as const, label: 'Overview', icon: LayoutGrid },
         { id: 'onboarding' as const, label: 'Onboarding', icon: Sparkles },
         ...(isOnboarded
-          ? [{ id: 'progress' as const, label: 'Progress', icon: Bell }]
+          ? [
+              { id: 'progress' as const, label: 'Progress', icon: Bell },
+              ...(isCoreTeam
+                ? [{ id: 'approvals' as const, label: 'Approvals', icon: CheckSquare }]
+                : []),
+            ]
           : []),
         { id: 'team-review' as const, label: 'Team review', icon: Shield },
         ...(isCoreTeam
@@ -398,34 +525,14 @@ export default function AdminProjectWorkspace({
                 </div>
               </div>
             </div>
-            <nav
-              className="mt-4 flex gap-2 overflow-x-auto scroll-smooth pb-1"
-              style={{ scrollSnapType: 'x mandatory' }}
-              aria-label="Project workspace sections"
-            >
-              {tabs.map((item) => {
-                const Icon = item.icon
-                const active = tab === item.id
-                return (
-                  <button
-                    key={item.id}
-                    ref={(el) => {
-                      tabBtnRefs.current[item.id] = el
-                    }}
-                    type="button"
-                    onClick={() => setTabWithUrl(item.id)}
-                    className={`inline-flex shrink-0 snap-start items-center gap-2 rounded-xl px-3 py-1.5 text-sm transition ${bricolage_grot600.className} ${
-                      active
-                        ? 'bg-chambray text-white'
-                        : 'bg-chambray/8 text-chambray hover:bg-chambray/12'
-                    }`}
-                  >
-                    <Icon className="h-3.5 w-3.5" aria-hidden />
-                    {item.label}
-                  </button>
-                )
-              })}
-            </nav>
+            <WorkspaceSectionNav
+              items={tabs}
+              activeId={tab}
+              onSelect={setTabWithUrl}
+              ariaLabel="Project workspace sections"
+              inputClassName="admin-input"
+              pillClassName={bricolage_grot600.className}
+            />
           </>
         ) : null}
       </div>
@@ -529,6 +636,7 @@ export default function AdminProjectWorkspace({
 
             {cancellation ? (
               <ProjectThreadPanel
+                key={cancellation.id}
                 title="Cancellation"
                 subtitle={cancellation.cancellationOutcome ?? 'Open'}
                 request={cancellation}
@@ -549,6 +657,7 @@ export default function AdminProjectWorkspace({
         ) : tab === 'onboarding' ? (
           onboarding ? (
             <ProjectThreadPanel
+              key={onboarding.id}
               title="Onboarding conversation"
               subtitle={
                 onboardingClosed
@@ -572,6 +681,7 @@ export default function AdminProjectWorkspace({
         ) : tab === 'progress' ? (
           showProgressThread && progress ? (
             <ProjectThreadPanel
+              key={progress.id}
               title="Project progress"
               subtitle="Updates, progress checks, and replies with the client."
               request={progress}
@@ -583,10 +693,28 @@ export default function AdminProjectWorkspace({
                 sendAdminMessage(progress.id, body, attachmentIds)
               }
               onThreadUpdate={() => void refreshThread(progress.id)}
+              threadApprovalItems={threadApprovalItems}
+              onApprovalReply={handleApprovalReply}
+              onApprovalUploadRevision={handleApprovalUploadRevision}
+              approvalInvalidateQueryKeys={approvalInvalidateQueryKeys}
+              checkpointCompose={
+                project.status === 'ACTIVE' && isCoreTeam
+                  ? {
+                      enabled: true,
+                      title: threadCheckpointTitle,
+                      onTitleChange: setThreadCheckpointTitle,
+                      requestApproval: threadCheckpointApproval,
+                      onRequestApprovalChange: setThreadCheckpointApproval,
+                      onSendCheckpoint: submitThreadCheckpoint,
+                    }
+                  : undefined
+              }
             />
           ) : (
             <p className="text-sm text-app-muted">No progress conversation yet.</p>
           )
+        ) : tab === 'approvals' && isCoreTeam ? (
+          <AdminProjectApprovalsPanel projectId={project.id} />
         ) : tab === 'team-review' ? (
           internal ? (
             <TeamReviewPanel

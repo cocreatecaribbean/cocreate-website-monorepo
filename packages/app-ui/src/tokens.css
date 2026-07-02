@@ -28,6 +28,7 @@
   --surface-input: rgba(255, 255, 255, 0.9);
   --surface-thread: rgba(255, 255, 255, 0.4);
   --shadow-card: 0 12px 48px rgba(57, 65, 154, 0.1);
+  --thread-column-max: 42rem;
   --shine-gradient: rgba(255, 255, 255, 0.35);
   --msg-mine-bg: rgba(64, 110, 181, 0.15);
   --msg-theirs-bg: rgba(57, 65, 154, 0.08);

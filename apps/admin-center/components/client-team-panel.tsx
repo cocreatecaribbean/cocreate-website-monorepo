@@ -270,7 +270,7 @@ export default function ClientTeamPanel({
                           clientOrgRole: e.target.value as ClientOrgRole,
                         })
                       }
-                      className="admin-input py-1 text-sm"
+                      className="admin-input py-1 pr-9 pl-3 text-sm"
                     >
                       <option value="OWNER">Owner</option>
                       <option value="PROJECT_MANAGER">Project manager</option>

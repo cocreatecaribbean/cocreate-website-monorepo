@@ -27,48 +27,62 @@ type AttachmentDownloadResponse = {
 }
 
 /** Upload bytes to storage only; register later via checkpoint API. */
+async function stageSingleProjectFile(
+  projectId: string,
+  file: File,
+): Promise<StagedProjectFile> {
+  const urlResult = await fetchAdminBff<UploadUrlResponse>(
+    `/api/projects/${projectId}/attachments/upload-url`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        sizeBytes: file.size,
+      }),
+    },
+  )
+
+  const putResponse = await fetch(urlResult.signedUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+    },
+    body: file,
+  })
+  if (!putResponse.ok) {
+    const detail = await putResponse.text().catch(() => '')
+    throw new Error(
+      detail.trim()
+        ? `Upload failed for ${file.name}: ${detail.trim()}`
+        : `Upload failed for ${file.name}`,
+    )
+  }
+
+  return {
+    storagePath: urlResult.storagePath,
+    fileName: file.name,
+    mimeType: file.type || 'application/octet-stream',
+    sizeBytes: file.size,
+  }
+}
+
+const STAGE_UPLOAD_CONCURRENCY = 3
+
 export async function stageProjectFiles(
   projectId: string,
   files: File[],
 ): Promise<StagedProjectFile[]> {
+  if (files.length === 0) return []
+
   const staged: StagedProjectFile[] = []
-
-  for (const file of files) {
-    const urlResult = await fetchAdminBff<UploadUrlResponse>(
-      `/api/projects/${projectId}/attachments/upload-url`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileName: file.name,
-          mimeType: file.type || 'application/octet-stream',
-          sizeBytes: file.size,
-        }),
-      },
+  for (let index = 0; index < files.length; index += STAGE_UPLOAD_CONCURRENCY) {
+    const batch = files.slice(index, index + STAGE_UPLOAD_CONCURRENCY)
+    const batchResults = await Promise.all(
+      batch.map((file) => stageSingleProjectFile(projectId, file)),
     )
-
-    const putResponse = await fetch(urlResult.signedUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': file.type || 'application/octet-stream',
-      },
-      body: file,
-    })
-    if (!putResponse.ok) {
-      const detail = await putResponse.text().catch(() => '')
-      throw new Error(
-        detail.trim()
-          ? `Upload failed for ${file.name}: ${detail.trim()}`
-          : `Upload failed for ${file.name}`,
-      )
-    }
-
-    staged.push({
-      storagePath: urlResult.storagePath,
-      fileName: file.name,
-      mimeType: file.type || 'application/octet-stream',
-      sizeBytes: file.size,
-    })
+    staged.push(...batchResults)
   }
 
   return staged

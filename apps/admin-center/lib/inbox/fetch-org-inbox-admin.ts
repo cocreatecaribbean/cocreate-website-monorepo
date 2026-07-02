@@ -49,18 +49,104 @@ export async function fetchAdminOrgInboxMessages(
 
 export async function sendAdminOrgInboxMessage(
   conversationId: string,
-  body: string,
+  payload: { body: string; attachmentIds?: string[] },
 ): Promise<OrgInboxMessage | null> {
   const data = await fetchAdminBff<unknown>(
     `/api/messages/conversations/${conversationId}/messages`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body }),
+      body: JSON.stringify(payload),
     },
   )
   const parsed = parseApiResponseSafe(OrgInboxSendMessageResponseSchema, data)
   return parsed?.message ?? null
+}
+
+async function requestOrgInboxUploadUrl(
+  conversationId: string,
+  file: { fileName: string; mimeType: string; sizeBytes: number },
+) {
+  return fetchAdminBff<{
+    storagePath: string
+    signedUrl: string
+    token: string
+    expiresIn: number
+  }>(`/api/messages/conversations/${conversationId}/attachments/upload-url`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(file),
+  })
+}
+
+async function registerOrgInboxAttachment(
+  conversationId: string,
+  payload: {
+    storagePath: string
+    fileName: string
+    mimeType: string
+    sizeBytes: number
+  },
+) {
+  return fetchAdminBff<{ id: string }>(
+    `/api/messages/conversations/${conversationId}/attachments`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  )
+}
+
+export async function uploadOrgInboxFiles(
+  conversationId: string,
+  files: File[],
+): Promise<{ ok: boolean; message?: string; attachmentIds?: string[] }> {
+  if (!files.length) return { ok: true, attachmentIds: [] }
+  const attachmentIds: string[] = []
+  try {
+    for (const file of files) {
+      const urlResult = await requestOrgInboxUploadUrl(conversationId, {
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        sizeBytes: file.size,
+      })
+      const putResponse = await fetch(urlResult.signedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
+      })
+      if (!putResponse.ok) {
+        return { ok: false, message: `Upload failed for ${file.name}` }
+      }
+      const registered = await registerOrgInboxAttachment(conversationId, {
+        storagePath: urlResult.storagePath,
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        sizeBytes: file.size,
+      })
+      attachmentIds.push(registered.id)
+    }
+    return { ok: true, attachmentIds }
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : 'File upload failed',
+    }
+  }
+}
+
+export async function fetchOrgInboxAttachmentDownloadUrl(
+  attachmentId: string,
+): Promise<string | null> {
+  try {
+    const data = await fetchAdminBff<{
+      download?: { signedUrl?: string }
+    }>(`/api/messages/attachments/${attachmentId}/download`)
+    return data.download?.signedUrl ?? null
+  } catch {
+    return null
+  }
 }
 
 export async function markAdminOrgInboxRead(conversationId: string): Promise<void> {

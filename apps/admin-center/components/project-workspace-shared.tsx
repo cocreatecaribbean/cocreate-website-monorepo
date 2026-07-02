@@ -2,11 +2,14 @@
 
 import { useState } from 'react'
 import { useAdminSession } from '@/components/admin-session-provider'
-import RequestMessageThread from '@/components/request-message-thread'
+import RequestMessageThread, {
+  type CheckpointComposeConfig,
+} from '@/components/request-message-thread'
 import MarkInboxReadOnView from '@/components/mark-inbox-read-on-view'
 import { useAdminRequestThreadQuery } from '@/lib/api/queries/projects'
 import { adminQueryKeys } from '@/lib/api/query-keys'
 import type { ClientProjectSummary, ProjectRequestItem } from '@/lib/projects/types'
+import type { ThreadApprovalItem } from '@/lib/projects/thread-approval-items'
 import { bricolage_grot600 } from '@/styles/fonts'
 
 export function findProjectThread(
@@ -166,6 +169,11 @@ export function ProjectThreadPanel({
   onSendMessage,
   onThreadUpdate,
   cancellationResolve,
+  checkpointCompose,
+  threadApprovalItems,
+  onApprovalReply,
+  onApprovalUploadRevision,
+  approvalInvalidateQueryKeys,
 }: {
   title: string
   subtitle: string
@@ -186,16 +194,33 @@ export function ProjectThreadPanel({
     feeNotes?: string
     message?: string
   }) => Promise<void>
+  checkpointCompose?: CheckpointComposeConfig
+  threadApprovalItems?: ThreadApprovalItem[]
+  onApprovalReply?: (
+    approvalItemId: string,
+    body: string,
+  ) => Promise<{ ok: boolean; message?: string }>
+  onApprovalUploadRevision?: (
+    approvalItemId: string,
+    file: File,
+    note?: string,
+  ) => Promise<{ ok: boolean; message?: string }>
+  approvalInvalidateQueryKeys?: import('@tanstack/react-query').QueryKey[]
 }) {
   const { session } = useAdminSession()
   const currentUserId = session?.mode === 'user' ? session.userId : null
   const threadQuery = useAdminRequestThreadQuery(loadMessages ? request.id : null)
-  const resolvedRequest = threadQuery.data ?? request
+  const resolvedRequest =
+    threadQuery.data?.id === request.id ? threadQuery.data : request
+  const threadSwitching =
+    loadMessages &&
+    threadQuery.isFetching &&
+    threadQuery.data?.id !== request.id
 
   return (
     <section
       id={`thread-panel-${request.id}`}
-      className="admin-glass-card p-5 sm:p-6"
+      className="admin-glass-card w-full max-w-2xl p-5 sm:p-6"
     >
       <p className={`text-chambray ${bricolage_grot600.className}`}>{title}</p>
       <p className="mt-1 text-xs text-app-muted">{subtitle}</p>
@@ -208,14 +233,25 @@ export function ProjectThreadPanel({
             onMarked={onInboxMarked}
           />
         ) : null}
+        {threadSwitching ? (
+          <p className="mb-3 text-sm text-app-muted">Loading conversation…</p>
+        ) : null}
         <RequestMessageThread
+          key={request.id}
           request={resolvedRequest}
           viewerRole="ADMIN"
           currentUserId={currentUserId}
           readOnly={readOnly}
           onSendMessage={onSendMessage}
           onThreadUpdate={onThreadUpdate}
-          invalidateQueryKeys={[adminQueryKeys.requests.detail(request.id)]}
+          invalidateQueryKeys={[
+            adminQueryKeys.requests.detail(request.id),
+            ...(approvalInvalidateQueryKeys ?? []),
+          ]}
+          checkpointCompose={checkpointCompose}
+          threadApprovalItems={threadApprovalItems}
+          onApprovalReply={onApprovalReply}
+          onApprovalUploadRevision={onApprovalUploadRevision}
         />
         {cancellationResolve &&
         request.type === 'CANCELLATION' &&

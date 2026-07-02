@@ -75,14 +75,98 @@ export async function fetchOrgInboxMessages(conversationId: string): Promise<Org
 
 export async function sendOrgInboxMessage(
   conversationId: string,
-  body: string,
+  payload: { body: string; attachmentIds?: string[] },
 ): Promise<OrgInboxMessage | null> {
   const data = await inboxFetch<unknown>(
     `/client-portal/inbox/conversations/${conversationId}/messages`,
-    { method: 'POST', body: JSON.stringify({ body }) },
+    { method: 'POST', body: JSON.stringify(payload) },
   )
   const parsed = parseApiResponseSafe(OrgInboxSendMessageResponseSchema, data)
   return parsed?.message ?? null
+}
+
+async function requestOrgInboxUploadUrl(
+  conversationId: string,
+  file: { fileName: string; mimeType: string; sizeBytes: number },
+) {
+  return inboxFetch<{
+    storagePath: string
+    signedUrl: string
+    token: string
+    expiresIn: number
+  }>(`/client-portal/inbox/conversations/${conversationId}/attachments/upload-url`, {
+    method: 'POST',
+    body: JSON.stringify(file),
+  })
+}
+
+async function registerOrgInboxAttachment(
+  conversationId: string,
+  payload: {
+    storagePath: string
+    fileName: string
+    mimeType: string
+    sizeBytes: number
+  },
+) {
+  return inboxFetch<{ id: string }>(
+    `/client-portal/inbox/conversations/${conversationId}/attachments`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+}
+
+export async function uploadOrgInboxFiles(
+  conversationId: string,
+  files: File[],
+): Promise<{ ok: boolean; message?: string; attachmentIds?: string[] }> {
+  if (!files.length) return { ok: true, attachmentIds: [] }
+  const attachmentIds: string[] = []
+  try {
+    for (const file of files) {
+      const urlResult = await requestOrgInboxUploadUrl(conversationId, {
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        sizeBytes: file.size,
+      })
+      const putResponse = await fetch(urlResult.signedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
+      })
+      if (!putResponse.ok) {
+        return { ok: false, message: `Upload failed for ${file.name}` }
+      }
+      const registered = await registerOrgInboxAttachment(conversationId, {
+        storagePath: urlResult.storagePath,
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        sizeBytes: file.size,
+      })
+      attachmentIds.push(registered.id)
+    }
+    return { ok: true, attachmentIds }
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : 'File upload failed',
+    }
+  }
+}
+
+export async function fetchOrgInboxAttachmentDownloadUrl(
+  attachmentId: string,
+): Promise<string | null> {
+  try {
+    const data = await inboxFetch<{ download?: { signedUrl?: string } }>(
+      `/client-portal/inbox/attachments/${attachmentId}/download`,
+    )
+    return data.download?.signedUrl ?? null
+  } catch {
+    return null
+  }
 }
 
 export async function createOrgInboxConversation(

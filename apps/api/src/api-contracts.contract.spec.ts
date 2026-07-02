@@ -1,4 +1,5 @@
 /** @jest-environment node */
+import { z } from 'zod'
 import {
   AdminAuthMeResponseSchema,
   AdminDashboardStatsSchema,
@@ -13,13 +14,22 @@ import {
   ClientRecentActivityItemSchema,
   ClientSubscriptionViewSchema,
   ClientApprovalRecordItemSchema,
+  ApproveCheckpointFileResponseSchema,
+  OpenApprovalsResponseSchema,
   PortalProfileResponseSchema,
+  ProjectRequestItemSchema,
   ProjectRequestMessageSchema,
   TeamHubResponseSchema,
 } from '@cocreate/api-contracts/v1/client-portal'
-import { CreateProjectSchema } from '@cocreate/api-contracts/v1/requests/projects'
+import { CreateProjectSchema, CreateCheckpointSchema, CreateRequestMessageSchema } from '@cocreate/api-contracts/v1/requests/projects'
+import { SendOrgInboxMessageSchema } from '@cocreate/api-contracts/v1/requests/org-inbox'
 import { SubscribeNewsletterSchema } from '@cocreate/api-contracts/v1/requests/newsletter'
 import { SocialListeningAnalyticsPayloadSchema } from '@cocreate/api-contracts/v1/social-listening'
+import {
+  serializeApprovalRecord,
+  serializePendingApprovalFiles,
+  serializeRequest,
+} from './projects/projects.serializer'
 
 describe('api-contracts (Zod smoke)', () => {
   it('parses admin dashboard stats', () => {
@@ -285,17 +295,107 @@ describe('api-contracts (Zod smoke)', () => {
           id: 'a1',
           projectId: 'p1',
           requestId: 'r1',
-          storagePath: 'orgs/o1/projects/p1/home.png',
           fileName: 'home.png',
           mimeType: 'image/png',
           sizeBytes: 1024,
-          uploadedByUserId: 'u1',
           createdAt: '2026-01-01T00:00:00.000Z',
         },
       ],
     })
     expect(sample.attachments).toHaveLength(1)
     expect(sample.attachments?.[0]?.fileName).toBe('home.png')
+  })
+
+  it('parses pending open approval files for client portal', () => {
+    const attachmentOne = {
+      id: 'att-1',
+      projectId: 'proj-1',
+      requestId: 'req-1',
+      storagePath: 'orgs/org-1/projects/proj-1/mockup.png',
+      fileName: 'mockup.png',
+      mimeType: 'image/png',
+      sizeBytes: 2048,
+      uploadedByUserId: 'admin-1',
+      createdAt: new Date('2026-01-02T00:00:00.000Z'),
+    }
+    const attachmentTwo = {
+      ...attachmentOne,
+      id: 'att-2',
+      fileName: 'layout.png',
+      storagePath: 'orgs/org-1/projects/proj-1/layout.png',
+    }
+    const files = serializePendingApprovalFiles([
+      {
+        id: 'msg-1',
+        body: 'Please review both files.',
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+        attachmentLinks: [{ attachment: attachmentOne }, { attachment: attachmentTwo }],
+        request: {
+          id: 'req-1',
+          title: 'Review homepage',
+          projectId: 'proj-1',
+          project: { title: 'Launch site' },
+        },
+      },
+    ])
+
+    const parsed = OpenApprovalsResponseSchema.parse({ files, items: [] })
+    expect(parsed.files).toHaveLength(2)
+    expect(parsed.files.map((file) => file.attachmentId)).toEqual(['att-1', 'att-2'])
+    expect(parsed.files[0]?.messageId).toBe('msg-1')
+    expect(parsed.files[0]).not.toHaveProperty('storagePath')
+  })
+
+  it('parses per-file approve checkpoint response', () => {
+    const sample = ApproveCheckpointFileResponseSchema.parse({
+      attachmentId: 'att-1',
+      fileName: 'poster.png',
+      checkpointCompleted: false,
+      remainingFiles: 2,
+    })
+    expect(sample.remainingFiles).toBe(2)
+    expect(sample.checkpointCompleted).toBe(false)
+  })
+
+  it('parses approval history serialized for client portal', () => {
+    const snapshottedAttachment = {
+      id: 'att-1',
+      projectId: 'proj-1',
+      requestId: 'req-1',
+      storagePath: 'orgs/org-1/projects/proj-1/mockup.png',
+      fileName: 'mockup.png',
+      mimeType: 'image/png',
+      sizeBytes: 2048,
+      uploadedByUserId: 'admin-1',
+      createdAt: new Date('2026-01-02T00:00:00.000Z'),
+    }
+    const serialized = {
+      ...serializeApprovalRecord(
+        {
+          id: 'ar-1',
+          projectId: 'proj-1',
+          requestId: 'req-1',
+          messageId: 'msg-1',
+          title: 'Homepage checkpoint — mockup.png',
+          summary: 'Approved homepage mockups.',
+          targetPhase: 'CLIENT_REVIEW',
+          approvedAt: new Date('2026-01-03T00:00:00.000Z'),
+          approvedByUserId: 'client-1',
+          attachmentIds: ['att-1'],
+          approvedAttachmentId: 'att-1',
+          snapshottedAttachments: [snapshottedAttachment],
+          message: { id: 'msg-1', attachmentLinks: [] },
+        },
+        { omitStoragePath: true },
+      ),
+      projectTitle: 'Launch site',
+    }
+
+    const [parsed] = z.array(ClientApprovalRecordItemSchema).parse([serialized])
+    expect(parsed.projectTitle).toBe('Launch site')
+    expect(parsed.attachments).toHaveLength(1)
+    expect(parsed.attachments?.[0]?.fileName).toBe('mockup.png')
+    expect(parsed.attachments?.[0]).not.toHaveProperty('storagePath')
   })
 
   it('parses admin auth me response', () => {
@@ -311,5 +411,74 @@ describe('api-contracts (Zod smoke)', () => {
       },
     })
     expect(sample.admin?.email).toBe('admin@cocreate.com')
+  })
+
+  it('accepts attachment-only project request messages', () => {
+    const sample = CreateRequestMessageSchema.parse({
+      body: '',
+      attachmentIds: ['att-1'],
+    })
+    expect(sample.attachmentIds).toEqual(['att-1'])
+  })
+
+  it('rejects empty project request messages without attachments', () => {
+    expect(() => CreateRequestMessageSchema.parse({ body: '   ' })).toThrow()
+  })
+
+  it('accepts attachment-only progress checkpoints with title', () => {
+    const sample = CreateCheckpointSchema.parse({
+      title: 'Review homepage',
+      body: '',
+      attachmentIds: ['att-1'],
+    })
+    expect(sample.attachmentIds).toEqual(['att-1'])
+  })
+
+  it('rejects progress checkpoints without body or attachments', () => {
+    expect(() =>
+      CreateCheckpointSchema.parse({
+        title: 'Review homepage',
+        body: '   ',
+      }),
+    ).toThrow()
+  })
+
+  it('rejects progress checkpoints without title', () => {
+    expect(() =>
+      CreateCheckpointSchema.parse({
+        title: '   ',
+        body: 'Please review',
+      }),
+    ).toThrow()
+  })
+
+  it('accepts attachment-only org inbox messages', () => {
+    const sample = SendOrgInboxMessageSchema.parse({
+      body: '',
+      attachmentIds: ['att-1'],
+    })
+    expect(sample.attachmentIds).toEqual(['att-1'])
+  })
+
+  it('parses org inbox message with attachments', () => {
+    const sample = OrgInboxMessageSchema.parse({
+      id: 'm1',
+      conversationId: 'c1',
+      authorUserId: 'u1',
+      authorEmail: 'owner@acme.com',
+      authorRole: 'CLIENT',
+      body: '',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      attachments: [
+        {
+          id: 'a1',
+          fileName: 'photo.png',
+          mimeType: 'image/png',
+          sizeBytes: 1024,
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    })
+    expect(sample.attachments).toHaveLength(1)
   })
 })

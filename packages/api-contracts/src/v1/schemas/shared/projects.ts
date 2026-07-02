@@ -36,6 +36,7 @@ export const ProjectAttachmentSchema = z.object({
   mimeType: z.string(),
   sizeBytes: z.number(),
   createdAt: isoDateTimeString,
+  clientApprovedAt: isoDateTimeString.nullable().optional(),
 })
 export type ProjectAttachment = z.infer<typeof ProjectAttachmentSchema>
 
@@ -75,6 +76,7 @@ export const ProjectAttachmentWithUsageSchema = ProjectAttachmentSchema.extend({
   usedInThreads: z.boolean(),
   messageRefsCount: z.number(),
   lastUsedAt: isoDateTimeString.nullable(),
+  uploadedByUserId: z.string().optional(),
 })
 export type ProjectAttachmentWithUsage = z.infer<typeof ProjectAttachmentWithUsageSchema>
 

@@ -1,13 +1,6 @@
 'use client'
 
-import {
-  FormEvent,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react'
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import PortalProjectWorkspace from '@/components/control-center/portal-project-workspace'
@@ -19,13 +12,15 @@ import { useMarkAttentionReadMutation } from '@/lib/api/mutations/notifications'
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import { useProjectQuery, useProjectsQuery, prefetchClientProjectOverview } from '@/lib/api/queries/projects'
 import { queryKeys } from '@/lib/api/query-keys'
+import { CONTROL_CENTER_VIEW_QUERY } from '@/lib/control-center/nav'
 import { navigateToApprovals } from '@/lib/projects/fetch-projects-client'
 import {
+  applyProjectWorkspaceParams,
   parsePortalProjectTab,
+  PROJECT_ID_QUERY,
   PROJECT_TAB_QUERY,
   type PortalProjectTabId,
 } from '@/lib/control-center/project-workspace'
-import { CC_SHOW_PROJECTS_LIST_KEY } from '@/lib/control-center/use-control-center-nav'
 import ProjectCover from '@/components/project-cover'
 import { bricolage_grot600 } from '@/styles/fonts'
 import { Bell, Calendar, ExternalLink, Plus } from 'lucide-react'
@@ -35,13 +30,14 @@ export default function ControlCenterProjectsView() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
-  const deepLinkHandled = useRef(false)
   const markedAttentionProjectRef = useRef<string | null>(null)
 
   const { data: profile } = usePortalProfileQuery()
   const canCreateProject = profile?.permissions.canCreateProject ?? false
 
-  const [openedProjectId, setOpenedProjectId] = useState<string | null>(null)
+  const openedProjectId = searchParams.get(PROJECT_ID_QUERY)
+  const activeProjectTab = parsePortalProjectTab(searchParams.get(PROJECT_TAB_QUERY))
+
   const { data: projects = [], isLoading: loading } = useProjectsQuery()
   const {
     data: detail,
@@ -57,30 +53,16 @@ export default function ControlCenterProjectsView() {
   const [description, setDescription] = useState('')
   const [files, setFiles] = useState<FileList | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [initialProjectTab, setInitialProjectTab] = useState<PortalProjectTabId>('overview')
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (sessionStorage.getItem(CC_SHOW_PROJECTS_LIST_KEY) !== '1') return
-    sessionStorage.removeItem(CC_SHOW_PROJECTS_LIST_KEY)
-    setOpenedProjectId(null)
-  }, [searchParams])
-
-  useLayoutEffect(() => {
-    if (deepLinkHandled.current) return
-
-    const deepLinkId = searchParams.get('projectId')
-    if (!deepLinkId) return
-
-    deepLinkHandled.current = true
-    setInitialProjectTab(parsePortalProjectTab(searchParams.get(PROJECT_TAB_QUERY)))
-    setOpenedProjectId(deepLinkId)
-    const params = new URLSearchParams(searchParams.toString())
-    params.delete('projectId')
-    params.delete(PROJECT_TAB_QUERY)
-    const query = params.toString()
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
-  }, [pathname, router, searchParams])
+  const replaceSearchParams = useCallback(
+    (mutate: (params: URLSearchParams) => void) => {
+      const params = new URLSearchParams(searchParams.toString())
+      mutate(params)
+      const query = params.toString()
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+    },
+    [pathname, router, searchParams],
+  )
 
   useEffect(() => {
     if (!openedProjectId) {
@@ -94,15 +76,31 @@ export default function ControlCenterProjectsView() {
     markAttentionRead({ projectId: openedProjectId })
   }, [openedProjectId, detail?.id, markAttentionRead])
 
-  const openProject = useCallback((projectId: string, tab: PortalProjectTabId = 'overview') => {
-    setInitialProjectTab(tab)
-    setOpenedProjectId(projectId)
-  }, [])
+  const openProject = useCallback(
+    (projectId: string, tab: PortalProjectTabId = 'overview') => {
+      replaceSearchParams((params) => {
+        params.set(CONTROL_CENTER_VIEW_QUERY, 'projects')
+        applyProjectWorkspaceParams(params, projectId, tab)
+      })
+    },
+    [replaceSearchParams],
+  )
 
   const closeProject = useCallback(() => {
-    setOpenedProjectId(null)
-    setInitialProjectTab('overview')
-  }, [])
+    replaceSearchParams((params) => {
+      applyProjectWorkspaceParams(params, null)
+    })
+  }, [replaceSearchParams])
+
+  const handleTabChange = useCallback(
+    (tab: PortalProjectTabId) => {
+      if (!openedProjectId) return
+      replaceSearchParams((params) => {
+        applyProjectWorkspaceParams(params, openedProjectId, tab)
+      })
+    },
+    [openedProjectId, replaceSearchParams],
+  )
 
   const refreshProjectData = useCallback(async () => {
     await refetchDetail()
@@ -164,9 +162,10 @@ export default function ControlCenterProjectsView() {
       <PortalProjectWorkspace
         key={detail.id}
         project={detail}
-        initialTab={initialProjectTab}
+        initialTab={activeProjectTab}
         onBack={closeProject}
         onRefresh={refreshProjectData}
+        onTabChange={handleTabChange}
       />
     )
   }

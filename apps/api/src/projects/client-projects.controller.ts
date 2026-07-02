@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   Req,
+  BadRequestException,
   UseGuards,
 } from '@nestjs/common'
 import {
@@ -33,16 +34,24 @@ import {
   type UpdateRequestInput,
   UploadUrlSchema,
   type UploadUrlInput,
+  RequestApprovalNeedsChangesSchema,
+  type RequestApprovalNeedsChangesInput,
+  AddApprovalCommentSchema,
+  type AddApprovalCommentInput,
 } from '@cocreate/api-contracts/v1/requests/projects'
 import { ClientAuthGuard } from '../auth/guards/client-auth.guard'
 import type { ClientPortalRequest } from '../auth/guards/client-auth.guard'
 import { zodBody } from '../common/zod/zod-validation.pipe'
 import { ProjectsService } from './projects.service'
+import { ProjectApprovalsService } from './project-approvals.service'
 
 @Controller({ path: 'client-portal', version: '1' })
 @UseGuards(ClientAuthGuard)
 export class ClientProjectsController {
-  constructor(private readonly projects: ProjectsService) {}
+  constructor(
+    private readonly projects: ProjectsService,
+    private readonly approvals: ProjectApprovalsService,
+  ) {}
 
   @Get('projects')
   listProjects(
@@ -67,7 +76,40 @@ export class ClientProjectsController {
 
   @Get('projects/requests/open')
   listOpenRequests(@Req() req: ClientPortalRequest) {
-    return this.projects.listPendingCheckpointsForClient(req.clientUser!)
+    return this.projects.listPendingApprovalFilesForClient(req.clientUser!)
+  }
+
+  @Get('approvals/open')
+  listOpenApprovals(@Req() req: ClientPortalRequest) {
+    return this.approvals.listOpenForClient(req.clientUser!)
+  }
+
+  @Post('approvals/:itemId/approve')
+  approveFile(@Req() req: ClientPortalRequest, @Param('itemId') itemId: string) {
+    return this.approvals.approveItem(req.clientUser!, itemId)
+  }
+
+  @Post('approvals/:itemId/needs-changes')
+  requestNeedsChanges(
+    @Req() req: ClientPortalRequest,
+    @Param('itemId') itemId: string,
+    @Body(zodBody(RequestApprovalNeedsChangesSchema)) body: RequestApprovalNeedsChangesInput,
+  ) {
+    return this.approvals.requestNeedsChanges(req.clientUser!, itemId, body)
+  }
+
+  @Get('approvals/:itemId/comments')
+  listApprovalComments(@Req() req: ClientPortalRequest, @Param('itemId') itemId: string) {
+    return this.approvals.listComments(req.clientUser!, itemId)
+  }
+
+  @Post('approvals/:itemId/comments')
+  addApprovalComment(
+    @Req() req: ClientPortalRequest,
+    @Param('itemId') itemId: string,
+    @Body(zodBody(AddApprovalCommentSchema)) body: AddApprovalCommentInput,
+  ) {
+    return this.approvals.addComment(req.clientUser!, itemId, body)
   }
 
   @Get('approvals/history')
@@ -223,6 +265,19 @@ export class ClientProjectsController {
     return this.projects.getAttachmentDownloadUrl(req.clientUser!, attachmentId)
   }
 
+  @Delete('attachments/:attachmentId')
+  removeAttachmentFromMessage(
+    @Req() req: ClientPortalRequest,
+    @Param('attachmentId') attachmentId: string,
+    @Query('messageId') messageId?: string,
+  ) {
+    return this.projects.removeAttachmentFromMessage(
+      req.clientUser!,
+      attachmentId,
+      messageId?.trim() || undefined,
+    )
+  }
+
   @Get('project-requests/:requestId')
   getRequestThread(
     @Req() req: ClientPortalRequest,
@@ -269,6 +324,21 @@ export class ClientProjectsController {
     @Param('messageId') messageId: string,
   ) {
     return this.projects.approveCheckpoint(req.clientUser!, requestId, messageId)
+  }
+
+  @Post('project-requests/:requestId/messages/:messageId/files/:attachmentId/approve')
+  approveCheckpointFile(
+    @Req() req: ClientPortalRequest,
+    @Param('requestId') requestId: string,
+    @Param('messageId') messageId: string,
+    @Param('attachmentId') attachmentId: string,
+  ) {
+    return this.projects.approveCheckpointFile(
+      req.clientUser!,
+      requestId,
+      messageId,
+      attachmentId,
+    )
   }
 
   @Patch('project-requests/:requestId')

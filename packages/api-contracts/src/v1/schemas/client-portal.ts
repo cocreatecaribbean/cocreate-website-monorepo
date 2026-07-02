@@ -103,6 +103,7 @@ export const ClientApprovalRecordItemSchema = z.object({
   projectTitle: z.string().optional(),
   requestId: z.string(),
   messageId: z.string(),
+  approvalItemId: z.string().nullable().optional(),
   title: z.string(),
   summary: z.string().nullable(),
   targetPhase: ClientProjectPhaseSchema.nullable(),
@@ -110,6 +111,74 @@ export const ClientApprovalRecordItemSchema = z.object({
   attachments: z.array(ProjectAttachmentSchema).optional(),
 })
 export type ClientApprovalRecordItem = z.infer<typeof ClientApprovalRecordItemSchema>
+
+export const PendingApprovalFileItemSchema = z.object({
+  id: z.string().optional(),
+  approvalItemId: z.string().optional(),
+  attachmentId: z.string().nullable(),
+  fileName: z.string().nullable(),
+  mimeType: z.string().nullable(),
+  sizeBytes: z.number().nullable(),
+  createdAt: isoDateTimeString,
+  requestId: z.string(),
+  messageId: z.string(),
+  projectId: z.string(),
+  projectTitle: z.string(),
+  checkpointTitle: z.string(),
+  checkpointBody: z.string(),
+  status: z.enum(['PENDING', 'APPROVED', 'NEEDS_CHANGES']).optional(),
+  revisionNumber: z.number().optional(),
+  sentAt: isoDateTimeString.optional(),
+})
+export type PendingApprovalFileItem = z.infer<typeof PendingApprovalFileItemSchema>
+
+export const PendingApprovalItemSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  projectTitle: z.string(),
+  requestId: z.string(),
+  title: z.string(),
+  note: z.string().nullable(),
+  status: z.enum(['PENDING', 'APPROVED', 'NEEDS_CHANGES']),
+  revisionNumber: z.number(),
+  sentAt: isoDateTimeString,
+  sentMessageId: z.string().nullable().optional(),
+  decidedAt: isoDateTimeString.nullable(),
+  attachmentId: z.string(),
+  fileName: z.string(),
+  mimeType: z.string(),
+  sizeBytes: z.number(),
+  createdAt: isoDateTimeString,
+})
+export type PendingApprovalItem = z.infer<typeof PendingApprovalItemSchema>
+
+export const ApprovalCommentSchema = z.object({
+  id: z.string(),
+  approvalItemId: z.string(),
+  authorUserId: z.string(),
+  authorRole: z.enum(['ADMIN', 'CLIENT', 'COLLABORATOR']),
+  authorDisplayName: z.string(),
+  body: z.string(),
+  createdAt: isoDateTimeString,
+  attachments: z.array(ProjectAttachmentSchema).optional(),
+})
+export type ApprovalComment = z.infer<typeof ApprovalCommentSchema>
+
+export const OpenApprovalsResponseSchema = z.object({
+  items: z.array(PendingApprovalItemSchema).default([]),
+  files: z.array(PendingApprovalFileItemSchema).default([]),
+})
+export type OpenApprovalsResponse = z.infer<typeof OpenApprovalsResponseSchema>
+
+export const ApproveCheckpointFileResponseSchema = z.object({
+  attachmentId: z.string(),
+  fileName: z.string(),
+  checkpointCompleted: z.boolean(),
+  remainingFiles: z.number(),
+})
+export type ApproveCheckpointFileResponse = z.infer<
+  typeof ApproveCheckpointFileResponseSchema
+>
 
 export const ClientProjectDetailSchema = ClientProjectSummarySchema.extend({
   requests: z.array(ProjectRequestItemSchema).optional(),

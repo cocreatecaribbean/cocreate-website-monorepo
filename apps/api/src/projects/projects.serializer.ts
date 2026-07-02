@@ -92,7 +92,7 @@ export function countPendingCheckpointMessages(
   }, 0)
 }
 
-function serializeActorFields(user: UserActorPick | null | undefined, role: 'ADMIN' | 'CLIENT') {
+export function serializeActorFields(user: UserActorPick | null | undefined, role: 'ADMIN' | 'CLIENT') {
   const fallback = role === 'ADMIN' ? 'CoCreate team' : 'Client'
   return {
     displayName: resolveActorDisplayName(user, fallback),
@@ -104,9 +104,16 @@ function serializeActorFields(user: UserActorPick | null | undefined, role: 'ADM
 export function serializeMessage(
   message: ProjectRequestMessage & {
     author?: UserWithProfile
-    attachmentLinks?: Array<{ attachment: ProjectAttachment }>
+    attachmentLinks?: Array<{
+      clientApprovedAt?: Date | null
+      attachment: ProjectAttachment
+    }>
   },
+  options?: { omitStoragePath?: boolean },
 ) {
+  const serializeAtt = options?.omitStoragePath
+    ? serializeAttachmentForPortal
+    : serializeAttachment
   const role = message.authorRole as ProjectMessageAuthorRole
   const actor =
     role === 'ADMIN'
@@ -136,8 +143,10 @@ export function serializeMessage(
     attachmentIds:
       message.attachmentLinks?.map((link) => link.attachment.id) ?? [],
     attachments:
-      message.attachmentLinks?.map((link) => serializeAttachment(link.attachment)) ??
-      [],
+      message.attachmentLinks?.map((link) => ({
+        ...serializeAtt(link.attachment),
+        clientApprovedAt: link.clientApprovedAt?.toISOString() ?? null,
+      })) ?? [],
   }
 }
 
@@ -171,11 +180,23 @@ export type ProjectFilesGroup = {
 
 type ProjectWithReviewMeta = ProjectWithRelations & {
   pendingCheckpointCount?: number
+  pendingApprovalItemCount?: number
+  approvalItems?: Array<{ id: string }>
   openCancellationCount?: number
 }
 
+export function countPendingApprovalItems(project: ProjectWithReviewMeta): number {
+  if (project.pendingApprovalItemCount != null) {
+    return project.pendingApprovalItemCount
+  }
+  if (project.approvalItems?.length != null) {
+    return project.approvalItems.length
+  }
+  return countPendingCheckpointMessages(project)
+}
+
 export function serializeProject(project: ProjectWithReviewMeta) {
-  const pendingCheckpointCount = countPendingCheckpointMessages(project)
+  const pendingCheckpointCount = countPendingApprovalItems(project)
 
   const openCancellationCount =
     project.openCancellationCount ??
@@ -284,7 +305,9 @@ export function serializeRequest(
     createdAt: request.createdAt.toISOString(),
     updatedAt: request.updatedAt.toISOString(),
     attachments: request.attachments?.map(serializeAtt),
-    messages: fullMessages.length ? fullMessages.map(serializeMessage) : undefined,
+    messages: fullMessages.length
+      ? fullMessages.map((message) => serializeMessage(message, options))
+      : undefined,
     messageCount: fullMessages.length,
   }
 }
@@ -347,75 +370,170 @@ export function serializeActivity(
 
 export function serializeApprovalRecord(
   record: ClientApprovalRecord & {
+    attachmentIds?: string[]
+    approvedAttachmentId?: string | null
+    snapshottedAttachments?: ProjectAttachment[]
+    approvalItem?: { attachment: ProjectAttachment } | null
     message?: {
       id?: string
       createdAt?: Date
       attachmentLinks?: Array<{ attachment: ProjectAttachment }>
     } | null
-    request?: {
-      attachments?: ProjectAttachment[]
-      messages?: Array<{
-        id: string
-        createdAt: Date
-        attachmentLinks?: Array<{ attachmentId: string }>
-      }>
-    }
   },
+  options?: { omitStoragePath?: boolean },
 ) {
   return {
     id: record.id,
     projectId: record.projectId,
     requestId: record.requestId,
-    messageId: record.messageId,
+    messageId: record.messageId ?? '',
+    approvalItemId: record.approvalItemId ?? null,
     title: record.title,
     summary: record.summary,
     targetPhase: record.targetPhase as ClientProjectPhase | null,
     approvedAt: record.approvedAt.toISOString(),
     approvedByUserId: record.approvedByUserId,
-    attachments: resolveApprovalRecordAttachments(record),
+    attachments: resolveApprovalRecordAttachments(record, options),
   }
+}
+
+export function serializePendingApprovalFiles(
+  messages: Array<{
+    id: string
+    body: string
+    createdAt: Date
+    attachmentLinks: Array<{
+      clientApprovedAt?: Date | null
+      attachment: ProjectAttachment
+    }>
+    request: {
+      id: string
+      title: string
+      projectId: string
+      project: { title: string }
+    }
+  }>,
+) {
+  const files: Array<{
+    attachmentId: string | null
+    fileName: string | null
+    mimeType: string | null
+    sizeBytes: number | null
+    createdAt: string
+    requestId: string
+    messageId: string
+    projectId: string
+    projectTitle: string
+    checkpointTitle: string
+    checkpointBody: string
+  }> = []
+
+  for (const message of messages) {
+    const base = {
+      requestId: message.request.id,
+      messageId: message.id,
+      projectId: message.request.projectId,
+      projectTitle: message.request.project.title,
+      checkpointTitle: message.request.title,
+      checkpointBody: message.body,
+    }
+
+    const pendingLinks = message.attachmentLinks.filter(
+      (link) => !link.clientApprovedAt,
+    )
+
+    if (pendingLinks.length === 0) {
+      if (message.attachmentLinks.length === 0) {
+        files.push({
+          ...base,
+          attachmentId: null,
+          fileName: null,
+          mimeType: null,
+          sizeBytes: null,
+          createdAt: message.createdAt.toISOString(),
+        })
+      }
+      continue
+    }
+
+    for (const link of pendingLinks) {
+      const attachment = link.attachment
+      files.push({
+        ...base,
+        attachmentId: attachment.id,
+        fileName: attachment.fileName,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+        createdAt: attachment.createdAt.toISOString(),
+      })
+    }
+  }
+
+  return files
 }
 
 function resolveApprovalRecordAttachments(
   record: Parameters<typeof serializeApprovalRecord>[0],
-): ReturnType<typeof serializeAttachment>[] {
-  const linked =
-    record.message?.attachmentLinks?.map((link) =>
-      serializeAttachment(link.attachment),
-    ) ?? []
-  if (linked.length > 0) return linked
+  options?: { omitStoragePath?: boolean },
+) {
+  const serializeAtt = options?.omitStoragePath
+    ? serializeAttachmentForPortal
+    : serializeAttachment
 
-  const request = record.request
-  const messages = request?.messages ?? []
-  const attachments = request?.attachments ?? []
-  if (!messages.length || !attachments.length) return []
-
-  const messageIndex = messages.findIndex((msg) => msg.id === record.messageId)
-  if (messageIndex < 0) return []
-
-  const linkedIds = new Set(
-    messages.flatMap((msg) =>
-      msg.attachmentLinks?.map((link) => link.attachmentId) ?? [],
-    ),
+  const snapshottedById = new Map(
+    (record.snapshottedAttachments ?? []).map((attachment) => [attachment.id, attachment]),
   )
-  const unlinked = attachments.filter((attachment) => !linkedIds.has(attachment.id))
-  if (!unlinked.length) return []
 
-  const bucket: ProjectAttachment[] = []
-  for (const attachment of unlinked) {
-    const at = attachment.createdAt.getTime()
-    let index = messages.findIndex((msg, i) => {
-      const start = msg.createdAt.getTime()
-      const end = messages[i + 1]
-        ? messages[i + 1]!.createdAt.getTime()
-        : Number.POSITIVE_INFINITY
-      return at >= start && at < end
-    })
-    if (index < 0) index = messages.length - 1
-    if (index === messageIndex) bucket.push(attachment)
+  if (record.attachmentIds?.length) {
+    const snapshotted = record.attachmentIds
+      .map((id) => snapshottedById.get(id))
+      .filter((attachment): attachment is ProjectAttachment => Boolean(attachment))
+    if (snapshotted.length > 0) {
+      return snapshotted.map(serializeAtt)
+    }
   }
 
-  return bucket.map(serializeAttachment)
+  if (record.approvedAttachmentId) {
+    const approvalItemAttachment =
+      record.approvalItem?.attachment?.id === record.approvedAttachmentId
+        ? record.approvalItem.attachment
+        : undefined
+    const approved =
+      snapshottedById.get(record.approvedAttachmentId) ?? approvalItemAttachment
+    if (approved) {
+      return [serializeAtt(approved)]
+    }
+  }
+
+  if (record.approvalItem?.attachment) {
+    return [serializeAtt(record.approvalItem.attachment)]
+  }
+
+  const fromMessageLinks = resolveMessageLinkAttachments(record, serializeAtt)
+  if (fromMessageLinks.length > 0) {
+    return fromMessageLinks
+  }
+
+  return []
+}
+
+function resolveMessageLinkAttachments(
+  record: Parameters<typeof serializeApprovalRecord>[0],
+  serializeAtt: (attachment: ProjectAttachment) => ReturnType<typeof serializeAttachmentForPortal>,
+) {
+  const links = record.message?.attachmentLinks ?? []
+  if (links.length === 0) return []
+
+  if (record.approvedAttachmentId) {
+    const filtered = links.filter(
+      (link) => link.attachment.id === record.approvedAttachmentId,
+    )
+    if (filtered.length > 0) {
+      return filtered.map((link) => serializeAtt(link.attachment))
+    }
+  }
+
+  return links.map((link) => serializeAtt(link.attachment))
 }
 
 export function serializeNotification(notification: PortalNotification) {

@@ -88,6 +88,11 @@ export const adminQueryKeys = {
     all: ['admin', 'requests'] as const,
     detail: (requestId: string) => [...adminQueryKeys.requests.all, requestId] as const,
   },
+  approvals: {
+    all: ['admin', 'approvals'] as const,
+    project: (projectId: string, params?: Record<string, unknown>) =>
+      [...adminQueryKeys.approvals.all, 'project', projectId, params ?? {}] as const,
+  },
   orgInbox: {
     all: ['admin', 'org-inbox'] as const,
     conversations: () => [...adminQueryKeys.orgInbox.all, 'conversations'] as const,

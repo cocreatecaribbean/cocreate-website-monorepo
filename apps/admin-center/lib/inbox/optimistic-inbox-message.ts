@@ -17,6 +17,7 @@ export function createOptimisticInboxMessage(
     authorRole: author.role,
     body,
     createdAt: new Date().toISOString(),
+    attachments: [],
   }
 }
 

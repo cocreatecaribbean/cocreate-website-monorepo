@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import AdminFilesSection from '@/components/admin-files-section'
 import RequestMessageThread from '@/components/request-message-thread'
@@ -34,6 +34,7 @@ import {
 } from '@/lib/api/queries/clients'
 import { prefetchAdminProjectOverview } from '@/lib/api/queries/projects'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
+import WorkspaceSectionNav from '@cocreate/app-ui/workspace-section-nav'
 import {
   ArrowLeft,
   CheckCircle2,
@@ -68,6 +69,8 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const isCoreTeam =
     session?.mode === 'user' && isCoreTeamSession(session.role)
   const canTrackUnread = session?.mode === 'user' && isCoreTeam
+
+  const [tab, setTab] = useState<TabId>(initialTab)
 
   const clientQuery = useClientDetailQuery(organizationId)
   const projectsQuery = useClientProjectsQuery(organizationId)
@@ -105,7 +108,6 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         : 'Could not load client workspace.'
     : null
 
-  const [tab, setTab] = useState<TabId>(initialTab)
   const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null)
   const messagesThreadOpen =
     tab === 'messages' && Boolean(searchParams.get('conversationId'))
@@ -116,7 +118,38 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const [highlightInviteRequestId, setHighlightInviteRequestId] = useState<string | null>(null)
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
   const deepLinkAppliedRef = useRef(false)
-  const tabBtnRefs = useRef<Partial<Record<TabId, HTMLButtonElement | null>>>({})
+
+  const workspaceSections = useMemo(
+    () =>
+      [
+        { id: 'overview' as const, label: 'Overview', icon: LayoutGrid },
+        { id: 'projects' as const, label: 'Projects', icon: FolderKanban },
+        { id: 'files' as const, label: 'Files', icon: FileText },
+        { id: 'team' as const, label: 'Team', icon: Users },
+        { id: 'messages' as const, label: 'Messages', icon: MessageSquare },
+        {
+          id: 'inbox' as const,
+          label: 'Inbox',
+          icon: Inbox,
+          badge: unreadCount > 0 ? unreadCount : undefined,
+          ariaLabel: unreadCount > 0 ? `Inbox (${unreadCount} unread)` : 'Inbox',
+        },
+        { id: 'activity' as const, label: 'Activity', icon: CheckCircle2 },
+      ] as const,
+    [unreadCount],
+  )
+
+  const selectTab = (itemId: TabId) => {
+    setTab(itemId)
+    const params = new URLSearchParams(window.location.search)
+    params.set('tab', itemId)
+    if (itemId !== 'messages') {
+      params.delete('conversationId')
+    }
+    router.replace(`/clients/${organizationId}?${params.toString()}`, {
+      scroll: false,
+    })
+  }
 
   useEffect(() => {
     if (tab !== 'inbox') return
@@ -128,14 +161,6 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
       setSelectedInboxId(inbox[0]!.id)
     }
   }, [tab, inbox, selectedInboxId])
-
-  useEffect(() => {
-    tabBtnRefs.current[tab]?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'nearest',
-      inline: 'nearest',
-    })
-  }, [tab])
 
   useEffect(() => {
     if (tab !== 'inbox' || loading || !canTrackUnread) return
@@ -341,64 +366,14 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         {client?.primaryContact ? (
           <p className="mt-1 text-sm text-app-muted">{client.primaryContact.email}</p>
         ) : null}
-        <nav
-          className="mt-4 flex gap-2 overflow-x-auto scroll-smooth pb-1"
-          style={{ scrollSnapType: 'x mandatory' }}
-          aria-label="Client workspace sections"
-        >
-          {(
-            [
-              { id: 'overview' as const, label: 'Overview', icon: LayoutGrid },
-              { id: 'projects' as const, label: 'Projects', icon: FolderKanban },
-              { id: 'files' as const, label: 'Files', icon: FileText },
-              { id: 'team' as const, label: 'Team', icon: Users },
-              { id: 'messages' as const, label: 'Messages', icon: MessageSquare },
-              { id: 'inbox' as const, label: 'Inbox', icon: Inbox },
-              { id: 'activity' as const, label: 'Activity', icon: CheckCircle2 },
-            ] as const
-          ).map((item) => {
-            const Icon = item.icon
-            const active = tab === item.id
-            return (
-              <button
-                key={item.id}
-                ref={(el) => {
-                  tabBtnRefs.current[item.id] = el
-                }}
-                type="button"
-                onClick={() => {
-                  setTab(item.id)
-                  const params = new URLSearchParams(window.location.search)
-                  params.set('tab', item.id)
-                  if (item.id !== 'messages') {
-                    params.delete('conversationId')
-                  }
-                  router.replace(`/clients/${organizationId}?${params.toString()}`, {
-                    scroll: false,
-                  })
-                }}
-                aria-label={
-                  item.id === 'inbox' && unreadCount > 0
-                    ? `Inbox (${unreadCount} unread)`
-                    : item.label
-                }
-                className={`inline-flex shrink-0 snap-start items-center gap-2 rounded-xl px-3 py-1.5 text-sm transition ${bricolage_grot600.className} ${
-                  active
-                    ? 'bg-chambray text-white'
-                    : 'bg-chambray/8 text-chambray hover:bg-chambray/12'
-                }`}
-              >
-                <Icon className="h-3.5 w-3.5" aria-hidden />
-                {item.label}
-                {item.id === 'inbox' && unreadCount > 0 ? (
-                  <span className="rounded-full bg-casablanca/30 px-1.5 text-xs tabular-nums">
-                    {unreadCount}
-                  </span>
-                ) : null}
-              </button>
-            )
-          })}
-        </nav>
+        <WorkspaceSectionNav
+          items={[...workspaceSections]}
+          activeId={tab}
+          onSelect={selectTab}
+          ariaLabel="Client workspace sections"
+          inputClassName="admin-input"
+          pillClassName={bricolage_grot600.className}
+        />
       </div>
 
       <div
@@ -588,7 +563,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                 const item = inbox.find((entry) => entry.id === selectedInboxId)
                 if (!item) return null
                 return (
-                  <section className="admin-glass-card p-5">
+                  <section className="admin-glass-card w-full max-w-2xl p-5">
                     <p className="text-xs font-semibold tracking-wide text-sanmarino uppercase">
                       {requestTypeLabel[item.type] ?? item.type}
                     </p>

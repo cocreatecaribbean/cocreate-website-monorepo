@@ -1,21 +1,35 @@
 'use client'
 
 import { FormEvent, useCallback, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import EmojiPickerButton from '@/components/emoji-picker-button'
 import MessageAttachmentComposer, {
   resolvePendingMessageAttachments,
 } from '@/components/message-attachment-composer'
+import ThreadApprovalCard from '@/components/control-center/thread-approval-card'
 import { insertAtTextareaCursor } from '@/lib/insert-at-textarea-cursor'
 import { useThreadAutoScroll } from '@/lib/projects/use-thread-auto-scroll'
+import { ThreadScrollEnd } from '@cocreate/app-ui/scroll-to-latest'
 import type { ProjectRequestItem, ProjectRequestMessage } from '@/lib/projects/api-types'
 import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-projects-client'
 import { formatActorWithTitle } from '@/lib/projects/project-display'
 import { LinkifiedBody, indexAttachmentsByMessage, RequestAttachments } from '@/lib/projects/thread-content'
+import type { ThreadAttachment } from '@/lib/projects/thread-content'
+import { removeThreadAttachment } from '@/lib/projects/remove-thread-attachment'
+import { useRequestThreadQuery } from '@/lib/api/queries/projects'
+import { usePortalProfileQuery } from '@/lib/api/queries/team'
+import { canRemoveThreadAttachment } from '@cocreate/app-ui/thread-message-merge'
 import {
   createOptimisticRequestMessage,
   isPendingRequestMessage,
 } from '@/lib/projects/optimistic-request-message'
 import { useRequestThreadRealtime } from '@/lib/projects/use-request-thread-realtime'
+import { canSendThreadMessage } from '@/lib/messaging/can-send-thread-message'
+import type { PendingApprovalFile } from '@/lib/projects/pending-approval-files'
+import {
+  nonApprovalMessageAttachments,
+  pendingApprovalFilesForMessage,
+} from '@/lib/projects/pending-approval-files'
 import { bricolage_grot600 } from '@/styles/fonts'
 
 type RequestMessageThreadProps = {
@@ -26,11 +40,18 @@ type RequestMessageThreadProps = {
     body: string,
     attachmentIds?: string[],
   ) => Promise<{ ok: boolean; message?: string }>
-  onApproveCheckpoint?: (messageId: string) => Promise<{ ok: boolean; message?: string }>
   onResolve?: (status: 'RESOLVED' | 'REJECTED') => Promise<void>
   showResolveActions?: boolean
   onThreadUpdate?: () => void
   invalidateQueryKeys?: import('@tanstack/react-query').QueryKey[]
+  pendingApprovalFiles?: PendingApprovalFile[]
+  onApproveFile?: (
+    approvalItemId: string,
+  ) => Promise<{ ok: boolean; message?: string }>
+  onNeedsChangesFile?: (
+    approvalItemId: string,
+    body?: string,
+  ) => Promise<{ ok: boolean; message?: string }>
 }
 
 function initialAuthorRole(request: ProjectRequestItem): 'ADMIN' | 'CLIENT' {
@@ -43,14 +64,23 @@ export default function RequestMessageThread({
   request,
   viewerRole,
   onSendMessage,
-  onApproveCheckpoint,
   onResolve,
   showResolveActions = false,
   readOnly = false,
   onThreadUpdate,
   invalidateQueryKeys,
+  pendingApprovalFiles = [],
+  onApproveFile,
+  onNeedsChangesFile,
 }: RequestMessageThreadProps) {
-  useRequestThreadRealtime(request.id, onThreadUpdate, {
+  const queryClient = useQueryClient()
+  const { data: profile } = usePortalProfileQuery()
+  const currentUserId = profile?.user.id ?? null
+  const threadQuery = useRequestThreadQuery(request.id)
+  const activeRequest =
+    threadQuery.data?.id === request.id ? threadQuery.data : request
+
+  useRequestThreadRealtime(activeRequest.id, onThreadUpdate, {
     enabled: Boolean(onThreadUpdate || invalidateQueryKeys?.length),
     invalidateQueryKeys,
   })
@@ -64,40 +94,83 @@ export default function RequestMessageThread({
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [pendingMessages, setPendingMessages] = useState<ProjectRequestMessage[]>([])
   const [uploading, setUploading] = useState(false)
-  const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const baseMessages: ProjectRequestMessage[] =
-    request.messages && request.messages.length > 0
-      ? request.messages
-      : request.description
+    activeRequest.messages && activeRequest.messages.length > 0
+      ? activeRequest.messages
+      : activeRequest.description
         ? [
             {
               id: 'initial',
-              requestId: request.id,
+              requestId: activeRequest.id,
               authorUserId: '',
               authorEmail: null,
-              authorRole: initialAuthorRole(request),
-              body: request.description,
-              createdAt: request.createdAt,
+              authorRole: initialAuthorRole(activeRequest),
+              body: activeRequest.description,
+              createdAt: activeRequest.createdAt,
             },
           ]
         : []
 
   const messages = [...baseMessages, ...pendingMessages]
 
-  const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(request.status)
+  const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(activeRequest.status)
   const canCompose = !readOnly && !isClosed
-  const attachmentsByMessage = indexAttachmentsByMessage(baseMessages, request.attachments)
-  const { panelRef, scrollToBottom } = useThreadAutoScroll(messages, request.id)
+  const attachmentsByMessage = indexAttachmentsByMessage(baseMessages, activeRequest.attachments)
+  const { panelRef, endRef, notifyUserSent } = useThreadAutoScroll(messages, activeRequest.id)
   const fetchDownloadUrl = useCallback(
     (attachmentId: string) => fetchAttachmentDownloadUrl(attachmentId),
     [],
   )
 
+  const canDeleteAttachmentOnMessage = useCallback(
+    (msg: ProjectRequestMessage, attachment: ThreadAttachment) =>
+      canRemoveThreadAttachment({
+        messageId: msg.id,
+        messageAuthorRole: msg.authorRole,
+        attachmentUploadedByUserId: attachment.uploadedByUserId,
+        currentUserId,
+        viewerRole,
+        readOnly,
+      }),
+    [currentUserId, readOnly, viewerRole],
+  )
+
+  const handleDeleteAttachment = useCallback(
+    async (messageId: string, attachment: ThreadAttachment) => {
+      if (
+        !window.confirm(
+          `Remove ${attachment.fileName} from this conversation? CoCreate will no longer see it here.`,
+        )
+      ) {
+        return
+      }
+
+      setDeletingAttachmentId(attachment.id)
+      setError(null)
+      const result = await removeThreadAttachment(queryClient, {
+        requestId: activeRequest.id,
+        messageId,
+        attachmentId: attachment.id,
+        projectId: activeRequest.projectId,
+      })
+      if (!result.ok) {
+        setError(result.message)
+      }
+      setDeletingAttachmentId(null)
+    },
+    [activeRequest.id, activeRequest.projectId, queryClient],
+  )
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!reply.trim() || uploading) return
+    if (
+      !canSendThreadMessage(reply, selectedAttachmentIds, pendingFiles, uploading)
+    ) {
+      return
+    }
 
     const bodyText = reply.trim()
     const savedReply = bodyText
@@ -116,7 +189,7 @@ export default function RequestMessageThread({
     setSelectedAttachmentIds([])
     setPendingFiles([])
     setError(null)
-    scrollToBottom(true)
+    notifyUserSent()
 
     try {
       if (hasUploads) setUploading(true)
@@ -157,15 +230,6 @@ export default function RequestMessageThread({
     }
   }
 
-  const onApprove = async (messageId: string) => {
-    if (!onApproveCheckpoint) return
-    setApprovingId(messageId)
-    setError(null)
-    const result = await onApproveCheckpoint(messageId)
-    if (!result.ok) setError(result.message ?? 'Could not approve')
-    setApprovingId(null)
-  }
-
   return (
     <div className="portal-message-thread-shell max-h-[min(56svh,520px)]">
       <div ref={panelRef} className="portal-thread-panel">
@@ -175,15 +239,35 @@ export default function RequestMessageThread({
           messages.map((msg) => {
             const baseIndex = baseMessages.findIndex((entry) => entry.id === msg.id)
             const messageAttachments =
-              baseIndex >= 0 ? attachmentsByMessage.get(baseIndex) : undefined
+              msg.attachments?.length
+                ? msg.attachments
+                : baseIndex >= 0
+                  ? attachmentsByMessage.get(baseIndex)
+                  : undefined
             const isMine = viewerRole === 'CLIENT' && msg.authorRole === 'CLIENT'
             const isPending = isPendingRequestMessage(msg.id)
-            const showApprove =
-              viewerRole === 'CLIENT' &&
-              msg.isPendingApproval &&
-              onApproveCheckpoint &&
-              !readOnly
+            const attachmentIdsForMessage =
+              messageAttachments?.map((attachment) => attachment.id) ?? []
+            const inlineApprovalFiles =
+              viewerRole === 'CLIENT' && onApproveFile && onNeedsChangesFile
+                ? pendingApprovalFilesForMessage(
+                    msg.id,
+                    activeRequest.id,
+                    attachmentIdsForMessage,
+                    pendingApprovalFiles,
+                  )
+                : []
 
+            const displayAttachments = nonApprovalMessageAttachments(
+              messageAttachments,
+              inlineApprovalFiles,
+            )
+
+            const showMessageBubble =
+              Boolean(msg.body.trim()) ||
+              msg.messageKind === 'CHECKPOINT' ||
+              Boolean(msg.supersededAt) ||
+              Boolean(msg.clientApprovedAt)
             return (
               <div
                 key={msg.id}
@@ -211,6 +295,7 @@ export default function RequestMessageThread({
                     : ''}{' '}
                   · {new Date(msg.createdAt).toLocaleString()}
                 </p>
+                {showMessageBubble ? (
                 <div
                   className={`mt-1 max-w-[90%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
                     isMine ? 'portal-msg-mine' : 'portal-msg-theirs'
@@ -221,7 +306,7 @@ export default function RequestMessageThread({
                       Progress check
                     </p>
                   ) : null}
-                  <LinkifiedBody body={msg.body} />
+                  {msg.body.trim() ? <LinkifiedBody body={msg.body} /> : null}
                   {msg.supersededAt ? (
                     <p className="mt-2 text-xs text-app-muted italic">
                       Superseded by a newer review from CoCreate
@@ -233,29 +318,53 @@ export default function RequestMessageThread({
                     </p>
                   ) : null}
                 </div>
-                {messageAttachments?.length ? (
+                ) : null}
+                {displayAttachments.length ? (
                   <RequestAttachments
-                    attachments={messageAttachments}
+                    attachments={displayAttachments}
                     fetchDownloadUrl={fetchDownloadUrl}
                     variant="portal"
                     showHeading={false}
                     className={`mt-2 max-w-[90%] ${isMine ? 'self-end' : 'self-start'}`}
+                    canDeleteAttachment={(attachmentId) => {
+                      const attachment = displayAttachments.find((item) => item.id === attachmentId)
+                      return attachment
+                        ? canDeleteAttachmentOnMessage(msg, attachment)
+                        : false
+                    }}
+                    deletingAttachmentId={deletingAttachmentId}
+                    onDeleteAttachment={
+                      displayAttachments.some((attachment) =>
+                        canDeleteAttachmentOnMessage(msg, attachment),
+                      )
+                        ? (attachmentId) => {
+                            const attachment = displayAttachments.find(
+                              (item) => item.id === attachmentId,
+                            )
+                            if (!attachment || !canDeleteAttachmentOnMessage(msg, attachment)) {
+                              return
+                            }
+                            void handleDeleteAttachment(msg.id, attachment)
+                          }
+                        : undefined
+                    }
                   />
                 ) : null}
-                {showApprove ? (
-                  <button
-                    type="button"
-                    disabled={approvingId === msg.id}
-                    onClick={() => void onApprove(msg.id)}
-                    className={`${btnPrimary} mt-2`}
-                  >
-                    {approvingId === msg.id ? 'Approving…' : 'Approve'}
-                  </button>
-                ) : null}
+                {inlineApprovalFiles.length > 0
+                  ? inlineApprovalFiles.map((file) => (
+                      <ThreadApprovalCard
+                        key={file.approvalItemId}
+                        file={file}
+                        onApprove={onApproveFile!}
+                        onNeedsChanges={onNeedsChangesFile!}
+                      />
+                    ))
+                  : null}
               </div>
             )
           })
         )}
+        <ThreadScrollEnd ref={endRef} />
       </div>
 
       {canCompose ? (
@@ -292,7 +401,13 @@ export default function RequestMessageThread({
                 insertAtTextareaCursor(textareaRef.current, emoji, reply, setReply)
               }
             />
-            <button type="submit" disabled={uploading || !reply.trim()} className={btnPrimary}>
+            <button
+              type="submit"
+              disabled={
+                !canSendThreadMessage(reply, selectedAttachmentIds, pendingFiles, uploading)
+              }
+              className={btnPrimary}
+            >
               {uploading ? 'Uploading…' : 'Send message'}
             </button>
             {showResolveActions && onResolve ? (

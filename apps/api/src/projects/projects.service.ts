@@ -14,6 +14,7 @@ import {
   ProjectAttachmentVisibility,
   ProjectMessageAuthorRole,
   ProjectMessageKind,
+  ProjectApprovalItemStatus,
   ProjectRequestStatus,
   ProjectRequestType,
   PortalNotificationType,
@@ -32,6 +33,7 @@ import { PrismaService } from '../prisma/prisma.service'
 import { ProjectNotificationMailService } from './project-notification-mail.service'
 import { ProjectNotificationsService } from './project-notifications.service'
 import { ProjectRealtimeService } from './project-realtime.service'
+import { ProjectApprovalsService } from './project-approvals.service'
 import { ProjectStorageService } from './project-storage.service'
 import type { ClientRecentActivityItem } from '@cocreate/api-contracts/v1/client-portal'
 import type {
@@ -57,6 +59,7 @@ import {
   serializeAttachment,
   serializeAttachmentWithUsage,
   serializeMessage,
+  serializePendingApprovalFiles,
   serializeProject,
   serializeRequest,
 } from './projects.serializer'
@@ -84,6 +87,7 @@ export class ProjectsService {
     private readonly realtime: ProjectRealtimeService,
     private readonly clientTeam: ClientTeamService,
     private readonly supabaseAuth: SupabaseAuthService,
+    private readonly approvals: ProjectApprovalsService,
   ) {}
 
   private portalCallbackUrl() {
@@ -439,22 +443,11 @@ export class ProjectsService {
           id: true,
           type: true,
           status: true,
-          messages: {
-            where: {
-              messageKind: ProjectMessageKind.CHECKPOINT,
-              requiresClientApproval: true,
-              supersededAt: null,
-              clientApprovedAt: null,
-            },
-            select: {
-              id: true,
-              messageKind: true,
-              requiresClientApproval: true,
-              supersededAt: true,
-              clientApprovedAt: true,
-            },
-          },
         },
+      },
+      approvalItems: {
+        where: { status: ProjectApprovalItemStatus.PENDING },
+        select: { id: true },
       },
     }
   }
@@ -844,26 +837,16 @@ export class ProjectsService {
   }
 
   async listOpenRequestsForClient(client: AuthenticatedClient) {
-    return this.listPendingCheckpointsForClient(client)
+    return this.listPendingApprovalFilesForClient(client)
   }
 
+  async listPendingApprovalFilesForClient(client: AuthenticatedClient) {
+    return this.approvals.listOpenForClient(client)
+  }
+
+  /** @deprecated Use listPendingApprovalFilesForClient — kept for internal callers during transition */
   async listPendingCheckpointsForClient(client: AuthenticatedClient) {
-    const requests = await this.prisma.projectRequest.findMany({
-      where: {
-        type: ProjectRequestType.PROGRESS,
-        project: this.clientAccess.accessibleProjectsWhere(client),
-        messages: {
-          some: {
-            requiresClientApproval: true,
-            supersededAt: null,
-            clientApprovedAt: null,
-          },
-        },
-      },
-      orderBy: { updatedAt: 'desc' },
-      include: this.pendingCheckpointRequestInclude(),
-    })
-    return requests.map((r) => serializeRequest(r, { omitStoragePath: true }))
+    return this.listPendingApprovalFilesForClient(client)
   }
 
   async listApprovalHistoryForClient(client: AuthenticatedClient) {
@@ -872,29 +855,56 @@ export class ProjectsService {
       orderBy: { approvedAt: 'desc' },
       include: {
         project: { select: { id: true, title: true } },
+        approvalItem: { include: { attachment: true } },
         message: {
           include: {
             attachmentLinks: { include: { attachment: true } },
           },
         },
-        request: {
-          include: {
-            attachments: true,
-            messages: {
-              orderBy: { createdAt: 'asc' as const },
-              select: {
-                id: true,
-                createdAt: true,
-                attachmentLinks: { select: { attachmentId: true } },
-              },
-            },
-          },
-        },
       },
     })
-    return records.map((r) => ({
-      ...serializeApprovalRecord(r),
-      projectTitle: r.project.title,
+
+    const snapshotIds = [
+      ...new Set(
+        records.flatMap((record) => [
+          ...record.attachmentIds,
+          ...(record.approvedAttachmentId ? [record.approvedAttachmentId] : []),
+          ...(record.approvalItem?.attachmentId ? [record.approvalItem.attachmentId] : []),
+          ...(record.message?.attachmentLinks?.map((link) => link.attachment.id) ?? []),
+        ]),
+      ),
+    ]
+    const snapshotAttachments =
+      snapshotIds.length > 0
+        ? await this.prisma.projectAttachment.findMany({
+            where: { id: { in: snapshotIds } },
+          })
+        : []
+    const attachmentsById = new Map(
+      snapshotAttachments.map((attachment) => [attachment.id, attachment]),
+    )
+
+    return records.map((record) => ({
+      ...serializeApprovalRecord(
+        {
+          ...record,
+          approvalItem: record.approvalItem,
+          snapshottedAttachments: [
+            ...new Set([
+              ...record.attachmentIds,
+              ...(record.approvedAttachmentId ? [record.approvedAttachmentId] : []),
+              ...(record.approvalItem?.attachmentId ? [record.approvalItem.attachmentId] : []),
+              ...(record.message?.attachmentLinks?.map((link) => link.attachment.id) ?? []),
+            ]),
+          ]
+            .map((id) => attachmentsById.get(id))
+            .filter((attachment): attachment is NonNullable<typeof attachment> =>
+              Boolean(attachment),
+            ),
+        },
+        { omitStoragePath: true },
+      ),
+      projectTitle: record.project.title,
     }))
   }
 
@@ -1004,9 +1014,18 @@ export class ProjectsService {
         supersededAt: null,
         clientApprovedAt: null,
       },
+      include: {
+        attachmentLinks: { select: { attachmentId: true } },
+      },
     })
     if (!message) {
       throw new BadRequestException('No pending approval on this message')
+    }
+
+    if (message.attachmentLinks.length > 0) {
+      throw new BadRequestException(
+        'This checkpoint has files — approve each file individually',
+      )
     }
 
     const latestPending = await this.prisma.projectRequestMessage.findFirst({
@@ -1043,6 +1062,7 @@ export class ProjectsService {
           summary: message.body.slice(0, 500),
           targetPhase: message.checkpointTargetPhase,
           approvedByUserId: client.id,
+          attachmentIds: [],
         },
       })
 
@@ -1078,6 +1098,159 @@ export class ProjectsService {
     )
     await this.notifyThreadUpdate(requestId, 'checkpoint', { messageId })
     return approved
+  }
+
+  async approveCheckpointFile(
+    client: AuthenticatedClient,
+    requestId: string,
+    messageId: string,
+    attachmentId: string,
+  ) {
+    const request = await this.getRequestForActor(requestId, client)
+    if (request.type !== ProjectRequestType.PROGRESS) {
+      throw new BadRequestException('Only progress checkpoints can be approved')
+    }
+
+    const message = await this.prisma.projectRequestMessage.findFirst({
+      where: {
+        id: messageId,
+        requestId,
+        requiresClientApproval: true,
+        supersededAt: null,
+        clientApprovedAt: null,
+      },
+      include: {
+        attachmentLinks: {
+          include: { attachment: true },
+        },
+      },
+    })
+    if (!message) {
+      throw new BadRequestException('No pending approval on this message')
+    }
+
+    const latestPending = await this.prisma.projectRequestMessage.findFirst({
+      where: {
+        requestId,
+        requiresClientApproval: true,
+        supersededAt: null,
+        clientApprovedAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+    if (latestPending?.id !== messageId) {
+      throw new BadRequestException(
+        'A newer review is available — please approve the latest message from CoCreate',
+      )
+    }
+
+    const link = message.attachmentLinks.find(
+      (entry) => entry.attachmentId === attachmentId,
+    )
+    if (!link) {
+      throw new BadRequestException('File is not part of this checkpoint')
+    }
+    if (link.clientApprovedAt) {
+      throw new BadRequestException('This file was already approved')
+    }
+
+    const now = new Date()
+    const fileTitle = `${request.title} — ${link.attachment.fileName}`
+    let checkpointCompleted = false
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.projectRequestMessageAttachment.update({
+        where: {
+          messageId_attachmentId: { messageId, attachmentId },
+        },
+        data: {
+          clientApprovedAt: now,
+          clientApprovedByUserId: client.id,
+        },
+      })
+
+      await tx.clientApprovalRecord.create({
+        data: {
+          projectId: request.projectId,
+          requestId,
+          messageId,
+          title: fileTitle,
+          summary: message.body.slice(0, 500),
+          targetPhase: message.checkpointTargetPhase,
+          approvedByUserId: client.id,
+          attachmentIds: [attachmentId],
+          approvedAttachmentId: attachmentId,
+        },
+      })
+
+      const remaining = await tx.projectRequestMessageAttachment.count({
+        where: {
+          messageId,
+          clientApprovedAt: null,
+        },
+      })
+
+      if (remaining === 0) {
+        checkpointCompleted = true
+        await tx.projectRequestMessage.update({
+          where: { id: messageId },
+          data: {
+            clientApprovedAt: now,
+            clientApprovedByUserId: client.id,
+          },
+        })
+
+        if (message.checkpointTargetPhase) {
+          await tx.clientProject.update({
+            where: { id: request.projectId },
+            data: { phase: message.checkpointTargetPhase },
+          })
+        }
+      }
+    })
+
+    await this.logActivity(request.projectId, client.id, 'checkpoint.approved', {
+      requestId,
+      messageId,
+      attachmentId,
+      checkpointCompleted,
+    })
+
+    const adminLink = `${this.notifications.adminClientWorkspaceLink(request.project.organizationId)}?tab=projects`
+    if (checkpointCompleted) {
+      await this.notifications.notifyAdmins({
+        organizationId: request.project.organizationId,
+        type: PortalNotificationType.CHECKPOINT_APPROVED,
+        title: `Approved: ${request.title}`,
+        body: `All files approved for ${request.title}.`,
+        href: adminLink,
+        projectId: request.projectId,
+        requestId,
+      })
+    } else {
+      await this.notifications.notifyAdmins({
+        organizationId: request.project.organizationId,
+        type: PortalNotificationType.CHECKPOINT_APPROVED,
+        title: `File approved: ${link.attachment.fileName}`,
+        body: `${link.attachment.fileName} approved for ${request.title}.`,
+        href: adminLink,
+        projectId: request.projectId,
+        requestId,
+      })
+    }
+
+    await this.notifyThreadUpdate(requestId, 'checkpoint', { messageId })
+
+    const remainingFiles = await this.prisma.projectRequestMessageAttachment.count({
+      where: { messageId, clientApprovedAt: null },
+    })
+
+    return {
+      attachmentId,
+      fileName: link.attachment.fileName,
+      checkpointCompleted,
+      remainingFiles,
+    }
   }
 
   // ─── Admin ──────────────────────────────────────────────────────────────────
@@ -1210,7 +1383,7 @@ export class ProjectsService {
 
     const hasMore = rows.length > limit
     const pageRows = hasMore ? rows.slice(0, limit) : rows
-    const messages = [...pageRows].reverse().map(serializeMessage)
+    const messages = [...pageRows].reverse().map((message) => serializeMessage(message))
 
     return {
       messages,
@@ -1719,6 +1892,7 @@ export class ProjectsService {
     }
 
     const attachments = dto.attachments ?? []
+    const libraryAttachmentIds = [...new Set(dto.attachmentIds ?? [])]
     for (const attachment of attachments) {
       this.storage.assertPathBelongsToProject(
         attachment.storagePath,
@@ -1775,6 +1949,15 @@ export class ProjectsService {
       return checkpointMessage
     })
 
+    if (libraryAttachmentIds.length > 0) {
+      await this.linkAttachmentsToMessage(
+        message.id,
+        project.id,
+        libraryAttachmentIds,
+        ProjectRequestType.PROGRESS,
+      )
+    }
+
     await this.logActivity(projectId, admin.id, 'checkpoint.sent', {
       requestId: progress.id,
       messageId: message.id,
@@ -1787,12 +1970,18 @@ export class ProjectsService {
       })
     }
 
+    const notificationSnippet =
+      body.slice(0, 200) ||
+      (attachments.length > 0 || libraryAttachmentIds.length > 0
+        ? 'Sent an attachment'
+        : '')
+
     const portalLink = `${this.notifications.clientPortalUrl()}/?ccView=approvals&requestId=${progress.id}`
     await this.notifications.notifyOrgClients({
       organizationId: project.organizationId,
       type: PortalNotificationType.CHECKPOINT_PENDING,
       title: `Approval needed: ${title}`,
-      body: body.slice(0, 200),
+      body: notificationSnippet,
       href: portalLink,
       projectId,
       requestId: progress.id,
@@ -1930,12 +2119,20 @@ export class ProjectsService {
         ? ProjectMessageAuthorRole.COLLABORATOR
         : ProjectMessageAuthorRole.ADMIN
 
+    const body = dto.body.trim()
+    const attachmentIds = dto.attachmentIds ?? []
+    if (!body && attachmentIds.length === 0) {
+      throw new BadRequestException(
+        'Message must include text or at least one attachment',
+      )
+    }
+
     const message = await this.prisma.projectRequestMessage.create({
       data: {
         requestId,
         authorUserId: actor.id,
         authorRole,
-        body: dto.body.trim(),
+        body,
       },
       include: {
         author: { select: userActorSelect },
@@ -1988,7 +2185,7 @@ export class ProjectsService {
       request.type === ProjectRequestType.PROGRESS
         ? `${this.notifications.clientPortalUrl()}/?ccView=projects&projectId=${request.projectId}`
         : `${this.notifications.clientPortalUrl()}/?ccView=approvals&requestId=${requestId}`
-    const snippet = dto.body.trim().slice(0, 200)
+    const snippet = body.slice(0, 200) || (attachmentIds.length ? 'Sent an attachment' : '')
 
     if (isClient) {
       void this.notifications.notifyAdmins({
@@ -2344,6 +2541,256 @@ export class ProjectsService {
 
     const signed = await this.storage.createDownloadUrl(attachment.storagePath)
     return { ...serializeAttachment(attachment), download: signed }
+  }
+
+  async removeAttachmentFromMessage(
+    actor: AuthenticatedClient | AuthenticatedAgencyUser,
+    attachmentId: string,
+    messageId?: string,
+  ) {
+    if (messageId?.trim()) {
+      return this.removeAttachmentFromSingleMessage(
+        actor,
+        attachmentId,
+        messageId.trim(),
+      )
+    }
+    return this.removeAttachmentFromLibrary(actor, attachmentId)
+  }
+
+  private async assertCanRemoveAttachment(
+    actor: AuthenticatedClient | AuthenticatedAgencyUser,
+    attachment: ProjectAttachment,
+  ) {
+    const isClient = 'organization' in actor && Boolean(actor.organization)
+
+    if (isClient) {
+      if (attachment.visibility === ProjectAttachmentVisibility.INTERNAL) {
+        throw new NotFoundException('Attachment not found')
+      }
+      await this.clientAccess.assertProjectAccess(
+        actor,
+        attachment.projectId,
+        'VIEW',
+      )
+      if (attachment.uploadedByUserId !== actor.id) {
+        throw new ForbiddenException('You can only remove files you uploaded')
+      }
+    } else if (isCollaboratorRole(actor.role)) {
+      await this.agencyAccess.assertCanAccessProject(actor, attachment.projectId)
+      if (attachment.uploadedByUserId !== actor.id) {
+        throw new ForbiddenException('You can only remove files you uploaded')
+      }
+    } else {
+      await this.agencyAccess.assertCanAccessProject(actor, attachment.projectId)
+    }
+  }
+
+  private async removeAttachmentFromLibrary(
+    actor: AuthenticatedClient | AuthenticatedAgencyUser,
+    attachmentId: string,
+  ) {
+    const attachment = await this.prisma.projectAttachment.findUnique({
+      where: { id: attachmentId },
+      include: {
+        messageLinks: {
+          include: {
+            message: { select: { requestId: true } },
+          },
+        },
+      },
+    })
+    if (!attachment) {
+      throw new NotFoundException('Attachment not found')
+    }
+
+    await this.assertCanRemoveAttachment(actor, attachment)
+
+    const isClient = 'organization' in actor && Boolean(actor.organization)
+    const approvedItem = await this.prisma.projectApprovalItem.findFirst({
+      where: {
+        attachmentId,
+        status: ProjectApprovalItemStatus.APPROVED,
+      },
+      select: { id: true },
+    })
+    if (approvedItem && isClient) {
+      throw new BadRequestException('Cannot remove a file that has already been approved')
+    }
+
+    const affectedRequestIds = [
+      ...new Set(attachment.messageLinks.map((link) => link.message.requestId)),
+    ]
+
+    let storagePathToDelete: string | null = null
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.projectRequestMessageAttachment.deleteMany({
+        where: { attachmentId },
+      })
+
+      if (!approvedItem) {
+        await tx.projectApprovalItem.deleteMany({
+          where: {
+            attachmentId,
+            status: {
+              in: [
+                ProjectApprovalItemStatus.PENDING,
+                ProjectApprovalItemStatus.NEEDS_CHANGES,
+              ],
+            },
+          },
+        })
+      }
+
+      const [remainingLinks, remainingApprovals, remainingCommentLinks] =
+        await Promise.all([
+          tx.projectRequestMessageAttachment.count({ where: { attachmentId } }),
+          tx.projectApprovalItem.count({ where: { attachmentId } }),
+          tx.projectApprovalCommentAttachment.count({ where: { attachmentId } }),
+        ])
+
+      if (
+        remainingLinks === 0 &&
+        remainingApprovals === 0 &&
+        remainingCommentLinks === 0
+      ) {
+        await tx.projectAttachment.delete({ where: { id: attachmentId } })
+        storagePathToDelete = attachment.storagePath
+      }
+    })
+
+    if (storagePathToDelete) {
+      await this.storage.deleteObject(storagePathToDelete)
+    }
+
+    await this.logActivity(attachment.projectId, actor.id, 'attachment.removed', {
+      attachmentId,
+      fileName: attachment.fileName,
+      scope: 'library',
+    })
+
+    for (const requestId of affectedRequestIds) {
+      void this.notifyThreadUpdate(requestId, 'attachment')
+    }
+
+    return { ok: true as const }
+  }
+
+  private async removeAttachmentFromSingleMessage(
+    actor: AuthenticatedClient | AuthenticatedAgencyUser,
+    attachmentId: string,
+    messageId: string,
+  ) {
+    const link = await this.prisma.projectRequestMessageAttachment.findUnique({
+      where: {
+        messageId_attachmentId: { messageId, attachmentId },
+      },
+      include: {
+        message: {
+          include: {
+            request: {
+              include: {
+                project: { include: { organization: { select: { id: true, name: true } } } },
+              },
+            },
+          },
+        },
+        attachment: true,
+      },
+    })
+    if (!link) {
+      throw new NotFoundException('Attachment not found on this message')
+    }
+
+    const request = link.message.request
+    await this.getRequestForActor(request.id, actor)
+
+    const attachment = link.attachment
+    const isClient = 'organization' in actor && Boolean(actor.organization)
+
+    await this.assertCanRemoveAttachment(actor, attachment)
+
+    const approvedItem = await this.prisma.projectApprovalItem.findFirst({
+      where: {
+        attachmentId,
+        status: ProjectApprovalItemStatus.APPROVED,
+      },
+      select: { id: true },
+    })
+    if (approvedItem && isClient) {
+      throw new BadRequestException('Cannot remove a file that has already been approved')
+    }
+
+    let storagePathToDelete: string | null = null
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.projectRequestMessageAttachment.delete({
+        where: { messageId_attachmentId: { messageId, attachmentId } },
+      })
+
+      if (!approvedItem) {
+        await tx.projectApprovalItem.deleteMany({
+          where: {
+            attachmentId,
+            status: {
+              in: [
+                ProjectApprovalItemStatus.PENDING,
+                ProjectApprovalItemStatus.NEEDS_CHANGES,
+              ],
+            },
+          },
+        })
+      }
+
+      const [remainingLinks, remainingApprovals, remainingCommentLinks] =
+        await Promise.all([
+          tx.projectRequestMessageAttachment.count({ where: { attachmentId } }),
+          tx.projectApprovalItem.count({ where: { attachmentId } }),
+          tx.projectApprovalCommentAttachment.count({ where: { attachmentId } }),
+        ])
+
+      if (
+        remainingLinks === 0 &&
+        remainingApprovals === 0 &&
+        remainingCommentLinks === 0
+      ) {
+        await tx.projectAttachment.delete({ where: { id: attachmentId } })
+        storagePathToDelete = attachment.storagePath
+      }
+    })
+
+    if (storagePathToDelete) {
+      await this.storage.deleteObject(storagePathToDelete)
+    }
+
+    await this.logActivity(attachment.projectId, actor.id, 'attachment.removed', {
+      requestId: request.id,
+      messageId,
+      attachmentId,
+      fileName: attachment.fileName,
+    })
+
+    void this.notifyThreadUpdate(request.id, 'attachment')
+
+    const fullThread = await this.prisma.projectRequest.findUnique({
+      where: { id: request.id },
+      include: {
+        ...this.requestInclude(),
+        project: { include: { organization: { select: { id: true, name: true } } } },
+      },
+    })
+    if (!fullThread) {
+      throw new NotFoundException('Request not found')
+    }
+
+    return {
+      ok: true as const,
+      thread: serializeRequest(
+        { ...fullThread, project: fullThread.project },
+        { omitStoragePath: isClient },
+      ),
+    }
   }
 
   // ─── Project cover ──────────────────────────────────────────────────────────

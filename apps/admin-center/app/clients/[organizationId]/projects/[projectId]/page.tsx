@@ -1,27 +1,10 @@
 import { Suspense } from 'react'
-import AdminProjectWorkspace, {
-  type ProjectWorkspaceTabId,
-} from '@/components/admin-project-workspace'
+import AdminProjectWorkspace from '@/components/admin-project-workspace'
+import { parseProjectWorkspaceTab } from '@/lib/project-workspace-tabs'
 
 type PageProps = {
   params: Promise<{ organizationId: string; projectId: string }>
   searchParams: Promise<{ tab?: string; thread?: string }>
-}
-
-function parseTab(value: string | undefined): ProjectWorkspaceTabId {
-  if (value === 'threads') {
-    return 'onboarding'
-  }
-  if (
-    value === 'overview' ||
-    value === 'onboarding' ||
-    value === 'progress' ||
-    value === 'team-review' ||
-    value === 'collaborators'
-  ) {
-    return value
-  }
-  return 'overview'
 }
 
 export default async function AdminProjectPage({ params, searchParams }: PageProps) {
@@ -33,7 +16,7 @@ export default async function AdminProjectPage({ params, searchParams }: PagePro
       <AdminProjectWorkspace
         organizationId={organizationId}
         projectId={projectId}
-        initialTab={parseTab(tab)}
+        initialTab={parseProjectWorkspaceTab(tab)}
       />
     </Suspense>
   )

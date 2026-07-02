@@ -1,5 +1,4 @@
 'use client'
-import { nestApiUrl } from '@cocreate/api-client'
 
 import { z } from 'zod'
 import {
@@ -9,19 +8,25 @@ import {
   ClientProjectDetailSchema,
   ClientProjectSummarySchema,
   ClientRecentActivityItemSchema,
+  OpenApprovalsResponseSchema,
   PortalNotificationItemSchema,
   ProjectRequestItemSchema,
   ProjectRequestMessageSchema,
 } from '@cocreate/api-contracts/v1/client-portal'
 
 import { parseApiResponseSafe } from '@/lib/api/parse-response'
-import { getPortalAccessToken } from '@/lib/api/portal-access-token'
+import {
+  PROJECT_ID_QUERY,
+  PROJECT_TAB_QUERY,
+  type PortalProjectTabId,
+} from '@/lib/control-center/project-workspace'
 import type { ClientRecentActivityItem } from '@/lib/dashboard/types'
 import type {
   ClientApprovalRecordItem,
   ClientDashboardStats,
   ClientProjectDetail,
   ClientProjectSummary,
+  PendingApprovalFileItem,
   PortalNotificationItem,
   ClientFilesLibrary,
   FilesQuery,
@@ -29,23 +34,47 @@ import type {
   ProjectRequestItem,
   ProjectRequestMessage,
 } from '@/lib/projects/api-types'
+import { mapPendingApprovalFilesFromApi } from '@/lib/projects/pending-approval-files'
 
+export type ApprovalsListResult<T> = {
+  items: T[]
+  parseFailed?: boolean
+}
+
+function parseApprovalsList<S extends z.ZodTypeAny>(
+  schema: S,
+  data: unknown,
+  label: string,
+): { items: z.infer<S>; parseFailed?: boolean } {
+  const parsed = parseApiResponseSafe(schema, data)
+  if (parsed) return { items: parsed }
+  if (process.env.NODE_ENV === 'development') {
+    console.warn(`[${label}] Response parse failed; using raw array fallback`)
+  }
+  return {
+    items: (Array.isArray(data) ? data : []) as z.infer<S>,
+    parseFailed: true,
+  }
+}
+
+
+function portalProxyUrl(path: string): string {
+  const normalized = path.startsWith('/') ? path : `/${path}`
+  if (!normalized.startsWith('/client-portal')) {
+    throw new Error(`portalFetch path must start with /client-portal: ${path}`)
+  }
+  return `/api${normalized}`
+}
 
 async function portalFetch<T>(
   path: string,
   init?: RequestInit,
 ): Promise<{ ok: true; data: T } | { ok: false; status: number; message: string }> {
-  const token = await getPortalAccessToken()
-  if (!token) {
-    return { ok: false, status: 401, message: 'Not signed in' }
-  }
-
   let response: Response
   try {
-    response = await fetch(nestApiUrl(path), {
+    response = await fetch(portalProxyUrl(path), {
       ...init,
       headers: {
-        Authorization: `Bearer ${token}`,
         ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
         ...init?.headers,
       },
@@ -137,15 +166,55 @@ export async function createProject(payload: {
   return { ok: true, project: result.data }
 }
 
-export async function fetchOpenApprovals(): Promise<ProjectRequestItem[]> {
+export async function fetchOpenApprovals(): Promise<
+  ApprovalsListResult<PendingApprovalFileItem>
+> {
   const result = await portalFetch<unknown>('/client-portal/projects/requests/open')
-  if (!result.ok) return []
-  const parsed = parseApiResponseSafe(z.array(ProjectRequestItemSchema), result.data)
-  if (parsed) return parsed
-  if (process.env.NODE_ENV === 'development') {
-    console.warn('[fetchOpenApprovals] Response parse failed; using raw array fallback')
+  if (!result.ok) {
+    throw new Error(result.message)
   }
-  return Array.isArray(result.data) ? (result.data as ProjectRequestItem[]) : []
+  const parsed = parseApiResponseSafe(OpenApprovalsResponseSchema, result.data)
+  if (parsed) {
+    const files =
+      parsed.files.length > 0
+        ? parsed.files
+        : parsed.items.map((item) => ({
+            id: item.id,
+            approvalItemId: item.id,
+            attachmentId: item.attachmentId,
+            fileName: item.fileName,
+            mimeType: item.mimeType,
+            sizeBytes: item.sizeBytes,
+            createdAt: item.createdAt,
+            requestId: item.requestId,
+            messageId: item.sentMessageId ?? '',
+            projectId: item.projectId,
+            projectTitle: item.projectTitle,
+            checkpointTitle: item.title,
+            checkpointBody: item.note ?? '',
+            status: item.status,
+            revisionNumber: item.revisionNumber,
+            sentAt: item.sentAt,
+          }))
+    return { items: files }
+  }
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('[fetchOpenApprovals] Response parse failed; using raw fallback')
+  }
+  const fallbackFiles =
+    typeof result.data === 'object' &&
+    result.data &&
+    'files' in result.data &&
+    Array.isArray((result.data as { files: unknown }).files)
+      ? ((result.data as { files: PendingApprovalFileItem[] }).files)
+      : []
+  return { items: fallbackFiles, parseFailed: true }
+}
+
+export function getPendingApprovalFilesFromOpenApprovals(
+  result: ApprovalsListResult<PendingApprovalFileItem> | undefined,
+) {
+  return mapPendingApprovalFilesFromApi(result?.items ?? [])
 }
 
 export async function fetchUnreadApprovalsCount(): Promise<number> {
@@ -162,16 +231,21 @@ export async function markApprovalsRead(requestId?: string): Promise<void> {
   })
 }
 
-export async function fetchApprovalHistory(): Promise<ClientApprovalRecordItem[]> {
+export async function fetchApprovalHistory(): Promise<
+  ApprovalsListResult<ClientApprovalRecordItem>
+> {
   const result = await portalFetch<unknown>(
     '/client-portal/approvals/history',
   )
-  if (!result.ok) return []
-  const parsed = parseApiResponseSafe(
+  if (!result.ok) {
+    throw new Error(result.message)
+  }
+  const { items, parseFailed } = parseApprovalsList(
     z.array(ClientApprovalRecordItemSchema),
     result.data,
+    'fetchApprovalHistory',
   )
-  return parsed ?? []
+  return { items, parseFailed }
 }
 
 export async function createCancellationRequest(
@@ -188,6 +262,58 @@ export async function approveCheckpointMessage(requestId: string, messageId: str
   return portalFetch<ProjectRequestMessage>(
     `/client-portal/project-requests/${requestId}/messages/${messageId}/approve`,
     { method: 'POST', body: JSON.stringify({}) },
+  )
+}
+
+export async function approveCheckpointFile(
+  requestId: string,
+  messageId: string,
+  attachmentId: string,
+) {
+  return portalFetch<{
+    attachmentId: string
+    fileName: string
+    checkpointCompleted: boolean
+    remainingFiles: number
+  }>(
+    `/client-portal/project-requests/${requestId}/messages/${messageId}/files/${encodeURIComponent(attachmentId)}/approve`,
+    { method: 'POST', body: JSON.stringify({}) },
+  )
+}
+
+export async function approveApprovalItem(approvalItemId: string) {
+  return portalFetch<{ item: unknown }>(
+    `/client-portal/approvals/${encodeURIComponent(approvalItemId)}/approve`,
+    { method: 'POST', body: JSON.stringify({}) },
+  )
+}
+
+export async function requestApprovalNeedsChanges(
+  approvalItemId: string,
+  body?: string,
+) {
+  return portalFetch<{ item: unknown }>(
+    `/client-portal/approvals/${encodeURIComponent(approvalItemId)}/needs-changes`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body ? { body } : {}),
+    },
+  )
+}
+
+export async function fetchApprovalComments(approvalItemId: string) {
+  return portalFetch<{ comments: unknown[] }>(
+    `/client-portal/approvals/${encodeURIComponent(approvalItemId)}/comments`,
+  )
+}
+
+export async function sendApprovalComment(approvalItemId: string, body: string) {
+  return portalFetch<{ comment: unknown }>(
+    `/client-portal/approvals/${encodeURIComponent(approvalItemId)}/comments`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    },
   )
 }
 
@@ -212,7 +338,16 @@ export async function createPhaseApproval(
 }
 
 export async function fetchRequestThread(requestId: string) {
-  return portalFetch<ProjectRequestItem>(`/client-portal/project-requests/${requestId}`)
+  const result = await portalFetch<unknown>(
+    `/client-portal/project-requests/${requestId}`,
+  )
+  if (!result.ok) return result
+  const parsed = parseApiResponseSafe(ProjectRequestItemSchema, result.data)
+  if (parsed) return { ok: true as const, data: parsed }
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('[fetchRequestThread] Response parse failed; using raw fallback')
+  }
+  return { ok: true as const, data: result.data as ProjectRequestItem }
 }
 
 export async function authorizeRequestThreadRealtime(requestId: string) {
@@ -288,10 +423,13 @@ export function navigateToApprovals(requestId?: string) {
   window.location.href = query ? `/?${query}` : '/?ccView=approvals'
 }
 
-export function navigateToProject(projectId: string) {
+export function navigateToProject(projectId: string, tab?: PortalProjectTabId) {
   const params = new URLSearchParams(window.location.search)
   params.set('ccView', 'projects')
-  params.set('projectId', projectId)
+  params.set(PROJECT_ID_QUERY, projectId)
+  if (tab && tab !== 'overview') {
+    params.set(PROJECT_TAB_QUERY, tab)
+  }
   window.location.href = `/?${params.toString()}`
 }
 
@@ -371,26 +509,53 @@ export async function registerAttachment(
   })
 }
 
+export type AttachmentDownloadUrlResult = {
+  url: string | null
+  error?: string
+}
+
+function attachmentDownloadErrorMessage(
+  status: number,
+  data: unknown,
+): string {
+  if (typeof data === 'object' && data && 'message' in data) {
+    const message = String((data as { message: unknown }).message)
+    if (message) return message
+  }
+  if (status === 404) return 'File not found'
+  if (status === 403) return 'You do not have access to this file'
+  if (status === 0) return 'Could not reach the download service'
+  return `Could not load file (${status})`
+}
+
 export async function fetchAttachmentDownloadUrl(
   attachmentId: string,
-): Promise<string | null> {
+): Promise<AttachmentDownloadUrlResult> {
   try {
     const response = await fetch(`/api/attachments/${attachmentId}/download`, {
       cache: 'no-store',
+      credentials: 'include',
     })
     const data = await response.json().catch(() => null)
-    if (!response.ok) return null
+    if (!response.ok) {
+      return {
+        url: null,
+        error: attachmentDownloadErrorMessage(response.status, data),
+      }
+    }
     if (
       typeof data === 'object' &&
       data &&
       'download' in data &&
       typeof (data as { download: { signedUrl?: string } }).download?.signedUrl === 'string'
     ) {
-      return (data as { download: { signedUrl: string } }).download.signedUrl
+      return {
+        url: (data as { download: { signedUrl: string } }).download.signedUrl,
+      }
     }
-    return null
+    return { url: null, error: 'Could not sign download URL' }
   } catch {
-    return null
+    return { url: null, error: 'Could not reach the download service' }
   }
 }
 

@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   Req,
+  BadRequestException,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common'
@@ -32,12 +33,19 @@ import {
   type UpdateRequestInput,
   UploadUrlSchema,
   type UploadUrlInput,
+  SendApprovalFilesSchema,
+  type SendApprovalFilesInput,
+  SubmitApprovalRevisionSchema,
+  type SubmitApprovalRevisionInput,
+  AddApprovalCommentSchema,
+  type AddApprovalCommentInput,
 } from '@cocreate/api-contracts/v1/requests/projects'
 import { AdminAuthGuard } from '../auth/guards/admin-auth.guard'
 import type { AdminRequest } from '../auth/guards/admin-auth.guard'
 import { zodBody } from '../common/zod/zod-validation.pipe'
 import { OrganizationBrandAssetsService } from './organization-brand-assets.service'
 import { ProjectsService } from './projects.service'
+import { ProjectApprovalsService } from './project-approvals.service'
 import { ProjectAttachmentVisibility } from '@cocreate/database'
 
 @Controller({ path: 'admin', version: '1' })
@@ -46,6 +54,7 @@ export class AdminProjectsController {
   constructor(
     private readonly projects: ProjectsService,
     private readonly brandAssets: OrganizationBrandAssetsService,
+    private readonly approvals: ProjectApprovalsService,
   ) {}
 
   private actor(req: AdminRequest) {
@@ -93,6 +102,57 @@ export class AdminProjectsController {
     @Body(zodBody(CreateCheckpointSchema)) body: CreateCheckpointInput,
   ) {
     return this.projects.sendProgressCheckpoint(this.actor(req), id, body)
+  }
+
+  @Post('projects/:id/approvals')
+  sendApprovalFiles(
+    @Req() req: AdminRequest,
+    @Param('id') id: string,
+    @Body(zodBody(SendApprovalFilesSchema)) body: SendApprovalFilesInput,
+  ) {
+    return this.approvals.sendApprovalFiles(this.actor(req), id, body)
+  }
+
+  @Get('projects/:id/approvals')
+  listApprovalFiles(
+    @Req() req: AdminRequest,
+    @Param('id') id: string,
+    @Query('status') status?: string,
+    @Query('includeComments') includeComments?: string,
+  ) {
+    const parsedStatus =
+      status === 'PENDING' || status === 'APPROVED' || status === 'NEEDS_CHANGES'
+        ? status
+        : undefined
+    return this.approvals.listApprovalItemsForProject(
+      this.actor(req),
+      id,
+      parsedStatus,
+      { includeComments: includeComments === 'true' },
+    )
+  }
+
+  @Post('approvals/:itemId/revision')
+  submitApprovalRevision(
+    @Req() req: AdminRequest,
+    @Param('itemId') itemId: string,
+    @Body(zodBody(SubmitApprovalRevisionSchema)) body: SubmitApprovalRevisionInput,
+  ) {
+    return this.approvals.submitRevision(this.actor(req), itemId, body)
+  }
+
+  @Get('approvals/:itemId/comments')
+  listApprovalComments(@Req() req: AdminRequest, @Param('itemId') itemId: string) {
+    return this.approvals.listComments(this.actor(req), itemId)
+  }
+
+  @Post('approvals/:itemId/comments')
+  addApprovalComment(
+    @Req() req: AdminRequest,
+    @Param('itemId') itemId: string,
+    @Body(zodBody(AddApprovalCommentSchema)) body: AddApprovalCommentInput,
+  ) {
+    return this.approvals.addComment(this.actor(req), itemId, body)
   }
 
   @Post('projects/:id/attachments/upload-url')
@@ -188,6 +248,19 @@ export class AdminProjectsController {
     @Param('attachmentId') attachmentId: string,
   ) {
     return this.projects.getAttachmentDownloadUrl(this.actor(req), attachmentId)
+  }
+
+  @Delete('attachments/:attachmentId')
+  removeAttachmentFromMessage(
+    @Req() req: AdminRequest,
+    @Param('attachmentId') attachmentId: string,
+    @Query('messageId') messageId?: string,
+  ) {
+    return this.projects.removeAttachmentFromMessage(
+      this.actor(req),
+      attachmentId,
+      messageId?.trim() || undefined,
+    )
   }
 
   @Get('project-requests/:requestId')

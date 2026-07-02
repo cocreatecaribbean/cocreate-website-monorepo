@@ -298,7 +298,7 @@ function MembersTable({
                     <select
                       value={member.clientOrgRole ?? 'MEMBER'}
                       onChange={(e) => onRoleChange(member, e.target.value as ClientOrgRole)}
-                      className="portal-input rounded-lg px-2 py-1 text-sm"
+                      className="portal-input rounded-lg py-1 pr-9 pl-2 text-sm"
                     >
                       <option value="PROJECT_MANAGER">Project manager</option>
                       <option value="MEMBER">Member</option>
@@ -355,7 +355,7 @@ function MembersTable({
                   <select
                     value={member.clientOrgRole ?? 'MEMBER'}
                     onChange={(e) => onRoleChange(member, e.target.value as ClientOrgRole)}
-                    className="portal-input rounded-lg px-2 py-1 text-sm"
+                    className="portal-input rounded-lg py-1 pr-9 pl-2 text-sm"
                   >
                     <option value="PROJECT_MANAGER">Project manager</option>
                     <option value="MEMBER">Member</option>

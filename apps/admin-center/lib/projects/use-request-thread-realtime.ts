@@ -61,22 +61,41 @@ export function useRequestThreadRealtime(
       }, INVALIDATE_DEBOUNCE_MS)
     }
 
-    const handlePayload = (payload: ThreadRealtimePayload) => {
-      if (payload.reason === 'message' && payload.message) {
-        appendRequestMessageToCache(queryClient, requestId, payload.message)
-        const keys = invalidateQueryKeysRef.current
-        if (keys?.length) {
-          for (const queryKey of keys) {
-            const detailKey = adminQueryKeys.requests.detail(requestId)
-            const isDetail =
-              Array.isArray(queryKey) &&
-              queryKey.length === detailKey.length &&
-              queryKey.every((part, index) => part === detailKey[index])
-            if (!isDetail) {
-              void queryClient.invalidateQueries({ queryKey })
-            }
-          }
+    const invalidateNonDetailKeys = () => {
+      const keys = invalidateQueryKeysRef.current
+      if (!keys?.length) return
+      const detailKey = adminQueryKeys.requests.detail(requestId)
+      for (const queryKey of keys) {
+        const isDetail =
+          Array.isArray(queryKey) &&
+          queryKey.length === detailKey.length &&
+          queryKey.every((part, index) => part === detailKey[index])
+        if (!isDetail) {
+          void queryClient.invalidateQueries({ queryKey })
         }
+      }
+    }
+
+    const handlePayload = (payload: ThreadRealtimePayload) => {
+    if (payload.reason === 'message' && payload.message) {
+      appendRequestMessageToCache(queryClient, requestId, payload.message)
+      const hasAttachments =
+        Boolean(payload.message.attachments?.length) ||
+        Boolean(payload.message.attachmentIds?.length)
+      if (hasAttachments) {
+        invalidateNonDetailKeys()
+      } else {
+        invalidateNonDetailKeys()
+      }
+      return
+    }
+    if (payload.reason === 'checkpoint') {
+      invalidateNonDetailKeys()
+      scheduleInvalidate()
+      return
+    }
+      if (payload.reason === 'attachment') {
+        invalidateNonDetailKeys()
         return
       }
       scheduleInvalidate()

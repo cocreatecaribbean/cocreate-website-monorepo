@@ -58,6 +58,13 @@ export function useRequestThreadRealtime(
     const handlePayload = (payload: ThreadRealtimePayload) => {
       if (payload.reason === 'message' && payload.message) {
         appendRequestMessageToCache(queryClient, requestId, payload.message)
+        const hasAttachments =
+          Boolean(payload.message.attachments?.length) ||
+          Boolean(payload.message.attachmentIds?.length)
+        if (hasAttachments) {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.approvals.open() })
+          void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.stats() })
+        }
         const keys = invalidateQueryKeysRef.current
         if (keys?.length) {
           for (const queryKey of keys) {
@@ -72,6 +79,10 @@ export function useRequestThreadRealtime(
           }
         }
         return
+      }
+      if (payload.reason === 'checkpoint') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.approvals.all })
+        void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.stats() })
       }
       scheduleInvalidate()
     }

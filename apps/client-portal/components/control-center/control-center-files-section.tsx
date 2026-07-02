@@ -1,13 +1,16 @@
 'use client'
 
 import { useCallback, useDeferredValue, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import FilePreviewModal from '@/components/file-preview-modal'
 import type { ClientFilesLibrary, ProjectAttachmentWithUsage } from '@/lib/projects/api-types'
 import { useUploadProjectFilesMutation } from '@/lib/api/mutations/files'
 import { useFilesLibraryQuery } from '@/lib/api/queries/files'
 import { useAttachmentDownloadUrl } from '@/lib/api/queries/projects'
+import { usePortalProfileQuery } from '@/lib/api/queries/team'
+import { removeLibraryAttachment } from '@/lib/projects/remove-library-attachment'
 import { bricolage_grot600 } from '@/styles/fonts'
-import { Download, FileText, FolderKanban, Loader2, Search, Upload } from 'lucide-react'
+import { Download, FileText, FolderKanban, Loader2, Play, Search, Trash2, Upload } from 'lucide-react'
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -30,16 +33,24 @@ function FileRow({
   file,
   onPreview,
   projectTitle,
+  onDelete,
+  deleting = false,
+  canDelete = false,
 }: {
   file: ProjectAttachmentWithUsage
   onPreview: (file: ProjectAttachmentWithUsage, url: string | null) => void
   projectTitle?: string
+  onDelete?: (file: ProjectAttachmentWithUsage) => Promise<void>
+  deleting?: boolean
+  canDelete?: boolean
 }) {
   const isImage = file.mimeType.startsWith('image/')
-  const { data: downloadUrl } = useAttachmentDownloadUrl(file.id)
+  const isVideo = file.mimeType.startsWith('video/')
+  const { data: downloadResult } = useAttachmentDownloadUrl(file.id)
+  const downloadUrl = downloadResult?.url ?? null
 
   const openPreview = async () => {
-    onPreview(file, downloadUrl ?? null)
+    onPreview(file, downloadUrl)
   }
 
   const onDownload = async (event: React.MouseEvent) => {
@@ -50,6 +61,16 @@ function FileRow({
     anchor.download = file.fileName
     anchor.rel = 'noopener noreferrer'
     anchor.click()
+  }
+
+  const onDeleteClick = async (event: React.MouseEvent) => {
+    event.stopPropagation()
+    if (!onDelete) return
+    const confirmMessage = file.usedInThreads
+      ? `Remove "${file.fileName}" from your files and all conversations?`
+      : `Remove "${file.fileName}" from your project files?`
+    if (!window.confirm(confirmMessage)) return
+    await onDelete(file)
   }
 
   return (
@@ -73,6 +94,8 @@ function FileRow({
               alt={file.fileName}
               className="h-full w-full object-cover"
             />
+          ) : isVideo ? (
+            <Play className="h-5 w-5" aria-hidden />
           ) : (
             <FileText className="h-5 w-5" aria-hidden />
           )}
@@ -89,14 +112,27 @@ function FileRow({
       <p className="text-xs text-app-muted">{formatRelativeTime(file.createdAt)}</p>
       <div className="flex items-center justify-between gap-2 sm:justify-end">
         <span className="text-xs text-app-muted">{formatBytes(file.sizeBytes)}</span>
-        <button
-          type="button"
-          onClick={(event) => void onDownload(event)}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sanmarino transition hover:bg-chambray/8 hover:text-chambray"
-          aria-label={`Download ${file.fileName}`}
-        >
-          <Download className="h-4 w-4" aria-hidden />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={(event) => void onDownload(event)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sanmarino transition hover:bg-chambray/8 hover:text-chambray"
+            aria-label={`Download ${file.fileName}`}
+          >
+            <Download className="h-4 w-4" aria-hidden />
+          </button>
+          {canDelete && onDelete ? (
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={(event) => void onDeleteClick(event)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-700 transition hover:bg-red-50 disabled:opacity-50 dark:text-red-300 dark:hover:bg-red-950/40"
+              aria-label={`Remove ${file.fileName}`}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden />
+            </button>
+          ) : null}
+        </div>
       </div>
     </li>
   )
@@ -106,10 +142,16 @@ function ProjectFilesBlock({
   group,
   onRefresh,
   onPreview,
+  onDeleteFile,
+  deletingAttachmentId,
+  currentUserId,
 }: {
   group: ClientFilesLibrary['projects'][number]
   onRefresh: () => void
   onPreview: (file: ProjectAttachmentWithUsage, url: string | null) => void
+  onDeleteFile: (file: ProjectAttachmentWithUsage, projectId: string) => Promise<void>
+  deletingAttachmentId: string | null
+  currentUserId: string | null
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const uploadMutation = useUploadProjectFilesMutation(group.projectId)
@@ -131,6 +173,8 @@ function ProjectFilesBlock({
 
   const totalCount = group.libraryUploads.length + group.usedInThreads.length
   const uploading = uploadMutation.isPending
+  const canDeleteFile = (file: ProjectAttachmentWithUsage) =>
+    Boolean(currentUserId && file.uploadedByUserId === currentUserId)
 
   return (
     <section className="portal-glass-card portal-animate-in overflow-hidden">
@@ -189,6 +233,9 @@ function ProjectFilesBlock({
                     key={file.id}
                     file={file}
                     onPreview={onPreview}
+                    onDelete={(item) => onDeleteFile(item, group.projectId)}
+                    deleting={deletingAttachmentId === file.id}
+                    canDelete={canDeleteFile(file)}
                   />
                 ))}
               </ul>
@@ -207,6 +254,9 @@ function ProjectFilesBlock({
                     key={file.id}
                     file={file}
                     onPreview={onPreview}
+                    onDelete={(item) => onDeleteFile(item, group.projectId)}
+                    deleting={deletingAttachmentId === file.id}
+                    canDelete={canDeleteFile(file)}
                   />
                 ))}
               </ul>
@@ -219,6 +269,9 @@ function ProjectFilesBlock({
 }
 
 export default function ControlCenterFilesSection() {
+  const queryClient = useQueryClient()
+  const { data: profile } = usePortalProfileQuery()
+  const currentUserId = profile?.user.id ?? null
   const [query, setQuery] = useState('')
   const deferredSearch = useDeferredValue(query.trim())
   const [projectId, setProjectId] = useState('')
@@ -237,6 +290,27 @@ export default function ControlCenterFilesSection() {
     projectId: projectId || undefined,
     q: search || undefined,
   })
+
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const handleDeleteFile = useCallback(
+    async (file: ProjectAttachmentWithUsage, projectIdForFile: string) => {
+      setDeletingAttachmentId(file.id)
+      setDeleteError(null)
+      const result = await removeLibraryAttachment(queryClient, {
+        attachmentId: file.id,
+        projectId: projectIdForFile,
+      })
+      if (!result.ok) {
+        setDeleteError(result.message)
+      } else {
+        await refetch()
+      }
+      setDeletingAttachmentId(null)
+    },
+    [queryClient, refetch],
+  )
 
   if (loading) {
     return (
@@ -291,6 +365,10 @@ export default function ControlCenterFilesSection() {
         </div>
       </section>
 
+      {deleteError ? (
+        <p className="portal-glass-card portal-alert-error p-5 sm:p-6">{deleteError}</p>
+      ) : null}
+
       {library.projects.length === 0 ? (
         <p className="portal-glass-card p-8 text-center text-sm text-app-muted">
           No files found.
@@ -302,6 +380,9 @@ export default function ControlCenterFilesSection() {
             group={group}
             onRefresh={() => void refetch()}
             onPreview={(file, url) => setPreview({ file, url })}
+            onDeleteFile={handleDeleteFile}
+            deletingAttachmentId={deletingAttachmentId}
+            currentUserId={currentUserId}
           />
         ))
       )}

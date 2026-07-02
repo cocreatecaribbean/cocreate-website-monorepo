@@ -1,18 +1,23 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
-import { LinkifiedBody } from '@/lib/projects/thread-content'
+import OrgInboxAttachmentComposer from '@/components/org-inbox-attachment-composer'
+import { LinkifiedBody, RequestAttachments } from '@/lib/projects/thread-content'
+import { canSendThreadMessage } from '@/lib/messaging/can-send-thread-message'
 import { useThreadAutoScroll } from '@/lib/projects/use-thread-auto-scroll'
+import { ThreadScrollEnd } from '@cocreate/app-ui/scroll-to-latest'
 import { queryKeys } from '@/lib/api/query-keys'
 import {
   createOrgInboxConversation,
+  fetchOrgInboxAttachmentDownloadUrl,
   fetchOrgInboxConversations,
   fetchOrgInboxMessages,
   markOrgInboxRead,
   sendOrgInboxMessage,
+  uploadOrgInboxFiles,
   type OrgInboxConversation,
   type OrgInboxMessage,
 } from '@/lib/inbox/fetch-inbox-client'
@@ -43,6 +48,8 @@ export default function OrgInboxMessagesView() {
 
   const conversations = conversationsQuery.data ?? []
   const [body, setBody] = useState('')
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -76,26 +83,34 @@ export default function OrgInboxMessagesView() {
   }, [queryClient, conversationId])
 
   const messages = messagesQuery.data ?? []
-  const { panelRef, scrollToBottom } = useThreadAutoScroll(messages, conversationId ?? '')
+  const { panelRef, endRef, notifyUserSent } = useThreadAutoScroll(messages, conversationId ?? '')
+  const fetchDownloadUrl = useCallback(async (attachmentId: string) => {
+    const url = await fetchOrgInboxAttachmentDownloadUrl(attachmentId)
+    return url
+      ? { url }
+      : { url: null, error: 'Could not load file' }
+  }, [])
 
   const sendMutation = useMutation({
-    mutationFn: (text: string) => sendOrgInboxMessage(conversationId!, text),
-    onMutate: async (text) => {
+    mutationFn: (payload: { body: string; attachmentIds?: string[] }) =>
+      sendOrgInboxMessage(conversationId!, payload),
+    onMutate: async (payload) => {
       if (!conversationId || !profile?.user) return
       const queryKey = queryKeys.inbox.messages(conversationId)
       await queryClient.cancelQueries({ queryKey })
       const previous = queryClient.getQueryData<OrgInboxMessage[]>(queryKey)
-      const optimistic = createOptimisticInboxMessage(conversationId, text, {
+      const optimistic = createOptimisticInboxMessage(conversationId, payload.body, {
         userId: profile.user.id,
         email: profile.user.email,
         role: 'CLIENT',
       })
       queryClient.setQueryData(queryKey, [...(previous ?? []), optimistic])
       setBody('')
-      scrollToBottom(true)
+      setPendingFiles([])
+      notifyUserSent()
       return { previous, optimisticId: optimistic.id }
     },
-    onSuccess: (serverMessage, _text, context) => {
+    onSuccess: (serverMessage, _payload, context) => {
       if (!conversationId || !context) return
       const queryKey = queryKeys.inbox.messages(conversationId)
       queryClient.setQueryData<OrgInboxMessage[]>(queryKey, (current) =>
@@ -104,10 +119,10 @@ export default function OrgInboxMessagesView() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.inbox.conversations() })
       void queryClient.invalidateQueries({ queryKey: queryKeys.inbox.unreadCount() })
     },
-    onError: (err, text, context) => {
+    onError: (err, payload, context) => {
       if (!conversationId || !context) return
       queryClient.setQueryData(queryKeys.inbox.messages(conversationId), context.previous)
-      setBody(text)
+      setBody(payload.body)
       setError(err instanceof Error ? err.message : 'Send failed')
     },
   })
@@ -132,11 +147,31 @@ export default function OrgInboxMessagesView() {
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
   }
 
-  const onSubmit = (event: FormEvent) => {
+  const onSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    if (!conversationId || !body.trim()) return
+    if (
+      !conversationId ||
+      !canSendThreadMessage(body, [], pendingFiles, uploading || sendMutation.isPending)
+    ) {
+      return
+    }
     setError(null)
-    sendMutation.mutate(body.trim())
+    setUploading(true)
+    try {
+      const uploaded = await uploadOrgInboxFiles(conversationId, pendingFiles)
+      if (!uploaded.ok) {
+        setError(uploaded.message ?? 'Could not upload attachments')
+        return
+      }
+      await sendMutation.mutateAsync({
+        body: body.trim(),
+        attachmentIds: uploaded.attachmentIds,
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Send failed')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const onCreateRestricted = async () => {
@@ -240,19 +275,31 @@ export default function OrgInboxMessagesView() {
                             {isMine ? 'You' : msg.authorEmail} ·{' '}
                             {new Date(msg.createdAt).toLocaleString()}
                           </p>
-                          <div
-                            className={`mt-1 max-w-[90%] rounded-lg px-3 py-2 text-sm ${
-                              isMine
-                                ? 'bg-sanmarino/15 text-chambray'
-                                : 'bg-black/5 dark:bg-white/5'
-                            } ${isPendingInboxMessage(msg.id) ? 'opacity-80' : ''}`}
-                          >
-                            <LinkifiedBody body={msg.body} />
-                          </div>
+                          {msg.body.trim() ? (
+                            <div
+                              className={`mt-1 max-w-[90%] rounded-lg px-3 py-2 text-sm ${
+                                isMine
+                                  ? 'bg-sanmarino/15 text-chambray'
+                                  : 'bg-black/5 dark:bg-white/5'
+                              } ${isPendingInboxMessage(msg.id) ? 'opacity-80' : ''}`}
+                            >
+                              <LinkifiedBody body={msg.body} />
+                            </div>
+                          ) : null}
+                          {msg.attachments?.length ? (
+                            <RequestAttachments
+                              attachments={msg.attachments}
+                              fetchDownloadUrl={fetchDownloadUrl}
+                              variant="portal"
+                              showHeading={false}
+                              className={`mt-2 max-w-[90%] ${isMine ? 'self-end' : 'self-start'}`}
+                            />
+                          ) : null}
                         </div>
                       )
                     })
                   )}
+                  <ThreadScrollEnd ref={endRef} />
                 </div>
                 {error ? (
                   <p className="mt-2 shrink-0 text-sm text-red-600" role="alert">
@@ -260,22 +307,34 @@ export default function OrgInboxMessagesView() {
                   </p>
                 ) : null}
                 <form
-                  onSubmit={onSubmit}
-                  className="mt-4 flex shrink-0 gap-2 border-t border-chambray/10 pt-4"
+                  onSubmit={(e) => void onSubmit(e)}
+                  className="mt-4 shrink-0 space-y-2 border-t border-chambray/10 pt-4"
                 >
                   <textarea
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
                     rows={2}
                     placeholder="Write a message…"
-                    className="portal-input min-h-[44px] flex-1 resize-y text-sm"
+                    className="portal-input min-h-[44px] w-full resize-y text-sm"
+                  />
+                  <OrgInboxAttachmentComposer
+                    disabled={uploading || sendMutation.isPending}
+                    pendingFiles={pendingFiles}
+                    onPendingFilesChange={setPendingFiles}
                   />
                   <button
                     type="submit"
-                    disabled={!body.trim()}
-                    className="portal-btn-primary shrink-0 self-end"
+                    disabled={
+                      !canSendThreadMessage(
+                        body,
+                        [],
+                        pendingFiles,
+                        uploading || sendMutation.isPending,
+                      )
+                    }
+                    className="portal-btn-primary"
                   >
-                    Send
+                    {uploading ? 'Uploading…' : 'Send'}
                   </button>
                 </form>
               </>

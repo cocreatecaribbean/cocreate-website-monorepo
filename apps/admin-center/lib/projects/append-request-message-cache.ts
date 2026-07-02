@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
+import { mergeRequestMessageIntoThread } from '@cocreate/app-ui/thread-message-merge'
 
 import { adminQueryKeys } from '@/lib/api/query-keys'
 import type { ProjectRequestItem, ProjectRequestMessage } from '@/lib/projects/types'
@@ -10,10 +11,6 @@ export function appendRequestMessageToCache(
 ): void {
   queryClient.setQueryData<ProjectRequestItem>(adminQueryKeys.requests.detail(requestId), (old) => {
     if (!old) return old
-    if (old.messages?.some((entry) => entry.id === message.id)) return old
-    return {
-      ...old,
-      messages: [...(old.messages ?? []), message],
-    }
+    return mergeRequestMessageIntoThread(old, message)
   })
 }

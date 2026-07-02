@@ -1,7 +1,8 @@
 'use client'
 
+import { AttachmentPreviews } from '@cocreate/app-ui/attachment-previews'
 import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-projects-client'
-import { RequestAttachments, type ThreadAttachment } from '@/lib/projects/thread-content'
+import type { ThreadAttachment } from '@/lib/projects/thread-content'
 
 type ApprovalAttachmentPreviewsProps = {
   attachments: ThreadAttachment[]
@@ -12,12 +13,14 @@ export default function ApprovalAttachmentPreviews({
   attachments,
   compact = false,
 }: ApprovalAttachmentPreviewsProps) {
-  if (!attachments.length) return null
-
   return (
-    <RequestAttachments
+    <AttachmentPreviews
       attachments={attachments}
-      fetchDownloadUrl={fetchAttachmentDownloadUrl}
+      fetchDownloadUrl={async (attachmentId) => {
+        const result = await fetchAttachmentDownloadUrl(attachmentId)
+        return result.url
+      }}
+      variant="portal"
       showHeading={false}
       compact={compact}
       className={compact ? 'mt-2' : 'mt-3'}

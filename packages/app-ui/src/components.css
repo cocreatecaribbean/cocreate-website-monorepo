@@ -95,6 +95,57 @@
   .dark .admin-input,
   .dark .cc-input { @apply border-white/12 placeholder:text-slate-500; }
 
+  .portal-input:is(select),
+  .admin-input:is(select),
+  .cc-input:is(select) {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 2.75rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2339419a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1rem;
+    cursor: pointer;
+  }
+  .dark .portal-input:is(select),
+  .dark .admin-input:is(select),
+  .dark .cc-input:is(select) {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23f6b03f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+
+  .portal-field-menu {
+    border-radius: var(--radius-panel);
+    @apply overflow-hidden border ring-1;
+    border-color: var(--surface-border);
+    background-color: var(--surface-card-solid);
+    box-shadow: var(--shadow-card);
+    --tw-ring-color: rgba(57, 65, 154, 0.08);
+  }
+  .dark .portal-field-menu {
+    --tw-ring-color: rgba(255, 255, 255, 0.08);
+  }
+  .portal-field-menu-item {
+    @apply flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition;
+    color: var(--text-primary);
+  }
+  .portal-field-menu-item:hover,
+  .portal-field-menu-item:focus-visible {
+    @apply bg-chambray/8 outline-none;
+  }
+  .portal-field-menu-item--active {
+    @apply bg-chambray text-white;
+  }
+  .portal-field-menu-item--active:hover,
+  .portal-field-menu-item--active:focus-visible {
+    @apply bg-chambray text-white;
+  }
+  .portal-field-menu-item-icon {
+    @apply h-3.5 w-3.5 shrink-0 text-chambray;
+  }
+  .portal-field-menu-item--active .portal-field-menu-item-icon {
+    @apply text-white;
+  }
+
   .portal-textarea,
   .admin-textarea,
   .cc-textarea {
@@ -174,9 +225,11 @@
   .dark .admin-thread-panel,
   .dark .cc-thread-panel { @apply border-white/10; }
 
-  .portal-message-thread-shell,
-  .admin-message-thread-shell {
+  .portal-message-thread-shell {
     @apply flex min-h-0 flex-col overflow-hidden;
+  }
+  .admin-message-thread-shell {
+    @apply flex min-h-0 w-full max-w-[min(100%,var(--thread-column-max))] flex-col overflow-hidden;
   }
   .portal-message-thread-shell .portal-thread-panel,
   .admin-message-thread-shell .admin-thread-panel,

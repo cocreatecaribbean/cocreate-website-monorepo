@@ -1,7 +1,8 @@
 import { ForbiddenException, Injectable } from '@nestjs/common'
 import {
   ClientProjectStatus,
-  ProjectMessageKind,
+  PortalNotificationType,
+  ProjectApprovalItemStatus,
   ProjectRequestType,
   UserRole,
   UserStatus,
@@ -16,11 +17,8 @@ export type ClientDashboardStats = ClientDashboardStatsContract
 
 export type AdminDashboardStats = AdminDashboardStatsContract
 
-const pendingCheckpointMessageWhere = {
-  messageKind: ProjectMessageKind.CHECKPOINT,
-  requiresClientApproval: true,
-  supersededAt: null,
-  clientApprovedAt: null,
+const pendingApprovalItemWhere = {
+  status: ProjectApprovalItemStatus.PENDING,
 } as const
 
 @Injectable()
@@ -40,12 +38,9 @@ export class DashboardStatsService {
     const orgId = this.requireOrgId(client)
     const accessibleProjects = this.clientAccess.accessibleProjectsWhere(client)
 
-    const pendingCheckpointOnProject = {
-      requests: {
-        some: {
-          type: ProjectRequestType.PROGRESS,
-          messages: { some: pendingCheckpointMessageWhere },
-        },
+    const pendingApprovalOnProject = {
+      approvalItems: {
+        some: pendingApprovalItemWhere,
       },
     }
 
@@ -63,16 +58,13 @@ export class DashboardStatsService {
         where: {
           ...accessibleProjects,
           status: ClientProjectStatus.ACTIVE,
-          ...pendingCheckpointOnProject,
+          ...pendingApprovalOnProject,
         },
       }),
-      this.prisma.projectRequestMessage.count({
+      this.prisma.projectApprovalItem.count({
         where: {
-          ...pendingCheckpointMessageWhere,
-          request: {
-            type: ProjectRequestType.PROGRESS,
-            project: accessibleProjects,
-          },
+          ...pendingApprovalItemWhere,
+          project: accessibleProjects,
         },
       }),
       this.prisma.projectAttachment.count({

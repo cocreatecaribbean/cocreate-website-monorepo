@@ -1,18 +1,23 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 
 import { useAdminSession } from '@/components/admin-session-provider'
-import { LinkifiedBody } from '@/lib/projects/thread-content'
+import OrgInboxAttachmentComposer from '@/components/org-inbox-attachment-composer'
+import { LinkifiedBody, RequestAttachments } from '@/lib/projects/thread-content'
 import { useThreadAutoScroll } from '@/lib/projects/use-thread-auto-scroll'
+import { ThreadScrollEnd } from '@cocreate/app-ui/scroll-to-latest'
+import { canSendThreadMessage } from '@/lib/messaging/can-send-thread-message'
 import { adminQueryKeys } from '@/lib/api/query-keys'
 import {
+  fetchOrgInboxAttachmentDownloadUrl,
   fetchAdminOrgInboxConversationsForClient,
   fetchAdminOrgInboxMessages,
   markAdminOrgInboxRead,
   sendAdminOrgInboxMessage,
+  uploadOrgInboxFiles,
   type OrgInboxMessage,
 } from '@/lib/inbox/fetch-org-inbox-admin'
 import {
@@ -41,6 +46,8 @@ export default function AdminOrgInboxThreadView({
   const queryClient = useQueryClient()
   const { session } = useAdminSession()
   const [body, setBody] = useState('')
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const conversationsQuery = useQuery({
@@ -76,26 +83,32 @@ export default function AdminOrgInboxThreadView({
   }, [conversationId, organizationId, queryClient])
 
   const messages = messagesQuery.data ?? []
-  const { panelRef, scrollToBottom } = useThreadAutoScroll(messages, conversationId)
+  const { panelRef, endRef, notifyUserSent } = useThreadAutoScroll(messages, conversationId)
+  const fetchDownloadUrl = useCallback(
+    (attachmentId: string) => fetchOrgInboxAttachmentDownloadUrl(attachmentId),
+    [],
+  )
 
   const sendMutation = useMutation({
-    mutationFn: (text: string) => sendAdminOrgInboxMessage(conversationId, text),
-    onMutate: async (text) => {
+    mutationFn: (payload: { body: string; attachmentIds?: string[] }) =>
+      sendAdminOrgInboxMessage(conversationId, payload),
+    onMutate: async (payload) => {
       if (session?.mode !== 'user' || !session.userId || !session.email) return
       const queryKey = adminQueryKeys.orgInbox.messages(conversationId)
       await queryClient.cancelQueries({ queryKey })
       const previous = queryClient.getQueryData<OrgInboxMessage[]>(queryKey)
-      const optimistic = createOptimisticInboxMessage(conversationId, text, {
+      const optimistic = createOptimisticInboxMessage(conversationId, payload.body, {
         userId: session.userId,
         email: session.email,
         role: 'ADMIN',
       })
       queryClient.setQueryData(queryKey, [...(previous ?? []), optimistic])
       setBody('')
-      scrollToBottom(true)
+      setPendingFiles([])
+      notifyUserSent()
       return { previous, optimisticId: optimistic.id }
     },
-    onSuccess: (serverMessage, _text, context) => {
+    onSuccess: (serverMessage, _payload, context) => {
       if (!context) return
       const queryKey = adminQueryKeys.orgInbox.messages(conversationId)
       queryClient.setQueryData<OrgInboxMessage[]>(queryKey, (current) =>
@@ -107,22 +120,39 @@ export default function AdminOrgInboxThreadView({
       })
       void queryClient.invalidateQueries({ queryKey: adminQueryKeys.orgInbox.unreadCount() })
     },
-    onError: (err, text, context) => {
+    onError: (err, payload, context) => {
       if (!context) return
       queryClient.setQueryData(
         adminQueryKeys.orgInbox.messages(conversationId),
         context.previous,
       )
-      setBody(text)
+      setBody(payload.body)
       setError(err instanceof Error ? err.message : 'Send failed')
     },
   })
 
-  const onSubmit = (event: FormEvent) => {
+  const onSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    if (!body.trim()) return
+    if (!canSendThreadMessage(body, [], pendingFiles, uploading || sendMutation.isPending)) {
+      return
+    }
     setError(null)
-    sendMutation.mutate(body.trim())
+    setUploading(true)
+    try {
+      const uploaded = await uploadOrgInboxFiles(conversationId, pendingFiles)
+      if (!uploaded.ok) {
+        setError(uploaded.message ?? 'Could not upload attachments')
+        return
+      }
+      await sendMutation.mutateAsync({
+        body: body.trim(),
+        attachmentIds: uploaded.attachmentIds,
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Send failed')
+    } finally {
+      setUploading(false)
+    }
   }
 
   if (conversationsQuery.isLoading || messagesQuery.isLoading) {
@@ -151,7 +181,7 @@ export default function AdminOrgInboxThreadView({
         Back to threads
       </button>
 
-      <section className="admin-glass-card admin-message-thread-shell flex h-[min(calc(100dvh-11rem),680px)] min-h-[360px] flex-col p-4">
+      <section className="admin-glass-card admin-message-thread-shell mx-auto flex h-[min(calc(100dvh-11rem),680px)] min-h-[360px] w-full max-w-2xl flex-col p-4">
         <p className={`shrink-0 text-sm ${bricolage_grot600.className}`}>
           {conversationSubject(conversation)}
         </p>
@@ -169,31 +199,62 @@ export default function AdminOrgInboxThreadView({
             messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
-                  msg.authorRole === 'ADMIN'
-                    ? 'ml-auto bg-sanmarino/15'
-                    : 'bg-chambray/8'
-                } ${isPendingInboxMessage(msg.id) ? 'opacity-80' : ''}`}
+                className={`mb-3 flex flex-col ${
+                  msg.authorRole === 'ADMIN' ? 'items-end' : 'items-start'
+                }`}
               >
                 <p className="text-xs text-app-muted">
                   {msg.authorEmail} · {new Date(msg.createdAt).toLocaleString()}
                 </p>
-                <LinkifiedBody body={msg.body} />
+                {msg.body.trim() ? (
+                  <div
+                    className={`mt-1 max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+                      msg.authorRole === 'ADMIN'
+                        ? 'bg-sanmarino/15'
+                        : 'bg-chambray/8'
+                    } ${isPendingInboxMessage(msg.id) ? 'opacity-80' : ''}`}
+                  >
+                    <LinkifiedBody body={msg.body} />
+                  </div>
+                ) : null}
+                {msg.attachments?.length ? (
+                  <RequestAttachments
+                    attachments={msg.attachments}
+                    fetchDownloadUrl={fetchDownloadUrl}
+                    variant="admin"
+                    showHeading={false}
+                    className={`mt-2 max-w-[85%] ${
+                      msg.authorRole === 'ADMIN' ? 'self-end' : 'self-start'
+                    }`}
+                  />
+                ) : null}
               </div>
             ))
           )}
+          <ThreadScrollEnd ref={endRef} />
         </div>
         {error ? <p className="mt-2 shrink-0 text-sm text-red-600">{error}</p> : null}
-        <form onSubmit={onSubmit} className="mt-4 flex shrink-0 gap-2 border-t pt-4">
+        <form onSubmit={(e) => void onSubmit(e)} className="mt-4 shrink-0 space-y-2 border-t pt-4">
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={2}
-            className="admin-input flex-1 text-sm"
+            className="admin-input w-full text-sm"
             placeholder="Reply to client…"
           />
-          <button type="submit" disabled={!body.trim()} className="admin-btn-primary self-end">
-            Send
+          <OrgInboxAttachmentComposer
+            disabled={uploading || sendMutation.isPending}
+            pendingFiles={pendingFiles}
+            onPendingFilesChange={setPendingFiles}
+          />
+          <button
+            type="submit"
+            disabled={
+              !canSendThreadMessage(body, [], pendingFiles, uploading || sendMutation.isPending)
+            }
+            className="admin-btn-primary"
+          >
+            {uploading ? 'Uploading…' : 'Send'}
           </button>
         </form>
       </section>

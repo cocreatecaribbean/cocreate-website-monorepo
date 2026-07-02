@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import BrandGuidelinesSection from '@/components/brand-guidelines-section'
 import FilePreviewModal from '@/components/file-preview-modal'
 import type {
@@ -13,8 +14,9 @@ import {
   fetchOrganizationFilesLibrary,
   uploadProjectFiles,
 } from '@/lib/projects/fetch-project-files'
+import { removeLibraryAttachment } from '@/lib/projects/remove-library-attachment'
 import { bricolage_grot600 } from '@/styles/fonts'
-import { Download, FileText, FolderKanban, Loader2, Search, Upload } from 'lucide-react'
+import { Download, FileText, FolderKanban, Loader2, Play, Search, Trash2, Upload } from 'lucide-react'
 
 type AdminFilesSectionProps = {
   organizationId: string
@@ -43,14 +45,19 @@ function FileRow({
   onPreview,
   fetchDownloadUrl,
   projectTitle,
+  onDelete,
+  deleting = false,
 }: {
   file: ProjectAttachmentWithUsage
   onPreview: (file: ProjectAttachmentWithUsage, url: string | null) => void
   fetchDownloadUrl: (attachmentId: string) => Promise<string | null>
   projectTitle?: string
+  onDelete?: (file: ProjectAttachmentWithUsage) => Promise<void>
+  deleting?: boolean
 }) {
   const [thumbUrl, setThumbUrl] = useState<string | null>(null)
   const isImage = file.mimeType.startsWith('image/')
+  const isVideo = file.mimeType.startsWith('video/')
 
   useEffect(() => {
     if (!isImage) return
@@ -73,6 +80,16 @@ function FileRow({
     anchor.click()
   }
 
+  const onDeleteClick = async (event: React.MouseEvent) => {
+    event.stopPropagation()
+    if (!onDelete) return
+    const confirmMessage = file.usedInThreads
+      ? `Remove "${file.fileName}" from the library and all conversations?`
+      : `Remove "${file.fileName}" from project files?`
+    if (!window.confirm(confirmMessage)) return
+    await onDelete(file)
+  }
+
   return (
     <li className="flex flex-col gap-3 border-b border-chambray/6 px-5 py-4 last:border-0 lg:grid lg:grid-cols-[1fr_180px_110px_80px] lg:items-center lg:gap-4">
       <button
@@ -88,6 +105,8 @@ function FileRow({
               alt={file.fileName}
               className="h-full w-full object-cover"
             />
+          ) : isVideo ? (
+            <Play className="h-5 w-5" aria-hidden />
           ) : (
             <FileText className="h-5 w-5" aria-hidden />
           )}
@@ -102,14 +121,27 @@ function FileRow({
       <p className="text-xs text-app-muted">{formatRelativeTime(file.createdAt)}</p>
       <div className="flex items-center justify-between gap-2 lg:justify-end">
         <span className="text-xs text-app-muted">{formatBytes(file.sizeBytes)}</span>
-        <button
-          type="button"
-          onClick={(event) => void onDownload(event)}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sanmarino transition hover:bg-chambray/8 hover:text-chambray"
-          aria-label={`Download ${file.fileName}`}
-        >
-          <Download className="h-4 w-4" aria-hidden />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={(event) => void onDownload(event)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sanmarino transition hover:bg-chambray/8 hover:text-chambray"
+            aria-label={`Download ${file.fileName}`}
+          >
+            <Download className="h-4 w-4" aria-hidden />
+          </button>
+          {onDelete ? (
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={(event) => void onDeleteClick(event)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-700 transition hover:bg-red-50 disabled:opacity-50 dark:text-red-300 dark:hover:bg-red-950/40"
+              aria-label={`Remove ${file.fileName}`}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden />
+            </button>
+          ) : null}
+        </div>
       </div>
     </li>
   )
@@ -119,10 +151,14 @@ function ProjectGroup({
   group,
   onRefresh,
   onPreview,
+  onDeleteFile,
+  deletingAttachmentId,
 }: {
   group: ClientFilesLibrary['projects'][number]
   onRefresh: () => void
   onPreview: (file: ProjectAttachmentWithUsage, url: string | null) => void
+  onDeleteFile: (file: ProjectAttachmentWithUsage, projectId: string) => Promise<void>
+  deletingAttachmentId: string | null
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -193,6 +229,8 @@ function ProjectGroup({
                   file={file}
                   fetchDownloadUrl={fetchAttachmentDownloadUrl}
                   onPreview={onPreview}
+                  onDelete={(item) => onDeleteFile(item, group.projectId)}
+                  deleting={deletingAttachmentId === file.id}
                 />
               ))}
             </ul>
@@ -212,6 +250,8 @@ function ProjectGroup({
                   file={file}
                   fetchDownloadUrl={fetchAttachmentDownloadUrl}
                   onPreview={onPreview}
+                  onDelete={(item) => onDeleteFile(item, group.projectId)}
+                  deleting={deletingAttachmentId === file.id}
                 />
               ))}
             </ul>
@@ -226,6 +266,7 @@ export default function AdminFilesSection({
   organizationId,
   projects,
 }: AdminFilesSectionProps) {
+  const queryClient = useQueryClient()
   const [library, setLibrary] = useState<ClientFilesLibrary>({
     projects: [],
     files: [],
@@ -239,6 +280,8 @@ export default function AdminFilesSection({
     file: ProjectAttachmentWithUsage
     url: string | null
   } | null>(null)
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const search = query.trim()
   const load = useCallback(async () => {
@@ -264,6 +307,25 @@ export default function AdminFilesSection({
   const projectOptions = useMemo(
     () => projects.map((project) => ({ id: project.id, title: project.title })),
     [projects],
+  )
+
+  const handleDeleteFile = useCallback(
+    async (file: ProjectAttachmentWithUsage, projectId: string) => {
+      setDeletingAttachmentId(file.id)
+      setDeleteError(null)
+      const result = await removeLibraryAttachment(queryClient, {
+        attachmentId: file.id,
+        organizationId,
+        projectId,
+      })
+      if (!result.ok) {
+        setDeleteError(result.message)
+      } else {
+        await load()
+      }
+      setDeletingAttachmentId(null)
+    },
+    [load, organizationId, queryClient],
   )
 
   const flatMatches = library.files ?? []
@@ -301,6 +363,10 @@ export default function AdminFilesSection({
         </div>
       </section>
 
+      {deleteError ? (
+        <p className="admin-glass-card p-4 text-sm text-red-700">{deleteError}</p>
+      ) : null}
+
       {loading ? (
         <div className="admin-glass-card flex items-center justify-center gap-2 p-12 text-sm text-app-muted">
           <Loader2 className="h-5 w-5 animate-spin text-sanmarino" aria-hidden />
@@ -327,6 +393,8 @@ export default function AdminFilesSection({
                   fetchDownloadUrl={fetchAttachmentDownloadUrl}
                   projectTitle={file.projectTitle}
                   onPreview={(item, url) => setPreview({ file: item, url })}
+                  onDelete={(item) => handleDeleteFile(item, item.projectId)}
+                  deleting={deletingAttachmentId === file.id}
                 />
               ))}
             </ul>
@@ -347,6 +415,8 @@ export default function AdminFilesSection({
               group={group}
               onRefresh={load}
               onPreview={(item, url) => setPreview({ file: item, url })}
+              onDeleteFile={handleDeleteFile}
+              deletingAttachmentId={deletingAttachmentId}
             />
           ))}
         </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useMarkApprovalsReadMutation } from '@/lib/api/mutations/approvals'
 
 type MarkApprovalsReadOnViewProps = {
@@ -13,12 +13,15 @@ export default function MarkApprovalsReadOnView({
   requestId,
   enabled,
 }: MarkApprovalsReadOnViewProps) {
-  const markRead = useMarkApprovalsReadMutation()
+  const { mutate } = useMarkApprovalsReadMutation()
+  const markedRequestIds = useRef(new Set<string>())
 
   useEffect(() => {
     if (!enabled || !requestId) return
-    markRead.mutate(requestId)
-  }, [requestId, enabled, markRead])
+    if (markedRequestIds.current.has(requestId)) return
+    markedRequestIds.current.add(requestId)
+    mutate(requestId)
+  }, [requestId, enabled, mutate])
 
   return null
 }

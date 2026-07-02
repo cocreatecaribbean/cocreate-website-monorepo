@@ -63,7 +63,7 @@ export function prefetchAdminProjectOverview(
 
 export function useAdminRequestThreadQuery(requestId: string | null | undefined) {
   return useQuery({
-    queryKey: adminQueryKeys.requests.detail(requestId ?? ''),
+    queryKey: adminQueryKeys.requests.detail(requestId ?? '__idle__'),
     queryFn: () => fetchAdminBff<ProjectRequestItem>(`/api/project-requests/${requestId}`),
     enabled: Boolean(requestId),
   })

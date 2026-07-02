@@ -31,7 +31,9 @@ export function buildClientDashboardKpis(stats: ClientDashboardStats) {
 
   const approvalsHint =
     stats.pendingApprovals > 0
-      ? pluralize(stats.pendingApprovals, 'checkpoint') + ' to review'
+      ? stats.pendingApprovals === 1
+        ? '1 file to review'
+        : `${stats.pendingApprovals} files to review`
       : 'All caught up'
 
   const filesHint = formatRelativeUploadTime(stats.lastSharedFileAt)

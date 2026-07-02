@@ -91,6 +91,68 @@ export class ProjectStorageService {
     return `${organizationId}/brand/${randomUUID()}-${safeName}`
   }
 
+  buildInboxStoragePath(
+    organizationId: string,
+    conversationId: string,
+    fileName: string,
+  ) {
+    const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200)
+    return `${organizationId}/inbox/${conversationId}/${randomUUID()}-${safeName}`
+  }
+
+  assertPathBelongsToInboxConversation(
+    storagePath: string,
+    organizationId: string,
+    conversationId: string,
+  ) {
+    const prefix = `${organizationId}/inbox/${conversationId}/`
+    if (!storagePath.startsWith(prefix)) {
+      throw new BadRequestException(
+        'Invalid storage path for this inbox conversation',
+      )
+    }
+  }
+
+  async createInboxUploadUrl(params: {
+    organizationId: string
+    conversationId: string
+    fileName: string
+    mimeType: string
+    sizeBytes: number
+  }) {
+    if (!this.client) {
+      throw new ServiceUnavailableException(
+        'File storage is not configured (Supabase)',
+      )
+    }
+
+    await this.ensureBucketExists()
+
+    const storagePath = this.buildInboxStoragePath(
+      params.organizationId,
+      params.conversationId,
+      params.fileName,
+    )
+
+    const { data, error } = await this.client.storage
+      .from(BUCKET)
+      .createSignedUploadUrl(storagePath)
+
+    if (error || !data) {
+      this.logger.error(`Inbox upload URL failed: ${error?.message}`)
+      throw new BadRequestException(
+        this.formatStorageError(error?.message ?? 'Could not create upload URL'),
+      )
+    }
+
+    return {
+      storagePath,
+      signedUrl: data.signedUrl,
+      token: data.token,
+      expiresIn: UPLOAD_TTL_SEC,
+    }
+  }
+
   assertPathBelongsToOrganizationBrand(storagePath: string, organizationId: string) {
     const prefix = `${organizationId}/brand/`
     if (!storagePath.startsWith(prefix)) {

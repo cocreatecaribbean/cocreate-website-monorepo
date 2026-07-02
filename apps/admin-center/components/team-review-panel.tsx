@@ -72,7 +72,7 @@ export default function TeamReviewPanel({
   }
 
   return (
-    <section className="rounded-xl border border-sanmarino/25 bg-sanmarino/5 p-5 dark:border-sanmarino/30 dark:bg-sanmarino/10">
+    <section className="w-full max-w-2xl rounded-xl border border-sanmarino/25 bg-sanmarino/5 p-5 dark:border-sanmarino/30 dark:bg-sanmarino/10">
       <p className="text-xs uppercase tracking-[0.14em] text-sanmarino">Team only</p>
       <h3 className={`mt-1 text-lg text-chambray ${bricolage_grot600.className}`}>
         Team review

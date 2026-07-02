@@ -90,7 +90,10 @@ export function useResolveAdminRequestMutation(requestId: string, organizationId
   })
 }
 
-export function useCreateCheckpointMutation(projectId: string) {
+export function useCreateCheckpointMutation(
+  projectId: string,
+  progressRequestId?: string,
+) {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -101,8 +104,14 @@ export function useCreateCheckpointMutation(projectId: string) {
         body: JSON.stringify(body),
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.projects.detail(projectId) })
-      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.projects.all })
+      void queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.projects.detail(projectId),
+      })
+      if (progressRequestId) {
+        void queryClient.invalidateQueries({
+          queryKey: adminQueryKeys.requests.detail(progressRequestId),
+        })
+      }
     },
   })
 }

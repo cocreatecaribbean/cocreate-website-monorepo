@@ -323,19 +323,14 @@ export class ProjectNotificationsService {
       userId,
       organizationId,
       readAt: null,
-      type: PortalNotificationType.CHECKPOINT_PENDING,
-      requestId: { not: null },
-      request: {
-        type: ProjectRequestType.PROGRESS,
-        project: accessibleProjects,
-        messages: {
-          some: {
-            requiresClientApproval: true,
-            supersededAt: null,
-            clientApprovedAt: null,
-          },
-        },
+      type: {
+        in: [
+          PortalNotificationType.CHECKPOINT_PENDING,
+          PortalNotificationType.APPROVAL_FILE_PENDING,
+          PortalNotificationType.APPROVAL_REVISION_SENT,
+        ],
       },
+      project: accessibleProjects,
     }
   }
 
