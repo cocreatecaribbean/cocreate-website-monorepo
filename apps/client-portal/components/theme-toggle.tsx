@@ -2,7 +2,8 @@
 
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { patchPortalPreferences } from '@/lib/team/fetch-team-client'
 import { bricolage_grot600 } from '@/styles/fonts'
 
 const options = [
@@ -18,8 +19,23 @@ type ThemeToggleProps = {
 export default function ThemeToggle({ variant = 'sidebar' }: ThemeToggleProps) {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
+  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => setMounted(true), [])
+
+  useEffect(() => {
+    return () => {
+      if (persistTimer.current) clearTimeout(persistTimer.current)
+    }
+  }, [])
+
+  const selectTheme = (value: (typeof options)[number]['value']) => {
+    setTheme(value)
+    if (persistTimer.current) clearTimeout(persistTimer.current)
+    persistTimer.current = setTimeout(() => {
+      void patchPortalPreferences({ theme: value })
+    }, 300)
+  }
 
   if (!mounted) {
     return <div className="h-9 rounded-xl bg-white/5" aria-hidden />
@@ -51,7 +67,7 @@ export default function ThemeToggle({ variant = 'sidebar' }: ThemeToggleProps) {
             <button
               key={value}
               type="button"
-              onClick={() => setTheme(value)}
+              onClick={() => selectTheme(value)}
               className={`
                 flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs transition
                 ${bricolage_grot600.className}

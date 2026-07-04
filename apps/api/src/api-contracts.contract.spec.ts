@@ -148,8 +148,12 @@ describe('api-contracts (Zod smoke)', () => {
         canCreateProject: true,
         canUseSocialListening: true,
       },
+      preferences: {
+        theme: 'system',
+      },
     })
     expect(sample.user.email).toBe('owner@acme.com')
+    expect(sample.preferences.theme).toBe('system')
   })
 
   it('parses team hub response', () => {

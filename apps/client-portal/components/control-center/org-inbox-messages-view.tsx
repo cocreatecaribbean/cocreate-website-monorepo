@@ -244,21 +244,25 @@ export default function OrgInboxMessagesView() {
         </ul>
 
         {conversationId ? (
-          <section className="portal-glass-card portal-message-thread-shell flex h-[min(calc(100dvh-10rem),640px)] min-h-[320px] flex-col p-4 sm:p-6 lg:h-[min(calc(100dvh-12rem),720px)]">
-            <button
-              type="button"
-              onClick={clearConversation}
-              className={`mb-3 inline-flex min-h-10 shrink-0 items-center gap-2 text-sm text-sanmarino hover:text-chambray lg:hidden ${bricolage_grot600.className}`}
-            >
-              <ArrowLeft className="h-4 w-4" aria-hidden />
-              Back to threads
-            </button>
-            {selected ? (
-              <>
-                <p className={`shrink-0 text-sm text-chambray ${bricolage_grot600.className}`}>
+          <section className="portal-glass-card portal-thread-surface flex h-[min(calc(100dvh-10rem),640px)] min-h-[320px] flex-col lg:h-[min(calc(100dvh-12rem),720px)]">
+            <div className="portal-thread-surface-header">
+              <button
+                type="button"
+                onClick={clearConversation}
+                className={`mb-2 inline-flex min-h-10 items-center gap-2 text-sm text-sanmarino hover:text-chambray lg:hidden ${bricolage_grot600.className}`}
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden />
+                Back to threads
+              </button>
+              {selected ? (
+                <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>
                   {conversationLabel(selected)}
                 </p>
-                <div ref={panelRef} className="portal-thread-panel mt-4">
+              ) : null}
+            </div>
+            {selected ? (
+              <div className="portal-message-thread-shell flex min-h-0 flex-1 flex-col md:mt-4">
+                <div ref={panelRef} className="portal-thread-panel">
                   {messagesQuery.isLoading ? (
                     <p className="text-sm text-app-muted">Loading…</p>
                   ) : messages.length === 0 ? (
@@ -277,11 +281,9 @@ export default function OrgInboxMessagesView() {
                           </p>
                           {msg.body.trim() ? (
                             <div
-                              className={`mt-1 max-w-[90%] rounded-lg px-3 py-2 text-sm ${
-                                isMine
-                                  ? 'bg-sanmarino/15 text-chambray'
-                                  : 'bg-black/5 dark:bg-white/5'
-                              } ${isPendingInboxMessage(msg.id) ? 'opacity-80' : ''}`}
+                              className={`mt-1 max-w-[90%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
+                                isMine ? 'portal-msg-mine' : 'portal-msg-theirs'
+                              } ${isPendingInboxMessage(msg.id) ? 'opacity-80' : ''} ${bricolage_grot600.className}`}
                             >
                               <LinkifiedBody body={msg.body} />
                             </div>
@@ -302,44 +304,47 @@ export default function OrgInboxMessagesView() {
                   <ThreadScrollEnd ref={endRef} />
                 </div>
                 {error ? (
-                  <p className="mt-2 shrink-0 text-sm text-red-600" role="alert">
+                  <p className="shrink-0 px-3 text-sm text-red-600 md:px-0" role="alert">
                     {error}
                   </p>
                 ) : null}
                 <form
                   onSubmit={(e) => void onSubmit(e)}
-                  className="mt-4 shrink-0 space-y-2 border-t border-chambray/10 pt-4"
+                  className="portal-thread-composer shrink-0 space-y-2 border-t border-chambray/10 pt-4"
                 >
                   <textarea
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
                     rows={2}
                     placeholder="Write a message…"
-                    className="portal-input min-h-[44px] w-full resize-y text-sm"
+                    className="portal-textarea min-h-16 w-full resize-y text-sm md:min-h-[5.5rem]"
                   />
-                  <OrgInboxAttachmentComposer
-                    disabled={uploading || sendMutation.isPending}
-                    pendingFiles={pendingFiles}
-                    onPendingFilesChange={setPendingFiles}
-                  />
-                  <button
-                    type="submit"
-                    disabled={
-                      !canSendThreadMessage(
-                        body,
-                        [],
-                        pendingFiles,
-                        uploading || sendMutation.isPending,
-                      )
-                    }
-                    className="portal-btn-primary"
-                  >
-                    {uploading ? 'Uploading…' : 'Send'}
-                  </button>
+                  <div className="portal-thread-composer-toolbar flex flex-wrap items-center gap-2">
+                    <OrgInboxAttachmentComposer
+                      disabled={uploading || sendMutation.isPending}
+                      pendingFiles={pendingFiles}
+                      onPendingFilesChange={setPendingFiles}
+                      toolbar
+                    />
+                    <button
+                      type="submit"
+                      disabled={
+                        !canSendThreadMessage(
+                          body,
+                          [],
+                          pendingFiles,
+                          uploading || sendMutation.isPending,
+                        )
+                      }
+                      className="portal-btn-primary ml-auto"
+                    >
+                      {uploading ? 'Uploading…' : 'Send'}
+                    </button>
+                  </div>
                 </form>
-              </>
+              </div>
             ) : (
-              <p className="text-sm text-app-muted">This thread could not be found.</p>
+              <p className="p-4 text-sm text-app-muted md:p-0">This thread could not be found.</p>
             )}
           </section>
         ) : (

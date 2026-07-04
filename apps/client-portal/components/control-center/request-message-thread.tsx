@@ -368,7 +368,10 @@ export default function RequestMessageThread({
       </div>
 
       {canCompose ? (
-        <form onSubmit={(e) => void onSubmit(e)} className="shrink-0 space-y-2 border-t border-chambray/10 pt-4">
+        <form
+          onSubmit={(e) => void onSubmit(e)}
+          className="portal-thread-composer shrink-0 space-y-2 border-t border-chambray/10 pt-4"
+        >
           <div className="relative">
             <textarea
               ref={textareaRef}
@@ -379,21 +382,22 @@ export default function RequestMessageThread({
                   ? 'Write your response to CoCreate…'
                   : 'Follow up with the client…'
               }
-              rows={3}
-              className={inputClass}
+              rows={2}
+              className={`${inputClass} min-h-16 md:min-h-[5.5rem]`}
             />
           </div>
-          <MessageAttachmentComposer
-            projectId={request.projectId}
-            variant="portal"
-            disabled={uploading}
-            selectedIds={selectedAttachmentIds}
-            pendingFiles={pendingFiles}
-            onSelectedIdsChange={setSelectedAttachmentIds}
-            onPendingFilesChange={setPendingFiles}
-          />
           {error ? <p className="portal-alert-error">{error}</p> : null}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="portal-thread-composer-toolbar flex flex-wrap items-center gap-2">
+            <MessageAttachmentComposer
+              projectId={request.projectId}
+              variant="portal"
+              disabled={uploading}
+              selectedIds={selectedAttachmentIds}
+              pendingFiles={pendingFiles}
+              onSelectedIdsChange={setSelectedAttachmentIds}
+              onPendingFilesChange={setPendingFiles}
+              toolbar
+            />
             <EmojiPickerButton
               variant="portal"
               disabled={uploading}
@@ -406,9 +410,16 @@ export default function RequestMessageThread({
               disabled={
                 !canSendThreadMessage(reply, selectedAttachmentIds, pendingFiles, uploading)
               }
-              className={btnPrimary}
+              className={`${btnPrimary} ml-auto`}
             >
-              {uploading ? 'Uploading…' : 'Send message'}
+              {uploading ? (
+                'Uploading…'
+              ) : (
+                <>
+                  <span className="md:hidden">Send</span>
+                  <span className="hidden md:inline">Send message</span>
+                </>
+              )}
             </button>
             {showResolveActions && onResolve ? (
               <>

@@ -33,6 +33,12 @@
       "import": "./dist/v1/shared/projects.js",
       "default": "./dist/v1/shared/projects.js"
     },
+    "./v1/shared/preferences": {
+      "types": "./dist/v1/shared/preferences.d.ts",
+      "require": "./dist/v1/shared/preferences.js",
+      "import": "./dist/v1/shared/preferences.js",
+      "default": "./dist/v1/shared/preferences.js"
+    },
     "./v1/shared/team": {
       "types": "./dist/v1/shared/team.d.ts",
       "require": "./dist/v1/shared/team.js",

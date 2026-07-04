@@ -111,9 +111,30 @@ export async function fetchPortalProfile(): Promise<PortalProfile | null> {
       user: parsed.user,
       organization: parsed.organization,
       permissions: parsed.permissions,
+      preferences: parsed.preferences,
     }
   } catch {
     return null
+  }
+}
+
+export async function patchPortalPreferences(input: {
+  theme: 'light' | 'dark' | 'system'
+}): Promise<{ ok: boolean; theme?: string; message?: string }> {
+  try {
+    const data = await teamFetch<{ ok?: boolean; theme?: string; message?: string }>(
+      '/client-portal/preferences',
+      {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      },
+    )
+    return data.ok ? { ok: true, theme: data.theme } : { ok: false, message: data.message }
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : 'Could not save preferences',
+    }
   }
 }
 

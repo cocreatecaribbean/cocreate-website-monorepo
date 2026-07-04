@@ -7,6 +7,7 @@ import {
 import { AdminProfileService } from './admin-profile.service'
 import { AgencyProfileOptionsService } from './agency-profile-options.service'
 import { ProfileStorageService } from './profile-storage.service'
+import { UserPreferencesService } from './user-preferences.service'
 import { PrismaModule } from '../prisma/prisma.module'
 import { AuthModule } from '../auth/auth.module'
 
@@ -21,7 +22,13 @@ import { AuthModule } from '../auth/auth.module'
     AdminProfileService,
     AgencyProfileOptionsService,
     ProfileStorageService,
+    UserPreferencesService,
   ],
-  exports: [AdminProfileService, ProfileStorageService, AgencyProfileOptionsService],
+  exports: [
+    AdminProfileService,
+    ProfileStorageService,
+    AgencyProfileOptionsService,
+    UserPreferencesService,
+  ],
 })
 export class UsersModule {}

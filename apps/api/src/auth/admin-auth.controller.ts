@@ -1,10 +1,16 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, Patch, Post, Req, UseGuards } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import {
+  UpdateUserPreferencesSchema,
+  type UpdateUserPreferencesInput,
+} from '@cocreate/api-contracts/v1/requests/users'
 import { AuthService } from './auth.service'
 import { isAgencyAdminRole } from './admin-roles'
 import { AdminAuthGuard, type AdminRequest } from './guards/admin-auth.guard'
 import { SupabaseAuthService } from '../clients/supabase-auth.service'
 import { AdminProfileService } from '../users/admin-profile.service'
+import { UserPreferencesService } from '../users/user-preferences.service'
+import { zodBody } from '../common/zod/zod-validation.pipe'
 
 @Controller({ path: 'auth/admin', version: '1' })
 export class AdminAuthController {
@@ -13,6 +19,7 @@ export class AdminAuthController {
     private readonly supabaseAuth: SupabaseAuthService,
     private readonly config: ConfigService,
     private readonly adminProfiles: AdminProfileService,
+    private readonly preferences: UserPreferencesService,
   ) {}
 
   /** Current admin from Bearer token (or dev x-admin-key). */
@@ -21,9 +28,10 @@ export class AdminAuthController {
   async me(@Req() request: AdminRequest) {
     if (request.adminUser) {
       const isAdmin = isAgencyAdminRole(request.adminUser.role)
-      const profile = isAdmin
-        ? await this.adminProfiles.getProfile(request.adminUser)
-        : null
+      const [profile, preferences] = await Promise.all([
+        isAdmin ? this.adminProfiles.getProfile(request.adminUser) : Promise.resolve(null),
+        this.preferences.getOrCreate(request.adminUser.id),
+      ])
       return {
         ok: true as const,
         mode: 'user' as const,
@@ -33,11 +41,25 @@ export class AdminAuthController {
           status: request.adminUser.status,
           role: request.adminUser.role,
           profile,
+          preferences,
         },
       }
     }
 
     return { ok: true as const, mode: 'api_key' as const }
+  }
+
+  @Patch('preferences')
+  @UseGuards(AdminAuthGuard)
+  async updatePreferences(
+    @Req() request: AdminRequest,
+    @Body(zodBody(UpdateUserPreferencesSchema)) body: UpdateUserPreferencesInput,
+  ) {
+    if (!request.adminUser) {
+      return { ok: false as const, message: 'Preferences require a signed-in user.' }
+    }
+    const preferences = await this.preferences.update(request.adminUser.id, body)
+    return { ok: true as const, ...preferences }
   }
 
   @Post('magic-link')

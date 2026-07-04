@@ -284,7 +284,7 @@ export default function PortalProjectWorkspace({
   const showProgressThread = Boolean(progress && isOnboarded)
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col">
+    <main className="flex min-h-0 flex-1 flex-col max-md:-m-4 sm:max-md:-m-6">
       <div className="border-b border-chambray/8 px-4 py-4 sm:px-6 lg:px-8">
         <button
           type="button"
@@ -369,18 +369,20 @@ export default function PortalProjectWorkspace({
               )}
 
               {cancellation ? (
-                <section className="portal-glass-card p-5 sm:p-6">
-                  <p className={`text-chambray ${bricolage_grot600.className}`}>Cancellation</p>
-                  {cancellation.cancellationOutcome ? (
-                    <p className="mt-1 text-sm text-app-muted">
-                      Outcome:{' '}
-                      {cancellation.cancellationOutcome.replace(/_/g, ' ').toLowerCase()}
-                      {cancellation.cancellationFeeAmount != null
-                        ? ` · Fee: ${cancellation.cancellationFeeAmount}`
-                        : ''}
-                    </p>
-                  ) : null}
-                  <div className="mt-4">
+                <section className="portal-glass-card portal-thread-surface">
+                  <div className="portal-thread-surface-header">
+                    <p className={`text-chambray ${bricolage_grot600.className}`}>Cancellation</p>
+                    {cancellation.cancellationOutcome ? (
+                      <p className="mt-1 text-sm text-app-muted">
+                        Outcome:{' '}
+                        {cancellation.cancellationOutcome.replace(/_/g, ' ').toLowerCase()}
+                        {cancellation.cancellationFeeAmount != null
+                          ? ` · Fee: ${cancellation.cancellationFeeAmount}`
+                          : ''}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="mt-0 min-h-0 flex-1 md:mt-4">
                     <LazyRequestMessageThread
                       {...threadProps(cancellation)}
                       loadMessages={tab === 'overview'}
@@ -421,16 +423,18 @@ export default function PortalProjectWorkspace({
 
           {tab === 'onboarding' ? (
             onboarding ? (
-              <section className="portal-glass-card p-5 sm:p-6">
-                <p className={`text-chambray ${bricolage_grot600.className}`}>
-                  Onboarding conversation
-                </p>
-                <p className="mt-1 text-xs text-app-muted">
-                  {onboardingClosed
-                    ? 'Closed after project was onboarded — kept for your records.'
-                    : 'Discussion before your project is accepted.'}
-                </p>
-                <div className="mt-4">
+              <section className="portal-glass-card portal-thread-surface">
+                <div className="portal-thread-surface-header">
+                  <p className={`text-chambray ${bricolage_grot600.className}`}>
+                    Onboarding conversation
+                  </p>
+                  <p className="mt-1 text-xs text-app-muted">
+                    {onboardingClosed
+                      ? 'Closed after project was onboarded — kept for your records.'
+                      : 'Discussion before your project is accepted.'}
+                  </p>
+                </div>
+                <div className="mt-0 min-h-0 flex-1 md:mt-4">
                   <LazyRequestMessageThread
                     {...threadProps(onboarding)}
                     loadMessages={tab === 'onboarding'}
@@ -445,12 +449,14 @@ export default function PortalProjectWorkspace({
 
           {tab === 'progress' ? (
             showProgressThread && progress ? (
-              <section className="portal-glass-card p-5 sm:p-6">
-                <p className={`text-chambray ${bricolage_grot600.className}`}>Project progress</p>
-                <p className="mt-1 text-xs text-app-muted">
-                  Updates, progress checks, and replies with CoCreate.
-                </p>
-                <div className="mt-4">
+              <section className="portal-glass-card portal-thread-surface">
+                <div className="portal-thread-surface-header">
+                  <p className={`text-chambray ${bricolage_grot600.className}`}>Project progress</p>
+                  <p className="mt-1 text-xs text-app-muted">
+                    Updates, progress checks, and replies with CoCreate.
+                  </p>
+                </div>
+                <div className="mt-0 min-h-0 flex-1 md:mt-4">
                   <LazyRequestMessageThread
                     {...(progressThreadProps ?? threadProps(progress))}
                     loadMessages={tab === 'progress'}

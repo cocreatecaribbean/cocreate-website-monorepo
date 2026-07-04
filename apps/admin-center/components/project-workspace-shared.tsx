@@ -220,11 +220,13 @@ export function ProjectThreadPanel({
   return (
     <section
       id={`thread-panel-${request.id}`}
-      className="admin-glass-card w-full max-w-2xl p-5 sm:p-6"
+      className="admin-glass-card admin-thread-surface w-full max-w-2xl max-md:max-w-none"
     >
-      <p className={`text-chambray ${bricolage_grot600.className}`}>{title}</p>
-      <p className="mt-1 text-xs text-app-muted">{subtitle}</p>
-      <div className="mt-4">
+      <div className="admin-thread-surface-header">
+        <p className={`text-chambray ${bricolage_grot600.className}`}>{title}</p>
+        <p className="mt-1 text-xs text-app-muted">{subtitle}</p>
+      </div>
+      <div className="mt-0 min-h-0 flex-1 md:mt-4">
         {markReadEnabled ? (
           <MarkInboxReadOnView
             organizationId={organizationId}

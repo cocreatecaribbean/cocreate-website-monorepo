@@ -2,7 +2,8 @@
 
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { patchAdminPreferences } from '@/lib/api/mutations/preferences'
 import { bricolage_grot600 } from '@/styles/fonts'
 
 const options = [
@@ -18,8 +19,23 @@ type ThemeToggleProps = {
 export default function ThemeToggle({ variant = 'sidebar' }: ThemeToggleProps) {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
+  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => setMounted(true), [])
+
+  useEffect(() => {
+    return () => {
+      if (persistTimer.current) clearTimeout(persistTimer.current)
+    }
+  }, [])
+
+  const selectTheme = (value: (typeof options)[number]['value']) => {
+    setTheme(value)
+    if (persistTimer.current) clearTimeout(persistTimer.current)
+    persistTimer.current = setTimeout(() => {
+      void patchAdminPreferences({ theme: value })
+    }, 300)
+  }
 
   const isSidebar = variant === 'sidebar'
   const isHeader = variant === 'header'
@@ -57,7 +73,7 @@ export default function ThemeToggle({ variant = 'sidebar' }: ThemeToggleProps) {
           <button
             key={value}
             type="button"
-            onClick={() => setTheme(value)}
+            onClick={() => selectTheme(value)}
             title={label}
             className={`
               flex items-center justify-center gap-1.5 rounded-lg text-xs transition

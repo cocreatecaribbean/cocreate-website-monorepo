@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common'
 import { UserRole, UserStatus } from '@cocreate/database'
 import type { PortalProfileResponse } from '@cocreate/api-contracts/v1/client-portal'
+import type { UpdateUserPreferencesInput } from '@cocreate/api-contracts/v1/requests/users'
+import type { UserPreferencesResponse } from '@cocreate/api-contracts/v1/shared/preferences'
 import { AuthService } from '../auth/auth.service'
 import { ClientAccessService } from '../auth/client-access.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { SupabaseAuthService } from '../clients/supabase-auth.service'
+import { UserPreferencesService } from '../users/user-preferences.service'
 
 @Injectable()
 export class ClientPortalService {
@@ -13,6 +16,7 @@ export class ClientPortalService {
     private readonly supabaseAuth: SupabaseAuthService,
     private readonly authService: AuthService,
     private readonly clientAccess: ClientAccessService,
+    private readonly preferences: UserPreferencesService,
   ) {}
 
   private normalizeEmail(email: string) {
@@ -76,9 +80,10 @@ export class ClientPortalService {
     return { ok: true as const, ...payload }
   }
 
-  getSessionProfile(
+  async getSessionProfile(
     client: Awaited<ReturnType<AuthService['requireClient']>>,
-  ): PortalProfileResponse {
+  ): Promise<PortalProfileResponse> {
+    const preferences = await this.preferences.getOrCreate(client.id)
     return {
       ok: true as const,
       user: {
@@ -102,7 +107,16 @@ export class ClientPortalService {
         canCreateProject: this.clientAccess.canCreateProject(client),
         canUseSocialListening: this.clientAccess.canUseSocialListening(client),
       },
+      preferences,
     }
+  }
+
+  async updatePreferences(
+    client: Awaited<ReturnType<AuthService['requireClient']>>,
+    dto: UpdateUserPreferencesInput,
+  ): Promise<UserPreferencesResponse> {
+    const preferences = await this.preferences.update(client.id, dto)
+    return { ok: true as const, ...preferences }
   }
 
   private async isClientAllowed(email: string) {

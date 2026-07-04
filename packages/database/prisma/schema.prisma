@@ -773,6 +773,7 @@ model User {
   teamInvitesReviewed       ClientTeamInviteRequest[] @relation("TeamInviteReviewedBy")
   teamInvitesResulting      ClientTeamInviteRequest[] @relation("TeamInviteResultingUser")
   profile                 UserProfile?
+  preferences             UserPreferences?
   orgInboxConversationsCreated OrgInboxConversation[] @relation("OrgInboxCreatedBy")
   orgInboxParticipations    OrgInboxParticipant[]     @relation("OrgInboxParticipant")
   orgInboxMessages          OrgInboxMessage[]         @relation("OrgInboxMessageAuthor")
@@ -797,6 +798,18 @@ model AgencyProfileOption {
   profileJobTitles UserProfileJobTitle[]
 
   @@index([isActive, sortOrder])
+}
+
+/// Account-level UI preferences (synced across devices)
+model UserPreferences {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// light | dark | system
+  theme     String   @default("system")
+  /// Future preference keys without schema churn
+  extras    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 /// Display identity for portal users (admins set name/title for project attribution)

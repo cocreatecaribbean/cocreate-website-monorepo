@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Patch,
   Post,
   Query,
   Req,
@@ -17,6 +18,10 @@ import {
   CreateListeningSetupSchema,
   type CreateListeningSetupInput,
 } from '@cocreate/api-contracts/v1/requests/social-listening'
+import {
+  UpdateUserPreferencesSchema,
+  type UpdateUserPreferencesInput,
+} from '@cocreate/api-contracts/v1/requests/users'
 import { zodBody } from '../common/zod/zod-validation.pipe'
 import { ClientPortalService } from './client-portal.service'
 
@@ -32,6 +37,15 @@ export class ClientPortalController {
   @UseGuards(ClientAuthGuard)
   me(@Req() request: ClientPortalRequest) {
     return this.clientPortalService.getSessionProfile(request.clientUser!)
+  }
+
+  @Patch('preferences')
+  @UseGuards(ClientAuthGuard)
+  updatePreferences(
+    @Req() request: ClientPortalRequest,
+    @Body(zodBody(UpdateUserPreferencesSchema)) body: UpdateUserPreferencesInput,
+  ) {
+    return this.clientPortalService.updatePreferences(request.clientUser!, body)
   }
 
   @Post('social-listening/setup')

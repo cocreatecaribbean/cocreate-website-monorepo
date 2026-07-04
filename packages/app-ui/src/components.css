@@ -117,11 +117,12 @@
     border-radius: var(--radius-panel);
     @apply overflow-hidden border ring-1;
     border-color: var(--surface-border);
-    background-color: var(--surface-card-solid);
+    background-color: #ffffff;
     box-shadow: var(--shadow-card);
     --tw-ring-color: rgba(57, 65, 154, 0.08);
   }
   .dark .portal-field-menu {
+    background-color: #181e3a;
     --tw-ring-color: rgba(255, 255, 255, 0.08);
   }
   .portal-field-menu-item {
@@ -235,6 +236,104 @@
   .admin-message-thread-shell .admin-thread-panel,
   .admin-message-thread-shell .portal-thread-panel {
     @apply min-h-0 flex-1 overflow-y-auto;
+  }
+
+  /*
+   * Mobile chat surface: bleed to content-column edges, taller viewport,
+   * compact composer. Desktop keeps glass-card padding + max-width.
+   */
+  .portal-thread-surface,
+  .admin-thread-surface {
+    @apply flex min-h-0 flex-col overflow-hidden;
+  }
+  @media (max-width: 767px) {
+    .portal-thread-surface,
+    .admin-thread-surface {
+      /* Match parent content padding: px-4, then sm:px-6 below md */
+      margin-left: -1rem;
+      margin-right: -1rem;
+      border-left-width: 0;
+      border-right-width: 0;
+      border-radius: 0;
+      padding: 0;
+      box-shadow: none;
+      --tw-ring-shadow: 0 0 #0000;
+    }
+  }
+  @media (min-width: 640px) and (max-width: 767px) {
+    .portal-thread-surface,
+    .admin-thread-surface {
+      margin-left: -1.5rem;
+      margin-right: -1.5rem;
+    }
+  }
+  @media (max-width: 767px) {
+    .portal-thread-surface-header,
+    .admin-thread-surface-header {
+      @apply shrink-0 border-b border-chambray/8 px-4 py-3;
+    }
+    .dark .portal-thread-surface-header,
+    .dark .admin-thread-surface-header {
+      @apply border-white/10;
+    }
+    .portal-thread-surface .portal-message-thread-shell,
+    .admin-thread-surface .admin-message-thread-shell,
+    .admin-thread-surface .portal-message-thread-shell {
+      min-height: min(60svh, 28rem);
+      max-height: calc(100dvh - 11rem);
+      max-width: none;
+      width: 100%;
+    }
+    .portal-thread-surface .portal-thread-panel,
+    .admin-thread-surface .admin-thread-panel,
+    .admin-thread-surface .portal-thread-panel {
+      border-radius: 0;
+      border-left-width: 0;
+      border-right-width: 0;
+      @apply px-3 py-3;
+    }
+    .portal-thread-surface .portal-thread-composer,
+    .admin-thread-surface .admin-thread-composer,
+    .admin-thread-surface .portal-thread-composer {
+      @apply space-y-2 border-t border-chambray/10 px-3 py-3;
+      background-color: var(--surface-card-solid);
+    }
+    .portal-thread-surface .portal-thread-composer textarea,
+    .admin-thread-surface .admin-thread-composer textarea,
+    .admin-thread-surface .portal-thread-composer textarea {
+      min-height: 4.25rem;
+    }
+    .dark .portal-thread-surface .portal-thread-composer,
+    .dark .admin-thread-surface .admin-thread-composer,
+    .dark .admin-thread-surface .portal-thread-composer {
+      @apply border-white/10;
+    }
+    .portal-thread-surface .portal-thread-composer-toolbar,
+    .admin-thread-surface .admin-thread-composer-toolbar,
+    .admin-thread-surface .portal-thread-composer-toolbar {
+      @apply flex flex-wrap items-center gap-2;
+    }
+    .portal-thread-surface .portal-thread-composer-toolbar > .portal-btn-primary,
+    .portal-thread-surface .portal-thread-composer-toolbar > .admin-btn-primary,
+    .admin-thread-surface .admin-thread-composer-toolbar > .admin-btn-primary,
+    .admin-thread-surface .portal-thread-composer-toolbar > .portal-btn-primary {
+      @apply ml-auto min-h-10 shrink-0 px-4;
+    }
+  }
+  @media (min-width: 768px) {
+    .portal-thread-surface,
+    .admin-thread-surface {
+      @apply p-5 sm:p-6;
+    }
+    .portal-thread-surface-header,
+    .admin-thread-surface-header {
+      @apply px-0 py-0;
+    }
+    .portal-thread-surface .portal-thread-composer,
+    .admin-thread-surface .admin-thread-composer,
+    .admin-thread-surface .portal-thread-composer {
+      @apply space-y-2 border-t border-chambray/10 pt-4;
+    }
   }
 
   .portal-msg-mine,

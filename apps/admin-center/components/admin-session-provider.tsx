@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import ThemePreferencesSync from '@/components/theme-preferences-sync'
 import {
   adminFetchErrorHint,
   AdminApiFetchError,
@@ -22,6 +23,8 @@ import {
   writeAdminSessionCache,
 } from '@/lib/admin-session-cache'
 
+type ThemePreference = 'light' | 'dark' | 'system'
+
 type AdminSession = {
   mode: 'user' | 'api_key'
   userId: string | null
@@ -30,6 +33,9 @@ type AdminSession = {
   role: AdminPortalRole | null
   displayName?: string | null
   profileComplete?: boolean
+  preferences?: {
+    theme: ThemePreference
+  } | null
 }
 
 type AdminSessionContextValue = {
@@ -78,6 +84,9 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
             displayName?: string | null
             profileComplete?: boolean
           }
+          preferences?: {
+            theme?: ThemePreference
+          } | null
         } | null
       }>('/api/session')
 
@@ -88,6 +97,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
           email: null,
           status: null,
           role: null,
+          preferences: null,
         }
         setSession(apiKeySession)
         writeAdminSessionCache(apiKeySession)
@@ -95,6 +105,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.admin?.email) {
+        const theme = data.admin.preferences?.theme
         const nextSession = {
           mode: 'user' as const,
           userId: data.admin.id,
@@ -103,6 +114,10 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
           role: data.admin.role ?? ('ADMIN' as AdminPortalRole),
           displayName: data.admin.profile?.displayName ?? null,
           profileComplete: data.admin.profile?.profileComplete ?? false,
+          preferences:
+            theme === 'light' || theme === 'dark' || theme === 'system'
+              ? { theme }
+              : null,
         }
         setSession(nextSession)
         writeAdminSessionCache(nextSession)
@@ -149,7 +164,10 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   )
 
   return (
-    <AdminSessionContext.Provider value={value}>{children}</AdminSessionContext.Provider>
+    <AdminSessionContext.Provider value={value}>
+      <ThemePreferencesSync serverTheme={session?.preferences?.theme} />
+      {children}
+    </AdminSessionContext.Provider>
   )
 }
 

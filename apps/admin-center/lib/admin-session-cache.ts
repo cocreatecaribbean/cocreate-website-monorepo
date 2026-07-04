@@ -11,6 +11,9 @@ type CachedAdminSession = {
     role: import('@/lib/admin-session').AdminPortalRole | null
     displayName?: string | null
     profileComplete?: boolean
+    preferences?: {
+      theme: 'light' | 'dark' | 'system'
+    } | null
   }
 }
 

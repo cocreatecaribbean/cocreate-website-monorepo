@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { isoDateTimeString } from '../../zod/common'
+import { UserPreferencesSchema } from './shared/preferences'
 import {
   ClientOrgRoleSchema,
   ClientProjectAccessLevelSchema,
@@ -244,6 +245,7 @@ export const PortalProfilePayloadSchema = z.object({
   user: PortalProfileUserSchema,
   organization: PortalProfileOrganizationSchema.nullable(),
   permissions: PortalPermissionsSchema,
+  preferences: UserPreferencesSchema,
 })
 export type PortalProfilePayload = z.infer<typeof PortalProfilePayloadSchema>
 

@@ -567,7 +567,7 @@ export default function RequestMessageThread({
           onSubmit={(e) =>
             void (checkpointMode ? onSubmitCheckpoint(e) : onSubmit(e))
           }
-          className="shrink-0 space-y-2 border-t border-chambray/10 pt-4"
+          className="admin-thread-composer shrink-0 space-y-2 border-t border-chambray/10 pt-4"
         >
           {checkpointCompose?.enabled ? (
             <label className="flex items-center gap-2 text-sm text-app-muted">
@@ -603,21 +603,22 @@ export default function RequestMessageThread({
                     ? 'Message the team…'
                     : 'Follow up with the client…'
               }
-              rows={3}
-              className="admin-textarea w-full resize-y"
+              rows={2}
+              className="admin-textarea min-h-16 w-full resize-y md:min-h-[5.5rem]"
             />
           </div>
-          <MessageAttachmentComposer
-            projectId={activeRequest.projectId}
-            disabled={composeBusy}
-            libraryVisibility={libraryVisibility}
-            selectedIds={selectedAttachmentIds}
-            pendingFiles={pendingFiles}
-            onSelectedIdsChange={setSelectedAttachmentIds}
-            onPendingFilesChange={setPendingFiles}
-          />
           {error ? <p className="text-sm text-red-700">{error}</p> : null}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="admin-thread-composer-toolbar flex flex-wrap items-center gap-2">
+            <MessageAttachmentComposer
+              projectId={activeRequest.projectId}
+              disabled={composeBusy}
+              libraryVisibility={libraryVisibility}
+              selectedIds={selectedAttachmentIds}
+              pendingFiles={pendingFiles}
+              onSelectedIdsChange={setSelectedAttachmentIds}
+              onPendingFilesChange={setPendingFiles}
+              toolbar
+            />
             <EmojiPickerButton
               variant="admin"
               disabled={composeBusy}
@@ -643,15 +644,22 @@ export default function RequestMessageThread({
                       composeBusy,
                     )
               }
-              className="admin-btn-primary text-sm"
+              className="admin-btn-primary ml-auto text-sm"
             >
-              {composeBusy
-                ? uploading
-                  ? 'Uploading…'
-                  : 'Sending…'
-                : checkpointMode
-                  ? 'Send for approval'
-                  : 'Send message'}
+              {composeBusy ? (
+                uploading ? (
+                  'Uploading…'
+                ) : (
+                  'Sending…'
+                )
+              ) : checkpointMode ? (
+                'Send for approval'
+              ) : (
+                <>
+                  <span className="md:hidden">Send</span>
+                  <span className="hidden md:inline">Send message</span>
+                </>
+              )}
             </button>
             {showResolveActions && onResolve ? (
               <>

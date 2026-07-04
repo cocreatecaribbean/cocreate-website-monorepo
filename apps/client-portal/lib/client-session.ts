@@ -38,6 +38,7 @@ export async function fetchClientPortalProfile(): Promise<ClientPortalProfile | 
     user: parsed.user,
     organization: parsed.organization,
     permissions: parsed.permissions,
+    preferences: parsed.preferences,
   }
 }
 

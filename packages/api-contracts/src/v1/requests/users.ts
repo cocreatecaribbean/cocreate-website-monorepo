@@ -1,6 +1,17 @@
 import { z } from 'zod'
 import { emailString } from '../../zod/common'
 import { AdminAssignableRoleSchema } from '../../zod/enums'
+import { ThemePreferenceSchema } from '../schemas/shared/preferences'
+
+export const UpdateUserPreferencesSchema = z
+  .object({
+    theme: ThemePreferenceSchema.optional(),
+    extras: z.record(z.string(), z.unknown()).nullable().optional(),
+  })
+  .refine((value) => value.theme !== undefined || value.extras !== undefined, {
+    message: 'At least one preference field is required',
+  })
+export type UpdateUserPreferencesInput = z.infer<typeof UpdateUserPreferencesSchema>
 
 export const UpdateAdminProfileSchema = z.object({
   displayName: z.string().max(120).optional(),
