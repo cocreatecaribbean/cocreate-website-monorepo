@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import FilePreviewModal from '@/components/file-preview-modal'
 import RequestMessageThread from '@/components/control-center/request-message-thread'
+import ThreadSummaryExport from '@cocreate/app-ui/thread-summary-export'
 import ProjectCoverEditor from '@/components/project-cover-editor'
 import ProjectStatusAttribution, { ProjectTimeline } from '@/components/project-status-attribution'
 import ProjectTeamAside from '@/components/project-team-aside'
@@ -35,6 +36,11 @@ import {
 } from '@/lib/projects/fetch-projects-client'
 import { useProjectMembers } from '@/lib/team/use-project-members'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
+import {
+  downloadProjectThreadSummaryPdf,
+  fetchProjectAttachmentPreviewUrl,
+  generateProjectThreadSummary,
+} from '@/lib/messaging/fetch-thread-summary'
 import WorkspaceSectionNav from '@cocreate/app-ui/workspace-section-nav'
 
 function findThread(
@@ -371,16 +377,29 @@ export default function PortalProjectWorkspace({
               {cancellation ? (
                 <section className="portal-glass-card portal-thread-surface">
                   <div className="portal-thread-surface-header">
-                    <p className={`text-chambray ${bricolage_grot600.className}`}>Cancellation</p>
-                    {cancellation.cancellationOutcome ? (
-                      <p className="mt-1 text-sm text-app-muted">
-                        Outcome:{' '}
-                        {cancellation.cancellationOutcome.replace(/_/g, ' ').toLowerCase()}
-                        {cancellation.cancellationFeeAmount != null
-                          ? ` · Fee: ${cancellation.cancellationFeeAmount}`
-                          : ''}
-                      </p>
-                    ) : null}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-chambray ${bricolage_grot600.className}`}>Cancellation</p>
+                        {cancellation.cancellationOutcome ? (
+                          <p className="mt-1 text-sm text-app-muted">
+                            Outcome:{' '}
+                            {cancellation.cancellationOutcome.replace(/_/g, ' ').toLowerCase()}
+                            {cancellation.cancellationFeeAmount != null
+                              ? ` · Fee: ${cancellation.cancellationFeeAmount}`
+                              : ''}
+                          </p>
+                        ) : null}
+                      </div>
+                      <ThreadSummaryExport
+                        fetchAttachmentDownloadUrl={fetchProjectAttachmentPreviewUrl}
+                        onGenerate={(options) =>
+                          generateProjectThreadSummary(cancellation.id, options)
+                        }
+                        onExportPdf={(options) =>
+                          downloadProjectThreadSummaryPdf(cancellation.id, options)
+                        }
+                      />
+                    </div>
                   </div>
                   <div className="mt-0 min-h-0 flex-1 md:mt-4">
                     <LazyRequestMessageThread
@@ -425,14 +444,27 @@ export default function PortalProjectWorkspace({
             onboarding ? (
               <section className="portal-glass-card portal-thread-surface">
                 <div className="portal-thread-surface-header">
-                  <p className={`text-chambray ${bricolage_grot600.className}`}>
-                    Onboarding conversation
-                  </p>
-                  <p className="mt-1 text-xs text-app-muted">
-                    {onboardingClosed
-                      ? 'Closed after project was onboarded — kept for your records.'
-                      : 'Discussion before your project is accepted.'}
-                  </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-chambray ${bricolage_grot600.className}`}>
+                        Onboarding conversation
+                      </p>
+                      <p className="mt-1 text-xs text-app-muted">
+                        {onboardingClosed
+                          ? 'Closed after project was onboarded — kept for your records.'
+                          : 'Discussion before your project is accepted.'}
+                      </p>
+                    </div>
+                    <ThreadSummaryExport
+                      fetchAttachmentDownloadUrl={fetchProjectAttachmentPreviewUrl}
+                      onGenerate={(options) =>
+                        generateProjectThreadSummary(onboarding.id, options)
+                      }
+                      onExportPdf={(options) =>
+                        downloadProjectThreadSummaryPdf(onboarding.id, options)
+                      }
+                    />
+                  </div>
                 </div>
                 <div className="mt-0 min-h-0 flex-1 md:mt-4">
                   <LazyRequestMessageThread
@@ -451,10 +483,23 @@ export default function PortalProjectWorkspace({
             showProgressThread && progress ? (
               <section className="portal-glass-card portal-thread-surface">
                 <div className="portal-thread-surface-header">
-                  <p className={`text-chambray ${bricolage_grot600.className}`}>Project progress</p>
-                  <p className="mt-1 text-xs text-app-muted">
-                    Updates, progress checks, and replies with CoCreate.
-                  </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-chambray ${bricolage_grot600.className}`}>Project progress</p>
+                      <p className="mt-1 text-xs text-app-muted">
+                        Updates, progress checks, and replies with CoCreate.
+                      </p>
+                    </div>
+                    <ThreadSummaryExport
+                      fetchAttachmentDownloadUrl={fetchProjectAttachmentPreviewUrl}
+                      onGenerate={(options) =>
+                        generateProjectThreadSummary(progress.id, options)
+                      }
+                      onExportPdf={(options) =>
+                        downloadProjectThreadSummaryPdf(progress.id, options)
+                      }
+                    />
+                  </div>
                 </div>
                 <div className="mt-0 min-h-0 flex-1 md:mt-4">
                   <LazyRequestMessageThread

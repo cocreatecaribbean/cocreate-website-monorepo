@@ -98,6 +98,12 @@
       "require": "./dist/v1/shared/org-inbox.js",
       "import": "./dist/v1/shared/org-inbox.js",
       "default": "./dist/v1/shared/org-inbox.js"
+    },
+    "./v1/shared/thread-summary": {
+      "types": "./dist/v1/shared/thread-summary.d.ts",
+      "require": "./dist/v1/shared/thread-summary.js",
+      "import": "./dist/v1/shared/thread-summary.js",
+      "default": "./dist/v1/shared/thread-summary.js"
     }
   },
   "scripts": {

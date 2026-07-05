@@ -9,6 +9,7 @@ import RequestMessageThread from '@/components/request-message-thread'
 import ProjectStatusAttribution from '@/components/project-status-attribution'
 import AdminToast from '@/components/admin-toast'
 import MarkInboxReadOnView from '@/components/mark-inbox-read-on-view'
+import ThreadSummaryExport from '@cocreate/app-ui/thread-summary-export'
 import ClientTeamPanel from '@/components/client-team-panel'
 import AdminClientMessagesView from '@/components/admin-client-messages-view'
 import CreateProjectModal from '@/components/create-project-modal'
@@ -23,6 +24,11 @@ import {
 import { useApproveClientProjectMutation } from '@/lib/api/mutations/projects'
 import { useMarkInboxReadMutation } from '@/lib/api/mutations/clients'
 import { adminQueryKeys } from '@/lib/api/query-keys'
+import {
+  downloadAdminProjectThreadSummaryPdf,
+  generateAdminProjectThreadSummary,
+} from '@/lib/api/mutations/thread-summary'
+import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-project-files'
 import { appendRequestMessageToCache } from '@/lib/projects/append-request-message-cache'
 import type { ProjectRequestMessage } from '@/lib/projects/types'
 import {
@@ -564,11 +570,28 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                 if (!item) return null
                 return (
                   <section className="admin-glass-card w-full max-w-2xl p-5">
-                    <p className="text-xs font-semibold tracking-wide text-sanmarino uppercase">
-                      {requestTypeLabel[item.type] ?? item.type}
-                    </p>
-                    <p className={`mt-1 text-chambray ${bricolage_grot600.className}`}>{item.title}</p>
-                    <p className="text-sm text-app-muted">{item.projectTitle}</p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold tracking-wide text-sanmarino uppercase">
+                          {requestTypeLabel[item.type] ?? item.type}
+                        </p>
+                        <p className={`mt-1 text-chambray ${bricolage_grot600.className}`}>{item.title}</p>
+                        <p className="text-sm text-app-muted">{item.projectTitle}</p>
+                      </div>
+                      <ThreadSummaryExport
+                        triggerClassName="admin-btn-ghost shrink-0 px-3 py-1.5 text-xs"
+                        panelClassName="admin-glass-card"
+                        primaryButtonClassName="admin-btn-primary px-4 py-2 text-sm"
+                        ghostButtonClassName="admin-btn-ghost px-4 py-2 text-sm"
+                        fetchAttachmentDownloadUrl={fetchAttachmentDownloadUrl}
+                        onGenerate={(options) =>
+                          generateAdminProjectThreadSummary(item.id, options)
+                        }
+                        onExportPdf={(options) =>
+                          downloadAdminProjectThreadSummaryPdf(item.id, options)
+                        }
+                      />
+                    </div>
                     <div className="mt-4">
                       {canTrackUnread ? (
                         <MarkInboxReadOnView

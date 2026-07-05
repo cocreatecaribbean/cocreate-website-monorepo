@@ -9,7 +9,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const apiSrcRoot = path.join(repoRoot, 'apps', 'api', 'src')
+const scanRoots = [
+  path.join(repoRoot, 'apps', 'api', 'src'),
+  path.join(repoRoot, 'packages', 'ai-core', 'src'),
+]
 const turboPath = path.join(repoRoot, 'turbo.json')
 const apiBuildTask = '@cocreate/api#build'
 
@@ -54,17 +57,28 @@ function extractKeys(source: string): Set<string> {
     }
   }
 
+  for (const match of source.matchAll(/readEnv\(([^)]*)\)/g)) {
+    for (const keyMatch of match[1].matchAll(/['"]([A-Z][A-Z0-9_]*)['"]/g)) {
+      const key = keyMatch[1]
+      if (key && !ignoredKeys.has(key)) {
+        keys.add(key)
+      }
+    }
+  }
+
   return keys
 }
 
 async function collectApiEnvKeys(): Promise<string[]> {
-  const files = await walkTsFiles(apiSrcRoot)
   const keys = new Set<string>()
 
-  for (const file of files) {
-    const source = await readFile(file, 'utf8')
-    for (const key of extractKeys(source)) {
-      keys.add(key)
+  for (const root of scanRoots) {
+    const files = await walkTsFiles(root)
+    for (const file of files) {
+      const source = await readFile(file, 'utf8')
+      for (const key of extractKeys(source)) {
+        keys.add(key)
+      }
     }
   }
 

@@ -25,6 +25,7 @@ import type {
   OrgInboxConversation,
   OrgInboxMessage,
 } from '@cocreate/api-contracts/v1/shared/org-inbox'
+import { ThreadSummaryStoreService } from '../messaging-summary/thread-summary-store.service'
 import { ProjectNotificationsService } from '../projects/project-notifications.service'
 import { ProjectRealtimeService } from '../projects/project-realtime.service'
 import { ProjectStorageService } from '../projects/project-storage.service'
@@ -55,6 +56,7 @@ export class OrgInboxService {
     private readonly notifications: ProjectNotificationsService,
     private readonly realtime: ProjectRealtimeService,
     private readonly storage: ProjectStorageService,
+    private readonly threadSummaryStore: ThreadSummaryStoreService,
   ) {}
 
   private clientPortalMessagesHref(conversationId: string) {
@@ -242,6 +244,41 @@ export class OrgInboxService {
     return { ok: true as const, download }
   }
 
+  async downloadAttachmentBytes(
+    viewer: AuthenticatedClient | AuthenticatedAdmin,
+    attachmentId: string,
+  ): Promise<Buffer | null> {
+    const attachment = await this.prisma.orgInboxAttachment.findUnique({
+      where: { id: attachmentId },
+      include: {
+        conversation: {
+          include: { participants: { select: { userId: true } } },
+        },
+      },
+    })
+    if (!attachment) return null
+
+    if (viewer.role === UserRole.CLIENT) {
+      const client = viewer as AuthenticatedClient
+      const organizationId = this.clientAccess.requireOrganizationId(client)
+      if (attachment.organizationId !== organizationId) {
+        return null
+      }
+      if (attachment.conversation.visibility === OrgInboxVisibility.RESTRICTED) {
+        const isParticipant = attachment.conversation.participants.some(
+          (p) => p.userId === client.id,
+        )
+        if (!isParticipant) return null
+      }
+    }
+
+    try {
+      return await this.storage.downloadObject(attachment.storagePath)
+    } catch {
+      return null
+    }
+  }
+
   private async serializeConversation(
     row: ConversationRow,
     viewerUserId: string,
@@ -418,6 +455,40 @@ export class OrgInboxService {
     }
   }
 
+  async getConversationForSummary(
+    conversationId: string,
+    viewer: AuthenticatedClient | AuthenticatedAdmin,
+  ) {
+    if (viewer.role === UserRole.CLIENT) {
+      await this.assertClientCanViewConversation(viewer as AuthenticatedClient, conversationId)
+    }
+
+    const conversation = await this.prisma.orgInboxConversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        organization: { select: { name: true } },
+        createdBy: { select: { email: true } },
+      },
+    })
+    if (!conversation) throw new NotFoundException('Conversation not found')
+
+    const title =
+      conversation.subject?.trim() ||
+      (conversation.visibility === OrgInboxVisibility.ORG_WIDE
+        ? 'General inquiries'
+        : 'Private conversation')
+    const subtitle = [
+      conversation.organization.name,
+      conversation.createdBy?.email
+        ? `Started by ${conversation.createdBy.email}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+
+    return { title, subtitle: subtitle || null }
+  }
+
   async createConversationForClient(
     client: AuthenticatedClient,
     dto: CreateOrgInboxConversationInput,
@@ -516,6 +587,7 @@ export class OrgInboxService {
       body.slice(0, 200) || (attachmentIds.length ? 'Sent an attachment' : '')
     const serialized = this.serializeMessage(messageWithAttachments)
     void this.realtime.publishOrgInboxUpdate(conversationId, { message: serialized })
+    void this.threadSummaryStore.invalidate('ORG_INBOX', conversationId)
     void this.notifications.notifyAdmins({
       organizationId,
       type: PortalNotificationType.ORG_INBOX_MESSAGE,
@@ -587,6 +659,7 @@ export class OrgInboxService {
     const serialized = this.serializeMessage(messageWithAttachments)
 
     void this.realtime.publishOrgInboxUpdate(conversationId, { message: serialized })
+    void this.threadSummaryStore.invalidate('ORG_INBOX', conversationId)
 
     if (conversation.visibility === OrgInboxVisibility.ORG_WIDE) {
       void this.notifications.notifyOrgClients({

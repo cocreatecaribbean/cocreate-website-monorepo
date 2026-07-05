@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { AuthModule } from '../auth/auth.module'
+import { ThreadSummaryModule } from '../messaging-summary/thread-summary.module'
 import { AdminProjectsController } from './admin-projects.controller'
 import { ClientProjectsController } from './client-projects.controller'
 import { ProjectNotificationMailService } from './project-notification-mail.service'
@@ -17,7 +18,7 @@ import { AdminCollaboratorsController } from './admin-collaborators.controller'
 import { AgencyCollaboratorsService } from './agency-collaborators.service'
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, ThreadSummaryModule],
   controllers: [
     ClientProjectsController,
     AdminProjectsController,

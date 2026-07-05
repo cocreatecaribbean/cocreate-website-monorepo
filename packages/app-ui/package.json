@@ -17,13 +17,15 @@
     "./approval-comment-message-list-utils": "./src/approval-comment-message-list-utils.ts",
     "./use-comment-list-auto-scroll": "./src/use-comment-list-auto-scroll.ts",
     "./scroll-to-latest": "./src/scroll-to-latest/index.ts",
-    "./workspace-section-nav": "./src/workspace-section-nav.tsx"
+    "./workspace-section-nav": "./src/workspace-section-nav.tsx",
+    "./thread-summary-export": "./src/thread-summary-export.tsx"
   },
   "peerDependencies": {
     "react": "catalog:react",
     "react-dom": "catalog:react"
   },
   "dependencies": {
+    "@cocreate/api-contracts": "workspace:*",
     "@tanstack/react-query": "catalog:web",
     "@tanstack/react-query-devtools": "catalog:web"
   },

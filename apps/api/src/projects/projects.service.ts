@@ -11,6 +11,7 @@ import {
   ClientProjectPhase,
   ClientProjectStatus,
   Prisma,
+  ProjectAttachment,
   ProjectAttachmentVisibility,
   ProjectMessageAuthorRole,
   ProjectMessageKind,
@@ -26,6 +27,7 @@ import type {
   AuthenticatedAgencyUser,
   AuthenticatedClient,
 } from '../auth/auth.service'
+import { ThreadSummaryStoreService } from '../messaging-summary/thread-summary-store.service'
 import { AgencyAccessService } from '../auth/agency-access.service'
 import { isCollaboratorRole } from '../auth/admin-roles'
 import { ClientAccessService } from '../auth/client-access.service'
@@ -88,6 +90,7 @@ export class ProjectsService {
     private readonly clientTeam: ClientTeamService,
     private readonly supabaseAuth: SupabaseAuthService,
     private readonly approvals: ProjectApprovalsService,
+    private readonly threadSummaryStore: ThreadSummaryStoreService,
   ) {}
 
   private portalCallbackUrl() {
@@ -2176,6 +2179,7 @@ export class ProjectsService {
       messageId: message.id,
       message: serialized,
     })
+    void this.threadSummaryStore.invalidate('PROJECT_REQUEST', requestId)
     if (dto.attachmentIds?.length) {
       void this.notifyThreadUpdate(requestId, 'attachment')
     }
@@ -2541,6 +2545,36 @@ export class ProjectsService {
 
     const signed = await this.storage.createDownloadUrl(attachment.storagePath)
     return { ...serializeAttachment(attachment), download: signed }
+  }
+
+  async downloadAttachmentBytes(
+    actor: AuthenticatedClient | AuthenticatedAgencyUser,
+    attachmentId: string,
+  ): Promise<Buffer | null> {
+    const attachment = await this.prisma.projectAttachment.findUnique({
+      where: { id: attachmentId },
+      include: { project: true },
+    })
+    if (!attachment) return null
+
+    if ('organization' in actor && actor.organization) {
+      if (attachment.visibility === ProjectAttachmentVisibility.INTERNAL) {
+        return null
+      }
+      await this.clientAccess.assertProjectAccess(
+        actor,
+        attachment.projectId,
+        'VIEW',
+      )
+    } else {
+      await this.agencyAccess.assertCanAccessProject(actor, attachment.projectId)
+    }
+
+    try {
+      return await this.storage.downloadObject(attachment.storagePath)
+    } catch {
+      return null
+    }
   }
 
   async removeAttachmentFromMessage(

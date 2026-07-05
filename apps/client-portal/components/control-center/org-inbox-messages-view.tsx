@@ -30,6 +30,12 @@ import { useOrgInboxRealtime } from '@/lib/inbox/use-org-inbox-realtime'
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import { CONTROL_CENTER_VIEW_QUERY } from '@/lib/control-center/nav'
 import { bricolage_grot600 } from '@/styles/fonts'
+import ThreadSummaryExport from '@cocreate/app-ui/thread-summary-export'
+import {
+  downloadOrgInboxThreadSummaryPdf,
+  fetchOrgInboxAttachmentPreviewUrl,
+  generateOrgInboxThreadSummary,
+} from '@/lib/messaging/fetch-thread-summary'
 
 export default function OrgInboxMessagesView() {
   const router = useRouter()
@@ -255,9 +261,20 @@ export default function OrgInboxMessagesView() {
                 Back to threads
               </button>
               {selected ? (
-                <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>
-                  {conversationLabel(selected)}
-                </p>
+                <div className="flex items-start justify-between gap-3">
+                  <p className={`min-w-0 flex-1 text-sm text-chambray ${bricolage_grot600.className}`}>
+                    {conversationLabel(selected)}
+                  </p>
+                  <ThreadSummaryExport
+                    fetchAttachmentDownloadUrl={fetchOrgInboxAttachmentPreviewUrl}
+                    onGenerate={(options) =>
+                      generateOrgInboxThreadSummary(selected.id, options)
+                    }
+                    onExportPdf={(options) =>
+                      downloadOrgInboxThreadSummaryPdf(selected.id, options)
+                    }
+                  />
+                </div>
               ) : null}
             </div>
             {selected ? (

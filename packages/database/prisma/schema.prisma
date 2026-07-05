@@ -812,6 +812,22 @@ model UserPreferences {
   updatedAt DateTime @updatedAt
 }
 
+/// Cached AI-generated summary for a messaging thread
+model ThreadSummary {
+  id            String   @id @default(cuid())
+  sourceType    String
+  sourceId      String
+  messageCount  Int
+  lastMessageAt DateTime
+  content       Json
+  model         String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([sourceType, sourceId])
+  @@index([sourceType, sourceId])
+}
+
 /// Display identity for portal users (admins set name/title for project attribution)
 model UserProfile {
   id                String   @id @default(cuid())

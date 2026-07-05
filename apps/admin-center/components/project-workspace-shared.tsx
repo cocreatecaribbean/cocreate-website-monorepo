@@ -6,8 +6,14 @@ import RequestMessageThread, {
   type CheckpointComposeConfig,
 } from '@/components/request-message-thread'
 import MarkInboxReadOnView from '@/components/mark-inbox-read-on-view'
+import ThreadSummaryExport from '@cocreate/app-ui/thread-summary-export'
 import { useAdminRequestThreadQuery } from '@/lib/api/queries/projects'
 import { adminQueryKeys } from '@/lib/api/query-keys'
+import {
+  downloadAdminProjectThreadSummaryPdf,
+  generateAdminProjectThreadSummary,
+} from '@/lib/api/mutations/thread-summary'
+import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-project-files'
 import type { ClientProjectSummary, ProjectRequestItem } from '@/lib/projects/types'
 import type { ThreadApprovalItem } from '@/lib/projects/thread-approval-items'
 import { bricolage_grot600 } from '@/styles/fonts'
@@ -223,8 +229,25 @@ export function ProjectThreadPanel({
       className="admin-glass-card admin-thread-surface w-full max-w-2xl max-md:max-w-none"
     >
       <div className="admin-thread-surface-header">
-        <p className={`text-chambray ${bricolage_grot600.className}`}>{title}</p>
-        <p className="mt-1 text-xs text-app-muted">{subtitle}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className={`text-chambray ${bricolage_grot600.className}`}>{title}</p>
+            <p className="mt-1 text-xs text-app-muted">{subtitle}</p>
+          </div>
+          <ThreadSummaryExport
+            triggerClassName="admin-btn-ghost shrink-0 px-3 py-1.5 text-xs"
+            panelClassName="admin-glass-card"
+            primaryButtonClassName="admin-btn-primary px-4 py-2 text-sm"
+            ghostButtonClassName="admin-btn-ghost px-4 py-2 text-sm"
+            fetchAttachmentDownloadUrl={fetchAttachmentDownloadUrl}
+            onGenerate={(options) =>
+              generateAdminProjectThreadSummary(request.id, options)
+            }
+            onExportPdf={(options) =>
+              downloadAdminProjectThreadSummaryPdf(request.id, options)
+            }
+          />
+        </div>
       </div>
       <div className="mt-0 min-h-0 flex-1 md:mt-4">
         {markReadEnabled ? (

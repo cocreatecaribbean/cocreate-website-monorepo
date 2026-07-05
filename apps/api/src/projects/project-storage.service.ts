@@ -279,6 +279,28 @@ export class ProjectStorageService {
     return { signedUrl: data.signedUrl, expiresIn: DOWNLOAD_TTL_SEC }
   }
 
+  async downloadObject(storagePath: string): Promise<Buffer> {
+    if (!this.client) {
+      throw new ServiceUnavailableException(
+        'File storage is not configured (Supabase)',
+      )
+    }
+
+    await this.ensureBucketExists()
+
+    const { data, error } = await this.client.storage
+      .from(BUCKET)
+      .download(storagePath)
+
+    if (error || !data) {
+      throw new BadRequestException(
+        this.formatStorageError(error?.message ?? 'Could not download file'),
+      )
+    }
+
+    return Buffer.from(await data.arrayBuffer())
+  }
+
   async deleteObject(storagePath: string): Promise<void> {
     if (!this.client) return
 

@@ -17,6 +17,7 @@ import { BillingModule } from './billing/billing.module'
 import { SocialListeningAdminModule } from './social-listening-admin/social-listening-admin.module'
 import { OrgInboxModule } from './org-inbox/org-inbox.module'
 import { DashboardModule } from './dashboard/dashboard.module'
+import { MessagingSummaryModule } from './messaging-summary/messaging-summary.module'
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { DashboardModule } from './dashboard/dashboard.module'
     BillingModule,
     SocialListeningAdminModule,
     OrgInboxModule,
+    MessagingSummaryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

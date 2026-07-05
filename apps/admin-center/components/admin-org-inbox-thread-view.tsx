@@ -31,6 +31,11 @@ import {
   formatConversationDate,
 } from '@/lib/inbox/org-inbox-display'
 import { bricolage_grot600 } from '@/styles/fonts'
+import ThreadSummaryExport from '@cocreate/app-ui/thread-summary-export'
+import {
+  downloadAdminOrgInboxThreadSummaryPdf,
+  generateAdminOrgInboxThreadSummary,
+} from '@/lib/api/mutations/thread-summary'
 
 type AdminOrgInboxThreadViewProps = {
   organizationId: string
@@ -182,16 +187,33 @@ export default function AdminOrgInboxThreadView({
       </button>
 
       <section className="admin-glass-card admin-message-thread-shell mx-auto flex h-[min(calc(100dvh-11rem),680px)] min-h-[360px] w-full max-w-2xl flex-col p-4">
-        <p className={`shrink-0 text-sm ${bricolage_grot600.className}`}>
-          {conversationSubject(conversation)}
-        </p>
-        <p className="mt-1 shrink-0 text-xs text-app-muted">
-          {conversation.createdByEmail
-            ? `Started by ${conversation.createdByEmail}`
-            : 'Started by client'}
-          {' · '}
-          {formatConversationDate(conversation.createdAt)}
-        </p>
+        <div className="flex shrink-0 items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className={`text-sm ${bricolage_grot600.className}`}>
+              {conversationSubject(conversation)}
+            </p>
+            <p className="mt-1 text-xs text-app-muted">
+              {conversation.createdByEmail
+                ? `Started by ${conversation.createdByEmail}`
+                : 'Started by client'}
+              {' · '}
+              {formatConversationDate(conversation.createdAt)}
+            </p>
+          </div>
+          <ThreadSummaryExport
+            triggerClassName="admin-btn-ghost shrink-0 px-3 py-1.5 text-xs"
+            panelClassName="admin-glass-card"
+            primaryButtonClassName="admin-btn-primary px-4 py-2 text-sm"
+            ghostButtonClassName="admin-btn-ghost px-4 py-2 text-sm"
+            fetchAttachmentDownloadUrl={fetchOrgInboxAttachmentDownloadUrl}
+            onGenerate={(options) =>
+              generateAdminOrgInboxThreadSummary(conversationId, options)
+            }
+            onExportPdf={(options) =>
+              downloadAdminOrgInboxThreadSummaryPdf(conversationId, options)
+            }
+          />
+        </div>
         <div ref={panelRef} className="admin-thread-panel mt-4">
           {messages.length === 0 ? (
             <p className="text-sm text-app-muted">No messages yet.</p>

@@ -4,7 +4,12 @@
     "NEXT_PUBLIC_*"
   ],
   "globalPassThroughEnv": [
-    "*"
+    "*",
+    "OPENAI_API_KEY",
+    "AI_GATEWAY_API_KEY",
+    "OPENAI_CHAT_MODEL",
+    "OPENAI_SUMMARY_MODEL",
+    "OPENAI_MODEL"
   ],
   "tasks": {
     "build": {
@@ -32,10 +37,14 @@
         "ADMIN_API_KEY",
         "ADMIN_CENTER_URL",
         "ADMIN_NOTIFY_EMAIL",
+        "AI_GATEWAY_API_KEY",
+        "APP_VERSION",
         "AUTH_DEV_LINKS",
         "AUTH_EMAIL_FROM",
         "AUTH_EMAIL_FROM_NAME",
         "AUTH_USE_RESEND_API",
+        "BILLING_FROM_EMAIL",
+        "BILLING_FROM_NAME",
         "BRAND24_API_BASE_URL",
         "BRAND24_API_KEY",
         "BRAND24_USE_LIVE_API",
@@ -44,11 +53,21 @@
         "CORS_ORIGIN",
         "DATABASE_POOL_MAX",
         "DATABASE_URL",
+        "FYGARO_KEY_ID",
+        "FYGARO_PAYMENT_BUTTON_URL",
+        "FYGARO_SECRET",
+        "FYGARO_WEBHOOK_SECRETS",
+        "GITHUB_SHA",
+        "GIT_SHA",
         "NEWSLETTER_FROM_EMAIL",
         "NEWSLETTER_FROM_NAME",
+        "OPENAI_API_KEY",
+        "OPENAI_CHAT_MODEL",
+        "OPENAI_SUMMARY_MODEL",
         "PORT",
         "PROJECT_UPDATES_FROM_EMAIL",
         "PROJECT_UPDATES_FROM_NAME",
+        "RAILWAY_GIT_COMMIT_SHA",
         "RESEND_API_KEY",
         "RESEND_AUDIENCE_ID",
         "RESEND_FROM_EMAIL",
@@ -61,6 +80,7 @@
         "SUPABASE_ANON_KEY",
         "SUPABASE_SERVICE_ROLE_KEY",
         "SUPABASE_URL",
+        "VERCEL_GIT_COMMIT_SHA",
         "WEB_URL"
       ]
     }
