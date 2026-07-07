@@ -13,6 +13,8 @@ import PageTransition from "@/components/pageTransition";
 import { QueryProvider } from "@/components/query-provider";
 import { SearchProvider } from "@/components/search/search-provider";
 import { ClientPortalProvider } from "@/components/client-portal/client-portal-provider";
+import { CookieConsentProvider } from "@/components/cookie-consent/cookie-consent-provider";
+import MarketingAssistant from "@/components/assistant/marketing-assistant";
 
 
 
@@ -48,7 +50,9 @@ export default function RootLayout({
   }} />
         <QueryProvider>
         <SearchProvider>
+        <CookieConsentProvider>
         <ClientPortalProvider>
+        <MarketingAssistant />
         <LandscapeWarning/>
         <ScrollSmoothWrapper>
           <PageTransition>
@@ -64,6 +68,7 @@ export default function RootLayout({
           <NavMobile />
         </nav>
         </ClientPortalProvider>
+        </CookieConsentProvider>
         </SearchProvider>
         </QueryProvider>
         

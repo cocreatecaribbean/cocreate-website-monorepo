@@ -12,6 +12,7 @@ import {
 import { usePortalPermissions } from '@/lib/team/use-portal-permissions'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import { X } from 'lucide-react'
+import NavTooltip from '@cocreate/app-ui/nav-tooltip'
 
 type ControlCenterSidebarProps = {
   activeView: ControlCenterViewId
@@ -37,15 +38,15 @@ function NavButton({
 }) {
   const Icon = item.icon
   return (
-    <button
-      type="button"
-      onClick={() => {
-        onSelect()
-        onNavigate?.()
-      }}
-      aria-current={active ? 'page' : undefined}
-      title={item.description}
-      className={`
+    <NavTooltip description={item.description} className="w-full">
+      <button
+        type="button"
+        onClick={() => {
+          onSelect()
+          onNavigate?.()
+        }}
+        aria-current={active ? 'page' : undefined}
+        className={`
         portal-sl-nav-item group flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition
         ${bricolage_grot600.className}
         ${
@@ -54,18 +55,19 @@ function NavButton({
             : 'text-white/75 hover:bg-white/8 hover:text-white'
         }
       `}
-    >
-      <Icon
-        className={`h-4 w-4 shrink-0 ${active ? 'text-casablanca' : 'text-white/50 group-hover:text-white/80'}`}
-        aria-hidden
-      />
-      <span className="flex-1">{item.label}</span>
-      {badge ? (
-        <span className="rounded-full bg-casablanca/20 px-2 py-0.5 text-[0.65rem] font-semibold text-casablanca">
-          {badge}
-        </span>
-      ) : null}
-    </button>
+      >
+        <Icon
+          className={`h-4 w-4 shrink-0 ${active ? 'text-casablanca' : 'text-white/50 group-hover:text-white/80'}`}
+          aria-hidden
+        />
+        <span className="flex-1">{item.label}</span>
+        {badge ? (
+          <span className="rounded-full bg-casablanca/20 px-2 py-0.5 text-[0.65rem] font-semibold text-casablanca">
+            {badge}
+          </span>
+        ) : null}
+      </button>
+    </NavTooltip>
   )
 }
 

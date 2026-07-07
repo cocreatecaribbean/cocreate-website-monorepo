@@ -18,9 +18,17 @@
     "./use-comment-list-auto-scroll": "./src/use-comment-list-auto-scroll.ts",
     "./scroll-to-latest": "./src/scroll-to-latest/index.ts",
     "./workspace-section-nav": "./src/workspace-section-nav.tsx",
+    "./nav-tooltip": "./src/nav-tooltip.tsx",
+    "./assistant-shell": "./src/assistant-shell.tsx",
+    "./assistant-chat": "./src/assistant-chat.tsx",
     "./thread-summary-export": "./src/thread-summary-export.tsx"
   },
   "peerDependencies": {
+    "@ai-sdk/react": "catalog:ai",
+    "@gsap/react": "catalog:animation",
+    "ai": "catalog:ai",
+    "gsap": "catalog:animation",
+    "lucide-react": ">=0.400.0",
     "react": "catalog:react",
     "react-dom": "catalog:react"
   },
@@ -30,6 +38,11 @@
     "@tanstack/react-query-devtools": "catalog:web"
   },
   "devDependencies": {
+    "@ai-sdk/react": "catalog:ai",
+    "@gsap/react": "catalog:animation",
+    "ai": "catalog:ai",
+    "gsap": "catalog:animation",
+    "lucide-react": "catalog:web",
     "@types/react": "catalog:react",
     "@types/react-dom": "catalog:react",
     "react": "catalog:react",

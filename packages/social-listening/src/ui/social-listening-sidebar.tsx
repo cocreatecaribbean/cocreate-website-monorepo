@@ -9,6 +9,7 @@ import {
 } from '@cocreate/social-listening/data-source'
 import type { MentionSnapshotHint } from '@cocreate/social-listening/core'
 import { Plus, X } from 'lucide-react'
+import NavTooltip from '@cocreate/app-ui/nav-tooltip'
 import { slFontSemibold, slFontBold } from './typography'
 
 type SocialListeningSidebarProps = {
@@ -38,15 +39,15 @@ function NavButton({
 }) {
   const Icon = item.icon
   return (
-    <button
-      type="button"
-      onClick={() => {
-        onSelect()
-        onNavigate?.()
-      }}
-      aria-current={active ? 'page' : undefined}
-      title={item.description}
-      className={`
+    <NavTooltip description={item.description} className="w-full">
+      <button
+        type="button"
+        onClick={() => {
+          onSelect()
+          onNavigate?.()
+        }}
+        aria-current={active ? 'page' : undefined}
+        className={`
         portal-sl-nav-item group flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition
         ${slFontSemibold}
         ${
@@ -55,13 +56,14 @@ function NavButton({
             : 'text-white/75 hover:bg-white/8 hover:text-white'
         }
       `}
-    >
-      <Icon
-        className={`h-4 w-4 shrink-0 ${active ? 'text-casablanca' : 'text-white/50 group-hover:text-white/80'}`}
-        aria-hidden
-      />
-      <span>{item.label}</span>
-    </button>
+      >
+        <Icon
+          className={`h-4 w-4 shrink-0 ${active ? 'text-casablanca' : 'text-white/50 group-hover:text-white/80'}`}
+          aria-hidden
+        />
+        <span>{item.label}</span>
+      </button>
+    </NavTooltip>
   )
 }
 

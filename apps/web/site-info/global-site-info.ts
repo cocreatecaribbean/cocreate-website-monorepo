@@ -10,7 +10,7 @@ export const clientPortalNav = {
 export const clientPortalQueryParam = 'client-portal'
 
 const menuLabels: Record<string, string> = {
-  contact: 'Ask CoCreate',
+  contact: 'Contact',
 }
 
 export function getMenuLabel(slug: string): string {

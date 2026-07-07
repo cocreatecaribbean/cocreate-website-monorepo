@@ -393,4 +393,53 @@
   .portal-drawer-nav-icon { @apply text-white/70; }
   .portal-drawer-nav-item--active .portal-drawer-nav-icon { @apply text-casablanca; }
   .portal-drawer-nav-item--idle:hover .portal-drawer-nav-icon { color: white; }
+
+  .nav-tooltip-host {
+    @apply inline-flex max-w-full;
+  }
+  .nav-tooltip-host > :first-child {
+    @apply max-w-full;
+  }
+  .nav-tooltip-bubble {
+    @apply pointer-events-none fixed z-[9999] w-max max-w-[16rem] rounded-xl border px-3 py-2 text-left text-xs leading-relaxed shadow-lg;
+    opacity: 0;
+    visibility: hidden;
+    border-color: var(--surface-border);
+    background-color: var(--surface-card-solid);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-card);
+  }
+  .nav-tooltip-bubble--open {
+    opacity: 1;
+    visibility: visible;
+  }
+  .dark .nav-tooltip-bubble {
+    @apply border-white/10 bg-chambray/95 text-white;
+  }
+  .nav-tooltip-bubble--sidebar {
+    @apply border-white/15 bg-chambray text-white/95 shadow-[0_8px_24px_rgba(0,0,0,0.35)];
+  }
+
+  .assistant-shell {
+    @apply fixed right-4 z-[235] flex flex-col items-end gap-3 sm:right-6;
+    bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+  .assistant-shell--above-cookie {
+    bottom: calc(max(1.25rem, env(safe-area-inset-bottom)) + 18.5rem);
+  }
+  @media (min-width: 640px) {
+    .assistant-shell--above-cookie {
+      bottom: calc(max(2rem, env(safe-area-inset-bottom)) + 17rem);
+    }
+  }
+  .assistant-shell-panel {
+    @apply flex w-[min(calc(100vw-2rem),22rem)] flex-col overflow-hidden rounded-2xl border border-chambray/10 bg-white shadow-[0_12px_40px_rgba(57,65,154,0.18)];
+    height: min(70vh, 28rem);
+  }
+  .assistant-shell-fab {
+    @apply flex h-14 w-14 items-center justify-center rounded-full bg-chambray text-casablanca shadow-[0_8px_24px_rgba(57,65,154,0.35)] transition hover:bg-sanmarino hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-casablanca;
+  }
+  .assistant-shell-fab[aria-expanded='true'] {
+    @apply bg-sanmarino text-white;
+  }
 }

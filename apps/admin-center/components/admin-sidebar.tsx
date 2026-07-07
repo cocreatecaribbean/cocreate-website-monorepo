@@ -5,89 +5,20 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import {
-  FolderKanban,
-  LayoutDashboard,
   LogOut,
-  MessageSquare,
-  Radio,
-  Settings2,
-  Shield,
-  UserCircle,
-  Users,
   X,
-  type LucideIcon,
 } from 'lucide-react'
+import NavTooltip from '@cocreate/app-ui/nav-tooltip'
 import { bricolage_grot600 } from '@/styles/fonts'
 import { useAdminSession } from '@/components/admin-session-provider'
 import { isSuperAdminSession } from '@/lib/admin-session'
 import {
   getActiveAdminNavId,
   normalizeAdminPathname,
-  type AdminNavId,
 } from '@/lib/admin-nav'
+import { ADMIN_NAV_ITEMS, ADMIN_SUPER_NAV_ITEMS } from '@/lib/admin-nav-items'
 import { useAdminOrgInboxUnreadCountQuery } from '@/lib/api/queries/org-inbox'
 import ThemeToggle from '@/components/theme-toggle'
-
-type NavItem = {
-  id: AdminNavId
-  label: string
-  href: string
-  icon: LucideIcon
-}
-
-const navItems: NavItem[] = [
-  {
-    id: 'dashboard',
-    label: 'Dashboard',
-    href: '/',
-    icon: LayoutDashboard,
-  },
-  {
-    id: 'project-center',
-    label: 'Project Center',
-    href: '/project-center',
-    icon: FolderKanban,
-  },
-  {
-    id: 'clients',
-    label: 'Clients',
-    href: '/client-access',
-    icon: Users,
-  },
-  {
-    id: 'messages',
-    label: 'Messages',
-    href: '/messages',
-    icon: MessageSquare,
-  },
-  {
-    id: 'social-listening',
-    label: 'Social Listening',
-    href: '/social-listening',
-    icon: Radio,
-  },
-  {
-    id: 'team',
-    label: 'Team',
-    href: '/team',
-    icon: Shield,
-  },
-  {
-    id: 'profile',
-    label: 'Profile',
-    href: '/profile',
-    icon: UserCircle,
-  },
-]
-
-const superAdminNavItems: NavItem[] = [
-  {
-    id: 'agency-profile',
-    label: 'Profile options',
-    href: '/settings/agency-profile',
-    icon: Settings2,
-  },
-]
 
 function resolvePathname(routerPathname: string | null): string {
   if (routerPathname) return normalizeAdminPathname(routerPathname)
@@ -126,8 +57,8 @@ export default function AdminSidebar({
   const { data: orgInboxUnread = 0 } = useAdminOrgInboxUnreadCountQuery()
   const items =
     session?.mode === 'api_key' || isSuperAdminSession(session?.role ?? null)
-      ? [...navItems, ...superAdminNavItems]
-      : navItems
+      ? [...ADMIN_NAV_ITEMS, ...ADMIN_SUPER_NAV_ITEMS]
+      : ADMIN_NAV_ITEMS
 
   const logout = async () => {
     clearQueryCache()
@@ -170,31 +101,32 @@ export default function AdminSidebar({
           const Icon = item.icon
 
           return (
-            <Link
-              key={item.id}
-              href={item.href}
-              onClick={onNavigate}
-              aria-current={active ? 'page' : undefined}
-              className={`
-                group flex min-h-11 items-center gap-3 rounded-xl px-3 py-3 text-[15px] transition-all duration-200
+            <NavTooltip key={item.id} description={item.description} className="w-full">
+              <Link
+                href={item.href}
+                onClick={onNavigate}
+                aria-current={active ? 'page' : undefined}
+                className={`
+                group flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] transition-all duration-200
                 ${
                   active
                     ? 'bg-white/18 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] ring-1 ring-white/15'
                     : 'text-white/85 hover:bg-white/10 hover:text-white'
                 }
               `}
-            >
-              <Icon
-                className={`h-5 w-5 shrink-0 ${active ? 'text-casablanca' : 'text-white/70 group-hover:text-white'}`}
-                strokeWidth={1.75}
-              />
-              {item.label}
-              {item.id === 'messages' && orgInboxUnread > 0 ? (
-                <span className="ml-auto rounded-full bg-casablanca/90 px-2 py-0.5 text-xs text-chambray tabular-nums">
-                  {orgInboxUnread}
-                </span>
-              ) : null}
-            </Link>
+              >
+                <Icon
+                  className={`h-5 w-5 shrink-0 ${active ? 'text-casablanca' : 'text-white/70 group-hover:text-white'}`}
+                  strokeWidth={1.75}
+                />
+                {item.label}
+                {item.id === 'messages' && orgInboxUnread > 0 ? (
+                  <span className="ml-auto rounded-full bg-casablanca/90 px-2 py-0.5 text-xs text-chambray tabular-nums">
+                    {orgInboxUnread}
+                  </span>
+                ) : null}
+              </Link>
+            </NavTooltip>
           )
         })}
       </nav>

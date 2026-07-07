@@ -35,7 +35,7 @@ export default function WorkProjectPage({ project }: WorkProjectPageProps) {
             </p>
             <h1
               className={`
-                max-w-full text-balance break-words text-left uppercase
+                max-w-full text-balance break-normal hyphens-none text-left uppercase
                 leading-[1.05] text-sanmarino
                 text-[clamp(2rem,6.5vw,3.25rem)]
                 min-[1024px]:text-[clamp(1.65rem,2.4vw,2.75rem)]

@@ -16,9 +16,12 @@ export type WorkspaceSectionNavIcon = ComponentType<{
   'aria-hidden'?: boolean
 }>
 
+import NavTooltip from './nav-tooltip'
+
 export type WorkspaceSectionNavItem<T extends string> = {
   id: T
   label: string
+  description?: string
   icon?: WorkspaceSectionNavIcon
   badge?: number | string
   ariaLabel?: string
@@ -222,33 +225,35 @@ export default function WorkspaceSectionNav<T extends string>({
               const highlighted = index === highlightIndex
               return (
                 <li key={item.id} role="presentation">
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={active}
-                    tabIndex={highlighted ? 0 : -1}
-                    ref={(node) => {
-                      if (highlighted && open) node?.focus()
-                    }}
-                    className={`portal-field-menu-item ${active ? 'portal-field-menu-item--active' : ''}`}
-                    onClick={() => selectItem(item.id)}
-                    onMouseEnter={() => {
-                      setHighlightIndex(index)
-                      onItemHover?.(item.id)
-                    }}
-                    onFocus={() => {
-                      setHighlightIndex(index)
-                      onItemHover?.(item.id)
-                    }}
-                  >
-                    {Icon ? (
-                      <Icon className="portal-field-menu-item-icon" aria-hidden />
-                    ) : null}
-                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                    {item.badge !== undefined && item.badge !== '' && item.badge !== 0 ? (
-                      <NavBadge badge={item.badge} />
-                    ) : null}
-                  </button>
+                  <NavTooltip description={item.description} side="top" className="w-full">
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={active}
+                      tabIndex={highlighted ? 0 : -1}
+                      ref={(node) => {
+                        if (highlighted && open) node?.focus()
+                      }}
+                      className={`portal-field-menu-item w-full ${active ? 'portal-field-menu-item--active' : ''}`}
+                      onClick={() => selectItem(item.id)}
+                      onMouseEnter={() => {
+                        setHighlightIndex(index)
+                        onItemHover?.(item.id)
+                      }}
+                      onFocus={() => {
+                        setHighlightIndex(index)
+                        onItemHover?.(item.id)
+                      }}
+                    >
+                      {Icon ? (
+                        <Icon className="portal-field-menu-item-icon" aria-hidden />
+                      ) : null}
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      {item.badge !== undefined && item.badge !== '' && item.badge !== 0 ? (
+                        <NavBadge badge={item.badge} />
+                      ) : null}
+                    </button>
+                  </NavTooltip>
                 </li>
               )
             })}
@@ -261,23 +266,24 @@ export default function WorkspaceSectionNav<T extends string>({
           const Icon = item.icon
           const active = item.id === activeId
           return (
-            <NavPillButton
-              key={item.id}
-              active={active}
-              pillClassName={pillClassName}
-              ariaLabel={itemAriaLabel(item)}
-              onClick={() => onSelect(item.id)}
-              onMouseEnter={onItemHover ? () => onItemHover(item.id) : undefined}
-              onFocus={onItemHover ? () => onItemHover(item.id) : undefined}
-              icon={Icon ? <Icon className="h-3.5 w-3.5" aria-hidden /> : null}
-              badge={
-                item.badge !== undefined && item.badge !== '' && item.badge !== 0 ? (
-                  <NavBadge badge={item.badge} />
-                ) : null
-              }
-            >
-              {item.label}
-            </NavPillButton>
+            <NavTooltip key={item.id} description={item.description} side="top">
+              <NavPillButton
+                active={active}
+                pillClassName={pillClassName}
+                ariaLabel={itemAriaLabel(item)}
+                onClick={() => onSelect(item.id)}
+                onMouseEnter={onItemHover ? () => onItemHover(item.id) : undefined}
+                onFocus={onItemHover ? () => onItemHover(item.id) : undefined}
+                icon={Icon ? <Icon className="h-3.5 w-3.5" aria-hidden /> : null}
+                badge={
+                  item.badge !== undefined && item.badge !== '' && item.badge !== 0 ? (
+                    <NavBadge badge={item.badge} />
+                  ) : null
+                }
+              >
+                {item.label}
+              </NavPillButton>
+            </NavTooltip>
           )
         })}
       </nav>

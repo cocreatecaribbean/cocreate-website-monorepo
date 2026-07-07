@@ -10,6 +10,7 @@
     "./ui": "./src/ui/index.ts"
   },
   "peerDependencies": {
+    "@cocreate/app-ui": "workspace:*",
     "@nivo/bar": "^0.88.0",
     "@nivo/core": "^0.88.0",
     "@nivo/heatmap": "^0.88.0",
@@ -29,6 +30,7 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
+    "@cocreate/app-ui": "workspace:*",
     "@types/react": "catalog:react",
     "@types/react-dom": "catalog:react",
     "next-themes": "^0.4.6",

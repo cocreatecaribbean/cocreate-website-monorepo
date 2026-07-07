@@ -35,6 +35,9 @@
   --container-8xl: 96rem;
 }
 
+@import "../../../packages/app-ui/src/components.css";
+@source "../../../packages/app-ui/src";
+
 
 @media (prefers-color-scheme: dark) {
   :root {
@@ -84,8 +87,28 @@ body.client-portal-open #smooth-wrapper {
   .animate-float {
     animation: none !important;
   }
+
+  .cookie-consent-banner {
+    animation: none !important;
+  }
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .cookie-consent-banner {
+    animation: cookie-banner-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes cookie-banner-enter {
+  from {
+    opacity: 0;
+    transform: translate(12px, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
 
 
 

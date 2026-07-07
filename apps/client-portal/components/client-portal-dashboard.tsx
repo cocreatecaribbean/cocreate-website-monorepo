@@ -13,12 +13,22 @@ import { alkatra600, bricolage_grot500, bricolage_grot600, bricolage_grot700 } f
 import { SOCIAL_LISTENING_PLANS } from '@cocreate/social-listening-plans'
 import { subscribeToPlan } from '@/lib/social-listening/fetch-billing-client'
 import { CheckCircle2, Radio } from 'lucide-react'
+import NavTooltip from '@cocreate/app-ui/nav-tooltip'
 
 type TabId = 'control-center' | 'social-listening'
 
-const tabs: { id: TabId; label: string; shortLabel?: string }[] = [
-  { id: 'control-center', label: 'Control Center' },
-  { id: 'social-listening', label: 'Social Listening', shortLabel: 'Listening' },
+const tabs: { id: TabId; label: string; shortLabel?: string; description: string }[] = [
+  {
+    id: 'control-center',
+    label: 'Control Center',
+    description: 'Projects, files, messages, and day-to-day client work',
+  },
+  {
+    id: 'social-listening',
+    label: 'Social Listening',
+    shortLabel: 'Listening',
+    description: 'Brand mentions, analytics, and listening reports',
+  },
 ]
 
 const TAB_QUERY_KEY = 'tab'
@@ -178,14 +188,14 @@ function ClientPortalDashboardContent({
           {tabs.map((tab) => {
             const selected = activeTab === tab.id
             return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                onClick={() => setActiveTab(tab.id)}
-                id={`portal-tab-${tab.id}`}
-                className={`
+              <NavTooltip key={tab.id} description={tab.description} side="top">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => setActiveTab(tab.id)}
+                  id={`portal-tab-${tab.id}`}
+                  className={`
                   portal-sl-nav-item rounded-[1.25rem] px-4 py-2.5 text-sm transition sm:px-6
                   ${bricolage_grot600.className}
                   ${
@@ -194,10 +204,11 @@ function ClientPortalDashboardContent({
                       : 'text-app-muted hover:text-chambray dark:hover:text-white'
                   }
                 `}
-              >
-                <span className="sm:hidden">{tab.shortLabel ?? tab.label}</span>
-                <span className="hidden sm:inline">{tab.label}</span>
-              </button>
+                >
+                  <span className="sm:hidden">{tab.shortLabel ?? tab.label}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </button>
+              </NavTooltip>
             )
           })}
         </div>

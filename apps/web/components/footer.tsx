@@ -142,6 +142,8 @@ const Footer:React.FC = ()=>{
                     <ul className={`w-fit flex flex-col text-[clamp(1rem,1.2vw,3rem)] ${fonts.bricolage_grot400.className} text-center md:text-left mx-auto`}>
                         <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/media-updates/press'}>Press</Link></li>
                         <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/media-updates/awards'}>Awards</Link></li>
+                        <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/privacy'}>Privacy Policy</Link></li>
+                        <li className='hover:text-casablanca transition-colors duration-200'><Link href={'/privacy#cookies'}>Cookies</Link></li>
                     </ul>
                 </section>
             </div>

@@ -55,12 +55,12 @@ function formatPhaseLabel(phase: string | null | undefined): string {
   return phase.replace(/_/g, ' ')
 }
 
-const TABS: Array<{ id: PortalProjectTabId; label: string; icon: LucideIcon }> = [
-  { id: 'overview', label: 'Overview', icon: LayoutGrid },
-  { id: 'onboarding', label: 'Onboarding', icon: Sparkles },
-  { id: 'progress', label: 'Progress', icon: Bell },
-  { id: 'files', label: 'Files', icon: FileText },
-  { id: 'team', label: 'Team', icon: Users },
+const TABS: Array<{ id: PortalProjectTabId; label: string; description: string; icon: LucideIcon }> = [
+  { id: 'overview', label: 'Overview', description: 'Project snapshot, status, and key details', icon: LayoutGrid },
+  { id: 'onboarding', label: 'Onboarding', description: 'Initial setup, requirements, and kickoff with your team', icon: Sparkles },
+  { id: 'progress', label: 'Progress', description: 'Day-to-day messages, deliverables, and checkpoints', icon: Bell },
+  { id: 'files', label: 'Files', description: 'Shared deliverables and project assets', icon: FileText },
+  { id: 'team', label: 'Team', description: 'People on this project and their roles', icon: Users },
 ]
 
 type LazyThreadProps = {

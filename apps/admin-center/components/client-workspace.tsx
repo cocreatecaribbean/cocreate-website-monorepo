@@ -128,19 +128,20 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const workspaceSections = useMemo(
     () =>
       [
-        { id: 'overview' as const, label: 'Overview', icon: LayoutGrid },
-        { id: 'projects' as const, label: 'Projects', icon: FolderKanban },
-        { id: 'files' as const, label: 'Files', icon: FileText },
-        { id: 'team' as const, label: 'Team', icon: Users },
-        { id: 'messages' as const, label: 'Messages', icon: MessageSquare },
+        { id: 'overview' as const, label: 'Overview', description: 'Client snapshot, account health, and quick links', icon: LayoutGrid },
+        { id: 'projects' as const, label: 'Projects', description: 'All projects for this client organization', icon: FolderKanban },
+        { id: 'files' as const, label: 'Files', description: 'Shared deliverables and client assets', icon: FileText },
+        { id: 'team' as const, label: 'Team', description: 'Client-side contacts and access', icon: Users },
+        { id: 'messages' as const, label: 'Messages', description: 'Conversations with this client', icon: MessageSquare },
         {
           id: 'inbox' as const,
           label: 'Inbox',
+          description: 'Pending items and requests requiring action',
           icon: Inbox,
           badge: unreadCount > 0 ? unreadCount : undefined,
           ariaLabel: unreadCount > 0 ? `Inbox (${unreadCount} unread)` : 'Inbox',
         },
-        { id: 'activity' as const, label: 'Activity', icon: CheckCircle2 },
+        { id: 'activity' as const, label: 'Activity', description: 'Recent updates across this client workspace', icon: CheckCircle2 },
       ] as const,
     [unreadCount],
   )

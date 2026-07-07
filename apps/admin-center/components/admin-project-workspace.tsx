@@ -473,19 +473,19 @@ export default function AdminProjectWorkspace({
   const tabs = useMemo(
     () =>
       [
-        { id: 'overview' as const, label: 'Overview', icon: LayoutGrid },
-        { id: 'onboarding' as const, label: 'Onboarding', icon: Sparkles },
+        { id: 'overview' as const, label: 'Overview', description: 'Project snapshot, status, and context', icon: LayoutGrid },
+        { id: 'onboarding' as const, label: 'Onboarding', description: 'Client intake, requirements, and kickoff progress', icon: Sparkles },
         ...(isOnboarded
           ? [
-              { id: 'progress' as const, label: 'Progress', icon: Bell },
+              { id: 'progress' as const, label: 'Progress', description: 'Day-to-day messages, deliverables, and checkpoints with your client', icon: Bell },
               ...(isCoreTeam
-                ? [{ id: 'approvals' as const, label: 'Approvals', icon: CheckSquare }]
+                ? [{ id: 'approvals' as const, label: 'Approvals', description: 'Internal checkpoints and file approvals before client delivery', icon: CheckSquare }]
                 : []),
             ]
           : []),
-        { id: 'team-review' as const, label: 'Team review', icon: Shield },
+        { id: 'team-review' as const, label: 'Team review', description: 'Internal team review and QC before client-facing work', icon: Shield },
         ...(isCoreTeam
-          ? [{ id: 'collaborators' as const, label: 'Collaborators', icon: Users }]
+          ? [{ id: 'collaborators' as const, label: 'Collaborators', description: 'External collaborators and limited-access contributors', icon: Users }]
           : []),
       ],
     [isCoreTeam, isOnboarded],

@@ -3,6 +3,7 @@
 import { Suspense, useCallback } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { LayoutDashboard, Radio, Sparkles, X, type LucideIcon } from 'lucide-react'
+import NavTooltip from '@cocreate/app-ui/nav-tooltip'
 import ControlCenterAttentionLink from '@/components/control-center/control-center-attention-link'
 import { useUnreadApprovalsCountQuery } from '@/lib/api/queries/approvals'
 import { useOrgInboxUnreadCountQuery } from '@/lib/api/queries/inbox'
@@ -50,32 +51,36 @@ function DrawerNavButton({
   active,
   onSelect,
   badge,
+  description,
 }: {
   label: string
   icon: LucideIcon
   active: boolean
   onSelect: () => void
   badge?: string
+  description?: string
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-current={active ? 'page' : undefined}
-      className={`portal-drawer-nav-item ${active ? 'portal-drawer-nav-item--active' : 'portal-drawer-nav-item--idle'}`}
-    >
-      <Icon
-        className="portal-drawer-nav-icon h-5 w-5 shrink-0"
-        strokeWidth={1.75}
-        aria-hidden
-      />
-      <span>{label}</span>
-      {badge ? (
-        <span className="ml-auto rounded-full bg-casablanca/90 px-2 py-0.5 text-xs text-chambray tabular-nums">
-          {badge}
-        </span>
-      ) : null}
-    </button>
+    <NavTooltip description={description} className="w-full">
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-current={active ? 'page' : undefined}
+        className={`portal-drawer-nav-item w-full ${active ? 'portal-drawer-nav-item--active' : 'portal-drawer-nav-item--idle'}`}
+      >
+        <Icon
+          className="portal-drawer-nav-icon h-5 w-5 shrink-0"
+          strokeWidth={1.75}
+          aria-hidden
+        />
+        <span>{label}</span>
+        {badge ? (
+          <span className="ml-auto rounded-full bg-casablanca/90 px-2 py-0.5 text-xs text-chambray tabular-nums">
+            {badge}
+          </span>
+        ) : null}
+      </button>
+    </NavTooltip>
   )
 }
 
@@ -97,6 +102,7 @@ function SectionNavButton({
       active={active}
       onSelect={onSelect}
       badge={badge}
+      description={item.description}
     />
   )
 }
@@ -222,12 +228,14 @@ function ClientPortalNavDrawerInner({
           icon={LayoutDashboard}
           active={workspace === 'control-center'}
           onSelect={() => selectWorkspace('control-center')}
+          description="Projects, files, messages, and day-to-day client work"
         />
         <DrawerNavButton
           label="Social Listening"
           icon={Radio}
           active={workspace === 'social-listening'}
           onSelect={() => selectWorkspace('social-listening')}
+          description="Brand mentions, analytics, and listening reports"
         />
       </nav>
 
