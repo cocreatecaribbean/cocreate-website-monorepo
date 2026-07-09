@@ -19,8 +19,8 @@ export async function searchSite(query: string, limit = 12) {
   return searchSiteWithData(query, projects, originals, limit)
 }
 
-export async function getWorkProjects(): Promise<ProjectPreview[]> {
-  return fetchWorkProjectPreviews()
+export async function getWorkProjects(preview = false): Promise<ProjectPreview[]> {
+  return fetchWorkProjectPreviews(preview)
 }
 
 export async function getWorkProjectsForClient(clientSlug: string) {

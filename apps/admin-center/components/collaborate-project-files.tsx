@@ -235,7 +235,7 @@ export default function CollaborateProjectFiles({
       <div>
         <h2 className={`text-lg text-chambray ${bricolage_grot700.className}`}>Project files</h2>
         <p className="mt-1 text-sm text-app-muted">
-          Files for {projectTitle}. Use them in team review messages.
+          All files uploaded to {projectTitle} and attachments used in message threads.
         </p>
       </div>
 

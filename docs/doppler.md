@@ -37,7 +37,8 @@ Use root [`.env.example`](../.env.example) and per-app `*.env.example` for descr
 | Database | `DATABASE_URL`, `DIRECT_URL` (Supabase migrations) |
 | API | `PORT`, `CORS_ORIGIN`, `CLIENT_PORTAL_URL`, `ADMIN_CENTER_URL`, `ADMIN_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `AUTH_DEV_LINKS`, `RESEND_API_KEY`, `AUTH_EMAIL_FROM`, `AUTH_EMAIL_FROM_NAME`, `WEB_URL`, `RESEND_SEGMENT_ID`, newsletter + project-update sender vars, `OPENAI_API_KEY` or `AI_GATEWAY_API_KEY` (thread summaries) |
 | Admin / portal | `API_URL`, `API_VERSION`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_API_VERSION`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
-| Web | `NEXT_PUBLIC_SANITY_PROJECT_ID`, `NEXT_PUBLIC_SANITY_DATASET`, `NEXT_PUBLIC_SANITY_API_VERSION`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `API_URL`, `OPENAI_API_KEY` or `AI_GATEWAY_API_KEY` (contact chat) |
+| Web | `NEXT_PUBLIC_SANITY_PROJECT_ID`, `NEXT_PUBLIC_SANITY_DATASET`, `NEXT_PUBLIC_SANITY_API_VERSION`, `NEXT_PUBLIC_SANITY_STUDIO_URL`, `SANITY_API_TOKEN`, `SANITY_REVALIDATE_SECRET`, `SANITY_STUDIO_DATASET`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `API_URL`, `OPENAI_API_KEY` or `AI_GATEWAY_API_KEY` (contact chat) |
+| Studio | `SANITY_STUDIO_DATASET`, `SANITY_STUDIO_PREVIEW_URL`, `SANITY_STUDIO_PROJECT_ID` (optional), `NEXT_PUBLIC_SANITY_PROJECT_ID`, `NEXT_PUBLIC_SANITY_DATASET` |
 
 Social listening, Brand24, and demo snapshot toggles are documented in [`apps/api/.env.example`](../apps/api/.env.example).
 
@@ -45,10 +46,15 @@ Social listening, Brand24, and demo snapshot toggles are documented in [`apps/ap
 
 Sync Doppler → Vercel per app (manual for now). Each Vercel project needs the subset of keys that app reads at build/runtime.
 
+- **Vercel Production** → Doppler `prd`
+- **Vercel Preview** (admin, portal, marketing sandbox) → Doppler `dev` keys (Sanity `dev`, Supabase dev via Railway staging API)
+
+Sanity Presentation, datasets, and webhooks: [sanity-preview.md](./sanity-preview.md).
+
 ## Troubleshooting
 
 - **Missing env at runtime:** run via `pnpm dev` (not raw `turbo dev`) so Doppler injects vars.
 - **Prisma CLI:** `pnpm db:push` / `pnpm db:generate` wrap `doppler run`; `DIRECT_URL` must be set in Doppler for Supabase migrations.
 - **Admin / portal auth errors:** confirm `NEXT_PUBLIC_SUPABASE_*` in Doppler and run `pnpm db:seed:admin`.
 
-See also [backend-and-contact-chat.md](./backend-and-contact-chat.md).
+See also [backend-and-contact-chat.md](./backend-and-contact-chat.md) and [sanity-preview.md](./sanity-preview.md).

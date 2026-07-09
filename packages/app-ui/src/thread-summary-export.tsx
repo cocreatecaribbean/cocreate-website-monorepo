@@ -328,6 +328,9 @@ export default function ThreadSummaryExport({
                 <div>
                   <p className="text-lg font-semibold text-chambray">Thread summary</p>
                   <p className="mt-1 text-sm text-app-muted">{summary.title}</p>
+                  {summary.subtitle ? (
+                    <p className="mt-0.5 text-xs text-app-muted">{summary.subtitle}</p>
+                  ) : null}
                 </div>
                 <button
                   type="button"

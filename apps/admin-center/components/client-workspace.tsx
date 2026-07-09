@@ -4,9 +4,11 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import AdminFilesSection from '@/components/admin-files-section'
-import RequestMessageThread from '@/components/request-message-thread'
+import BrandGuidelinesSection from '@/components/brand-guidelines-section'
+import ClientAdminSettingsPanel from '@/components/client-admin-settings-panel'
+import AdminOrganizationLogoEditor from '@/components/organization-logo-editor'
 import ProjectStatusAttribution from '@/components/project-status-attribution'
+import RequestMessageThread from '@/components/request-message-thread'
 import AdminToast from '@/components/admin-toast'
 import MarkInboxReadOnView from '@/components/mark-inbox-read-on-view'
 import ThreadSummaryExport from '@cocreate/app-ui/thread-summary-export'
@@ -60,6 +62,18 @@ const requestTypeLabel: Record<string, string> = {
   INTERNAL: 'Team review',
 }
 
+function inboxThreadSubtitle(type: string, threadTitle: string, projectTitle: string | null) {
+  const typeLabel = requestTypeLabel[type] ?? type
+  if (
+    type !== 'ONBOARDING' &&
+    threadTitle.trim() &&
+    threadTitle.trim() !== projectTitle?.trim()
+  ) {
+    return `${typeLabel} · ${threadTitle}`
+  }
+  return typeLabel
+}
+
 type ClientWorkspaceProps = {
   organizationId: string
   initialTab?: TabId
@@ -83,7 +97,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const inboxQuery = useClientInboxQuery(organizationId, needsInboxData)
   const activityQuery = useClientActivityQuery(organizationId, tab === 'activity')
   const unreadQuery = useInboxUnreadCountQuery(organizationId, canTrackUnread)
-  const markInboxReadMutation = useMarkInboxReadMutation(organizationId)
+  const { mutateAsync: markAllInboxRead } = useMarkInboxReadMutation(organizationId)
   const approveProjectMutation = useApproveClientProjectMutation(organizationId)
 
   const client = clientQuery.data
@@ -123,13 +137,19 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const [highlightInviteRequestId, setHighlightInviteRequestId] = useState<string | null>(null)
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
   const deepLinkAppliedRef = useRef(false)
+  const inboxMarkedReadRef = useRef(false)
 
   const workspaceSections = useMemo(
     () =>
       [
         { id: 'overview' as const, label: 'Overview', description: 'Client snapshot, account health, and quick links', icon: LayoutGrid },
         { id: 'projects' as const, label: 'Projects', description: 'All projects for this client organization', icon: FolderKanban },
-        { id: 'files' as const, label: 'Files', description: 'Shared deliverables and client assets', icon: FileText },
+        {
+          id: 'files' as const,
+          label: 'Brand & files',
+          description: 'Brand guidelines, logos, and company reference files',
+          icon: FileText,
+        },
         { id: 'team' as const, label: 'Team', description: 'Client-side contacts and access', icon: Users },
         { id: 'messages' as const, label: 'Messages', description: 'Conversations with this client', icon: MessageSquare },
         {
@@ -169,11 +189,17 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   }, [tab, inbox, selectedInboxId])
 
   useEffect(() => {
-    if (tab !== 'inbox' || loading || !canTrackUnread) return
-    void markInboxReadMutation.mutateAsync(undefined).catch(() => {
-      /* non-blocking */
+    if (tab !== 'inbox') {
+      inboxMarkedReadRef.current = false
+      return
+    }
+    if (!canTrackUnread || loading || inboxMarkedReadRef.current) return
+
+    inboxMarkedReadRef.current = true
+    void markAllInboxRead(undefined).catch(() => {
+      inboxMarkedReadRef.current = false
     })
-  }, [tab, loading, canTrackUnread, markInboxReadMutation])
+  }, [tab, loading, canTrackUnread, markAllInboxRead])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -359,7 +385,7 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
     <main className="flex min-h-0 flex-1 flex-col">
       <div className="border-b border-chambray/8 px-4 py-4 sm:px-6 lg:px-8">
         <Link
-          href="/client-access"
+          href="/clients"
           className={`inline-flex items-center gap-2 text-sm text-sanmarino hover:text-chambray ${bricolage_grot600.className}`}
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -421,6 +447,13 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                 </li>
               </ul>
             </section>
+            {client ? (
+              <ClientAdminSettingsPanel
+                client={client}
+                onSuccess={setSuccess}
+                onError={setError}
+              />
+            ) : null}
           </div>
         ) : tab === 'team' ? (
           <ClientTeamPanel
@@ -428,7 +461,20 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
             highlightInviteRequestId={highlightInviteRequestId}
           />
         ) : tab === 'files' ? (
-          <AdminFilesSection organizationId={organizationId} projects={projects} />
+          <div className="space-y-6">
+            <AdminOrganizationLogoEditor
+              organizationId={organizationId}
+              organizationName={clientName}
+              logoUrl={client?.logoUrl}
+              onUpdated={() => {
+                void queryClient.invalidateQueries({
+                  queryKey: adminQueryKeys.clients.detail(organizationId),
+                })
+                void queryClient.invalidateQueries({ queryKey: adminQueryKeys.clients.all })
+              }}
+            />
+            <BrandGuidelinesSection organizationId={organizationId} />
+          </div>
         ) : tab === 'projects' ? (
           <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -550,13 +596,12 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                           selected ? 'bg-chambray/8' : 'hover:bg-chambray/5'
                         }`}
                       >
-                        <p className="text-xs font-semibold tracking-wide text-sanmarino uppercase">
-                          {requestTypeLabel[item.type] ?? item.type}
+                        <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>
+                          {item.projectTitle ?? item.title}
                         </p>
-                        <p className={`mt-1 text-sm text-chambray ${bricolage_grot600.className}`}>
-                          {item.title}
+                        <p className="mt-1 text-xs text-app-muted">
+                          {inboxThreadSubtitle(item.type, item.title, item.projectTitle)}
                         </p>
-                        <p className="text-xs text-app-muted">{item.projectTitle}</p>
                       </button>
                     </li>
                   )
@@ -571,11 +616,12 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                   <section className="admin-glass-card w-full max-w-2xl p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold tracking-wide text-sanmarino uppercase">
-                          {requestTypeLabel[item.type] ?? item.type}
+                        <p className={`text-chambray ${bricolage_grot600.className}`}>
+                          {item.projectTitle ?? item.title}
                         </p>
-                        <p className={`mt-1 text-chambray ${bricolage_grot600.className}`}>{item.title}</p>
-                        <p className="text-sm text-app-muted">{item.projectTitle}</p>
+                        <p className="mt-1 text-sm text-app-muted">
+                          {inboxThreadSubtitle(item.type, item.title, item.projectTitle)}
+                        </p>
                       </div>
                       <ThreadSummaryExport
                         triggerClassName="admin-btn-ghost shrink-0 px-3 py-1.5 text-xs"
@@ -598,7 +644,13 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                           requestId={item.id}
                           enabled
                           onMarked={() => {
-                            void unreadQuery.refetch()
+                            queryClient.setQueryData<number>(
+                              adminQueryKeys.inbox.unreadCount(organizationId),
+                              (current) => Math.max(0, (current ?? 0) - 1),
+                            )
+                            void queryClient.invalidateQueries({
+                              queryKey: adminQueryKeys.inbox.list(organizationId),
+                            })
                           }}
                         />
                       ) : null}

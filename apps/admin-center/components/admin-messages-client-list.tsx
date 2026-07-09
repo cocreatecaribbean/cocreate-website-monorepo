@@ -62,7 +62,7 @@ export default function AdminMessagesClientList() {
     return (
       <div className="admin-glass-card p-6">
         <p className="text-sm text-app-muted">No clients onboarded yet.</p>
-        <Link href="/client-access" className="mt-3 inline-block text-sm text-sanmarino hover:text-chambray">
+        <Link href="/clients" className="mt-3 inline-block text-sm text-sanmarino hover:text-chambray">
           Go to Client Access
         </Link>
       </div>

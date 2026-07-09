@@ -31,6 +31,7 @@ export function getActiveAdminNavId(pathname: string | null | undefined): AdminN
   if (path.startsWith('/profile')) return 'profile'
   if (path.startsWith('/team')) return 'team'
   if (path.startsWith('/social-listening')) return 'social-listening'
+  if (/^\/clients\/[^/]+\/projects(\/|$)/.test(path)) return 'project-center'
   if (path.startsWith('/client-access') || path.startsWith('/clients')) return 'clients'
   if (path.startsWith('/project-center')) return 'project-center'
 

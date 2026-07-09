@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { draftMode } from 'next/headers'
+import { SanityVisualEditing } from '@/components/sanity-visual-editing'
+import { SanityLive } from '@/lib/sanity/live'
 //import { Gabarito, Geist, Geist_Mono } from "next/font/google";
 //import { gabarito400, gabarito500, gabarito600, dm_sans, work_sans } from '../styles/fonts'
 import "./globals.css";
@@ -35,11 +38,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { isEnabled } = await draftMode()
+
   return (
     <html lang="en" className={`${font.bricolage_grot400.className} antialiased max-w-full overflow-x-hidden`}>
       <body
@@ -71,6 +76,8 @@ export default function RootLayout({
         </CookieConsentProvider>
         </SearchProvider>
         </QueryProvider>
+        {isEnabled && <SanityLive />}
+        {isEnabled && <SanityVisualEditing />}
         
       </body>
     </html> 

@@ -2,6 +2,9 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import WorkProjectPage from '@/components/work/work-project-page'
 import { fetchWorkProjectBySlug, fetchWorkProjectSlugs } from '@/lib/cms/work-projects'
+import { getSanityPreviewContext } from '@/lib/preview-context'
+
+export const dynamic = 'force-dynamic'
 
 type WorkProjectRouteProps = {
   params: Promise<{ slug: string }>
@@ -16,7 +19,8 @@ export async function generateMetadata({
   params,
 }: WorkProjectRouteProps): Promise<Metadata> {
   const { slug } = await params
-  const project = await fetchWorkProjectBySlug(slug)
+  const preview = await getSanityPreviewContext()
+  const project = await fetchWorkProjectBySlug(slug, preview)
   if (!project) return { title: 'Project not found' }
 
   const title =
@@ -31,7 +35,8 @@ export async function generateMetadata({
 
 export default async function WorkProjectRoute({ params }: WorkProjectRouteProps) {
   const { slug } = await params
-  const project = await fetchWorkProjectBySlug(slug)
+  const preview = await getSanityPreviewContext()
+  const project = await fetchWorkProjectBySlug(slug, preview)
   if (!project) notFound()
 
   return <WorkProjectPage project={project} />

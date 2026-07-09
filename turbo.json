@@ -83,6 +83,33 @@
         "VERCEL_GIT_COMMIT_SHA",
         "WEB_URL"
       ]
+    },
+    "@cocreate/studio#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "env": [
+        "SANITY_STUDIO_PREVIEW_URL",
+        "SANITY_STUDIO_DATASET",
+        "SANITY_STUDIO_PROJECT_ID",
+        "SANITY_STUDIO_ALLOW_PRODUCTION",
+        "NEXT_PUBLIC_SANITY_PROJECT_ID",
+        "NEXT_PUBLIC_SANITY_DATASET"
+      ]
+    },
+    "@cocreate/web#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "env": [
+        "NEXT_PUBLIC_SANITY_PROJECT_ID",
+        "NEXT_PUBLIC_SANITY_DATASET",
+        "NEXT_PUBLIC_SANITY_API_VERSION",
+        "NEXT_PUBLIC_SANITY_STUDIO_URL",
+        "SANITY_API_TOKEN",
+        "SANITY_REVALIDATE_SECRET",
+        "SANITY_STUDIO_DATASET"
+      ]
     }
   }
 }

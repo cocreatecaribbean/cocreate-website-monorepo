@@ -2,6 +2,7 @@ export type ProjectWorkspaceTabId =
   | 'overview'
   | 'onboarding'
   | 'progress'
+  | 'files'
   | 'approvals'
   | 'team-review'
   | 'collaborators'
@@ -10,6 +11,7 @@ export const PROJECT_WORKSPACE_TAB_IDS: ProjectWorkspaceTabId[] = [
   'overview',
   'onboarding',
   'progress',
+  'files',
   'approvals',
   'team-review',
   'collaborators',

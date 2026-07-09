@@ -19,6 +19,7 @@ import { stageProjectFiles } from '@/lib/projects/fetch-project-files'
 import { submitApprovalFiles } from '@/lib/projects/submit-approval-files'
 import { submitProgressCheckpoint } from '@/lib/projects/submit-progress-checkpoint'
 import AdminProjectApprovalsPanel from '@/components/admin-project-approvals-panel'
+import CollaborateProjectFiles from '@/components/collaborate-project-files'
 import { useApproveClientProjectMutation } from '@/lib/api/mutations/projects'
 import { adminQueryKeys } from '@/lib/api/query-keys'
 import type { ProjectRequestMessage } from '@/lib/projects/types'
@@ -47,6 +48,7 @@ import {
   ArrowLeft,
   Bell,
   CheckSquare,
+  FileText,
   FolderKanban,
   LayoutGrid,
   Shield,
@@ -490,11 +492,14 @@ export default function AdminProjectWorkspace({
         ...(isOnboarded
           ? [
               { id: 'progress' as const, label: 'Progress', description: 'Day-to-day messages, deliverables, and checkpoints with your client', icon: Bell },
+              { id: 'files' as const, label: 'Files', description: 'Project uploads and attachments from message threads', icon: FileText },
               ...(isCoreTeam
                 ? [{ id: 'approvals' as const, label: 'Approvals', description: 'Internal checkpoints and file approvals before client delivery', icon: CheckSquare }]
                 : []),
             ]
-          : []),
+          : [
+              { id: 'files' as const, label: 'Files', description: 'Project uploads and attachments from message threads', icon: FileText },
+            ]),
         { id: 'team-review' as const, label: 'Team review', description: 'Internal team review and QC before client-facing work', icon: Shield },
         ...(isCoreTeam
           ? [{ id: 'collaborators' as const, label: 'Collaborators', description: 'External collaborators and limited-access contributors', icon: Users }]
@@ -507,11 +512,11 @@ export default function AdminProjectWorkspace({
     <main className="flex min-h-0 flex-1 flex-col">
       <div className="border-b border-chambray/8 px-4 py-4 sm:px-6 lg:px-8">
         <Link
-          href={`/clients/${organizationId}?tab=projects`}
+          href="/project-center"
           className={`inline-flex items-center gap-2 text-sm text-sanmarino hover:text-chambray ${bricolage_grot600.className}`}
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
-          {clientName}
+          Project Center
         </Link>
         {loading ? (
           <p className="mt-3 text-sm text-app-muted">Loading project…</p>
@@ -527,6 +532,7 @@ export default function AdminProjectWorkspace({
                 >
                   {project.title}
                 </h1>
+                <p className="mt-1 text-sm text-app-muted">{clientName}</p>
                 {project.description ? (
                   <p className="mt-1 line-clamp-3 text-sm text-app-muted">
                     {project.description}
@@ -609,12 +615,6 @@ export default function AdminProjectWorkspace({
                     </button>
                   </>
                 ) : null}
-                <Link
-                  href={`/clients/${organizationId}?tab=files`}
-                  className="admin-btn-ghost text-sm"
-                >
-                  Client files
-                </Link>
               </div>
               <p className="mt-3 text-sm text-app-muted">
                 Phase: {formatPhaseLabel(project.phase)}
@@ -731,6 +731,8 @@ export default function AdminProjectWorkspace({
           )
         ) : tab === 'approvals' && isCoreTeam ? (
           <AdminProjectApprovalsPanel projectId={project.id} />
+        ) : tab === 'files' ? (
+          <CollaborateProjectFiles projectId={project.id} projectTitle={project.title} />
         ) : tab === 'team-review' ? (
           internal ? (
             <TeamReviewPanel

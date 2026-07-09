@@ -28,6 +28,28 @@ import {
 
 type AgencyOrClient = AuthenticatedAgencyUser | AuthenticatedClient
 
+const PROJECT_REQUEST_TYPE_LABEL: Record<string, string> = {
+  ONBOARDING: 'Onboarding',
+  PROGRESS: 'Progress',
+  CANCELLATION: 'Cancellation request',
+  INTERNAL: 'Team review',
+}
+
+function projectRequestSummaryLabels(request: {
+  type: string
+  title: string
+  projectTitle: string | null
+  organizationName: string | null
+}): { title: string; subtitle: string | null } {
+  const threadLabel = PROJECT_REQUEST_TYPE_LABEL[request.type] ?? request.type
+  const title = request.projectTitle?.trim() || request.title
+  const subtitleParts = [threadLabel]
+  if (request.organizationName?.trim()) {
+    subtitleParts.push(request.organizationName.trim())
+  }
+  return { title, subtitle: subtitleParts.join(' · ') }
+}
+
 @Injectable()
 export class MessagingSummaryService {
   constructor(
@@ -78,6 +100,7 @@ export class MessagingSummaryService {
 
     const lastMessageAt = this.resolveLastMessageAt(normalized)
     const cached = await this.store.findCached('PROJECT_REQUEST', requestId)
+    const summaryLabels = projectRequestSummaryLabels(request)
 
     if (
       !options?.force &&
@@ -88,10 +111,8 @@ export class MessagingSummaryService {
       const cachedSummary = this.tryParseStoredSummary(cached, {
         sourceType: 'PROJECT_REQUEST',
         sourceId: requestId,
-        title: request.title,
-        subtitle: request.projectTitle
-          ? `${request.projectTitle}${request.organizationName ? ` · ${request.organizationName}` : ''}`
-          : null,
+        title: summaryLabels.title,
+        subtitle: summaryLabels.subtitle,
         stale: false,
       })
       if (cachedSummary) {
@@ -100,20 +121,16 @@ export class MessagingSummaryService {
     }
 
     const result = await summarizeThreadMessages({
-      title: request.title,
-      subtitle: request.projectTitle
-        ? `${request.projectTitle}${request.organizationName ? ` · ${request.organizationName}` : ''}`
-        : null,
+      title: summaryLabels.title,
+      subtitle: summaryLabels.subtitle,
       messages: normalized,
     })
 
     const summary = buildSummaryPayload({
       sourceType: 'PROJECT_REQUEST',
       sourceId: requestId,
-      title: request.title,
-      subtitle: request.projectTitle
-        ? `${request.projectTitle}${request.organizationName ? ` · ${request.organizationName}` : ''}`
-        : null,
+      title: summaryLabels.title,
+      subtitle: summaryLabels.subtitle,
       content: result.content,
       messageCount: result.messageCount,
       model: result.model,

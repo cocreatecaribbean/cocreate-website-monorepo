@@ -5,14 +5,13 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { LucideIcon } from 'lucide-react'
 import {
   Bell,
-  Download,
   FileText,
   FolderKanban,
   LayoutGrid,
   Sparkles,
   Users,
 } from 'lucide-react'
-import FilePreviewModal from '@/components/file-preview-modal'
+import PortalProjectFilesPanel from '@/components/control-center/portal-project-files-panel'
 import RequestMessageThread from '@/components/control-center/request-message-thread'
 import { useClientThreadLive } from '@/lib/messaging/use-client-thread-live'
 import ThreadSummaryExport from '@cocreate/app-ui/thread-summary-export'
@@ -27,11 +26,11 @@ import {
   useRequestApprovalNeedsChangesMutation,
 } from '@/lib/api/mutations/approvals'
 import { useOpenApprovalsQuery } from '@/lib/api/queries/approvals'
+import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import { getPendingApprovalFilesFromOpenApprovals } from '@/lib/projects/fetch-projects-client'
 import { prefetchRequestThread } from '@/lib/api/queries/projects'
 import {
   createCancellationRequest,
-  fetchAttachmentDownloadUrl,
   sendRequestMessage,
 } from '@/lib/projects/fetch-projects-client'
 import { useProjectMembers } from '@/lib/team/use-project-members'
@@ -122,6 +121,8 @@ export default function PortalProjectWorkspace({
   onTabChange,
 }: PortalProjectWorkspaceProps) {
   const queryClient = useQueryClient()
+  const { data: profile } = usePortalProfileQuery()
+  const currentUserId = profile?.user.id ?? null
   const { data: openApprovalsResult, refetch: refetchOpenApprovals } = useOpenApprovalsQuery()
   const approveItem = useApproveApprovalItemMutation()
   const requestNeedsChanges = useRequestApprovalNeedsChangesMutation()
@@ -134,12 +135,6 @@ export default function PortalProjectWorkspace({
   const [message, setMessage] = useState<string | null>(null)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelling, setCancelling] = useState(false)
-  const [previewFile, setPreviewFile] = useState<{
-    fileName: string
-    mimeType: string
-    url: string | null
-  } | null>(null)
-  const [attachmentUrlCache, setAttachmentUrlCache] = useState<Record<string, string>>({})
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(
     project.coverImageUrl ?? null,
   )
@@ -265,20 +260,6 @@ export default function PortalProjectWorkspace({
       }
     : null
 
-  const getAttachmentUrl = useCallback(
-    async (attachmentId: string) => {
-      const cached = attachmentUrlCache[attachmentId]
-      if (cached) return cached
-      const result = await fetchAttachmentDownloadUrl(attachmentId)
-      if (result.url) {
-        setAttachmentUrlCache((prev) => ({ ...prev, [attachmentId]: result.url! }))
-      }
-      return result.url
-    },
-    [attachmentUrlCache],
-  )
-
-  const attachments = project.attachments ?? []
   const showProgressThread = Boolean(progress && isOnboarded)
 
   const progressInvalidateQueryKeys = useMemo(
@@ -521,77 +502,18 @@ export default function PortalProjectWorkspace({
           ) : null}
 
           {tab === 'files' ? (
-            <>
-              {attachments.length > 0 ? (
-                <section className="portal-glass-card p-5 sm:p-6">
-                  <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>Files</p>
-                  <ul className="mt-3 space-y-2 text-sm text-app-muted">
-                    {attachments.map((f) => (
-                      <li
-                        key={f.id}
-                        className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 hover:bg-chambray/5"
-                      >
-                        <button
-                          type="button"
-                          className="group flex min-w-0 items-center gap-2 text-left"
-                          onClick={async () => {
-                            const url = await getAttachmentUrl(f.id)
-                            setPreviewFile({
-                              fileName: f.fileName,
-                              mimeType: f.mimeType,
-                              url,
-                            })
-                          }}
-                          aria-label={`Preview ${f.fileName}`}
-                        >
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-sanmarino/10 text-sanmarino">
-                            {f.mimeType.startsWith('image/') && attachmentUrlCache[f.id] ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={attachmentUrlCache[f.id]}
-                                alt={f.fileName}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <FileText className="h-4 w-4" aria-hidden />
-                            )}
-                          </span>
-                          <span className="truncate text-chambray underline-offset-4 group-hover:underline">
-                            {f.fileName}
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const url = await getAttachmentUrl(f.id)
-                            if (!url) return
-                            const anchor = document.createElement('a')
-                            anchor.href = url
-                            anchor.download = f.fileName
-                            anchor.rel = 'noopener noreferrer'
-                            anchor.click()
-                          }}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sanmarino transition hover:bg-chambray/8 hover:text-chambray"
-                          aria-label={`Download ${f.fileName}`}
-                        >
-                          <Download className="h-4 w-4" aria-hidden />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ) : (
-                <p className="text-sm text-app-muted">No files attached to this project yet.</p>
-              )}
-              <FilePreviewModal
-                open={Boolean(previewFile)}
-                fileName={previewFile?.fileName ?? ''}
-                mimeType={previewFile?.mimeType ?? ''}
-                url={previewFile?.url ?? null}
-                onClose={() => setPreviewFile(null)}
-              />
-            </>
+            <PortalProjectFilesPanel
+              projectId={project.id}
+              projectTitle={project.title}
+              currentUserId={currentUserId}
+              onLibraryChange={() => {
+                void queryClient.invalidateQueries({
+                  queryKey: queryKeys.projects.detail(project.id),
+                })
+              }}
+            />
           ) : null}
+
 
           {tab === 'team' ? <ProjectTeamAside projectId={project.id} /> : null}
         </div>

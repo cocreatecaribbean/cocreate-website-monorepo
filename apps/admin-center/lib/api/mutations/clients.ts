@@ -11,8 +11,18 @@ export function useMarkInboxReadMutation(organizationId: string) {
 
   return useMutation({
     mutationFn: (requestId?: string) => markInboxRead(organizationId, requestId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.inbox.all })
+    onSuccess: (_data, requestId) => {
+      if (requestId) {
+        queryClient.setQueryData<number>(
+          adminQueryKeys.inbox.unreadCount(organizationId),
+          (current) => Math.max(0, (current ?? 0) - 1),
+        )
+      } else {
+        queryClient.setQueryData(adminQueryKeys.inbox.unreadCount(organizationId), 0)
+      }
+      void queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.inbox.list(organizationId),
+      })
     },
   })
 }

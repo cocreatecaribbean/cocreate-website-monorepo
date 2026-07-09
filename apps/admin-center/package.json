@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start --port 3002",
     "lint": "next lint",
+    "test": "jest",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
@@ -35,12 +36,15 @@
   "devDependencies": {
     "@tanstack/react-query-devtools": "catalog:web",
     "@tailwindcss/postcss": "catalog:web",
+    "@types/jest": "^29.5.14",
     "@types/node": "catalog:tooling",
     "@types/react": "catalog:react",
     "@types/react-dom": "catalog:react",
     "eslint": "catalog:tooling",
     "eslint-config-next": "catalog:web",
+    "jest": "catalog:tooling",
     "tailwindcss": "catalog:web",
+    "ts-jest": "^29.3.4",
     "typescript": "catalog:tooling"
   }
 }

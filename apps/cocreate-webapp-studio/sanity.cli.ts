@@ -1,9 +1,10 @@
 import {defineCliConfig} from 'sanity/cli'
+import {dataset, projectId} from './env'
 
 export default defineCliConfig({
   api: {
-    projectId: '5ix7h4ht',
-    dataset: 'production'
+    projectId,
+    dataset,
   },
   deployment: {
     /**
@@ -11,5 +12,5 @@ export default defineCliConfig({
      * studio when local packages differ from the auto-update runtime).
      */
     autoUpdates: false,
-  }
+  },
 })

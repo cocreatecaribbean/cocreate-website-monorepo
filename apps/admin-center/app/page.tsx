@@ -162,7 +162,7 @@ export default async function AdminHomePage() {
                 />
               </Link>
               <Link
-                href="/client-access"
+                href="/clients"
                 className="group admin-action-tile bg-linear-to-br from-white/80 to-sanmarino/10 dark:bg-linear-to-br dark:from-sanmarino/40 dark:via-chambray/20 dark:to-chambray/10 dark:ring-1 dark:ring-inset dark:ring-sanmarino/25"
               >
                 <div className="min-w-0">

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import WorkPageContent from '@/components/work/work-page-content'
 import { formatWorkPageTitle, getWorkPageTitle } from '@/site-info/work-page-data'
+import { getSanityPreviewContext } from '@/lib/preview-context'
 import {
   getCategoryDisplayName,
   getClientDisplayName,
@@ -49,11 +50,12 @@ export async function generateMetadata({
 }
 
 export default async function WorkPage({ searchParams }: WorkPageProps) {
+  const preview = await getSanityPreviewContext()
   const { client, category, tag } = await searchParams
   const clientSlug = client?.trim().toLowerCase() || undefined
   const categorySlug = category?.trim().toLowerCase() || undefined
   const tagSlug = tag?.trim().toLowerCase() || undefined
-  const allProjects = await getWorkProjects()
+  const allProjects = await getWorkProjects(preview)
 
   let items = allProjects
   let clientName: string | null = null

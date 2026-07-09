@@ -2,6 +2,7 @@ import { defineQuery } from 'next-sanity'
 
 /** Only documents with publishedAt in the past are public */
 const publishedWorkFilter = `_type == "workProject" && defined(publishedAt) && publishedAt <= now()`
+const previewWorkFilter = `_type == "workProject"`
 const publishedOriginalFilter = `_type == "original" && defined(publishedAt) && publishedAt <= now()`
 
 const projectVideoProjection = `
@@ -41,8 +42,52 @@ export const WORK_PROJECTS_QUERY = defineQuery(`
   }
 `)
 
+export const WORK_PROJECTS_PREVIEW_QUERY = defineQuery(`
+  *[${previewWorkFilter}] | order(_updatedAt desc) {
+    _id,
+    title,
+    "slug": slug.current,
+    summary,
+    tags,
+    publishedAt,
+    featured,
+    "coverImageUrl": coverImage.asset->url,
+    "clientName": client->name,
+    "clientSlug": client->slug.current,
+    category,
+    "heroReelPlaybackId": projectVideos[role == "hero_reel"][0].video.asset->playbackId,
+    projectVideos[] { ${projectVideoProjection} }
+  }
+`)
+
 export const WORK_PROJECT_BY_SLUG_QUERY = defineQuery(`
   *[${publishedWorkFilter} && lower(slug.current) == $slug][0] {
+    _id,
+    title,
+    "slug": slug.current,
+    summary,
+    tags,
+    publishedAt,
+    featured,
+    "coverImageUrl": coverImage.asset->url,
+    "clientName": client->name,
+    "clientSlug": client->slug.current,
+    category,
+    projectVideos[] { ${projectVideoProjection} },
+    caseStudy[] {
+      ...,
+      _type == "image" => {
+        ...,
+        "asset": asset->
+      }
+    },
+    ${galleryProjection},
+    seo
+  }
+`)
+
+export const WORK_PROJECT_BY_SLUG_PREVIEW_QUERY = defineQuery(`
+  *[${previewWorkFilter} && lower(slug.current) == $slug][0] {
     _id,
     title,
     "slug": slug.current,

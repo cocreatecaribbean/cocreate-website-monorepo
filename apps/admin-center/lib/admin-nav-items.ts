@@ -37,8 +37,8 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   {
     id: 'clients',
     label: 'Clients',
-    href: '/client-access',
-    description: 'Client organizations, access, and workspaces',
+    href: '/clients',
+    description: 'Client organizations, portal access, and brand assets',
     icon: Users,
   },
   {
