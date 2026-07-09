@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
 import {
   InviteClientSchema,
   type InviteClientInput,
@@ -6,6 +6,8 @@ import {
   type LogoUploadUrlInput,
   UpdateBrand24ProjectSchema,
   type UpdateBrand24ProjectInput,
+  UpdateOrganizationLogoSchema,
+  type UpdateOrganizationLogoInput,
   UpdateSocialListeningSchema,
   type UpdateSocialListeningInput,
 } from '@cocreate/api-contracts/v1/requests/clients'
@@ -25,6 +27,36 @@ export class ClientsController {
   @Post('logo/upload-url')
   logoUploadUrl(@Body(zodBody(LogoUploadUrlSchema)) body: LogoUploadUrlInput) {
     return this.logoStorage.createUploadUrl(body)
+  }
+
+  @Post(':organizationId/logo/upload-url')
+  organizationLogoUploadUrl(
+    @Param('organizationId') organizationId: string,
+    @Body(zodBody(LogoUploadUrlSchema)) body: LogoUploadUrlInput,
+  ) {
+    void organizationId
+    return this.logoStorage.createUploadUrl(body)
+  }
+
+  @Patch(':organizationId/logo')
+  async updateOrganizationLogo(
+    @Param('organizationId') organizationId: string,
+    @Body(zodBody(UpdateOrganizationLogoSchema)) body: UpdateOrganizationLogoInput,
+  ) {
+    const logoUrl = body.storagePath?.trim()
+      ? this.logoStorage.publicUrlForPath(body.storagePath.trim())
+      : body.logoUrl!.trim()
+    const organization = await this.clientsService.updateOrganizationLogo(
+      organizationId,
+      logoUrl,
+    )
+    return { ok: true as const, organization }
+  }
+
+  @Delete(':organizationId/logo')
+  async clearOrganizationLogo(@Param('organizationId') organizationId: string) {
+    const organization = await this.clientsService.clearOrganizationLogo(organizationId)
+    return { ok: true as const, organization }
   }
 
   @Post('invite')

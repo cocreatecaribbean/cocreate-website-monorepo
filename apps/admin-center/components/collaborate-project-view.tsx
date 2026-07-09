@@ -150,6 +150,10 @@ export default function CollaborateProjectView({ projectId }: CollaborateProject
                   readOnly
                   onSendMessage={async () => ({ ok: false, message: 'Read-only' })}
                   onThreadUpdate={() => void refreshThread(progress.id)}
+                  invalidateQueryKeys={[
+                    adminQueryKeys.requests.detail(progress.id),
+                    adminQueryKeys.projects.detail(project.id),
+                  ]}
                 />
               </div>
             </section>

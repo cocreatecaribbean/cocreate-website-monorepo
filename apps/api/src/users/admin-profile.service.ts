@@ -73,6 +73,7 @@ export class AdminProfileService {
   async createAvatarUploadUrl(admin: AuthenticatedAdmin, dto: AvatarUploadUrlInput) {
     return this.storage.createUploadUrl({
       userId: admin.id,
+      audience: 'admin',
       fileName: dto.fileName,
       mimeType: dto.mimeType,
       sizeBytes: dto.sizeBytes,
@@ -80,7 +81,7 @@ export class AdminProfileService {
   }
 
   async registerAvatar(admin: AuthenticatedAdmin, dto: RegisterAvatarInput) {
-    this.storage.assertPathBelongsToUser(dto.storagePath, admin.id)
+    this.storage.assertPathBelongsToUser(dto.storagePath, admin.id, 'admin')
     await this.ensureProfileRow(admin.id)
 
     const profile = await this.prisma.userProfile.update({
@@ -90,6 +91,23 @@ export class AdminProfileService {
     })
 
     return this.serializeProfile(profile, admin.email)
+  }
+
+  async deleteAvatar(admin: AuthenticatedAdmin) {
+    const profile = await this.ensureProfileRow(admin.id)
+    const previousPath = profile.avatarStoragePath
+
+    const updated = await this.prisma.userProfile.update({
+      where: { userId: admin.id },
+      data: { avatarStoragePath: null },
+      include: profileInclude,
+    })
+
+    if (previousPath) {
+      await this.storage.deleteObject(previousPath)
+    }
+
+    return this.serializeProfile(updated, admin.email)
   }
 
   private async ensureProfileRow(userId: string) {

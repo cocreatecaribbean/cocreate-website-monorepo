@@ -87,6 +87,8 @@ export const adminQueryKeys = {
   requests: {
     all: ['admin', 'requests'] as const,
     detail: (requestId: string) => [...adminQueryKeys.requests.all, requestId] as const,
+    messages: (requestId: string) =>
+      [...adminQueryKeys.requests.all, requestId, 'messages'] as const,
   },
   approvals: {
     all: ['admin', 'approvals'] as const,

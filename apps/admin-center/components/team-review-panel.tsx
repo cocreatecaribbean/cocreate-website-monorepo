@@ -1,14 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAdminSession } from '@/components/admin-session-provider'
 import RequestMessageThread from '@/components/request-message-thread'
 import { useSendAdminRequestMessageMutation } from '@/lib/api/mutations/projects'
 import { adminQueryKeys } from '@/lib/api/query-keys'
-import { useAdminRequestThreadQuery } from '@/lib/api/queries/projects'
 import type { ProjectRequestItem } from '@/lib/projects/types'
-import { useRequestThreadRealtime } from '@/lib/projects/use-request-thread-realtime'
 import { bricolage_grot600 } from '@/styles/fonts'
 
 type TeamReviewPanelProps = {
@@ -28,10 +26,7 @@ export default function TeamReviewPanel({
   const { session } = useAdminSession()
   const currentUserId = session?.mode === 'user' ? session.userId : null
 
-  const threadQuery = useAdminRequestThreadQuery(internalRequest.id)
   const sendMessageMutation = useSendAdminRequestMessageMutation(internalRequest.id)
-
-  const request = threadQuery.data ?? internalRequest
 
   const invalidateKeys = useMemo(
     () => [
@@ -42,16 +37,6 @@ export default function TeamReviewPanel({
     [internalRequest.id, _projectId],
   )
 
-  useRequestThreadRealtime(internalRequest.id, onThreadUpdate, {
-    invalidateQueryKeys: invalidateKeys,
-  })
-
-  useEffect(() => {
-    if (threadQuery.data) {
-      onThreadUpdate?.()
-    }
-  }, [threadQuery.data, onThreadUpdate])
-
   const refreshThread = async () => {
     await queryClient.invalidateQueries({
       queryKey: adminQueryKeys.requests.detail(internalRequest.id),
@@ -61,8 +46,8 @@ export default function TeamReviewPanel({
 
   async function sendMessage(body: string, attachmentIds?: string[]) {
     try {
-      await sendMessageMutation.mutateAsync({ body, attachmentIds })
-      return { ok: true as const }
+      const message = await sendMessageMutation.mutateAsync({ body, attachmentIds })
+      return { ok: true as const, data: message }
     } catch (err) {
       return {
         ok: false as const,
@@ -84,12 +69,13 @@ export default function TeamReviewPanel({
 
       <div className="mt-4">
         <RequestMessageThread
-          request={request}
+          request={internalRequest}
           viewerRole="ADMIN"
           currentUserId={currentUserId}
           libraryVisibility="INTERNAL"
           uploadVisibility="INTERNAL"
           readOnly={readOnly}
+          invalidateQueryKeys={invalidateKeys}
           onSendMessage={async (body, attachmentIds) => {
             if (attachmentIds?.length) {
               return sendMessage(body, attachmentIds)

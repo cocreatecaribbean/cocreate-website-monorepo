@@ -286,14 +286,6 @@ export class ClientProjectsController {
     return this.projects.getRequestThread(req.clientUser!, requestId)
   }
 
-  @Get('project-requests/:requestId/realtime')
-  authorizeThreadRealtime(
-    @Req() req: ClientPortalRequest,
-    @Param('requestId') requestId: string,
-  ) {
-    return this.projects.authorizeThreadRealtime(req.clientUser!, requestId)
-  }
-
   @Get('project-requests/:requestId/messages')
   listMessages(
     @Req() req: ClientPortalRequest,

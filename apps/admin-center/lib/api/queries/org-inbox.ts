@@ -13,6 +13,7 @@ export function useAdminOrgInboxConversationsQuery() {
     queryKey: adminQueryKeys.orgInbox.conversations(),
     queryFn: fetchAdminOrgInboxConversations,
     staleTime: 30_000,
+    refetchInterval: 15_000,
   })
 }
 
@@ -20,6 +21,6 @@ export function useAdminOrgInboxUnreadCountQuery() {
   return useQuery({
     queryKey: adminQueryKeys.orgInbox.unreadCount(),
     queryFn: fetchAdminOrgInboxUnreadCount,
-    refetchInterval: 60_000,
+    refetchInterval: 15_000,
   })
 }

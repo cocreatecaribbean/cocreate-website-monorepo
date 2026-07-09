@@ -81,11 +81,4 @@ export class AdminOrgInboxController {
     return this.inbox.markRead(req.adminUser!.id, conversationId)
   }
 
-  @Get('conversations/:conversationId/realtime')
-  authorizeRealtime(
-    @Req() req: AdminRequest,
-    @Param('conversationId') conversationId: string,
-  ) {
-    return this.inbox.authorizeRealtime(req.adminUser!, conversationId)
-  }
 }

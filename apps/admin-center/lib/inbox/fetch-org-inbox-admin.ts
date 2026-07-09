@@ -3,7 +3,6 @@
 import {
   OrgInboxConversationListResponseSchema,
   OrgInboxMessageListResponseSchema,
-  OrgInboxRealtimeAuthResponseSchema,
   OrgInboxSendMessageResponseSchema,
   OrgInboxUnreadCountResponseSchema,
   type OrgInboxConversation,
@@ -153,11 +152,4 @@ export async function markAdminOrgInboxRead(conversationId: string): Promise<voi
   await fetchAdminBff(`/api/messages/conversations/${conversationId}/mark-read`, {
     method: 'POST',
   })
-}
-
-export async function authorizeAdminOrgInboxRealtime(conversationId: string) {
-  const data = await fetchAdminBff<unknown>(
-    `/api/messages/conversations/${conversationId}/realtime`,
-  )
-  return parseApiResponseSafe(OrgInboxRealtimeAuthResponseSchema, data)
 }

@@ -97,8 +97,11 @@ describe('ProjectsService library attachment delete', () => {
       assertProjectAccess: jest.fn().mockResolvedValue(undefined),
     }
 
-    const realtime = {
-      publishThreadUpdate: jest.fn().mockResolvedValue(undefined),
+    const messaging = {
+      emitThreadMessage: jest.fn(),
+      emitThreadCheckpoint: jest.fn(),
+      emitThreadAttachment: jest.fn(),
+      emitThreadStatus: jest.fn(),
     }
 
     const service = new ProjectsService(
@@ -108,17 +111,18 @@ describe('ProjectsService library attachment delete', () => {
       { send: jest.fn() } as never,
       clientAccess as never,
       agencyAccess as never,
-      realtime as never,
+      messaging as never,
       { inviteMember: jest.fn() } as never,
       { getUserById: jest.fn() } as never,
       { listApprovalItemsForProject: jest.fn() } as never,
+      {} as never,
     )
 
-    return { service, prisma, tx, storage, realtime, agencyAccess, clientAccess }
+    return { service, prisma, tx, storage, messaging, agencyAccess, clientAccess }
   }
 
   it('removes all message links and deletes storage when messageId is omitted', async () => {
-    const { service, prisma, tx, storage, realtime } = createService()
+    const { service, prisma, tx, storage, messaging } = createService()
 
     prisma.projectAttachment.findUnique.mockResolvedValue({
       id: 'att-1',
@@ -138,11 +142,7 @@ describe('ProjectsService library attachment delete', () => {
     })
     expect(tx.projectAttachment.delete).toHaveBeenCalledWith({ where: { id: 'att-1' } })
     expect(storage.deleteObject).toHaveBeenCalledWith('org/proj/att-1.png')
-    expect(realtime.publishThreadUpdate).toHaveBeenCalledWith('req-progress', {
-      reason: 'attachment',
-      messageId: undefined,
-      message: undefined,
-    })
+    expect(messaging.emitThreadAttachment).toHaveBeenCalledWith('req-progress')
   })
 
   it('still removes a single message link when messageId is provided', async () => {

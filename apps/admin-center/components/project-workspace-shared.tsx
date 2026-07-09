@@ -7,7 +7,6 @@ import RequestMessageThread, {
 } from '@/components/request-message-thread'
 import MarkInboxReadOnView from '@/components/mark-inbox-read-on-view'
 import ThreadSummaryExport from '@cocreate/app-ui/thread-summary-export'
-import { useAdminRequestThreadQuery } from '@/lib/api/queries/projects'
 import { adminQueryKeys } from '@/lib/api/query-keys'
 import {
   downloadAdminProjectThreadSummaryPdf,
@@ -171,6 +170,9 @@ export function ProjectThreadPanel({
   organizationId,
   markReadEnabled,
   loadMessages = true,
+  parentOwnsMessages = false,
+  liveMessages,
+  liveMessagesLoading = false,
   onInboxMarked,
   onSendMessage,
   onThreadUpdate,
@@ -188,11 +190,14 @@ export function ProjectThreadPanel({
   organizationId: string
   markReadEnabled?: boolean
   loadMessages?: boolean
+  parentOwnsMessages?: boolean
+  liveMessages?: import('@/lib/projects/types').ProjectRequestMessage[]
+  liveMessagesLoading?: boolean
   onInboxMarked?: () => void
   onSendMessage: (
     body: string,
     attachmentIds?: string[],
-  ) => Promise<{ ok: boolean; message?: string }>
+  ) => Promise<{ ok: boolean; message?: string; data?: import('@/lib/projects/types').ProjectRequestMessage }>
   onThreadUpdate?: () => void
   cancellationResolve?: (payload: {
     outcome: string
@@ -215,13 +220,6 @@ export function ProjectThreadPanel({
 }) {
   const { session } = useAdminSession()
   const currentUserId = session?.mode === 'user' ? session.userId : null
-  const threadQuery = useAdminRequestThreadQuery(loadMessages ? request.id : null)
-  const resolvedRequest =
-    threadQuery.data?.id === request.id ? threadQuery.data : request
-  const threadSwitching =
-    loadMessages &&
-    threadQuery.isFetching &&
-    threadQuery.data?.id !== request.id
 
   return (
     <section
@@ -258,19 +256,20 @@ export function ProjectThreadPanel({
             onMarked={onInboxMarked}
           />
         ) : null}
-        {threadSwitching ? (
-          <p className="mb-3 text-sm text-app-muted">Loading conversation…</p>
-        ) : null}
         <RequestMessageThread
           key={request.id}
-          request={resolvedRequest}
+          request={request}
+          loadMessages={loadMessages}
+          parentOwnsMessages={parentOwnsMessages}
+          liveMessages={liveMessages}
+          liveMessagesLoading={liveMessagesLoading}
           viewerRole="ADMIN"
           currentUserId={currentUserId}
           readOnly={readOnly}
           onSendMessage={onSendMessage}
           onThreadUpdate={onThreadUpdate}
           invalidateQueryKeys={[
-            adminQueryKeys.requests.detail(request.id),
+            adminQueryKeys.requests.messages(request.id),
             ...(approvalInvalidateQueryKeys ?? []),
           ]}
           checkpointCompose={checkpointCompose}

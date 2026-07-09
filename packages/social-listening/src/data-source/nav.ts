@@ -35,18 +35,18 @@ export type SocialListeningNavItem = {
 
 export const SOCIAL_LISTENING_NAV: SocialListeningNavItem[] = [
   {
-    id: 'mentions',
-    label: 'Mentions',
-    shortLabel: 'Mentions',
-    description: 'Volume, timing, and sentiment trends',
-    icon: MessageSquare,
-  },
-  {
     id: 'summary',
     label: 'Summary',
     shortLabel: 'Summary',
     description: 'Key metrics and sentiment split',
     icon: PieChart,
+  },
+  {
+    id: 'mentions',
+    label: 'Mentions',
+    shortLabel: 'Mentions',
+    description: 'Volume, timing, and sentiment trends',
+    icon: MessageSquare,
   },
   {
     id: 'analysis',
@@ -62,25 +62,28 @@ export const SOCIAL_LISTENING_NAV: SocialListeningNavItem[] = [
     description: 'Where conversations happen',
     icon: BarChart3,
   },
-  {
-    id: 'quotes',
-    label: 'Quotes',
-    shortLabel: 'Quotes',
-    description: 'Notable posts and snippets',
-    icon: Quote,
-  },
 ]
+
+/** Hidden from main nav until Brand24 quotes ship — still reachable via direct URL */
+export const SOCIAL_LISTENING_QUOTES_PREVIEW: SocialListeningNavItem = {
+  id: 'quotes',
+  label: 'Quotes',
+  shortLabel: 'Quotes',
+  description: 'Preview — notable posts (coming soon)',
+  icon: Quote,
+}
 
 export const SOCIAL_LISTENING_REPORTS: SocialListeningNavItem = {
   id: 'reports',
   label: 'Reports',
   shortLabel: 'Reports',
-  description: 'Exports and scheduled digests',
+  description: 'PDF exports (Growth+ plans)',
   icon: FileText,
 }
 
 const VALID_VIEWS = new Set<string>([
   ...SOCIAL_LISTENING_NAV.map((item) => item.id),
+  SOCIAL_LISTENING_QUOTES_PREVIEW.id,
   SOCIAL_LISTENING_REPORTS.id,
   SOCIAL_LISTENING_SETUP.id,
 ])

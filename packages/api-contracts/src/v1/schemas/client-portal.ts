@@ -217,6 +217,8 @@ export const PortalProfileUserSchema = z.object({
   role: z.string(),
   clientOrgRole: ClientOrgRoleSchema.nullable(),
   canAccessSocialListening: z.boolean(),
+  displayName: z.string().nullable().optional(),
+  avatarUrl: z.string().nullable().optional(),
 })
 export type PortalProfileUser = z.infer<typeof PortalProfileUserSchema>
 

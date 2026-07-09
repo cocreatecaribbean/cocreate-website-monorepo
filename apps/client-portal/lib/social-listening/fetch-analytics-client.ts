@@ -59,11 +59,36 @@ export async function fetchSocialListeningAnalyticsWithStatus(options?: {
   return { status: 'ok', payload: { data: json.data, meta: json.meta } }
 }
 
-export async function fetchSocialListeningSnapshotDates(): Promise<string[]> {
-  const json = await socialListeningFetch<{ ok?: boolean; dates?: string[] }>(
-    '/client-portal/social-listening/analytics/snapshots',
-  )
-  return json?.dates ?? []
+export async function fetchSocialListeningSnapshotDates(): Promise<
+  import('@cocreate/social-listening/data-source').SocialListeningSnapshotDatesResult
+> {
+  const json = await socialListeningFetch<{
+    ok?: boolean
+    organizationId?: string
+    organizationName?: string
+    dates?: string[]
+    snapshots?: Array<{
+      date: string
+      periodStart: string
+      periodEnd: string
+      source: 'brand24' | 'org_mock'
+      totalMentions?: number
+    }>
+  }>('/client-portal/social-listening/analytics/snapshots')
+
+  const snapshots = json?.snapshots ?? (json?.dates ?? []).map((date) => ({
+    date,
+    periodStart: date,
+    periodEnd: date,
+    source: 'org_mock' as const,
+  }))
+
+  return {
+    organizationId: json?.organizationId ?? '',
+    organizationName: json?.organizationName,
+    snapshots,
+    dates: snapshots.map((s) => s.date),
+  }
 }
 
 export async function createListeningSetup(

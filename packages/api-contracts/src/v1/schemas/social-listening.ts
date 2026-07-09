@@ -131,9 +131,17 @@ export const SocialListeningReportTemplateIdSchema = z.enum([
   'executive-summary',
   'full-dashboard',
   'period-compare',
+  'executive-summary-deck',
+  'full-dashboard-deck',
+  'period-compare-deck',
 ])
 export type SocialListeningReportTemplateId = z.infer<
   typeof SocialListeningReportTemplateIdSchema
+>
+
+export const SocialListeningReportFormatSchema = z.enum(['letter', 'deck'])
+export type SocialListeningReportFormat = z.infer<
+  typeof SocialListeningReportFormatSchema
 >
 
 export const SocialListeningReportTemplateMetaSchema = z.object({
@@ -142,6 +150,7 @@ export const SocialListeningReportTemplateMetaSchema = z.object({
   description: z.string(),
   pageHint: z.string(),
   supportsCompare: z.boolean(),
+  format: SocialListeningReportFormatSchema,
 })
 export type SocialListeningReportTemplateMeta = z.infer<
   typeof SocialListeningReportTemplateMetaSchema

@@ -229,6 +229,7 @@ function ClientPortalDashboardContent({
               <SocialListeningPanel
                 initialAnalytics={socialListeningAnalytics}
                 organizationName={organizationName}
+                organizationLogoUrl={organizationLogoUrl}
                 renderSettingsPanel={() => <PortalSettingsPanel />}
               />
             </>

@@ -18,3 +18,17 @@ export async function PATCH(request: NextRequest) {
   const data = await response.json()
   return NextResponse.json(data, { status: response.status })
 }
+
+export async function DELETE() {
+  const headers = await adminApiHeaders(true)
+  if (!headers) {
+    return NextResponse.json({ ok: false, message: 'Not authenticated' }, { status: 401 })
+  }
+
+  const response = await fetch(nestApiUrl('/auth/admin/profile/avatar'), {
+    method: 'DELETE',
+    headers,
+  })
+  const data = await response.json()
+  return NextResponse.json(data, { status: response.status })
+}

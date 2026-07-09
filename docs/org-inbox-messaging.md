@@ -1,5 +1,9 @@
 # Org inbox messaging
 
+Project request threads use the same Socket.io stack via `@cocreate/messaging`; see [project-thread-messaging.md](./project-thread-messaging.md) for the 2026 receive-path postmortem (why transport migrations alone did not fix slow delivery).
+
+For a plain-English tour of every key messaging file (no code), see [messaging-files-guide.md](./messaging-files-guide.md).
+
 General WhatsApp-style chat between a client organization and the CoCreate account team (billing, timelines, topics not tied to a project request).
 
 Distinct from **Approvals / Inbox** (project checkpoint threads).

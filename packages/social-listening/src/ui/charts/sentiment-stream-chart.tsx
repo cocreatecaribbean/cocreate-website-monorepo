@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from 'react'
 import { ResponsiveStream, type StackTooltipProps } from '@nivo/stream'
 import SentimentFace from '../sentiment-face'
+import NivoChartShell from '../nivo-chart-shell'
 import {
   sentimentStreamColors,
   sentimentStreamKeys,
@@ -11,14 +12,24 @@ import { useNivoTheme } from '../hooks/use-nivo-theme'
 import { useTheme } from 'next-themes'
 import { useIsMobileChart } from '../hooks/use-is-mobile-chart'
 import { usePrefersReducedMotion } from '../hooks/use-prefers-reduced-motion'
-import { SENTIMENT_LABELS } from '@cocreate/social-listening/core'
+import { SENTIMENT_LABELS, formatSentimentStreamLabel } from '@cocreate/social-listening/core'
 import type { SentimentId, SentimentOverTimeRow } from '@cocreate/social-listening/core'
 
 type SentimentStreamChartProps = {
   data: SentimentOverTimeRow[]
+  periodStart?: string
+  periodEnd?: string
 }
 
-function formatDateLabel(iso: string, short = false): string {
+function formatDateLabel(
+  row: SentimentOverTimeRow,
+  period: { periodStart: string; periodEnd: string } | null,
+  short = false,
+): string {
+  if (period) {
+    return formatSentimentStreamLabel(row, period)
+  }
+  const iso = row.date.slice(0, 10)
   const date = new Date(iso + 'T12:00:00')
   if (short) {
     return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })
@@ -28,27 +39,41 @@ function formatDateLabel(iso: string, short = false): string {
 
 const legendSentiments: SentimentId[] = ['positive', 'neutral', 'negative']
 
-export default function SentimentStreamChart({ data }: SentimentStreamChartProps) {
+export default function SentimentStreamChart({
+  data,
+  periodStart,
+  periodEnd,
+}: SentimentStreamChartProps) {
   const reducedMotion = usePrefersReducedMotion()
   const isMobile = useIsMobileChart()
   const nivoTheme = useNivoTheme()
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
 
+  const period = useMemo(() => {
+    if (!periodStart || !periodEnd) return null
+    return {
+      periodStart: periodStart.slice(0, 10),
+      periodEnd: periodEnd.slice(0, 10),
+    }
+  }, [periodStart, periodEnd])
+
   const streamData = useMemo(
     () =>
       data.map((row) => ({
-        date: formatDateLabel(row.date, isMobile),
+        date: formatDateLabel(row, period, isMobile),
         positive: row.positive,
         neutral: row.neutral,
         negative: row.negative,
       })),
-    [data, isMobile],
+    [data, isMobile, period],
   )
 
+  const isWeeklyCadence = streamData.length <= 5
+
   const margin = isMobile
-    ? { top: 8, right: 8, bottom: 44, left: 28 }
-    : { top: 16, right: 20, bottom: 48, left: 44 }
+    ? { top: 8, right: 8, bottom: isWeeklyCadence ? 28 : 44, left: 28 }
+    : { top: 16, right: 20, bottom: isWeeklyCadence ? 32 : 48, left: 44 }
 
   const streamTheme = useMemo(
     () => ({
@@ -100,7 +125,7 @@ export default function SentimentStreamChart({ data }: SentimentStreamChartProps
   return (
     <div
       role="img"
-      aria-label="Sentiment over time stream chart"
+      aria-label="Weekly sentiment stream chart for this month"
       className="flex w-full flex-col gap-3"
     >
       <ul
@@ -118,15 +143,8 @@ export default function SentimentStreamChart({ data }: SentimentStreamChartProps
         ))}
       </ul>
 
-      {/* Fixed aspect on small screens so Nivo does not stretch with flex parents */}
-      <div
-        className="
-          relative w-full
-          h-[220px] max-h-[42vw] min-h-[200px]
-          sm:h-[280px] sm:max-h-none
-          md:h-[300px]
-        "
-      >
+      {/* Explicit height so Nivo ResizeObserver gets a non-zero box */}
+      <NivoChartShell className="portal-chart-area-lg w-full">
         <ResponsiveStream
           data={streamData}
           keys={[...sentimentStreamKeys]}
@@ -136,7 +154,7 @@ export default function SentimentStreamChart({ data }: SentimentStreamChartProps
           axisBottom={{
             tickSize: 0,
             tickPadding: 6,
-            tickRotation: isMobile ? -40 : 0,
+            tickRotation: isWeeklyCadence ? 0 : isMobile ? -40 : 0,
             format: (value) => streamData[Number(value)]?.date ?? String(value),
           }}
           axisLeft={{
@@ -157,7 +175,7 @@ export default function SentimentStreamChart({ data }: SentimentStreamChartProps
           motionConfig={reducedMotion ? 'none' : 'gentle'}
           legends={[]}
         />
-      </div>
+      </NivoChartShell>
     </div>
   )
 }

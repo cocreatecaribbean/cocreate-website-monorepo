@@ -2,6 +2,7 @@
 
 import { ResponsiveHeatMap } from '@nivo/heatmap'
 import ChartContainer from '../chart-container'
+import NivoChartShell from '../nivo-chart-shell'
 import GlassChartTooltip from '../glass-tooltip'
 import { heatmapBrandScale } from '../nivo-theme'
 import { useNivoTheme } from '../hooks/use-nivo-theme'
@@ -28,10 +29,8 @@ export default function MentionHeatmapChart({ data }: MentionHeatmapChartProps) 
   const maxVal = Math.max(...data.flatMap((row) => row.data.map((cell) => cell.y)), 1)
 
   return (
-    <ChartContainer
-      label="Mention volume by day and time heatmap"
-      minHeight="min-h-[280px] sm:min-h-[320px]"
-    >
+    <ChartContainer label="Weekly mention activity within this month heatmap" size="lg">
+      <NivoChartShell className="h-full w-full">
       <ResponsiveHeatMap
         data={data}
         margin={{ top: 48, right: 24, bottom: 48, left: 72 }}
@@ -83,6 +82,7 @@ export default function MentionHeatmapChart({ data }: MentionHeatmapChartProps) 
           </GlassChartTooltip>
         )}
       />
+      </NivoChartShell>
     </ChartContainer>
   )
 }

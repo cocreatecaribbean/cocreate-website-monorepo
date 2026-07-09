@@ -27,7 +27,7 @@ import type {
 } from '@cocreate/api-contracts/v1/shared/org-inbox'
 import { ThreadSummaryStoreService } from '../messaging-summary/thread-summary-store.service'
 import { ProjectNotificationsService } from '../projects/project-notifications.service'
-import { ProjectRealtimeService } from '../projects/project-realtime.service'
+import { MessagingEmitService } from '../messaging/messaging-emit.service'
 import { ProjectStorageService } from '../projects/project-storage.service'
 
 type ConversationRow = {
@@ -54,7 +54,7 @@ export class OrgInboxService {
     private readonly prisma: PrismaService,
     private readonly clientAccess: ClientAccessService,
     private readonly notifications: ProjectNotificationsService,
-    private readonly realtime: ProjectRealtimeService,
+    private readonly messaging: MessagingEmitService,
     private readonly storage: ProjectStorageService,
     private readonly threadSummaryStore: ThreadSummaryStoreService,
   ) {}
@@ -586,7 +586,7 @@ export class OrgInboxService {
     const preview =
       body.slice(0, 200) || (attachmentIds.length ? 'Sent an attachment' : '')
     const serialized = this.serializeMessage(messageWithAttachments)
-    void this.realtime.publishOrgInboxUpdate(conversationId, { message: serialized })
+    void this.messaging.emitInboxMessage(conversationId, serialized as Record<string, unknown>)
     void this.threadSummaryStore.invalidate('ORG_INBOX', conversationId)
     void this.notifications.notifyAdmins({
       organizationId,
@@ -658,7 +658,7 @@ export class OrgInboxService {
     const href = this.clientPortalMessagesHref(conversationId)
     const serialized = this.serializeMessage(messageWithAttachments)
 
-    void this.realtime.publishOrgInboxUpdate(conversationId, { message: serialized })
+    void this.messaging.emitInboxMessage(conversationId, serialized as Record<string, unknown>)
     void this.threadSummaryStore.invalidate('ORG_INBOX', conversationId)
 
     if (conversation.visibility === OrgInboxVisibility.ORG_WIDE) {
@@ -767,23 +767,18 @@ export class OrgInboxService {
     return { unreadCount }
   }
 
-  async authorizeRealtime(
+  async assertInboxAccess(
     viewer: AuthenticatedClient | AuthenticatedAdmin,
     conversationId: string,
-  ) {
+  ): Promise<void> {
     if (viewer.role === UserRole.CLIENT) {
       await this.assertClientCanViewConversation(viewer as AuthenticatedClient, conversationId)
-    } else {
-      const exists = await this.prisma.orgInboxConversation.findUnique({
-        where: { id: conversationId },
-      })
-      if (!exists) throw new NotFoundException('Conversation not found')
+      return
     }
-
-    return {
-      enabled: this.realtime.isConfigured,
-      channel: this.realtime.orgInboxChannelName(conversationId),
-    }
+    const exists = await this.prisma.orgInboxConversation.findUnique({
+      where: { id: conversationId },
+    })
+    if (!exists) throw new NotFoundException('Conversation not found')
   }
 
   async postToOrgWideAsMember(client: AuthenticatedClient, body: string) {

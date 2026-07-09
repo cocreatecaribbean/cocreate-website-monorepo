@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { QueryProvider } from '@cocreate/app-ui/query-provider'
 import { ThemeProvider } from '@/components/theme-provider'
+import { ClientMessagingProvider } from '@/lib/messaging/client-messaging-provider'
 import {
   alkatra600,
   bricolage_grot400,
@@ -30,7 +31,9 @@ export default function RootLayout({
     <html lang="en" className={fontVariables} suppressHydrationWarning>
       <body className={`${bricolage_grot400.className} antialiased`}>
         <QueryProvider>
-          <ThemeProvider>{children}</ThemeProvider>
+          <ThemeProvider>
+            <ClientMessagingProvider>{children}</ClientMessagingProvider>
+          </ThemeProvider>
         </QueryProvider>
       </body>
     </html>

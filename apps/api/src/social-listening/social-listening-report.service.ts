@@ -12,6 +12,8 @@ import {
   type ReportRenderContext,
   type ReportTemplateId,
 } from '@cocreate/social-listening-reports'
+import { planIncludesPdfExports } from '@cocreate/social-listening-plans'
+import { SocialListeningSubscriptionStatus } from '@cocreate/database'
 import type { AuthenticatedClient } from '../auth/auth.service'
 import { ClientAccessService } from '../auth/client-access.service'
 import { PrismaService } from '../prisma/prisma.service'
@@ -77,6 +79,8 @@ export class SocialListeningReportService {
       throw new BadRequestException(`Unknown report template: ${templateId}`)
     }
 
+    await this.assertPdfPlanEntitlement(organization.id)
+
     let compare: SocialListeningCompareResponse | undefined
     if (template.supportsCompare) {
       if (!baseline) {
@@ -141,6 +145,36 @@ export class SocialListeningReportService {
     const filename = `${slug}-${templateId}-${date}.pdf`
 
     return { buffer, filename }
+  }
+
+  private async assertPdfPlanEntitlement(organizationId: string): Promise<void> {
+    const subscription = await this.prisma.socialListeningSubscription.findUnique({
+      where: { organizationId },
+      select: { plan: true, status: true, currentPeriodEnd: true },
+    })
+
+    if (!subscription) {
+      throw new ForbiddenException(
+        'PDF reports require a Growth or Scale plan. Upgrade your subscription to export reports.',
+      )
+    }
+
+    const active =
+      subscription.status === SocialListeningSubscriptionStatus.ACTIVE &&
+      subscription.currentPeriodEnd &&
+      subscription.currentPeriodEnd.getTime() > Date.now()
+
+    if (!active) {
+      throw new ForbiddenException(
+        'PDF reports require an active subscription. Renew or upgrade to export reports.',
+      )
+    }
+
+    if (!planIncludesPdfExports(subscription.plan)) {
+      throw new ForbiddenException(
+        'PDF reports are included on Growth and Scale plans. Upgrade from Pulse to export reports.',
+      )
+    }
   }
 
   private toReportCompare(

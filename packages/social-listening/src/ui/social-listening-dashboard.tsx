@@ -2,6 +2,7 @@
 
 import { useMemo, type ReactNode } from 'react'
 import MentionHeatmapChart from './charts/mention-heatmap-chart'
+import MonthlyMentionsTrendChart from './charts/monthly-mentions-trend-chart'
 import ReachEngagementLineChart from './charts/reach-engagement-line-chart'
 import SentimentPieChart from './charts/sentiment-pie-chart'
 import SentimentStreamChart from './charts/sentiment-stream-chart'
@@ -12,8 +13,14 @@ import SocialListeningSetupPanel from './social-listening-setup-panel'
 import SocialListeningSectionPlaceholder from './social-listening-section-placeholder'
 import SentimentKpiStrip from './sentiment-kpi-strip'
 import type { SocialListeningComparePayload } from '@cocreate/api-contracts/v1/social-listening'
-import { computePlatformMentionDeltas } from '@cocreate/social-listening/core'
+import {
+  buildMonthlyChartViews,
+  buildMonthlyTrendPoints,
+  computePlatformMentionDeltas,
+  formatWeeklyWithinMonthDescription,
+} from '@cocreate/social-listening/core'
 import type { SocialListeningViewId } from '@cocreate/social-listening/data-source'
+import type { SocialListeningSnapshotDateEntry } from '@cocreate/social-listening/data-source'
 import type { SocialListeningAnalytics } from '@cocreate/social-listening/core'
 import { Quote } from 'lucide-react'
 
@@ -22,10 +29,14 @@ type SocialListeningDashboardProps = {
   activeView: SocialListeningViewId
   settingsOpen?: boolean
   metaSource?: 'brand24' | 'org_mock'
+  periodStart?: string
+  periodEnd?: string
   compareDeltas?: SocialListeningComparePayload['deltas'] | null
   compareBaselineDate?: string
   compareCurrentDate?: string
   comparePayload?: SocialListeningComparePayload | null
+  snapshotDates?: string[]
+  snapshots?: SocialListeningSnapshotDateEntry[]
   onSetupComplete?: () => void
   showSetup?: boolean
   renderSettingsPanel?: () => ReactNode
@@ -36,14 +47,33 @@ export default function SocialListeningDashboard({
   activeView,
   settingsOpen = false,
   metaSource = 'org_mock',
+  periodStart,
+  periodEnd,
   compareDeltas = null,
   compareBaselineDate,
   compareCurrentDate,
   comparePayload = null,
+  snapshotDates = [],
+  snapshots = [],
   onSetupComplete,
   showSetup = true,
   renderSettingsPanel,
 }: SocialListeningDashboardProps) {
+  const chartData = useMemo(
+    () =>
+      buildMonthlyChartViews(data, {
+        periodStart,
+        periodEnd,
+        snapshotDate: compareCurrentDate,
+      }),
+    [compareCurrentDate, data, periodEnd, periodStart],
+  )
+
+  const monthlyTrend = useMemo(
+    () => buildMonthlyTrendPoints(snapshots),
+    [snapshots],
+  )
+
   const platformMentionDeltas = useMemo(() => {
     if (!comparePayload) return null
     return computePlatformMentionDeltas(
@@ -58,7 +88,7 @@ export default function SocialListeningDashboard({
     Boolean(compareCurrentDate)
 
   return (
-    <div className="portal-sl-region space-y-6">
+    <div key={activeView} className="portal-sl-region space-y-6">
       {settingsOpen && renderSettingsPanel ? renderSettingsPanel() : null}
       {!settingsOpen && compareDeltas && compareBaselineDate && compareCurrentDate ? (
         <p className="text-center text-xs portal-sl-secondary">
@@ -68,6 +98,10 @@ export default function SocialListeningDashboard({
       {!settingsOpen && activeView === 'summary' ? (
         <SummaryView
           data={data}
+          chartData={chartData}
+          monthlyTrend={monthlyTrend}
+          periodStart={periodStart}
+          periodEnd={periodEnd}
           compareDeltas={compareDeltas}
           platformMentionDeltas={platformMentionDeltas}
           compareBaselineDate={compareBaselineDate}
@@ -75,8 +109,21 @@ export default function SocialListeningDashboard({
           platformCompareActive={platformCompareActive}
         />
       ) : null}
-      {!settingsOpen && activeView === 'mentions' ? <MentionsView data={data} /> : null}
-      {!settingsOpen && activeView === 'analysis' ? <AnalysisView data={data} /> : null}
+      {!settingsOpen && activeView === 'mentions' ? (
+        <MentionsView
+          chartData={chartData}
+          periodStart={periodStart}
+          periodEnd={periodEnd}
+        />
+      ) : null}
+      {!settingsOpen && activeView === 'analysis' ? (
+        <AnalysisView
+          data={data}
+          chartData={chartData}
+          periodStart={periodStart}
+          periodEnd={periodEnd}
+        />
+      ) : null}
       {!settingsOpen && activeView === 'sources' ? (
         <SourcesView
           data={data}
@@ -89,21 +136,17 @@ export default function SocialListeningDashboard({
       {!settingsOpen && activeView === 'quotes' ? (
         <SocialListeningSectionPlaceholder
           title="Quotes"
-          description="Surface standout posts and verbatim snippets from across the web and social channels."
+          description="Preview — verbatim posts from Brand24 will appear here after live ingestion is enabled (Growth+)."
           icon={Quote}
         />
       ) : null}
-      {!settingsOpen && activeView === 'reports' ? <SocialListeningReportsPanel /> : null}
+      <div className={activeView === 'reports' && !settingsOpen ? undefined : 'hidden'} aria-hidden={activeView !== 'reports' || settingsOpen}>
+        {!settingsOpen ? (
+          <SocialListeningReportsPanel snapshotDates={snapshotDates} />
+        ) : null}
+      </div>
       {!settingsOpen && activeView === 'setup' && showSetup ? (
         <SocialListeningSetupPanel onComplete={onSetupComplete} />
-      ) : null}
-
-      {!settingsOpen && activeView !== 'setup' ? (
-      <p className="portal-animate-in text-center text-xs tracking-wide portal-sl-caption uppercase">
-        {metaSource === 'brand24'
-          ? 'Live Brand24 data'
-          : 'Sample data · Brand24 data mockup instead of Awario because API is more robust! · Unique per client org'}
-      </p>
       ) : null}
     </div>
   )
@@ -111,6 +154,10 @@ export default function SocialListeningDashboard({
 
 function SummaryView({
   data,
+  chartData,
+  monthlyTrend,
+  periodStart,
+  periodEnd,
   compareDeltas,
   platformMentionDeltas,
   compareBaselineDate,
@@ -118,6 +165,10 @@ function SummaryView({
   platformCompareActive,
 }: {
   data: SocialListeningAnalytics
+  chartData: SocialListeningAnalytics
+  monthlyTrend: ReturnType<typeof buildMonthlyTrendPoints>
+  periodStart?: string
+  periodEnd?: string
   compareDeltas?: SocialListeningComparePayload['deltas'] | null
   platformMentionDeltas: ReturnType<typeof computePlatformMentionDeltas> | null
   compareBaselineDate?: string
@@ -127,6 +178,15 @@ function SummaryView({
   return (
     <>
       <SentimentKpiStrip data={data} deltas={compareDeltas} />
+      {monthlyTrend.length >= 2 ? (
+        <ChartCard
+          title="Monthly mention trend"
+          description="One bar per calendar month from your saved snapshots"
+          delayClass="portal-animate-in"
+        >
+          <MonthlyMentionsTrendChart points={monthlyTrend} />
+        </ChartCard>
+      ) : null}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:gap-6">
         <div className="lg:col-span-5">
           <ChartCard
@@ -148,47 +208,93 @@ function SummaryView({
           />
         </div>
       </div>
+      <ChartCard
+        title="Weekly sentiment trend"
+        description={formatWeeklyWithinMonthDescription(
+          periodStart,
+          'Sentiment mix by week within this month',
+        )}
+        compact
+        delayClass="portal-animate-in-delay-3"
+      >
+        <SentimentStreamChart
+          data={chartData.sentimentOverTime}
+          periodStart={periodStart}
+          periodEnd={periodEnd}
+        />
+      </ChartCard>
     </>
   )
 }
 
-function MentionsView({ data }: { data: SocialListeningAnalytics }) {
+function MentionsView({
+  chartData,
+  periodStart,
+  periodEnd,
+}: {
+  chartData: SocialListeningAnalytics
+  periodStart?: string
+  periodEnd?: string
+}) {
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:gap-6">
       <div className="lg:col-span-12">
         <ChartCard
           title="Sentiment over time"
-          description="Daily mention volume by sentiment"
+          description={formatWeeklyWithinMonthDescription(
+            periodStart,
+            'Weekly mention mix within this month',
+          )}
           accent
           compact
           delayClass="portal-animate-in"
         >
-          <SentimentStreamChart data={data.sentimentOverTime} />
+          <SentimentStreamChart
+            data={chartData.sentimentOverTime}
+            periodStart={periodStart}
+            periodEnd={periodEnd}
+          />
         </ChartCard>
       </div>
       <div className="lg:col-span-12">
         <ChartCard
           title="Mention activity"
-          description="Volume by day and time block"
+          description={formatWeeklyWithinMonthDescription(
+            periodStart,
+            'Weekly activity by time of day',
+          )}
           delayClass="portal-animate-in-delay-1"
         >
-          <MentionHeatmapChart data={data.mentionMatrix} />
+          <MentionHeatmapChart data={chartData.mentionMatrix} />
         </ChartCard>
       </div>
     </div>
   )
 }
 
-function AnalysisView({ data }: { data: SocialListeningAnalytics }) {
+function AnalysisView({
+  data,
+  chartData,
+  periodStart,
+  periodEnd,
+}: {
+  data: SocialListeningAnalytics
+  chartData: SocialListeningAnalytics
+  periodStart?: string
+  periodEnd?: string
+}) {
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:gap-6">
       <div className="lg:col-span-12">
         <ChartCard
           title="Reach vs engagement"
-          description="Weekly reach (thousands) and engagement volume"
+          description={formatWeeklyWithinMonthDescription(
+            periodStart,
+            'Reach and engagement by week within this month',
+          )}
           delayClass="portal-animate-in"
         >
-          <ReachEngagementLineChart data={data.reachVsEngagement} />
+          <ReachEngagementLineChart data={chartData.reachVsEngagement} />
         </ChartCard>
       </div>
       <div className="lg:col-span-6">
@@ -203,11 +309,18 @@ function AnalysisView({ data }: { data: SocialListeningAnalytics }) {
       <div className="lg:col-span-6">
         <ChartCard
           title="Sentiment over time"
-          description="Trend view"
+          description={formatWeeklyWithinMonthDescription(
+            periodStart,
+            'Weekly sentiment trend',
+          )}
           compact
           delayClass="portal-animate-in-delay-2"
         >
-          <SentimentStreamChart data={data.sentimentOverTime} />
+          <SentimentStreamChart
+            data={chartData.sentimentOverTime}
+            periodStart={periodStart}
+            periodEnd={periodEnd}
+          />
         </ChartCard>
       </div>
     </div>
@@ -239,4 +352,3 @@ function SourcesView({
     />
   )
 }
-

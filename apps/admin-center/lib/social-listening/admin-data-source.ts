@@ -2,6 +2,7 @@
 
 import type {
   ReportTemplateMeta,
+  ReportTemplatesResult,
   SocialListeningDataSource,
 } from '@cocreate/social-listening/data-source'
 import type {
@@ -12,6 +13,44 @@ import { fetchAdminBff } from '@/lib/admin-api-fetch'
 
 function buildOrgPath(organizationId: string, suffix: string) {
   return `/api/social-listening/organizations/${organizationId}${suffix}`
+}
+
+const adminTemplatesCache = new Map<string, ReportTemplatesResult>()
+const adminTemplatesPromise = new Map<string, Promise<ReportTemplatesResult>>()
+
+async function fetchAdminReportTemplates(
+  organizationId: string,
+): Promise<ReportTemplatesResult> {
+  const cached = adminTemplatesCache.get(organizationId)
+  if (cached?.ok) return cached
+
+  let pending = adminTemplatesPromise.get(organizationId)
+  if (!pending) {
+    pending = (async () => {
+      try {
+        const json = await fetchAdminBff<{ templates?: ReportTemplateMeta[] }>(
+          buildOrgPath(organizationId, '/reports/templates'),
+        )
+        const result: ReportTemplatesResult = {
+          ok: true,
+          templates: json.templates ?? [],
+        }
+        adminTemplatesCache.set(organizationId, result)
+        return result
+      } catch {
+        return {
+          ok: false,
+          message:
+            'Could not load report templates. Check that the API is running and refresh.',
+        }
+      }
+    })()
+    adminTemplatesPromise.set(organizationId, pending)
+  }
+
+  const result = await pending
+  adminTemplatesPromise.delete(organizationId)
+  return result
 }
 
 export function createAdminSocialListeningDataSource(
@@ -39,12 +78,38 @@ export function createAdminSocialListeningDataSource(
 
     async fetchSnapshotDates() {
       try {
-        const json = await fetchAdminBff<{ dates?: string[] }>(
-          buildOrgPath(organizationId, '/analytics/snapshots'),
-        )
-        return json.dates ?? []
+        const json = await fetchAdminBff<{
+          organizationId?: string
+          organizationName?: string
+          dates?: string[]
+          snapshots?: Array<{
+            date: string
+            periodStart: string
+            periodEnd: string
+            source: 'brand24' | 'org_mock'
+            totalMentions?: number
+          }>
+        }>(buildOrgPath(organizationId, '/analytics/snapshots'))
+        const snapshots =
+          json.snapshots ??
+          (json.dates ?? []).map((date) => ({
+            date,
+            periodStart: date,
+            periodEnd: date,
+            source: 'org_mock' as const,
+          }))
+        return {
+          organizationId: json.organizationId ?? organizationId,
+          organizationName: json.organizationName,
+          snapshots,
+          dates: snapshots.map((s) => s.date),
+        }
       } catch {
-        return []
+        return {
+          organizationId,
+          snapshots: [],
+          dates: [],
+        }
       }
     },
 
@@ -66,15 +131,8 @@ export function createAdminSocialListeningDataSource(
       }
     },
 
-    async fetchReportTemplates(): Promise<ReportTemplateMeta[]> {
-      try {
-        const json = await fetchAdminBff<{ templates?: ReportTemplateMeta[] }>(
-          buildOrgPath(organizationId, '/reports/templates'),
-        )
-        return json.templates ?? []
-      } catch {
-        return []
-      }
+    async fetchReportTemplates(): Promise<ReportTemplatesResult> {
+      return fetchAdminReportTemplates(organizationId)
     },
 
     async downloadReport(options) {

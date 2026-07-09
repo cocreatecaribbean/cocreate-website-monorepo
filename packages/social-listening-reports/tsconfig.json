@@ -9,7 +9,8 @@
     "rootDir": "./src",
     "baseUrl": ".",
     "paths": {
-      "@cocreate/api-contracts/v1/*": ["../api-contracts/dist/v1/*"]
+      "@cocreate/api-contracts/v1/*": ["../api-contracts/dist/v1/*"],
+      "@cocreate/social-listening/core": ["../social-listening/src/core/index.ts"]
     },
     "strict": true,
     "skipLibCheck": true,

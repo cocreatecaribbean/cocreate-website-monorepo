@@ -1,16 +1,30 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { useSocialListeningDataSource, type SocialListeningDataSource } from '@cocreate/social-listening/data-source'
+import { useEffect, useRef, useState } from 'react'
+import {
+  useSocialListeningDataSource,
+  type ReportTemplateMeta,
+} from '@cocreate/social-listening/data-source'
 import { slFontSemibold, slFontBold } from './typography'
 import { FileDown } from 'lucide-react'
 
-export default function SocialListeningReportsPanel() {
+function partitionTemplates(templates: ReportTemplateMeta[]) {
+  const deckTemplates = templates.filter((t) => t.format === 'deck')
+  const letterTemplates = templates.filter((t) => t.format !== 'deck')
+  return { letterTemplates, deckTemplates }
+}
+
+type SocialListeningReportsPanelProps = {
+  snapshotDates: string[]
+}
+
+export default function SocialListeningReportsPanel({
+  snapshotDates,
+}: SocialListeningReportsPanelProps) {
   const dataSource = useSocialListeningDataSource()
-  const [templates, setTemplates] = useState<
-    Awaited<ReturnType<SocialListeningDataSource['fetchReportTemplates']>>
-  >([])
-  const [dates, setDates] = useState<string[]>([])
+  const [templates, setTemplates] = useState<ReportTemplateMeta[]>([])
+  const [templatesLoading, setTemplatesLoading] = useState(true)
+  const [templatesError, setTemplatesError] = useState<string | null>(null)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const [asOf, setAsOf] = useState<string | null>(null)
   const [baseline, setBaseline] = useState<string | null>(null)
@@ -18,25 +32,64 @@ export default function SocialListeningReportsPanel() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const didDefaultTemplate = useRef(false)
 
+  const dates = snapshotDates
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId)
   const latestDate = dates[0] ?? null
+  const { letterTemplates, deckTemplates } = partitionTemplates(templates)
+  const showFlatFallback =
+    templates.length > 0 && letterTemplates.length === 0 && deckTemplates.length === 0
+  const showTemplatesLoading = templatesLoading && templates.length === 0
 
-  const loadMeta = useCallback(async () => {
-    const [templateList, dateList] = await Promise.all([
-      dataSource.fetchReportTemplates(),
-      dataSource.fetchSnapshotDates(),
-    ])
-    setTemplates(templateList)
-    setDates(dateList)
-    if (templateList.length && !selectedTemplateId) {
-      setSelectedTemplateId(templateList[0]!.id)
-    }
-  }, [dataSource, selectedTemplateId])
+  const renderTemplateButton = (template: ReportTemplateMeta) => {
+    const active = template.id === selectedTemplateId
+    return (
+      <button
+        key={template.id}
+        type="button"
+        onClick={() => setSelectedTemplateId(template.id)}
+        className={`w-full rounded-xl border px-4 py-3 text-left transition ${
+          active
+            ? 'border-sanmarino/50 bg-sanmarino/10 ring-1 ring-sanmarino/30'
+            : 'border-app bg-app-input hover:border-sanmarino/30'
+        }`}
+      >
+        <p className={`text-sm font-semibold text-chambray ${slFontSemibold}`}>
+          {template.label}
+        </p>
+        <p className="mt-1 text-xs text-app-muted">{template.description}</p>
+        <p className="mt-2 text-xs font-medium text-sanmarino">{template.pageHint}</p>
+      </button>
+    )
+  }
 
   useEffect(() => {
-    void loadMeta()
-  }, [loadMeta])
+    let cancelled = false
+    setTemplatesLoading(true)
+    setTemplatesError(null)
+
+    void dataSource.fetchReportTemplates().then((templateResult) => {
+      if (cancelled) return
+
+      setTemplatesLoading(false)
+
+      if (templateResult.ok) {
+        setTemplates(templateResult.templates)
+        if (templateResult.templates.length && !didDefaultTemplate.current) {
+          didDefaultTemplate.current = true
+          setSelectedTemplateId(templateResult.templates[0]!.id)
+        }
+      } else {
+        setTemplates([])
+        setTemplatesError(templateResult.message)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [dataSource])
 
   const handleDownload = async () => {
     if (!selectedTemplateId) return
@@ -76,8 +129,7 @@ export default function SocialListeningReportsPanel() {
         <p
           className={`mt-2 max-w-2xl text-sm leading-relaxed text-app-muted ${slFontSemibold}`}
         >
-          Choose a template and snapshot date. Reports use saved snapshot data from
-          your reporting period.
+          Choose a template and snapshot date. PDF exports require a Growth or Scale plan.
         </p>
       </section>
 
@@ -86,29 +138,50 @@ export default function SocialListeningReportsPanel() {
           <h4 className={`text-sm font-semibold text-chambray ${slFontSemibold}`}>
             Templates
           </h4>
-          <div className="space-y-3">
-            {templates.map((template) => {
-              const active = template.id === selectedTemplateId
-              return (
-                <button
-                  key={template.id}
-                  type="button"
-                  onClick={() => setSelectedTemplateId(template.id)}
-                  className={`w-full rounded-xl border px-4 py-3 text-left transition ${
-                    active
-                      ? 'border-sanmarino/50 bg-sanmarino/10 ring-1 ring-sanmarino/30'
-                      : 'border-app bg-app-input hover:border-sanmarino/30'
-                  }`}
-                >
-                  <p className={`text-sm font-semibold text-chambray ${slFontSemibold}`}>
-                    {template.label}
+          {showTemplatesLoading ? (
+            <p className="text-sm text-app-muted">Loading templates…</p>
+          ) : templatesError ? (
+            <div className="space-y-2">
+              <p className="portal-alert-error">{templatesError}</p>
+              <p className="text-xs text-app-muted">
+                If templates still do not appear, rebuild the reports package and restart
+                the API:{' '}
+                <code className="rounded bg-app-input px-1 py-0.5 text-[11px]">
+                  pnpm --filter @cocreate/social-listening-reports build
+                </code>
+              </p>
+            </div>
+          ) : templates.length === 0 ? (
+            <p className="text-sm text-app-muted">
+              No report templates are available.
+            </p>
+          ) : (
+            <div className="space-y-5">
+              {letterTemplates.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-app-muted">
+                    Print reports (Letter)
                   </p>
-                  <p className="mt-1 text-xs text-app-muted">{template.description}</p>
-                  <p className="mt-2 text-xs font-medium text-sanmarino">{template.pageHint}</p>
-                </button>
-              )
-            })}
-          </div>
+                  <div className="space-y-3">
+                    {letterTemplates.map(renderTemplateButton)}
+                  </div>
+                </div>
+              ) : null}
+              {deckTemplates.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-app-muted">
+                    Presentation decks (16:9)
+                  </p>
+                  <div className="space-y-3">
+                    {deckTemplates.map(renderTemplateButton)}
+                  </div>
+                </div>
+              ) : null}
+              {showFlatFallback ? (
+                <div className="space-y-3">{templates.map(renderTemplateButton)}</div>
+              ) : null}
+            </div>
+          )}
         </section>
 
         <section className="portal-glass-card space-y-4 p-5 lg:col-span-7">
@@ -192,6 +265,8 @@ export default function SocialListeningReportsPanel() {
             type="button"
             disabled={
               loading ||
+              showTemplatesLoading ||
+              !!templatesError ||
               !selectedTemplateId ||
               (selectedTemplate?.supportsCompare && !baseline)
             }

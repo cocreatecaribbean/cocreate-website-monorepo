@@ -16,6 +16,16 @@ export const LogoUploadUrlSchema = z.object({
 })
 export type LogoUploadUrlInput = z.infer<typeof LogoUploadUrlSchema>
 
+export const UpdateOrganizationLogoSchema = z
+  .object({
+    logoUrl: z.string().url({ message: 'Invalid URL' }).optional(),
+    storagePath: z.string().min(1).max(500).optional(),
+  })
+  .refine((value) => Boolean(value.logoUrl?.trim() || value.storagePath?.trim()), {
+    message: 'Provide logoUrl or storagePath',
+  })
+export type UpdateOrganizationLogoInput = z.infer<typeof UpdateOrganizationLogoSchema>
+
 export const UpdateSocialListeningSchema = z.object({
   enabled: z.boolean(),
 })

@@ -7,6 +7,8 @@ import { LogOut, Menu } from 'lucide-react'
 import PortalDrawerShell from '@cocreate/app-ui/portal-drawer-shell'
 import ClientPortalNavDrawer from '@/components/client-portal-nav-drawer'
 import PortalBrandHeader from '@/components/portal-brand-header'
+import PortalUserAvatar from '@/components/portal-user-avatar'
+import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import { bricolage_grot500 } from '@/styles/fonts'
 
 type ClientPortalShellProps = {
@@ -54,6 +56,11 @@ function ClientPortalShellInner({
   const [menuOpen, setMenuOpen] = useState(false)
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { data: profile } = usePortalProfileQuery()
+  const resolvedOrgName = profile?.organization?.name ?? organizationName
+  const resolvedOrgLogo = profile?.organization?.logoUrl ?? organizationLogoUrl
+  const resolvedSocialListening =
+    hasSocialListening ?? Boolean(profile?.user.canAccessSocialListening)
 
   useEffect(() => {
     setMenuOpen(false)
@@ -67,8 +74,8 @@ function ClientPortalShellInner({
       className="flex min-h-svh flex-col"
       sidebar={
         <ClientPortalNavDrawer
-          organizationName={organizationName}
-          hasSocialListening={hasSocialListening}
+          organizationName={resolvedOrgName}
+          hasSocialListening={resolvedSocialListening}
           onClose={() => setMenuOpen(false)}
         />
       }
@@ -88,8 +95,8 @@ function ClientPortalShellInner({
               <Menu className="h-5 w-5" strokeWidth={1.75} />
             </button>
             <PortalBrandHeader
-              organizationName={organizationName}
-              organizationLogoUrl={organizationLogoUrl}
+              organizationName={resolvedOrgName}
+              organizationLogoUrl={resolvedOrgLogo}
               priority
             />
           </div>
@@ -97,6 +104,7 @@ function ClientPortalShellInner({
             <p className="hidden max-w-44 truncate text-sm text-app-muted dark:text-white/90 lg:block">
               {userEmail}
             </p>
+            <PortalUserAvatar size="sm" />
             <Link href="/auth/signout" className="portal-btn-ghost">
               <LogOut className="h-4 w-4 shrink-0" aria-hidden />
               <span className="hidden sm:inline">Sign out</span>
@@ -131,6 +139,7 @@ function DesktopHeader({
           <p className="hidden max-w-44 truncate text-sm text-app-muted dark:text-white/90 lg:block">
             {userEmail}
           </p>
+          <PortalUserAvatar size="sm" />
           <Link href="/auth/signout" className="portal-btn-ghost">
             <LogOut className="h-4 w-4 shrink-0" aria-hidden />
             <span className="hidden sm:inline">Sign out</span>

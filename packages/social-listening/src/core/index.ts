@@ -6,6 +6,7 @@ export * from './format-compare-delta'
 export * from './platform-mention-deltas'
 export * from './mention-snapshot-hint'
 export * from './mock-analytics'
+export * from './monthly-period-charts'
 export * from './platform-bar-styles'
 
 export type {

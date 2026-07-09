@@ -8,10 +8,11 @@ export class SocialListeningSnapshotScheduler {
 
   constructor(private readonly snapshots: SocialListeningSnapshotService) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_2AM)
-  async captureDailySnapshots(): Promise<void> {
+  /** 02:00 UTC on the 1st of each month — captures the previous complete calendar month. */
+  @Cron('0 0 2 1 * *')
+  async captureMonthlySnapshots(): Promise<void> {
     if (!this.snapshots.isEnabled()) return
-    this.logger.log('Running daily social listening snapshot capture')
+    this.logger.log('Running monthly social listening snapshot capture')
     await this.snapshots.captureAllSubscriberSnapshots()
   }
 

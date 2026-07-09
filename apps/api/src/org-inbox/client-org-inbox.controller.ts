@@ -86,11 +86,4 @@ export class ClientOrgInboxController {
     return this.inbox.markRead(req.clientUser!.id, conversationId)
   }
 
-  @Get('conversations/:conversationId/realtime')
-  authorizeRealtime(
-    @Req() req: ClientPortalRequest,
-    @Param('conversationId') conversationId: string,
-  ) {
-    return this.inbox.authorizeRealtime(req.clientUser!, conversationId)
-  }
 }

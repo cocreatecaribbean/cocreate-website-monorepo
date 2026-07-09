@@ -350,12 +350,6 @@ export async function fetchRequestThread(requestId: string) {
   return { ok: true as const, data: result.data as ProjectRequestItem }
 }
 
-export async function authorizeRequestThreadRealtime(requestId: string) {
-  return portalFetch<{ enabled: boolean; channel: string }>(
-    `/client-portal/project-requests/${requestId}/realtime`,
-  )
-}
-
 export async function sendRequestMessage(
   requestId: string,
   body: string,
@@ -528,9 +522,17 @@ function attachmentDownloadErrorMessage(
   return `Could not load file (${status})`
 }
 
+const DOWNLOAD_URL_CACHE_TTL_MS = 50 * 60 * 1000
+const downloadUrlCache = new Map<string, { url: string; expiresAt: number }>()
+
 export async function fetchAttachmentDownloadUrl(
   attachmentId: string,
 ): Promise<AttachmentDownloadUrlResult> {
+  const cached = downloadUrlCache.get(attachmentId)
+  if (cached && cached.expiresAt > Date.now()) {
+    return { url: cached.url }
+  }
+
   try {
     const response = await fetch(`/api/attachments/${attachmentId}/download`, {
       cache: 'no-store',
@@ -549,9 +551,12 @@ export async function fetchAttachmentDownloadUrl(
       'download' in data &&
       typeof (data as { download: { signedUrl?: string } }).download?.signedUrl === 'string'
     ) {
-      return {
-        url: (data as { download: { signedUrl: string } }).download.signedUrl,
-      }
+      const url = (data as { download: { signedUrl: string } }).download.signedUrl
+      downloadUrlCache.set(attachmentId, {
+        url,
+        expiresAt: Date.now() + DOWNLOAD_URL_CACHE_TTL_MS,
+      })
+      return { url }
     }
     return { url: null, error: 'Could not sign download URL' }
   } catch {

@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import AdminToast from '@/components/admin-toast'
 import ClientTeamPanel from '@/components/client-team-panel'
+import AdminOrganizationLogoEditor from '@/components/organization-logo-editor'
 import DevSignInLink from '@/components/dev-sign-in-link'
 import { getApiErrorMessage } from '@/lib/api-error'
 import {
@@ -407,12 +408,33 @@ export default function ClientAccessManager() {
                     </div>
                   </div>
 
+                  <AdminOrganizationLogoEditor
+                    organizationId={client.id}
+                    organizationName={client.name}
+                    logoUrl={client.logoUrl}
+                    onUpdated={() => {
+                      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.clients.all })
+                    }}
+                  />
+
                   {client.isSocialListeningSubscriber ? (
                     <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-                      <p className="text-xs text-app-muted sm:sr-only">
-                        Brand24 project ID (optional)
-                      </p>
-                      <input
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-app-muted sm:sr-only">
+                          Brand24 project ID
+                        </p>
+                        {client.brand24ProjectId ? (
+                          <p className="mb-1 text-xs text-app-muted">
+                            {client.socialListeningLastSnapshotDate
+                              ? `Last snapshot: ${client.socialListeningLastSnapshotDate} (${client.socialListeningLastSnapshotSource ?? 'unknown'})`
+                              : 'No snapshots yet — complete client setup or wait for daily capture'}
+                          </p>
+                        ) : (
+                          <p className="mb-1 text-xs text-amber-800">
+                            Required for live Brand24 data when API is enabled
+                          </p>
+                        )}
+                        <input
                         type="text"
                         value={brand24Drafts[client.id] ?? ''}
                         onChange={(e) =>
@@ -421,10 +443,11 @@ export default function ClientAccessManager() {
                             [client.id]: e.target.value,
                           }))
                         }
-                        placeholder="Brand24 project ID (optional)"
+                        placeholder="Brand24 project ID"
                         className="admin-input min-h-10 min-w-0 flex-1 text-sm"
-                        aria-label="Brand24 project ID (optional)"
+                        aria-label="Brand24 project ID"
                       />
+                      </div>
                       <button
                         type="button"
                         disabled={savingBrand24Id === client.id}

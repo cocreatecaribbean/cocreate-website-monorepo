@@ -385,7 +385,7 @@ describe('api-contracts (Zod smoke)', () => {
           targetPhase: 'CLIENT_REVIEW',
           approvedAt: new Date('2026-01-03T00:00:00.000Z'),
           approvedByUserId: 'client-1',
-          attachmentIds: ['att-1'],
+          recordAttachments: [{ attachmentId: 'att-1', attachment: snapshottedAttachment }],
           approvedAttachmentId: 'att-1',
           snapshottedAttachments: [snapshottedAttachment],
           message: { id: 'msg-1', attachmentLinks: [] },

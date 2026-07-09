@@ -10,7 +10,8 @@ import MessageAttachmentComposer, {
 import { stageProjectFiles } from '@/lib/projects/fetch-project-files'
 import type { StagedProjectFile } from '@/lib/projects/fetch-project-files'
 import { insertAtTextareaCursor } from '@/lib/insert-at-textarea-cursor'
-import { useAdminRequestThreadQuery } from '@/lib/api/queries/projects'
+import { useAdminThreadLive } from '@/lib/messaging/use-admin-thread-live'
+import { adminQueryKeys } from '@/lib/api/query-keys'
 import { fetchAdminBff } from '@/lib/admin-api-fetch'
 import { useThreadAutoScroll } from '@/lib/projects/use-thread-auto-scroll'
 import { ThreadScrollEnd } from '@cocreate/app-ui/scroll-to-latest'
@@ -28,10 +29,15 @@ import {
 } from '@cocreate/app-ui/thread-approval-match'
 import AdminThreadApprovalCard from '@/components/admin-thread-approval-card'
 import {
+  addOptimisticRequestMessageToMessagesList,
+  invalidateRequestThreadMessages,
+  replacePendingRequestMessageInMessagesList,
+  rollbackOptimisticRequestMessageInMessagesList,
+} from '@/lib/projects/append-request-messages-list-cache'
+import {
   createOptimisticRequestMessage,
   isPendingRequestMessage,
 } from '@/lib/projects/optimistic-request-message'
-import { useRequestThreadRealtime } from '@/lib/projects/use-request-thread-realtime'
 import { canSendThreadMessage } from '@/lib/messaging/can-send-thread-message'
 import { bricolage_grot600 } from '@/styles/fonts'
 import type { ThreadApprovalItem } from '@/lib/projects/thread-approval-items'
@@ -64,6 +70,11 @@ function canSendCheckpointThreadMessage(
 
 type RequestMessageThreadProps = {
   request: ProjectRequestItem
+  loadMessages?: boolean
+  /** Parent workspace owns messages query + socket (progress path). */
+  parentOwnsMessages?: boolean
+  liveMessages?: ProjectRequestMessage[]
+  liveMessagesLoading?: boolean
   viewerRole: 'ADMIN' | 'CLIENT'
   currentUserId?: string | null
   libraryVisibility?: 'CLIENT' | 'INTERNAL'
@@ -72,7 +83,7 @@ type RequestMessageThreadProps = {
   onSendMessage: (
     body: string,
     attachmentIds?: string[],
-  ) => Promise<{ ok: boolean; message?: string }>
+  ) => Promise<{ ok: boolean; message?: string; data?: ProjectRequestMessage }>
   onResolve?: (status: 'RESOLVED' | 'REJECTED') => Promise<void>
   showResolveActions?: boolean
   onThreadUpdate?: () => void
@@ -94,6 +105,16 @@ function initialAuthorRole(request: ProjectRequestItem): 'ADMIN' | 'CLIENT' {
   if (request.type === 'ONBOARDING') return 'CLIENT'
   if (request.type === 'CANCELLATION') return 'CLIENT'
   return 'ADMIN'
+}
+
+function ThreadLoadingSkeleton() {
+  return (
+    <div className="space-y-3 py-2" aria-busy="true" aria-label="Loading messages">
+      <div className="h-16 animate-pulse rounded-lg bg-chambray/8" />
+      <div className="ml-8 h-12 animate-pulse rounded-lg bg-chambray/6" />
+      <div className="h-14 animate-pulse rounded-lg bg-chambray/8" />
+    </div>
+  )
 }
 
 function messageIsMine(
@@ -124,6 +145,10 @@ function messageAuthorLabel(msg: ProjectRequestMessage, isMine: boolean): string
 
 export default function RequestMessageThread({
   request,
+  loadMessages = true,
+  parentOwnsMessages = false,
+  liveMessages,
+  liveMessagesLoading = false,
   viewerRole,
   currentUserId,
   libraryVisibility,
@@ -143,36 +168,21 @@ export default function RequestMessageThread({
   const { session } = useAdminSession()
   const isCoreTeam =
     session?.mode === 'user' && isCoreTeamSession(session.role)
-  const threadQuery = useAdminRequestThreadQuery(request.id)
-  const activeRequest =
-    threadQuery.data?.id === request.id ? threadQuery.data : request
-
-  useEffect(() => {
-    setOlderMessages([])
-    setHasMoreOlder(
-      (activeRequest.messageCount ?? activeRequest.messages?.length ?? 0) >= 50,
-    )
-  }, [activeRequest.id, activeRequest.messageCount, activeRequest.messages?.length])
-
-  useEffect(() => {
-    setReply('')
-    setSelectedAttachmentIds([])
-    setPendingFiles([])
-    setPendingMessages([])
-    setError(null)
-    setSendingCheckpoint(false)
-  }, [request.id])
-
-  useRequestThreadRealtime(activeRequest.id, () => onThreadUpdate?.(), {
-    enabled: Boolean(onThreadUpdate || invalidateQueryKeys?.length),
-    invalidateQueryKeys,
-  })
+  const threadLive = useAdminThreadLive(
+    !parentOwnsMessages && loadMessages ? request.id : undefined,
+    {
+      onThreadUpdate,
+      invalidateQueryKeys,
+    },
+  )
+  const threadLoading = parentOwnsMessages
+    ? liveMessagesLoading
+    : loadMessages && threadLive.isLoading
 
   const [reply, setReply] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<string[]>([])
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
-  const [pendingMessages, setPendingMessages] = useState<ProjectRequestMessage[]>([])
   const [olderMessages, setOlderMessages] = useState<ProjectRequestMessage[]>([])
   const [hasMoreOlder, setHasMoreOlder] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
@@ -181,29 +191,43 @@ export default function RequestMessageThread({
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => {
+    setOlderMessages([])
+    setHasMoreOlder((request.messageCount ?? request.messages?.length ?? 0) >= 50)
+  }, [request.id, request.messageCount, request.messages?.length])
+
+  useEffect(() => {
+    setReply('')
+    setSelectedAttachmentIds([])
+    setPendingFiles([])
+    setError(null)
+    setSendingCheckpoint(false)
+  }, [request.id])
+
+  const queryMessages = parentOwnsMessages ? liveMessages : threadLive.messages
   const baseMessages: ProjectRequestMessage[] =
-    activeRequest.messages && activeRequest.messages.length > 0
-      ? activeRequest.messages
-      : activeRequest.description
+    queryMessages && queryMessages.length > 0
+      ? queryMessages
+      : request.description
         ? [
             {
               id: 'initial',
-              requestId: activeRequest.id,
+              requestId: request.id,
               authorUserId: '',
               authorEmail: null,
-              authorRole: initialAuthorRole(activeRequest),
-              body: activeRequest.description,
-              createdAt: activeRequest.createdAt,
+              authorRole: initialAuthorRole(request),
+              body: request.description,
+              createdAt: request.createdAt,
             },
           ]
         : []
 
-  const messages = [...olderMessages, ...baseMessages, ...pendingMessages]
+  const messages = [...olderMessages, ...baseMessages]
 
-  const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(activeRequest.status)
+  const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(request.status)
   const canCompose = !readOnly && !isClosed
-  const attachmentsByMessage = indexAttachmentsByMessage(baseMessages, activeRequest.attachments)
-  const { panelRef, endRef, notifyUserSent } = useThreadAutoScroll(messages, activeRequest.id)
+  const attachmentsByMessage = indexAttachmentsByMessage(baseMessages, request.attachments)
+  const { panelRef, endRef, notifyUserSent } = useThreadAutoScroll(messages, request.id)
   const fetchDownloadUrl = useCallback(
     (attachmentId: string) => fetchAttachmentDownloadUrl(attachmentId),
     [],
@@ -235,11 +259,11 @@ export default function RequestMessageThread({
       setError(null)
       try {
         await removeThreadAttachment(queryClient, {
-          requestId: activeRequest.id,
+          requestId: request.id,
           messageId,
           attachmentId: attachment.id,
-          organizationId: activeRequest.organizationId ?? undefined,
-          projectId: activeRequest.projectId,
+          organizationId: request.organizationId ?? undefined,
+          projectId: request.projectId,
         })
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not remove file')
@@ -247,7 +271,7 @@ export default function RequestMessageThread({
         setDeletingAttachmentId(null)
       }
     },
-    [activeRequest, queryClient, viewerRole],
+    [request, queryClient, viewerRole],
   )
 
   const loadOlderMessages = async () => {
@@ -261,7 +285,7 @@ export default function RequestMessageThread({
         messages: ProjectRequestMessage[]
         nextCursor: string | null
       }>(
-        `/api/project-requests/${activeRequest.id}/messages?cursor=${encodeURIComponent(oldest.id)}&limit=50`,
+        `/api/project-requests/${request.id}/messages?cursor=${encodeURIComponent(oldest.id)}&limit=50`,
       )
       setOlderMessages((prev) => [...page.messages, ...prev])
       setHasMoreOlder(Boolean(page.nextCursor))
@@ -284,14 +308,17 @@ export default function RequestMessageThread({
     const savedPendingFiles = [...pendingFiles]
     const hasUploads = savedPendingFiles.length > 0
     const optimistic = createOptimisticRequestMessage({
-      requestId: activeRequest.id,
+      requestId: request.id,
       body: bodyText,
       authorRole: viewerRole === 'CLIENT' ? 'CLIENT' : 'ADMIN',
       authorUserId: viewerRole === 'ADMIN' ? currentUserId ?? undefined : undefined,
     })
     const optimisticId = optimistic.id
 
-    setPendingMessages((prev) => [...prev, optimistic])
+    await queryClient.cancelQueries({
+      queryKey: adminQueryKeys.requests.messages(request.id),
+    })
+    addOptimisticRequestMessageToMessagesList(queryClient, request.id, optimistic)
     setReply('')
     setSelectedAttachmentIds([])
     setPendingFiles([])
@@ -301,12 +328,12 @@ export default function RequestMessageThread({
     try {
       if (hasUploads) setUploading(true)
       const uploaded = await resolvePendingMessageAttachments(
-        activeRequest.projectId,
+        request.projectId,
         savedPendingFiles,
         uploadVisibility ? { visibility: uploadVisibility } : undefined,
       )
       if (!uploaded.ok) {
-        setPendingMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+        rollbackOptimisticRequestMessageInMessagesList(queryClient, request.id, optimisticId)
         setReply(savedReply)
         setSelectedAttachmentIds(savedSelectedIds)
         setPendingFiles(savedPendingFiles)
@@ -319,16 +346,29 @@ export default function RequestMessageThread({
       ]
       const result = await onSendMessage(bodyText, attachmentIds)
       if (!result.ok) {
-        setPendingMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+        rollbackOptimisticRequestMessageInMessagesList(queryClient, request.id, optimisticId)
         setReply(savedReply)
         setSelectedAttachmentIds(savedSelectedIds)
         setPendingFiles(savedPendingFiles)
         setError(result.message ?? 'Could not send message')
+        return
+      }
+
+      if (result.data) {
+        const replaced = replacePendingRequestMessageInMessagesList(
+          queryClient,
+          request.id,
+          optimisticId,
+          result.data,
+        )
+        if (!replaced) {
+          invalidateRequestThreadMessages(queryClient, request.id)
+        }
       } else {
-        setPendingMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+        invalidateRequestThreadMessages(queryClient, request.id)
       }
     } catch {
-      setPendingMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+      rollbackOptimisticRequestMessageInMessagesList(queryClient, request.id, optimisticId)
       setReply(savedReply)
       setSelectedAttachmentIds(savedSelectedIds)
       setPendingFiles(savedPendingFiles)
@@ -371,7 +411,7 @@ export default function RequestMessageThread({
 
       if (hasUploads && checkpointCompose.requestApproval) {
         try {
-          stagedAttachments = await stageProjectFiles(activeRequest.projectId, savedPendingFiles)
+          stagedAttachments = await stageProjectFiles(request.projectId, savedPendingFiles)
         } catch (err) {
           setReply(savedReply)
           setSelectedAttachmentIds(savedSelectedIds)
@@ -381,7 +421,7 @@ export default function RequestMessageThread({
         }
       } else if (hasUploads) {
         const uploaded = await resolvePendingMessageAttachments(
-          activeRequest.projectId,
+          request.projectId,
           savedPendingFiles,
           uploadVisibility ? { visibility: uploadVisibility } : undefined,
         )
@@ -439,7 +479,9 @@ export default function RequestMessageThread({
             {loadingOlder ? 'Loading older messages…' : 'Load older messages'}
           </button>
         ) : null}
-        {messages.length === 0 ? (
+        {threadLoading ? (
+          <ThreadLoadingSkeleton />
+        ) : messages.length === 0 ? (
           <p className="text-sm text-app-muted">No messages yet.</p>
         ) : (
           messages.map((msg) => {
@@ -452,7 +494,7 @@ export default function RequestMessageThread({
               request.type === 'PROGRESS' && threadApprovalItems.length > 0
                 ? approvalItemsForMessage(
                     msg.id,
-                    activeRequest.id,
+                    request.id,
                     attachmentIdsForMessage,
                     threadApprovalItems,
                   )
@@ -599,7 +641,7 @@ export default function RequestMessageThread({
               placeholder={
                 viewerRole === 'CLIENT'
                   ? 'Write your response to CoCreate…'
-                  : activeRequest.type === 'INTERNAL'
+                  : request.type === 'INTERNAL'
                     ? 'Message the team…'
                     : 'Follow up with the client…'
               }
@@ -610,7 +652,7 @@ export default function RequestMessageThread({
           {error ? <p className="text-sm text-red-700">{error}</p> : null}
           <div className="admin-thread-composer-toolbar flex flex-wrap items-center gap-2">
             <MessageAttachmentComposer
-              projectId={activeRequest.projectId}
+              projectId={request.projectId}
               disabled={composeBusy}
               libraryVisibility={libraryVisibility}
               selectedIds={selectedAttachmentIds}
@@ -682,7 +724,7 @@ export default function RequestMessageThread({
           </div>
         </form>
       ) : isClosed ? (
-        <p className="shrink-0 text-sm text-app-muted">This conversation is closed ({activeRequest.status}).</p>
+        <p className="shrink-0 text-sm text-app-muted">This conversation is closed ({request.status}).</p>
       ) : readOnly ? (
         <p className="shrink-0 text-sm text-app-muted">Archived (read only).</p>
       ) : null}

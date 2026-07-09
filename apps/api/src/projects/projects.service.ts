@@ -28,13 +28,14 @@ import type {
   AuthenticatedClient,
 } from '../auth/auth.service'
 import { ThreadSummaryStoreService } from '../messaging-summary/thread-summary-store.service'
+import { createClientApprovalRecord, approvalRecordAttachmentIds } from './client-approval-record.util'
 import { AgencyAccessService } from '../auth/agency-access.service'
 import { isCollaboratorRole } from '../auth/admin-roles'
 import { ClientAccessService } from '../auth/client-access.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectNotificationMailService } from './project-notification-mail.service'
 import { ProjectNotificationsService } from './project-notifications.service'
-import { ProjectRealtimeService } from './project-realtime.service'
+import { MessagingEmitService } from '../messaging/messaging-emit.service'
 import { ProjectApprovalsService } from './project-approvals.service'
 import { ProjectStorageService } from './project-storage.service'
 import type { ClientRecentActivityItem } from '@cocreate/api-contracts/v1/client-portal'
@@ -86,7 +87,7 @@ export class ProjectsService {
     private readonly mail: ProjectNotificationMailService,
     private readonly clientAccess: ClientAccessService,
     private readonly agencyAccess: AgencyAccessService,
-    private readonly realtime: ProjectRealtimeService,
+    private readonly messaging: MessagingEmitService,
     private readonly clientTeam: ClientTeamService,
     private readonly supabaseAuth: SupabaseAuthService,
     private readonly approvals: ProjectApprovalsService,
@@ -98,27 +99,33 @@ export class ProjectsService {
     return `${portalBase}/auth/callback`
   }
 
-  private notifyThreadUpdate(
+  private async notifyThreadUpdate(
     requestId: string,
     reason: 'message' | 'checkpoint' | 'status' | 'attachment',
     extra?: { messageId?: string; message?: ReturnType<typeof serializeMessage> },
-  ): void {
-    void this.realtime.publishThreadUpdate(requestId, {
-      reason,
-      messageId: extra?.messageId,
-      message: extra?.message,
-    })
+  ): Promise<void> {
+    if (reason === 'message' && extra?.message) {
+      this.messaging.emitThreadMessage(requestId, extra.message as Record<string, unknown>)
+      return
+    }
+    if (reason === 'checkpoint') {
+      this.messaging.emitThreadCheckpoint(requestId)
+      return
+    }
+    if (reason === 'attachment') {
+      this.messaging.emitThreadAttachment(requestId)
+      return
+    }
+    if (reason === 'status') {
+      this.messaging.emitThreadStatus(requestId)
+    }
   }
 
-  async authorizeThreadRealtime(
+  async assertThreadAccess(
     actor: AuthenticatedAgencyUser | AuthenticatedClient,
     requestId: string,
-  ) {
+  ): Promise<void> {
     await this.getRequestForActor(requestId, actor)
-    return {
-      enabled: this.realtime.isConfigured,
-      channel: this.realtime.channelName(requestId),
-    }
   }
 
   private async logActivity(
@@ -689,6 +696,50 @@ export class ProjectsService {
     return request
   }
 
+  /** Lightweight request fetch for message POST — avoids loading full message history. */
+  private async getRequestContextForActor(
+    requestId: string,
+    actor: AuthenticatedAgencyUser | AuthenticatedClient,
+  ) {
+    const request = await this.prisma.projectRequest.findUnique({
+      where: { id: requestId },
+      select: {
+        id: true,
+        projectId: true,
+        type: true,
+        status: true,
+        title: true,
+        project: {
+          select: {
+            id: true,
+            title: true,
+            organizationId: true,
+            organization: { select: { id: true, name: true } },
+          },
+        },
+      },
+    })
+    if (!request) throw new NotFoundException('Request not found')
+
+    if ('organization' in actor && actor.organization) {
+      if (request.type === ProjectRequestType.INTERNAL) {
+        throw new ForbiddenException('Request not found')
+      }
+      await this.clientAccess.assertProjectAccess(
+        actor,
+        request.projectId,
+        'VIEW',
+      )
+    } else {
+      await this.agencyAccess.assertCanAccessProject(actor, request.projectId)
+      if (!this.agencyAccess.canReadRequest(actor, request.type)) {
+        throw new ForbiddenException('You cannot access this conversation')
+      }
+    }
+
+    return request
+  }
+
   // ─── Client projects ────────────────────────────────────────────────────────
 
   async listForClient(
@@ -859,6 +910,7 @@ export class ProjectsService {
       include: {
         project: { select: { id: true, title: true } },
         approvalItem: { include: { attachment: true } },
+        recordAttachments: { include: { attachment: true } },
         message: {
           include: {
             attachmentLinks: { include: { attachment: true } },
@@ -870,7 +922,7 @@ export class ProjectsService {
     const snapshotIds = [
       ...new Set(
         records.flatMap((record) => [
-          ...record.attachmentIds,
+          ...approvalRecordAttachmentIds(record),
           ...(record.approvedAttachmentId ? [record.approvedAttachmentId] : []),
           ...(record.approvalItem?.attachmentId ? [record.approvalItem.attachmentId] : []),
           ...(record.message?.attachmentLinks?.map((link) => link.attachment.id) ?? []),
@@ -894,7 +946,7 @@ export class ProjectsService {
           approvalItem: record.approvalItem,
           snapshottedAttachments: [
             ...new Set([
-              ...record.attachmentIds,
+              ...approvalRecordAttachmentIds(record),
               ...(record.approvedAttachmentId ? [record.approvedAttachmentId] : []),
               ...(record.approvalItem?.attachmentId ? [record.approvalItem.attachmentId] : []),
               ...(record.message?.attachmentLinks?.map((link) => link.attachment.id) ?? []),
@@ -1056,8 +1108,9 @@ export class ProjectsService {
         },
       })
 
-      await tx.clientApprovalRecord.create({
-        data: {
+      await createClientApprovalRecord(
+        tx,
+        {
           projectId: request.projectId,
           requestId,
           messageId,
@@ -1065,9 +1118,9 @@ export class ProjectsService {
           summary: message.body.slice(0, 500),
           targetPhase: message.checkpointTargetPhase,
           approvedByUserId: client.id,
-          attachmentIds: [],
         },
-      })
+        [],
+      )
 
       if (message.checkpointTargetPhase) {
         await tx.clientProject.update({
@@ -1172,8 +1225,9 @@ export class ProjectsService {
         },
       })
 
-      await tx.clientApprovalRecord.create({
-        data: {
+      await createClientApprovalRecord(
+        tx,
+        {
           projectId: request.projectId,
           requestId,
           messageId,
@@ -1181,10 +1235,10 @@ export class ProjectsService {
           summary: message.body.slice(0, 500),
           targetPhase: message.checkpointTargetPhase,
           approvedByUserId: client.id,
-          attachmentIds: [attachmentId],
           approvedAttachmentId: attachmentId,
         },
-      })
+        [attachmentId],
+      )
 
       const remaining = await tx.projectRequestMessageAttachment.count({
         where: {
@@ -2101,7 +2155,7 @@ export class ProjectsService {
     requestId: string,
     dto: CreateRequestMessageInput,
   ) {
-    const request = await this.getRequestForActor(requestId, actor)
+    const request = await this.getRequestContextForActor(requestId, actor)
     const terminal: ProjectRequestStatus[] = [
       ProjectRequestStatus.RESOLVED,
       ProjectRequestStatus.REJECTED,
@@ -2175,7 +2229,7 @@ export class ProjectsService {
 
     const serialized = serializeMessage(messageWithAttachments ?? message)
 
-    void this.notifyThreadUpdate(requestId, 'message', {
+    await this.notifyThreadUpdate(requestId, 'message', {
       messageId: message.id,
       message: serialized,
     })

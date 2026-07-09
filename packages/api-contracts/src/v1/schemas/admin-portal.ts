@@ -214,6 +214,9 @@ export const ClientOrganizationRosterItemSchema = z.object({
   logoUrl: z.string().nullable(),
   isSocialListeningSubscriber: z.boolean(),
   brand24ProjectId: z.string().nullable(),
+  socialListeningLastSnapshotAt: isoDateTimeString.nullable().optional(),
+  socialListeningLastSnapshotDate: z.string().nullable().optional(),
+  socialListeningLastSnapshotSource: z.string().nullable().optional(),
   createdAt: isoDateTimeString,
   primaryContact: ClientPrimaryContactSchema.nullable(),
 })

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import FilePreviewModal from '@/components/file-preview-modal'
 import RequestMessageThread from '@/components/control-center/request-message-thread'
+import { useClientThreadLive } from '@/lib/messaging/use-client-thread-live'
 import ThreadSummaryExport from '@cocreate/app-ui/thread-summary-export'
 import ProjectCoverEditor from '@/components/project-cover-editor'
 import ProjectStatusAttribution, { ProjectTimeline } from '@/components/project-status-attribution'
@@ -27,8 +28,7 @@ import {
 } from '@/lib/api/mutations/approvals'
 import { useOpenApprovalsQuery } from '@/lib/api/queries/approvals'
 import { getPendingApprovalFilesFromOpenApprovals } from '@/lib/projects/fetch-projects-client'
-import { appendRequestMessageToCache } from '@/lib/projects/append-request-message-cache'
-import { useRequestThreadQuery, prefetchRequestThread } from '@/lib/api/queries/projects'
+import { prefetchRequestThread } from '@/lib/api/queries/projects'
 import {
   createCancellationRequest,
   fetchAttachmentDownloadUrl,
@@ -66,13 +66,16 @@ const TABS: Array<{ id: PortalProjectTabId; label: string; description: string; 
 type LazyThreadProps = {
   request: ProjectRequestItem
   loadMessages: boolean
+  parentOwnsMessages?: boolean
+  liveMessages?: import('@/lib/projects/api-types').ProjectRequestMessage[]
+  liveMessagesLoading?: boolean
   viewerRole: 'CLIENT'
   readOnly?: boolean
   invalidateQueryKeys: import('@tanstack/react-query').QueryKey[]
   onSendMessage: (
     body: string,
     attachmentIds?: string[],
-  ) => Promise<{ ok: boolean; message?: string }>
+  ) => Promise<{ ok: boolean; message?: string; data?: import('@/lib/projects/api-types').ProjectRequestMessage }>
   pendingApprovalFiles?: import('@/lib/projects/pending-approval-files').PendingApprovalFile[]
   onApproveFile?: (
     approvalItemId: string,
@@ -83,27 +86,24 @@ type LazyThreadProps = {
   ) => Promise<{ ok: boolean; message?: string }>
 }
 
-function ThreadLoadingSkeleton() {
-  return (
-    <div className="space-y-3 py-2" aria-busy="true" aria-label="Loading messages">
-      <div className="h-16 animate-pulse rounded-lg bg-chambray/8" />
-      <div className="ml-8 h-12 animate-pulse rounded-lg bg-chambray/6" />
-      <div className="h-14 animate-pulse rounded-lg bg-chambray/8" />
-    </div>
-  )
-}
-
 function LazyRequestMessageThread({
   request,
   loadMessages,
+  parentOwnsMessages,
+  liveMessages,
+  liveMessagesLoading,
   ...props
 }: LazyThreadProps) {
-  const { data, isLoading } = useRequestThreadQuery(loadMessages ? request.id : null)
-  if (loadMessages && isLoading && !data) {
-    return <ThreadLoadingSkeleton />
-  }
-  const resolved = data ?? request
-  return <RequestMessageThread request={resolved} {...props} />
+  return (
+    <RequestMessageThread
+      request={request}
+      loadMessages={loadMessages}
+      parentOwnsMessages={parentOwnsMessages}
+      liveMessages={liveMessages}
+      liveMessagesLoading={liveMessagesLoading}
+      {...props}
+    />
+  )
 }
 
 type PortalProjectWorkspaceProps = {
@@ -229,28 +229,20 @@ export default function PortalProjectWorkspace({
     await onRefresh()
   }
 
-  const invalidateThread = useCallback(
-    async (requestId: string) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.requests.detail(requestId) })
-      await onRefresh()
-    },
-    [queryClient, onRefresh],
-  )
-
   const threadProps = (req: NonNullable<typeof onboarding>) => ({
     request: req,
     viewerRole: 'CLIENT' as const,
     invalidateQueryKeys: [
-      queryKeys.requests.detail(req.id),
+      queryKeys.requests.messages(req.id),
       queryKeys.projects.detail(project.id),
     ],
     onSendMessage: async (body: string, attachmentIds?: string[]) => {
       const result = await sendRequestMessage(req.id, body, attachmentIds)
       if (result.ok) {
-        appendRequestMessageToCache(queryClient, req.id, result.data)
         void queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(project.id) })
+        return { ok: true as const, data: result.data }
       }
-      return { ok: result.ok, message: result.ok ? undefined : result.message }
+      return { ok: false as const, message: result.message }
     },
   })
 
@@ -261,7 +253,7 @@ export default function PortalProjectWorkspace({
         onApproveFile: async (approvalItemId: string) => {
           const result = await approveItem.mutateAsync(approvalItemId)
           if (result.ok) {
-            void queryClient.invalidateQueries({ queryKey: queryKeys.requests.detail(progress.id) })
+            void queryClient.invalidateQueries({ queryKey: queryKeys.requests.messages(progress.id) })
             void queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(project.id) })
           }
           return { ok: result.ok, message: result.ok ? undefined : result.message }
@@ -288,6 +280,18 @@ export default function PortalProjectWorkspace({
 
   const attachments = project.attachments ?? []
   const showProgressThread = Boolean(progress && isOnboarded)
+
+  const progressInvalidateQueryKeys = useMemo(
+    () => (progress ? [queryKeys.projects.detail(project.id)] : []),
+    [progress, project.id],
+  )
+
+  const progressLive = useClientThreadLive(
+    showProgressThread && progress ? progress.id : undefined,
+    {
+      invalidateQueryKeys: progressInvalidateQueryKeys,
+    },
+  )
 
   return (
     <main className="flex min-h-0 flex-1 flex-col max-md:-m-4 sm:max-md:-m-6">
@@ -504,7 +508,10 @@ export default function PortalProjectWorkspace({
                 <div className="mt-0 min-h-0 flex-1 md:mt-4">
                   <LazyRequestMessageThread
                     {...(progressThreadProps ?? threadProps(progress))}
-                    loadMessages={tab === 'progress'}
+                    parentOwnsMessages
+                    liveMessages={progressLive.messages}
+                    liveMessagesLoading={progressLive.isLoading}
+                    loadMessages={false}
                   />
                 </div>
               </section>

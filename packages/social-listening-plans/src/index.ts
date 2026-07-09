@@ -85,6 +85,10 @@ export const SOCIAL_LISTENING_PLANS: readonly SocialListeningPlanDefinition[] = 
   },
 ] as const
 
+export function planIncludesPdfExports(plan: 'PULSE' | 'GROWTH' | 'SCALE'): boolean {
+  return plan !== 'PULSE'
+}
+
 export function getPlanById(id: string): SocialListeningPlanDefinition | undefined {
   return SOCIAL_LISTENING_PLANS.find((p) => p.id === id)
 }

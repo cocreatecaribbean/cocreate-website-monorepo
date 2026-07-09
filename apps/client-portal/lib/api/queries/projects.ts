@@ -1,7 +1,11 @@
 'use client'
 
-import { useQuery, type QueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { threadQueryOptions } from '@cocreate/app-ui/thread-live-query'
+import { mergeThreadDetailWithCache } from '@cocreate/app-ui/thread-message-cache'
+import { mergeThreadMessagesListWithCache } from '@cocreate/app-ui/thread-messages-list-cache'
 
+import type { ProjectRequestItem, ProjectRequestMessage } from '@/lib/projects/api-types'
 import { queryKeys } from '@/lib/api/query-keys'
 import {
   fetchAttachmentDownloadUrl,
@@ -24,8 +28,11 @@ async function fetchRequestThreadData(requestId: string) {
 
 export function prefetchRequestThread(queryClient: QueryClient, requestId: string) {
   return queryClient.prefetchQuery({
-    queryKey: queryKeys.requests.detail(requestId),
-    queryFn: () => fetchRequestThreadData(requestId),
+    queryKey: queryKeys.requests.messages(requestId),
+    queryFn: async () => {
+      const fetched = await fetchRequestThreadData(requestId)
+      return fetched.messages ?? []
+    },
     staleTime: TWO_MINUTES,
   })
 }
@@ -83,14 +90,49 @@ export function useClientRecentActivityQuery(limit = 15) {
   })
 }
 
-export function useRequestThreadQuery(requestId: string | null | undefined) {
+export function useRequestThreadMessagesQuery(
+  requestId: string | null | undefined,
+  options?: { pollFallback?: boolean; watchdog?: boolean; enabled?: boolean },
+) {
+  const queryClient = useQueryClient()
+  const pollFallback = options?.pollFallback ?? false
+  const watchdog = options?.watchdog ?? false
+  const messagesKey = queryKeys.requests.messages(requestId ?? '')
   return useQuery({
-    queryKey: queryKeys.requests.detail(requestId ?? ''),
-    queryFn: () => fetchRequestThreadData(requestId!),
-    enabled: Boolean(requestId),
-    staleTime: TWO_MINUTES,
+    queryKey: messagesKey,
+    queryFn: async () => {
+      const fetched = await fetchRequestThreadData(requestId!)
+      const messages = fetched.messages ?? []
+      const cached = queryClient.getQueryData<ProjectRequestMessage[]>(
+        queryKeys.requests.messages(requestId!),
+      )
+      return mergeThreadMessagesListWithCache(cached, messages)
+    },
+    enabled: options?.enabled !== false && Boolean(requestId),
     gcTime: FIVE_MINUTES,
-    placeholderData: (previous) => previous,
+    ...threadQueryOptions<ProjectRequestMessage[]>({ pollFallback, watchdog }),
+  })
+}
+
+export function useRequestThreadQuery(
+  requestId: string | null | undefined,
+  options?: { pollFallback?: boolean },
+) {
+  const queryClient = useQueryClient()
+  const pollFallback = options?.pollFallback ?? false
+  const detailKey = queryKeys.requests.detail(requestId ?? '')
+  return useQuery({
+    queryKey: detailKey,
+    queryFn: async () => {
+      const fetched = await fetchRequestThreadData(requestId!)
+      const cached = queryClient.getQueryData<ProjectRequestItem>(
+        queryKeys.requests.detail(requestId!),
+      )
+      return mergeThreadDetailWithCache(cached, fetched)
+    },
+    enabled: Boolean(requestId),
+    gcTime: FIVE_MINUTES,
+    ...threadQueryOptions<ProjectRequestItem>(pollFallback),
   })
 }
 

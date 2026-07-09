@@ -1,18 +1,25 @@
 'use client'
 
 import { useMemo } from 'react'
-import { ResponsiveBar } from '@nivo/bar'
+import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from 'recharts'
+import { ChartContainer as RechartsChartContainer, ChartTooltip } from '@cocreate/app-ui/chart'
+import { usePortalChartCssVars } from '@cocreate/app-ui/use-chart-theme'
 import ChartContainer from '../chart-container'
 import GlassChartTooltip from '../glass-tooltip'
 import PlatformIcon from '../platform-icon'
-import { useNivoTheme } from '../hooks/use-nivo-theme'
 import { usePrefersReducedMotion } from '../hooks/use-prefers-reduced-motion'
+import {
+  computeBarChartLeftMargin,
+  useChartLayoutTier,
+  type ChartLabelMode,
+} from '../hooks/use-chart-layout-tier'
 import {
   PLATFORM_BAR_GRADIENTS,
   platformGradientDefId,
 } from '@cocreate/social-listening/core'
 import {
   PLATFORM_META,
+  platformAxisLabel,
   resolvePlatformId,
   type SocialPlatformId,
 } from '@cocreate/social-listening/core'
@@ -30,11 +37,66 @@ type SourceBarChartProps = {
   platformDeltas?: PlatformMentionDelta[] | null
 }
 
-const LEFT_MARGIN = 152
+type AxisTickProps = {
+  x?: number
+  y?: number
+  payload?: { value: string }
+  labelMode: ChartLabelMode
+  leftMargin: number
+}
+
+function platformBarFill(platformId: SocialPlatformId): string {
+  if (platformId === 'facebook') return '#1877F2'
+  const grad = PLATFORM_BAR_GRADIENTS[platformId]
+  return `url(#${platformGradientDefId(platformId)})`
+}
+
+function PlatformYAxisTick({ x = 0, y = 0, payload, labelMode, leftMargin }: AxisTickProps) {
+  const platformId = String(payload?.value ?? '') as SocialPlatformId
+  const meta = PLATFORM_META[platformId]
+  if (!meta) return <g />
+
+  const grad = PLATFORM_BAR_GRADIENTS[platformId]
+  const axisText = platformAxisLabel(platformId, labelMode)
+  const iconOnly = labelMode === 'icon'
+
+  return (
+    <foreignObject
+      x={x - leftMargin}
+      y={y - 12}
+      width={leftMargin}
+      height={24}
+      overflow="visible"
+    >
+      <div
+        className={`flex h-6 items-center font-medium text-chambray ${iconOnly ? 'justify-center' : 'gap-1.5'} ${labelMode === 'abbrev' ? 'text-xs' : 'text-sm'}`}
+        style={{ overflow: 'visible' }}
+      >
+        <span
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md ring-1 ring-white/80"
+          style={{
+            background:
+              platformId === 'facebook'
+                ? '#1877F2'
+                : `linear-gradient(135deg, ${grad.start}, ${grad.end})`,
+          }}
+          title={iconOnly ? meta.name : undefined}
+          aria-label={iconOnly ? meta.name : undefined}
+        >
+          <PlatformIcon platformId={platformId} size={14} className="drop-shadow-sm" />
+        </span>
+        {axisText ? (
+          <span className="whitespace-nowrap leading-none">{axisText}</span>
+        ) : null}
+      </div>
+    </foreignObject>
+  )
+}
 
 export default function SourceBarChart({ data, platformDeltas }: SourceBarChartProps) {
   const reducedMotion = usePrefersReducedMotion()
-  const nivoTheme = useNivoTheme()
+  const chartCssVars = usePortalChartCssVars()
+  const { ref, labelMode } = useChartLayoutTier()
   const rows = data ?? []
 
   const deltaByPlatform = useMemo(() => {
@@ -55,32 +117,36 @@ export default function SourceBarChart({ data, platformDeltas }: SourceBarChartP
     [rows],
   )
 
-  const defs = useMemo(
-    () =>
-      chartData.map((row) => {
-        const g = PLATFORM_BAR_GRADIENTS[row.platformId]
-        return {
-          id: platformGradientDefId(row.platformId),
-          type: 'linearGradient' as const,
-          colors: [
-            { offset: 0, color: g.start },
-            { offset: 100, color: g.end },
-          ],
-        }
-      }),
+  const platformIds = useMemo(
+    () => chartData.map((row) => row.platformId),
     [chartData],
   )
 
-  const fill = useMemo(
+  const leftMargin = useMemo(
+    () => computeBarChartLeftMargin(labelMode, platformIds),
+    [labelMode, platformIds],
+  )
+
+  const chartConfig = useMemo(
     () =>
-      chartData.map((row) => ({
-        match: { id: row.platformId },
-        id: platformGradientDefId(row.platformId),
-      })),
+      Object.fromEntries(
+        chartData.map((row) => [
+          row.platformId,
+          { label: row.platformLabel, color: PLATFORM_BAR_GRADIENTS[row.platformId].start },
+        ]),
+      ),
     [chartData],
   )
 
-  const margin = { top: 12, right: 28, bottom: 36, left: LEFT_MARGIN }
+  const margin = { top: 12, right: 28, bottom: 36, left: leftMargin }
+
+  const yAxisTick = useMemo(
+    () =>
+      function Tick(props: Omit<AxisTickProps, 'labelMode' | 'leftMargin'>) {
+        return <PlatformYAxisTick {...props} labelMode={labelMode} leftMargin={leftMargin} />
+      },
+    [labelMode, leftMargin],
+  )
 
   if (!chartData.length) {
     return (
@@ -91,139 +157,107 @@ export default function SourceBarChart({ data, platformDeltas }: SourceBarChartP
   }
 
   return (
-    <ChartContainer
-      label="Mentions by platform bar chart"
-      minHeight="min-h-[300px] sm:min-h-[340px]"
-      className="portal-chart-glow"
-    >
-      <div className="absolute inset-0">
-        <ResponsiveBar
-        data={chartData}
-        keys={['mentions']}
-        indexBy="platformId"
-        layout="horizontal"
-        margin={margin}
-        padding={0.32}
-        valueScale={{ type: 'linear' }}
-        indexScale={{ type: 'band', round: true }}
-        defs={defs}
-        fill={fill}
-        borderRadius={10}
-        borderWidth={0}
-        theme={nivoTheme}
-        animate={!reducedMotion}
-        motionConfig={reducedMotion ? 'none' : 'wobbly'}
-        axisTop={null}
-        axisRight={null}
-        axisBottom={{
-          tickSize: 0,
-          tickPadding: 8,
-          format: (v) => Number(v).toLocaleString(),
-        }}
-        axisLeft={{
-          tickSize: 0,
-          tickPadding: 0,
-          renderTick: (tick) => {
-            const platformId = String(tick.value) as SocialPlatformId
-            const meta = PLATFORM_META[platformId]
-            const grad = PLATFORM_BAR_GRADIENTS[platformId]
-            return (
-              <g transform={`translate(${tick.x - LEFT_MARGIN + 6}, ${tick.y - 12})`}>
-                <foreignObject width={LEFT_MARGIN - 10} height={24}>
-                  <div className="flex h-6 items-center gap-2 text-sm font-medium text-chambray">
-                    <span
-                      className="flex h-5 w-5 items-center justify-center rounded-md ring-1 ring-white/80"
-                      style={{
-                        background:
-                          platformId === 'facebook'
-                            ? '#1877F2'
-                            : `linear-gradient(135deg, ${grad.start}, ${grad.end})`,
-                      }}
-                    >
-                      <PlatformIcon
-                        platformId={platformId}
-                        size={14}
-                        className="drop-shadow-sm"
-                      />
-                    </span>
-                    <span className="truncate">{meta.name}</span>
-                  </div>
-                </foreignObject>
-              </g>
-            )
-          },
-        }}
-        enableLabel={false}
-        enableGridX
-        enableGridY={false}
-        role="application"
-        ariaLabel="Mentions by platform"
-        tooltip={({ indexValue, value }) => {
-          const platformId = indexValue as SocialPlatformId
-          const meta = PLATFORM_META[platformId]
-          const grad = PLATFORM_BAR_GRADIENTS[platformId]
-          const delta = deltaByPlatform?.get(platformId)
-          return (
-            <GlassChartTooltip accent={grad.glow}>
-              <div className="flex items-center gap-2.5">
-                <span
-                  className="flex h-8 w-8 items-center justify-center rounded-lg shadow-inner"
-                  style={{
-                    background:
-                      platformId === 'facebook'
-                        ? '#1877F2'
-                        : `linear-gradient(135deg, ${grad.start}, ${grad.end})`,
-                  }}
-                >
-                  <PlatformIcon platformId={platformId} size={18} />
-                </span>
-                <div>
-                  <strong className="text-chambray">{meta.name}</strong>
-                  <div className="portal-sl-secondary">
-                    {Number(value).toLocaleString()} mentions
-                  </div>
-                  {delta ? (
-                    <>
-                      <div className="mt-1 text-xs portal-sl-secondary">
-                        Baseline: {delta.baseline.toLocaleString()}
+    <div ref={ref} className="h-full w-full min-w-0">
+      <ChartContainer label="Mentions by platform bar chart" size="md">
+        <RechartsChartContainer
+          config={chartConfig}
+          className="portal-chart-glow h-full w-full [&_.recharts-surface]:overflow-visible [&_.recharts-wrapper]:overflow-visible"
+          style={chartCssVars}
+        >
+          <BarChart data={chartData} layout="vertical" margin={margin}>
+            <defs>
+              {chartData.map((row) => {
+                const g = PLATFORM_BAR_GRADIENTS[row.platformId]
+                return (
+                  <linearGradient
+                    key={row.platformId}
+                    id={platformGradientDefId(row.platformId)}
+                    x1="0"
+                    y1="0"
+                    x2="1"
+                    y2="0"
+                  >
+                    <stop offset="0%" stopColor={g.start} />
+                    <stop offset="100%" stopColor={g.end} />
+                  </linearGradient>
+                )
+              })}
+            </defs>
+            <CartesianGrid horizontal={false} stroke="var(--chart-grid)" />
+            <XAxis
+              type="number"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
+              tickFormatter={(value) => Number(value).toLocaleString()}
+            />
+            <YAxis
+              type="category"
+              dataKey="platformId"
+              tickLine={false}
+              axisLine={false}
+              width={leftMargin}
+              interval={0}
+              tick={yAxisTick}
+            />
+            <ChartTooltip
+              cursor={{ fill: 'var(--chart-grid)', opacity: 0.3 }}
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null
+                const row = payload[0].payload as ChartRow
+                const platformId = row.platformId
+                const meta = PLATFORM_META[platformId]
+                const grad = PLATFORM_BAR_GRADIENTS[platformId]
+                const delta = deltaByPlatform?.get(platformId)
+                return (
+                  <GlassChartTooltip accent={grad.glow}>
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className="flex h-8 w-8 items-center justify-center rounded-lg shadow-inner"
+                        style={{
+                          background:
+                            platformId === 'facebook'
+                              ? '#1877F2'
+                              : `linear-gradient(135deg, ${grad.start}, ${grad.end})`,
+                        }}
+                      >
+                        <PlatformIcon platformId={platformId} size={18} />
+                      </span>
+                      <div>
+                        <strong className="text-chambray">{meta.name}</strong>
+                        <div className="portal-sl-secondary">
+                          {row.mentions.toLocaleString()} mentions
+                        </div>
+                        {delta ? (
+                          <>
+                            <div className="mt-1 text-xs portal-sl-secondary">
+                              Baseline: {delta.baseline.toLocaleString()}
+                            </div>
+                            <div className="text-xs font-medium text-sanmarino">
+                              {formatMetricDeltaLine(delta, true)} ·{' '}
+                              {formatMetricDeltaLine(delta)}
+                            </div>
+                          </>
+                        ) : null}
                       </div>
-                      <div className="text-xs font-medium text-sanmarino">
-                        {formatMetricDeltaLine(delta, true)} ·{' '}
-                        {formatMetricDeltaLine(delta)}
-                      </div>
-                    </>
-                  ) : null}
-                </div>
-              </div>
-            </GlassChartTooltip>
-          )
-        }}
-        layers={[
-          'grid',
-          'axes',
-          'bars',
-          'markers',
-          'legends',
-          'annotations',
-          ({ bars }) => (
-            <g>
-              {bars.map((bar) => (
-                <rect
-                  key={bar.key}
-                  x={bar.x + bar.width - 2}
-                  y={bar.y}
-                  width={3}
-                  height={bar.height}
-                  rx={2}
-                  fill="rgba(255,255,255,0.55)"
-                  style={{ pointerEvents: 'none' }}
-                />
+                    </div>
+                  </GlassChartTooltip>
+                )
+              }}
+            />
+            <Bar
+              dataKey="mentions"
+              radius={[0, 10, 10, 0]}
+              isAnimationActive={!reducedMotion}
+            >
+              {chartData.map((row) => (
+                <Cell key={row.platformId} fill={platformBarFill(row.platformId)} />
               ))}
-            </g>
-          ),
-        ]}
-        />
-      </div>
-    </ChartContainer>
+            </Bar>
+          </BarChart>
+        </RechartsChartContainer>
+      </ChartContainer>
+    </div>
   )
 }

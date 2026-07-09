@@ -1,5 +1,8 @@
 import type { SocialListeningAnalytics } from './types'
 import { SENTIMENT_COLORS } from './types'
+import { enumerateCalendarWeeksInPeriod } from './monthly-period-charts'
+
+const WEEKS = enumerateCalendarWeeksInPeriod('2026-06-01', '2026-06-30')
 
 export const mockSocialListeningAnalytics: SocialListeningAnalytics = {
   sentimentSummary: [
@@ -22,15 +25,12 @@ export const mockSocialListeningAnalytics: SocialListeningAnalytics = {
       color: SENTIMENT_COLORS.negative,
     },
   ],
-  sentimentOverTime: [
-    { date: '2026-05-18', positive: 32, neutral: 78, negative: 4 },
-    { date: '2026-05-19', positive: 45, neutral: 110, negative: 5 },
-    { date: '2026-05-20', positive: 60, neutral: 115, negative: 12 },
-    { date: '2026-05-21', positive: 12, neutral: 90, negative: 85 },
-    { date: '2026-05-22', positive: 95, neutral: 130, negative: 18 },
-    { date: '2026-05-23', positive: 70, neutral: 105, negative: 8 },
-    { date: '2026-05-24', positive: 85, neutral: 120, negative: 10 },
-  ],
+  sentimentOverTime: WEEKS.map((week, index) => ({
+    date: week.startDate,
+    positive: [95, 110, 130, 85, 30][index] ?? 40,
+    neutral: [180, 210, 240, 150, 40][index] ?? 50,
+    negative: [18, 22, 25, 35, 10][index] ?? 8,
+  })),
   sourceBreakdown: [
     { platformId: 'x', mentions: 1200 },
     { platformId: 'tiktok', mentions: 950 },
@@ -43,74 +43,26 @@ export const mockSocialListeningAnalytics: SocialListeningAnalytics = {
   reachVsEngagement: [
     {
       id: 'Social Reach (Thousands)',
-      data: [
-        { x: 'Mon', y: 150 },
-        { x: 'Tue', y: 180 },
-        { x: 'Wed', y: 420 },
-        { x: 'Thu', y: 290 },
-        { x: 'Fri', y: 310 },
-        { x: 'Sat', y: 120 },
-        { x: 'Sun', y: 95 },
-      ],
+      data: WEEKS.map((week, index) => ({
+        x: week.label,
+        y: [150, 180, 420, 290, 210][index] ?? 200,
+      })),
     },
     {
       id: 'Engagement Volume',
-      data: [
-        { x: 'Mon', y: 12 },
-        { x: 'Tue', y: 19 },
-        { x: 'Wed', y: 140 },
-        { x: 'Thu', y: 45 },
-        { x: 'Fri', y: 58 },
-        { x: 'Sat', y: 22 },
-        { x: 'Sun', y: 15 },
-      ],
+      data: WEEKS.map((week, index) => ({
+        x: week.label,
+        y: [12, 19, 140, 45, 28][index] ?? 20,
+      })),
     },
   ],
-  mentionMatrix: [
-    {
-      id: 'Monday',
-      data: [
-        { x: '12am-6am', y: 12 },
-        { x: '6am-12pm', y: 84 },
-        { x: '12pm-6pm', y: 150 },
-        { x: '6pm-12am', y: 95 },
-      ],
-    },
-    {
-      id: 'Tuesday',
-      data: [
-        { x: '12am-6am', y: 18 },
-        { x: '6am-12pm', y: 92 },
-        { x: '12pm-6pm', y: 210 },
-        { x: '6pm-12am', y: 115 },
-      ],
-    },
-    {
-      id: 'Wednesday',
-      data: [
-        { x: '12am-6am', y: 35 },
-        { x: '6am-12pm', y: 140 },
-        { x: '12pm-6pm', y: 380 },
-        { x: '6pm-12am', y: 240 },
-      ],
-    },
-    {
-      id: 'Thursday',
-      data: [
-        { x: '12am-6am', y: 22 },
-        { x: '6am-12pm', y: 110 },
-        { x: '12pm-6pm', y: 195 },
-        { x: '6pm-12am', y: 130 },
-      ],
-    },
-    {
-      id: 'Friday',
-      data: [
-        { x: '12am-6am', y: 15 },
-        { x: '6am-12pm', y: 95 },
-        { x: '12pm-6pm', y: 260 },
-        { x: '6pm-12am', y: 185 },
-      ],
-    },
-  ],
+  mentionMatrix: WEEKS.map((week, weekIndex) => ({
+    id: week.label,
+    data: [
+      { x: '12am-6am', y: 12 + weekIndex * 2 },
+      { x: '6am-12pm', y: 84 + weekIndex * 4 },
+      { x: '12pm-6pm', y: 150 + weekIndex * 6 },
+      { x: '6pm-12am', y: 95 + weekIndex * 3 },
+    ],
+  })),
 }

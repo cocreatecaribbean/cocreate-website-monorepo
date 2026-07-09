@@ -18,6 +18,9 @@ export type ClientOrganizationRosterItem = {
   logoUrl: string | null
   isSocialListeningSubscriber: boolean
   brand24ProjectId: string | null
+  socialListeningLastSnapshotAt?: Date | null
+  socialListeningLastSnapshotDate?: string | null
+  socialListeningLastSnapshotSource?: string | null
   createdAt: Date
   updatedAt: Date
   primaryContact: ClientPrimaryContact | null

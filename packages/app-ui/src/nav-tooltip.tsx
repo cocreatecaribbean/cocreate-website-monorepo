@@ -48,10 +48,12 @@ export default function NavTooltip({
 }: NavTooltipProps) {
   const tooltipId = useId()
   const hostRef = useRef<HTMLSpanElement>(null)
-  const [open, setOpen] = useState(false)
+  const [hovering, setHovering] = useState(false)
+  const [focused, setFocused] = useState(false)
   const [bubblePosition, setBubblePosition] = useState<CSSProperties>({})
   const [sidebarTone, setSidebarTone] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const open = hovering || focused
 
   useEffect(() => {
     setMounted(true)
@@ -66,46 +68,45 @@ export default function NavTooltip({
     setSidebarTone(Boolean(host.closest('.portal-sl-sidebar, .portal-drawer-aside')))
   }, [side])
 
-  const show = useCallback(() => {
-    updatePosition()
-    setOpen(true)
-  }, [updatePosition])
-
-  const hide = useCallback(() => {
-    setOpen(false)
-  }, [])
-
   useEffect(() => {
     if (!open) return
-    const handleReposition = () => updatePosition()
+    const handleReposition = () => {
+      updatePosition()
+      const host = hostRef.current
+      if (hovering && host && !host.matches(':hover')) {
+        setHovering(false)
+      }
+    }
     window.addEventListener('resize', handleReposition)
     window.addEventListener('scroll', handleReposition, true)
     return () => {
       window.removeEventListener('resize', handleReposition)
       window.removeEventListener('scroll', handleReposition, true)
     }
-  }, [open, updatePosition])
+  }, [open, hovering, updatePosition])
 
-  const handleMouseEnter = useCallback(() => {
+  const handlePointerEnter = useCallback(() => {
     if (!canHoverWithFinePointer()) return
-    show()
-  }, [show])
+    updatePosition()
+    setHovering(true)
+  }, [updatePosition])
 
-  const handleMouseLeave = useCallback(() => {
-    const host = hostRef.current
-    if (host?.contains(document.activeElement)) return
-    hide()
-  }, [hide])
+  const handlePointerLeave = useCallback(() => {
+    setHovering(false)
+  }, [])
 
-  const handleFocusIn = useCallback(() => {
-    show()
-  }, [show])
+  const handleFocusIn = useCallback((event: FocusEvent<HTMLSpanElement>) => {
+    const target = event.target as HTMLElement | null
+    if (!target?.matches(':focus-visible')) return
+    updatePosition()
+    setFocused(true)
+  }, [updatePosition])
 
   const handleFocusOut = useCallback((event: FocusEvent<HTMLSpanElement>) => {
     const host = hostRef.current
     if (host?.contains(event.relatedTarget as Node)) return
-    hide()
-  }, [hide])
+    setFocused(false)
+  }, [])
 
   if (!description?.trim()) {
     return children
@@ -135,8 +136,8 @@ export default function NavTooltip({
     <span
       ref={hostRef}
       className={`nav-tooltip-host ${side === 'top' ? 'nav-tooltip-host--top' : ''} ${className ?? ''}`.trim()}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
       onFocusCapture={handleFocusIn}
       onBlurCapture={handleFocusOut}
     >

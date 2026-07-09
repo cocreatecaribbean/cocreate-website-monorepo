@@ -20,8 +20,7 @@ function formatDateInput(d: Date): string {
 
 function defaultDateRange() {
   const end = new Date()
-  const start = new Date(end)
-  start.setUTCDate(start.getUTCDate() - 6)
+  const start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - 2, 1))
   return { start: formatDateInput(start), end: formatDateInput(end) }
 }
 
@@ -115,7 +114,7 @@ export default function SocialListeningSetupPanel({
     }
 
     setSuccess(
-      `Listening setup saved. Captured ${result.snapshotsCaptured} snapshot(s) from ${result.startDate} to ${result.endDate}. Data will appear in View date as processing completes.`,
+      `Listening setup saved. Captured ${result.snapshotsCaptured} monthly snapshot(s) from ${result.startDate} to ${result.endDate}. New snapshots are saved automatically each month.`,
     )
     onComplete?.()
     setTimeout(() => goToSummary(), 1500)
@@ -129,10 +128,9 @@ export default function SocialListeningSetupPanel({
           Track mentions for a date range
         </h3>
         <p className={`mt-2 text-sm text-app-muted ${slFontSemibold}`}>
-          Configure what to monitor and where. After you submit, we process your
-          setup and add snapshots for each day in your range (up to the last 3
-          months). You will not receive a separate email — check back here and use
-          View date when data is ready.
+          Configure what to monitor and where. Historical backfill saves one snapshot per
+          complete calendar month in your range (up to 92 days). Ongoing snapshots run on the
+          1st of each month to stay within your Brand24 mention allotment.
         </p>
       </section>
 

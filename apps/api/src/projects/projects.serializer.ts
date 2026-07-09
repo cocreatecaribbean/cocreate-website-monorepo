@@ -370,8 +370,8 @@ export function serializeActivity(
 
 export function serializeApprovalRecord(
   record: ClientApprovalRecord & {
-    attachmentIds?: string[]
     approvedAttachmentId?: string | null
+    recordAttachments?: Array<{ attachmentId: string; attachment?: ProjectAttachment }>
     snapshottedAttachments?: ProjectAttachment[]
     approvalItem?: { attachment: ProjectAttachment } | null
     message?: {
@@ -484,9 +484,15 @@ function resolveApprovalRecordAttachments(
     (record.snapshottedAttachments ?? []).map((attachment) => [attachment.id, attachment]),
   )
 
-  if (record.attachmentIds?.length) {
-    const snapshotted = record.attachmentIds
-      .map((id) => snapshottedById.get(id))
+  const linkedIds = record.recordAttachments?.map((link) => link.attachmentId) ?? []
+
+  if (linkedIds.length) {
+    const snapshotted = linkedIds
+      .map(
+        (id) =>
+          snapshottedById.get(id) ??
+          record.recordAttachments?.find((link) => link.attachmentId === id)?.attachment,
+      )
       .filter((attachment): attachment is ProjectAttachment => Boolean(attachment))
     if (snapshotted.length > 0) {
       return snapshotted.map(serializeAtt)

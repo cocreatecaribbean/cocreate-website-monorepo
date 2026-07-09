@@ -271,14 +271,6 @@ export class AdminProjectsController {
     return this.projects.getRequestThread(this.actor(req), requestId)
   }
 
-  @Get('project-requests/:requestId/realtime')
-  authorizeThreadRealtime(
-    @Req() req: AdminRequest,
-    @Param('requestId') requestId: string,
-  ) {
-    return this.projects.authorizeThreadRealtime(this.actor(req), requestId)
-  }
-
   @Get('project-requests/:requestId/messages')
   listMessages(
     @Req() req: AdminRequest,

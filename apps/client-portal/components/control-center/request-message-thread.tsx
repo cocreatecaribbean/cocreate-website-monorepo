@@ -16,14 +16,20 @@ import { formatActorWithTitle } from '@/lib/projects/project-display'
 import { LinkifiedBody, indexAttachmentsByMessage, RequestAttachments } from '@/lib/projects/thread-content'
 import type { ThreadAttachment } from '@/lib/projects/thread-content'
 import { removeThreadAttachment } from '@/lib/projects/remove-thread-attachment'
-import { useRequestThreadQuery } from '@/lib/api/queries/projects'
+import { useClientThreadLive } from '@/lib/messaging/use-client-thread-live'
+import { queryKeys } from '@/lib/api/query-keys'
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import { canRemoveThreadAttachment } from '@cocreate/app-ui/thread-message-merge'
+import {
+  addOptimisticRequestMessageToMessagesList,
+  invalidateRequestThreadMessages,
+  replacePendingRequestMessageInMessagesList,
+  rollbackOptimisticRequestMessageInMessagesList,
+} from '@/lib/projects/append-request-messages-list-cache'
 import {
   createOptimisticRequestMessage,
   isPendingRequestMessage,
 } from '@/lib/projects/optimistic-request-message'
-import { useRequestThreadRealtime } from '@/lib/projects/use-request-thread-realtime'
 import { canSendThreadMessage } from '@/lib/messaging/can-send-thread-message'
 import type { PendingApprovalFile } from '@/lib/projects/pending-approval-files'
 import {
@@ -34,12 +40,17 @@ import { bricolage_grot600 } from '@/styles/fonts'
 
 type RequestMessageThreadProps = {
   request: ProjectRequestItem
+  loadMessages?: boolean
+  /** Parent workspace owns messages query + socket (progress path). */
+  parentOwnsMessages?: boolean
+  liveMessages?: ProjectRequestMessage[]
+  liveMessagesLoading?: boolean
   viewerRole: 'ADMIN' | 'CLIENT'
   readOnly?: boolean
   onSendMessage: (
     body: string,
     attachmentIds?: string[],
-  ) => Promise<{ ok: boolean; message?: string }>
+  ) => Promise<{ ok: boolean; message?: string; data?: ProjectRequestMessage }>
   onResolve?: (status: 'RESOLVED' | 'REJECTED') => Promise<void>
   showResolveActions?: boolean
   onThreadUpdate?: () => void
@@ -60,8 +71,22 @@ function initialAuthorRole(request: ProjectRequestItem): 'ADMIN' | 'CLIENT' {
   return 'ADMIN'
 }
 
+function ThreadLoadingSkeleton() {
+  return (
+    <div className="space-y-3 py-2" aria-busy="true" aria-label="Loading messages">
+      <div className="h-16 animate-pulse rounded-lg bg-chambray/8" />
+      <div className="ml-8 h-12 animate-pulse rounded-lg bg-chambray/6" />
+      <div className="h-14 animate-pulse rounded-lg bg-chambray/8" />
+    </div>
+  )
+}
+
 export default function RequestMessageThread({
   request,
+  loadMessages = true,
+  parentOwnsMessages = false,
+  liveMessages,
+  liveMessagesLoading = false,
   viewerRole,
   onSendMessage,
   onResolve,
@@ -76,50 +101,53 @@ export default function RequestMessageThread({
   const queryClient = useQueryClient()
   const { data: profile } = usePortalProfileQuery()
   const currentUserId = profile?.user.id ?? null
-  const threadQuery = useRequestThreadQuery(request.id)
-  const activeRequest =
-    threadQuery.data?.id === request.id ? threadQuery.data : request
+  const threadLive = useClientThreadLive(
+    !parentOwnsMessages && loadMessages ? request.id : undefined,
+    {
+      onThreadUpdate,
+      invalidateQueryKeys,
+    },
+  )
+  const threadLoading = parentOwnsMessages
+    ? liveMessagesLoading
+    : loadMessages && threadLive.isLoading
 
-  useRequestThreadRealtime(activeRequest.id, onThreadUpdate, {
-    enabled: Boolean(onThreadUpdate || invalidateQueryKeys?.length),
-    invalidateQueryKeys,
-  })
-
-  const inputClass = 'portal-textarea w-full resize-y'
-  const btnPrimary = 'portal-btn-primary text-sm'
-  const btnGhost = 'portal-btn-ghost text-sm'
   const [reply, setReply] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<string[]>([])
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
-  const [pendingMessages, setPendingMessages] = useState<ProjectRequestMessage[]>([])
   const [uploading, setUploading] = useState(false)
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const queryMessages = parentOwnsMessages ? liveMessages : threadLive.messages
   const baseMessages: ProjectRequestMessage[] =
-    activeRequest.messages && activeRequest.messages.length > 0
-      ? activeRequest.messages
-      : activeRequest.description
+    queryMessages && queryMessages.length > 0
+      ? queryMessages
+      : request.description
         ? [
             {
               id: 'initial',
-              requestId: activeRequest.id,
+              requestId: request.id,
               authorUserId: '',
               authorEmail: null,
-              authorRole: initialAuthorRole(activeRequest),
-              body: activeRequest.description,
-              createdAt: activeRequest.createdAt,
+              authorRole: initialAuthorRole(request),
+              body: request.description,
+              createdAt: request.createdAt,
             },
           ]
         : []
 
-  const messages = [...baseMessages, ...pendingMessages]
+  const messages = baseMessages
 
-  const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(activeRequest.status)
+  const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(request.status)
   const canCompose = !readOnly && !isClosed
-  const attachmentsByMessage = indexAttachmentsByMessage(baseMessages, activeRequest.attachments)
-  const { panelRef, endRef, notifyUserSent } = useThreadAutoScroll(messages, activeRequest.id)
+  const attachmentsByMessage = indexAttachmentsByMessage(baseMessages, request.attachments)
+  const { panelRef, endRef, notifyUserSent } = useThreadAutoScroll(messages, request.id)
+  const inputClass = 'portal-textarea w-full resize-y'
+  const btnPrimary = 'portal-btn-primary text-sm'
+  const btnGhost = 'portal-btn-ghost text-sm'
+
   const fetchDownloadUrl = useCallback(
     (attachmentId: string) => fetchAttachmentDownloadUrl(attachmentId),
     [],
@@ -151,17 +179,17 @@ export default function RequestMessageThread({
       setDeletingAttachmentId(attachment.id)
       setError(null)
       const result = await removeThreadAttachment(queryClient, {
-        requestId: activeRequest.id,
+        requestId: request.id,
         messageId,
         attachmentId: attachment.id,
-        projectId: activeRequest.projectId,
+        projectId: request.projectId,
       })
       if (!result.ok) {
         setError(result.message)
       }
       setDeletingAttachmentId(null)
     },
-    [activeRequest.id, activeRequest.projectId, queryClient],
+    [request.id, request.projectId, queryClient],
   )
 
   const onSubmit = async (e: FormEvent) => {
@@ -181,10 +209,12 @@ export default function RequestMessageThread({
       requestId: request.id,
       body: bodyText,
       authorRole: viewerRole === 'CLIENT' ? 'CLIENT' : 'ADMIN',
+      authorUserId: currentUserId ?? undefined,
     })
     const optimisticId = optimistic.id
 
-    setPendingMessages((prev) => [...prev, optimistic])
+    await queryClient.cancelQueries({ queryKey: queryKeys.requests.messages(request.id) })
+    addOptimisticRequestMessageToMessagesList(queryClient, request.id, optimistic)
     setReply('')
     setSelectedAttachmentIds([])
     setPendingFiles([])
@@ -198,7 +228,7 @@ export default function RequestMessageThread({
         savedPendingFiles,
       )
       if (!uploaded.ok) {
-        setPendingMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+        rollbackOptimisticRequestMessageInMessagesList(queryClient, request.id, optimisticId)
         setReply(savedReply)
         setSelectedAttachmentIds(savedSelectedIds)
         setPendingFiles(savedPendingFiles)
@@ -211,16 +241,29 @@ export default function RequestMessageThread({
       ]
       const result = await onSendMessage(bodyText, attachmentIds)
       if (!result.ok) {
-        setPendingMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+        rollbackOptimisticRequestMessageInMessagesList(queryClient, request.id, optimisticId)
         setReply(savedReply)
         setSelectedAttachmentIds(savedSelectedIds)
         setPendingFiles(savedPendingFiles)
         setError(result.message ?? 'Could not send message')
+        return
+      }
+
+      if (result.data) {
+        const replaced = replacePendingRequestMessageInMessagesList(
+          queryClient,
+          request.id,
+          optimisticId,
+          result.data,
+        )
+        if (!replaced) {
+          invalidateRequestThreadMessages(queryClient, request.id)
+        }
       } else {
-        setPendingMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+        invalidateRequestThreadMessages(queryClient, request.id)
       }
     } catch {
-      setPendingMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+      rollbackOptimisticRequestMessageInMessagesList(queryClient, request.id, optimisticId)
       setReply(savedReply)
       setSelectedAttachmentIds(savedSelectedIds)
       setPendingFiles(savedPendingFiles)
@@ -233,7 +276,9 @@ export default function RequestMessageThread({
   return (
     <div className="portal-message-thread-shell max-h-[min(56svh,520px)]">
       <div ref={panelRef} className="portal-thread-panel">
-        {messages.length === 0 ? (
+        {threadLoading ? (
+          <ThreadLoadingSkeleton />
+        ) : messages.length === 0 ? (
           <p className="text-sm text-app-muted">No messages yet.</p>
         ) : (
           messages.map((msg) => {
@@ -252,7 +297,7 @@ export default function RequestMessageThread({
               viewerRole === 'CLIENT' && onApproveFile && onNeedsChangesFile
                 ? pendingApprovalFilesForMessage(
                     msg.id,
-                    activeRequest.id,
+                    request.id,
                     attachmentIdsForMessage,
                     pendingApprovalFiles,
                   )

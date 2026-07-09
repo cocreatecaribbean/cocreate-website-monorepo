@@ -29,7 +29,6 @@ import {
   generateAdminProjectThreadSummary,
 } from '@/lib/api/mutations/thread-summary'
 import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-project-files'
-import { appendRequestMessageToCache } from '@/lib/projects/append-request-message-cache'
 import type { ProjectRequestMessage } from '@/lib/projects/types'
 import {
   useClientActivityQuery,
@@ -261,14 +260,13 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
           }),
         },
       )
-      appendRequestMessageToCache(queryClient, requestId, message)
       await queryClient.invalidateQueries({
         queryKey: adminQueryKeys.projects.byOrganization(organizationId),
       })
       await queryClient.invalidateQueries({
         queryKey: adminQueryKeys.inbox.list(organizationId),
       })
-      return { ok: true }
+      return { ok: true as const, data: message }
     } catch (err) {
       return {
         ok: false,

@@ -74,11 +74,45 @@ export class SubscriptionService {
             role: UserRole.CLIENT,
             clientOrgRole: ClientOrgRole.OWNER,
             status: { not: UserStatus.SUSPENDED },
+            deletedAt: null,
           },
           data: { canAccessSocialListening: true },
         })
       }
     })
+  }
+
+  /** Admin Center toggle — keeps subscription row and org flag in sync. */
+  async setAdminCompEntitlement(organizationId: string, enabled: boolean): Promise<void> {
+    if (enabled) {
+      await this.grantAdminSubscription({
+        organizationId,
+        plan: SocialListeningPlan.GROWTH,
+        billingSource: SocialListeningBillingSource.ADMIN_COMP,
+        periodMonths: 12,
+        autoRenewEnabled: false,
+      })
+      return
+    }
+
+    const sub = await this.prisma.socialListeningSubscription.findUnique({
+      where: { organizationId },
+    })
+
+    if (sub) {
+      await this.prisma.socialListeningSubscription.update({
+        where: { id: sub.id },
+        data: {
+          status: SocialListeningSubscriptionStatus.CANCELLED,
+          cancelledAt: new Date(),
+          cancelledBy: SocialListeningSubscriptionCancelledBy.ADMIN,
+          autoRenewEnabled: false,
+          cancelAtPeriodEnd: false,
+        },
+      })
+    }
+
+    await this.syncOrgEntitlement(organizationId, false)
   }
 
   async getByOrganizationId(organizationId: string) {

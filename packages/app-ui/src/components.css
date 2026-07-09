@@ -420,6 +420,24 @@
     @apply border-white/15 bg-chambray text-white/95 shadow-[0_8px_24px_rgba(0,0,0,0.35)];
   }
 
+  .portal-chart {
+    --chart-1: #39419a;
+    --chart-2: #f6b03f;
+    --chart-3: #406eb5;
+    --chart-4: #64748b;
+    --chart-5: #e2e8f0;
+    --chart-axis: #64748b;
+    --chart-grid: rgba(64, 110, 181, 0.2);
+    --chart-text: #39419a;
+  }
+  .dark .portal-chart {
+    --chart-4: #f6b03f;
+    --chart-5: #334155;
+    --chart-axis: #f6b03f;
+    --chart-grid: rgba(148, 163, 184, 0.22);
+    --chart-text: #f8fafc;
+  }
+
   .assistant-shell {
     @apply fixed right-4 z-[235] flex flex-col items-end gap-3 sm:right-6;
     bottom: max(1.25rem, env(safe-area-inset-bottom));

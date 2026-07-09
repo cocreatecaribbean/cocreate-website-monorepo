@@ -14,6 +14,8 @@ const DOWNLOAD_TTL_SEC = 86400
 
 const ALLOWED_AVATAR_MIME = ['image/jpeg', 'image/png', 'image/webp'] as const
 
+export type AvatarAudience = 'admin' | 'client'
+
 const BUCKET_MISSING_MESSAGE = `Avatar storage bucket "${BUCKET}" is missing or misconfigured. Create a private bucket with that exact name in Supabase Storage (see docs/supabase-database-setup.md).`
 
 @Injectable()
@@ -96,20 +98,27 @@ export class ProfileStorageService {
     this.bucketVerified = true
   }
 
-  buildAvatarPath(userId: string, fileName: string) {
+  buildAvatarPath(audience: AvatarAudience, userId: string, fileName: string) {
     const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120)
-    return `admin/${userId}/${randomUUID()}-${safeName}`
+    return `${audience}/${userId}/${randomUUID()}-${safeName}`
   }
 
-  assertPathBelongsToUser(storagePath: string, userId: string) {
-    const prefix = `admin/${userId}/`
-    if (!storagePath.startsWith(prefix)) {
+  assertPathBelongsToUser(
+    storagePath: string,
+    userId: string,
+    audience?: AvatarAudience,
+  ) {
+    const prefixes = audience
+      ? [`${audience}/${userId}/`]
+      : [`admin/${userId}/`, `client/${userId}/`]
+    if (!prefixes.some((prefix) => storagePath.startsWith(prefix))) {
       throw new BadRequestException('Invalid avatar path for this user')
     }
   }
 
   async createUploadUrl(params: {
     userId: string
+    audience: AvatarAudience
     fileName: string
     mimeType: string
     sizeBytes: number
@@ -128,7 +137,11 @@ export class ProfileStorageService {
       throw new BadRequestException('Avatar must be 5 MB or smaller')
     }
 
-    const storagePath = this.buildAvatarPath(params.userId, params.fileName)
+    const storagePath = this.buildAvatarPath(
+      params.audience,
+      params.userId,
+      params.fileName,
+    )
 
     const { data, error } = await this.client.storage
       .from(BUCKET)
@@ -169,5 +182,16 @@ export class ProfileStorageService {
     }
 
     return { signedUrl: data.signedUrl, expiresIn: DOWNLOAD_TTL_SEC }
+  }
+
+  async deleteObject(storagePath: string) {
+    if (!this.client) return
+
+    await this.ensureBucketExists()
+
+    const { error } = await this.client.storage.from(BUCKET).remove([storagePath])
+    if (error) {
+      this.logger.warn(`Avatar delete failed: ${error.message}`)
+    }
   }
 }

@@ -5,9 +5,11 @@ import { PrismaService } from '../prisma/prisma.service'
 import { Brand24Service } from './brand24.service'
 import { buildOrgScopedMockAnalytics } from './org-scoped-mock'
 import {
+  calendarMonthPeriodForSnapshot,
+  firstDayOfUtcCalendarMonth,
   formatUtcDateOnly,
   parseUtcDateOnly,
-  snapshotPeriodForDate,
+  previousCalendarMonthSnapshotDate,
   utcTodayDateOnly,
 } from './social-listening-dates'
 import type {
@@ -23,6 +25,15 @@ import type {
 type OrgSnapshotContext = {
   id: string
   brand24ProjectId: string | null
+}
+
+function totalMentionsFromPayload(payload: unknown): number | undefined {
+  if (!payload || typeof payload !== 'object') return undefined
+  const summary = (payload as { sentimentSummary?: Array<{ value?: number }> })
+    .sentimentSummary
+  if (!Array.isArray(summary) || summary.length === 0) return undefined
+  const total = summary.reduce((sum, slice) => sum + (slice.value ?? 0), 0)
+  return total > 0 ? total : undefined
 }
 
 @Injectable()
@@ -55,24 +66,18 @@ export class SocialListeningSnapshotService {
     return this.config.get<string>('SOCIAL_LISTENING_DEMO_SNAPSHOTS') === 'true'
   }
 
-  private demoSnapshotDaysAgo(): number {
-    const raw = this.config.get<string>('SOCIAL_LISTENING_DEMO_SNAPSHOT_DAYS_AGO')
-    const parsed = raw ? Number.parseInt(raw, 10) : 90
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 90
-  }
-
   /**
-   * Dev/demo: seed two dated snapshots (baseline ~90d ago + today) using org-scoped mock.
+   * Dev/demo: seed two monthly snapshots (prior month + month before) using org-scoped mock.
    * Idempotent — only creates rows that are missing.
    */
   async ensureDemoSnapshots(organization: OrgSnapshotContext): Promise<void> {
     if (!this.isEnabled() || !this.isDemoSnapshotsEnabled()) return
 
     const today = utcTodayDateOnly()
-    const baseline = new Date(today)
-    baseline.setUTCDate(baseline.getUTCDate() - this.demoSnapshotDaysAgo())
+    const latest = previousCalendarMonthSnapshotDate(today)
+    const baseline = previousCalendarMonthSnapshotDate(firstDayOfUtcCalendarMonth(latest))
 
-    for (const snapshotDate of [baseline, today]) {
+    for (const snapshotDate of [baseline, latest]) {
       const dateOnly = parseUtcDateOnly(formatUtcDateOnly(snapshotDate))!
       const existing = await this.prisma.socialListeningSnapshot.findUnique({
         where: {
@@ -91,18 +96,33 @@ export class SocialListeningSnapshotService {
 
   async captureSnapshot(
     organization: OrgSnapshotContext,
-    snapshotDate: Date = utcTodayDateOnly(),
+    snapshotDate: Date = previousCalendarMonthSnapshotDate(),
   ): Promise<void> {
     if (!this.isEnabled()) return
 
-    const { periodStart, periodEnd } = snapshotPeriodForDate(snapshotDate)
+    const dateOnly = parseUtcDateOnly(formatUtcDateOnly(snapshotDate))!
+    const existing = await this.prisma.socialListeningSnapshot.findUnique({
+      where: {
+        organizationId_snapshotDate: {
+          organizationId: organization.id,
+          snapshotDate: dateOnly,
+        },
+      },
+      select: { id: true },
+    })
+    if (existing) return
+
+    const { periodStart, periodEnd } = calendarMonthPeriodForSnapshot(snapshotDate)
     const { data, source } = await this.brand24.fetchAnalytics(
       organization.id,
       organization.brand24ProjectId,
       { periodStart, periodEnd },
     )
 
-    const dateOnly = parseUtcDateOnly(formatUtcDateOnly(snapshotDate))!
+    const mentionCount = data.sentimentSummary.reduce((sum, s) => sum + s.value, 0)
+    this.logger.log(
+      `Snapshot captured org=${organization.id} date=${formatUtcDateOnly(dateOnly)} source=${source} mentions=${mentionCount}`,
+    )
 
     await this.prisma.socialListeningSnapshot.upsert({
       where: {
@@ -156,17 +176,37 @@ export class SocialListeningSnapshotService {
   async listSnapshotDates(
     organizationId: string,
     limit = 90,
+    organizationName?: string,
   ): Promise<SocialListeningSnapshotDatesResponse> {
     const rows = await this.prisma.socialListeningSnapshot.findMany({
       where: { organizationId },
       orderBy: { snapshotDate: 'desc' },
       take: limit,
-      select: { snapshotDate: true },
+      select: {
+        snapshotDate: true,
+        periodStart: true,
+        periodEnd: true,
+        source: true,
+        payload: true,
+      },
     })
+
+    const snapshots = rows.map((r) => ({
+      date: formatUtcDateOnly(r.snapshotDate),
+      periodStart: r.periodStart.toISOString(),
+      periodEnd: r.periodEnd.toISOString(),
+      source: (r.source === 'brand24' ? 'brand24' : 'org_mock') as
+        | 'brand24'
+        | 'org_mock',
+      totalMentions: totalMentionsFromPayload(r.payload),
+    }))
 
     return {
       ok: true,
-      dates: rows.map((r) => formatUtcDateOnly(r.snapshotDate)),
+      organizationId,
+      organizationName,
+      dates: snapshots.map((s) => s.date),
+      snapshots,
     }
   }
 
@@ -262,6 +302,7 @@ export class SocialListeningSnapshotService {
   async captureAllSubscriberSnapshots(): Promise<void> {
     if (!this.isEnabled()) return
 
+    const snapshotDate = previousCalendarMonthSnapshotDate()
     const orgs = await this.prisma.organization.findMany({
       where: { isSocialListeningSubscriber: true },
       select: { id: true, brand24ProjectId: true },
@@ -269,7 +310,7 @@ export class SocialListeningSnapshotService {
 
     for (const org of orgs) {
       try {
-        await this.captureSnapshot(org)
+        await this.captureSnapshot(org, snapshotDate)
       } catch (err) {
         this.logger.warn(
           `Snapshot failed for org ${org.id}: ${err instanceof Error ? err.message : err}`,

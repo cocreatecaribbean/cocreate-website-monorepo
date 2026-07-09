@@ -2,7 +2,7 @@ import type { QueryClient } from '@tanstack/react-query'
 
 import { fetchAdminBff } from '@/lib/admin-api-fetch'
 import { adminQueryKeys } from '@/lib/api/query-keys'
-import { appendRequestMessageToCache } from '@/lib/projects/append-request-message-cache'
+import { appendRequestMessageToCacheOrInvalidate } from '@/lib/projects/append-request-message-cache'
 import type { StagedProjectFile } from '@/lib/projects/fetch-project-files'
 import type { ProjectRequestItem, ProjectRequestMessage } from '@/lib/projects/types'
 
@@ -51,7 +51,7 @@ export async function submitApprovalFiles(
   if (result.thread) {
     queryClient.setQueryData(threadQueryKey, result.thread)
   } else if (result.sentMessage) {
-    appendRequestMessageToCache(queryClient, input.progressRequestId, result.sentMessage)
+    appendRequestMessageToCacheOrInvalidate(queryClient, input.progressRequestId, result.sentMessage)
   }
 
   void queryClient.invalidateQueries({

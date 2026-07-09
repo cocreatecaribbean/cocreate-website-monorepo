@@ -21,7 +21,6 @@ import { submitProgressCheckpoint } from '@/lib/projects/submit-progress-checkpo
 import AdminProjectApprovalsPanel from '@/components/admin-project-approvals-panel'
 import { useApproveClientProjectMutation } from '@/lib/api/mutations/projects'
 import { adminQueryKeys } from '@/lib/api/query-keys'
-import { appendRequestMessageToCache } from '@/lib/projects/append-request-message-cache'
 import type { ProjectRequestMessage } from '@/lib/projects/types'
 import { useAdminProjectWorkspaceQuery } from '@/lib/api/queries/projects'
 import { useProjectApprovalItemsQuery } from '@/lib/api/queries/approvals'
@@ -42,6 +41,7 @@ import {
   ProjectThreadPanel,
   tabForThreadType,
 } from '@/components/project-workspace-shared'
+import { useAdminThreadLive } from '@/lib/messaging/use-admin-thread-live'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import {
   ArrowLeft,
@@ -178,10 +178,10 @@ export default function AdminProjectWorkspace({
   const refreshThread = useCallback(
     async (requestId: string) => {
       await queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.requests.detail(requestId),
+        queryKey: adminQueryKeys.projects.workspace(organizationId, projectId),
       })
       await queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.projects.workspace(organizationId, projectId),
+        queryKey: adminQueryKeys.requests.messages(requestId),
       })
     },
     [organizationId, projectId, queryClient],
@@ -201,11 +201,10 @@ export default function AdminProjectWorkspace({
             }),
           },
         )
-        appendRequestMessageToCache(queryClient, requestId, message)
         await queryClient.invalidateQueries({
           queryKey: adminQueryKeys.projects.workspace(organizationId, projectId),
         })
-        return { ok: true as const }
+        return { ok: true as const, data: message }
       } catch (err) {
         return {
           ok: false as const,
@@ -463,6 +462,19 @@ export default function AdminProjectWorkspace({
   const isOnboarded = project ? project.status !== 'SUBMITTED' : false
   const showProgressThread = Boolean(progress && isOnboarded)
 
+  const progressLive = useAdminThreadLive(
+    showProgressThread && progress ? progress.id : undefined,
+    {
+      invalidateQueryKeys: approvalInvalidateQueryKeys,
+      onThreadUpdate: progress ? () => void refreshThread(progress.id) : undefined,
+    },
+  )
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development' || !progress?.id) return
+    console.info('[admin-progress] messages length', progressLive.messages?.length ?? 0)
+  }, [progress?.id, progressLive.messages?.length])
+
   useEffect(() => {
     if (loading || !project) return
     if (!isOnboarded && (tab === 'progress' || tab === 'approvals')) {
@@ -559,7 +571,9 @@ export default function AdminProjectWorkspace({
           <p className="text-sm text-app-muted">Loading…</p>
         ) : !project ? (
           <p className="text-sm text-app-muted">Project not found.</p>
-        ) : tab === 'overview' ? (
+        ) : (
+          <>
+        {tab === 'overview' ? (
           <div className="space-y-6">
             <section className="admin-glass-card p-5 sm:p-6">
               <p className={`text-chambray ${bricolage_grot600.className}`}>Project actions</p>
@@ -686,7 +700,9 @@ export default function AdminProjectWorkspace({
               subtitle="Updates, progress checks, and replies with the client."
               request={progress}
               organizationId={organizationId}
-              loadMessages={tab === 'progress'}
+              parentOwnsMessages
+              liveMessages={progressLive.messages}
+              liveMessagesLoading={progressLive.isLoading}
               markReadEnabled={canTrackUnread}
               onInboxMarked={() => void refreshUnreadCount()}
               onSendMessage={(body, attachmentIds) =>
@@ -728,6 +744,8 @@ export default function AdminProjectWorkspace({
         ) : tab === 'collaborators' && isCoreTeam ? (
           <ProjectCollaboratorsPanel projectId={project.id} />
         ) : null}
+          </>
+        )}
       </div>
     </main>
   )

@@ -11,7 +11,8 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@cocreate/api-contracts/v1/*": ["../api-contracts/src/v1/*"]
+      "@cocreate/api-contracts/v1/*": ["../api-contracts/src/v1/*"],
+      "@cocreate/social-listening/core": ["../social-listening/src/core/index.ts"]
     },
     "types": ["node"]
   },

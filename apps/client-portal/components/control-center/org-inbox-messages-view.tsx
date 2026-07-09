@@ -14,7 +14,6 @@ import {
   createOrgInboxConversation,
   fetchOrgInboxAttachmentDownloadUrl,
   fetchOrgInboxConversations,
-  fetchOrgInboxMessages,
   markOrgInboxRead,
   sendOrgInboxMessage,
   uploadOrgInboxFiles,
@@ -26,7 +25,7 @@ import {
   isPendingInboxMessage,
   replacePendingInboxMessage,
 } from '@/lib/inbox/optimistic-inbox-message'
-import { useOrgInboxRealtime } from '@/lib/inbox/use-org-inbox-realtime'
+import { useClientInboxLive } from '@/lib/messaging/use-client-inbox-live'
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import { CONTROL_CENTER_VIEW_QUERY } from '@/lib/control-center/nav'
 import { bricolage_grot600 } from '@/styles/fonts'
@@ -69,17 +68,13 @@ export default function OrgInboxMessagesView() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false })
   }, [conversationId, conversations, pathname, router, searchParams])
 
-  const messagesQuery = useQuery({
-    queryKey: queryKeys.inbox.messages(conversationId ?? ''),
-    queryFn: () => fetchOrgInboxMessages(conversationId!),
-    enabled: Boolean(conversationId),
+  const inboxLive = useClientInboxLive(conversationId ?? undefined, {
+    invalidateQueryKeys: [
+      queryKeys.inbox.messages(conversationId ?? ''),
+      queryKeys.inbox.conversations(),
+      queryKeys.inbox.unreadCount(),
+    ],
   })
-
-  useOrgInboxRealtime(conversationId ?? undefined, [
-    queryKeys.inbox.messages(conversationId ?? ''),
-    queryKeys.inbox.conversations(),
-    queryKeys.inbox.unreadCount(),
-  ])
 
   useEffect(() => {
     if (!conversationId) return
@@ -88,7 +83,7 @@ export default function OrgInboxMessagesView() {
     })
   }, [queryClient, conversationId])
 
-  const messages = messagesQuery.data ?? []
+  const messages = inboxLive.messages ?? []
   const { panelRef, endRef, notifyUserSent } = useThreadAutoScroll(messages, conversationId ?? '')
   const fetchDownloadUrl = useCallback(async (attachmentId: string) => {
     const url = await fetchOrgInboxAttachmentDownloadUrl(attachmentId)
@@ -280,7 +275,7 @@ export default function OrgInboxMessagesView() {
             {selected ? (
               <div className="portal-message-thread-shell flex min-h-0 flex-1 flex-col md:mt-4">
                 <div ref={panelRef} className="portal-thread-panel">
-                  {messagesQuery.isLoading ? (
+                  {inboxLive.isLoading ? (
                     <p className="text-sm text-app-muted">Loading…</p>
                   ) : messages.length === 0 ? (
                     <p className="text-sm text-app-muted">No messages yet. Say hello!</p>

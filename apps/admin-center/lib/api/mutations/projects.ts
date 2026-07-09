@@ -4,7 +4,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { fetchAdminBff } from '@/lib/admin-api-fetch'
 import { adminQueryKeys } from '@/lib/api/query-keys'
-import { appendRequestMessageToCache } from '@/lib/projects/append-request-message-cache'
 import type { ProjectRequestMessage } from '@/lib/projects/types'
 import {
   createProjectForAdmin,
@@ -50,8 +49,6 @@ export function useUpdateAdminProjectMutation(projectId: string, organizationId?
 }
 
 export function useSendAdminRequestMessageMutation(requestId: string) {
-  const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: (body: { body: string; attachmentIds?: string[] }) =>
       fetchAdminBff<ProjectRequestMessage>(`/api/project-requests/${requestId}/messages`, {
@@ -59,9 +56,6 @@ export function useSendAdminRequestMessageMutation(requestId: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }),
-    onSuccess: (message) => {
-      appendRequestMessageToCache(queryClient, requestId, message)
-    },
   })
 }
 

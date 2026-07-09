@@ -4,7 +4,8 @@ import type {
   SentimentId,
 } from './social-listening.types'
 import { SENTIMENT_COLORS } from './social-listening.types'
-import { formatUtcDateOnly } from './social-listening-dates'
+import { calendarMonthPeriodForSnapshot, formatUtcDateOnly } from './social-listening-dates'
+import { enumerateCalendarWeeksInPeriod } from './social-listening-chart-buckets'
 
 function hashSeed(input: string): number {
   let h = 0
@@ -24,12 +25,6 @@ function mulberry32(seed: number) {
   }
 }
 
-function isoDateDaysBefore(anchor: Date, daysBefore: number): string {
-  const d = new Date(anchor)
-  d.setUTCDate(d.getUTCDate() - daysBefore)
-  return d.toISOString().slice(0, 10)
-}
-
 const PLATFORMS: SocialPlatformId[] = [
   'x',
   'tiktok',
@@ -41,8 +36,6 @@ const PLATFORMS: SocialPlatformId[] = [
 ]
 
 const TIME_BLOCKS = ['12am-6am', '6am-12pm', '12pm-6pm', '6pm-12am']
-const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-const CHART_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 export type OrgScopedMockOptions = {
   /** End of the analytics window (defaults to now) */
@@ -56,6 +49,11 @@ export function buildOrgScopedMockAnalytics(
   options?: OrgScopedMockOptions,
 ): SocialListeningAnalytics {
   const periodEnd = options?.periodEnd ?? new Date()
+  const { periodStart, periodEnd: monthEnd } = calendarMonthPeriodForSnapshot(periodEnd)
+  const periodStartIso = formatUtcDateOnly(periodStart)
+  const periodEndIso = formatUtcDateOnly(monthEnd)
+  const weeks = enumerateCalendarWeeksInPeriod(periodStartIso, periodEndIso)
+
   const seed = hashSeed(
     `${organizationId}:${projectId ?? ''}:${formatUtcDateOnly(periodEnd)}`,
   )
@@ -72,11 +70,12 @@ export function buildOrgScopedMockAnalytics(
     { id: 'negative', label: 'Negative Mentions', value: negative },
   ]
 
-  const sentimentOverTime = Array.from({ length: 7 }, (_, i) => ({
-    date: isoDateDaysBefore(periodEnd, 6 - i),
-    positive: Math.round(positive / 14 + rand() * 40),
-    neutral: Math.round(neutral / 14 + rand() * 60),
-    negative: Math.round(negative / 14 + rand() * 15),
+  const weekCount = Math.max(weeks.length, 1)
+  const sentimentOverTime = weeks.map((week) => ({
+    date: week.startDate,
+    positive: Math.round(positive / weekCount + rand() * 40),
+    neutral: Math.round(neutral / weekCount + rand() * 60),
+    negative: Math.round(negative / weekCount + rand() * 15),
   }))
 
   const sourceBreakdown = PLATFORMS.map((platformId) => ({
@@ -87,22 +86,22 @@ export function buildOrgScopedMockAnalytics(
   const reachVsEngagement = [
     {
       id: 'Social Reach (Thousands)',
-      data: CHART_DAYS.map((x) => ({
-        x,
+      data: weeks.map((week) => ({
+        x: week.label,
         y: Math.round(80 + rand() * 380),
       })),
     },
     {
       id: 'Engagement Volume',
-      data: CHART_DAYS.map((x) => ({
-        x,
+      data: weeks.map((week) => ({
+        x: week.label,
         y: Math.round(8 + rand() * 120),
       })),
     },
   ]
 
-  const mentionMatrix = WEEKDAYS.map((id) => ({
-    id,
+  const mentionMatrix = weeks.map((week) => ({
+    id: week.label,
     data: TIME_BLOCKS.map((x) => ({
       x,
       y: Math.round(10 + rand() * 350 * scale),

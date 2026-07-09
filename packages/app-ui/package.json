@@ -11,6 +11,9 @@
     "./portal-drawer-shell": "./src/portal-drawer-shell.tsx",
     "./attachment-previews": "./src/attachment-previews.tsx",
     "./thread-message-merge": "./src/thread-message-merge.ts",
+    "./thread-message-cache": "./src/thread-message-cache.ts",
+    "./thread-messages-list-cache": "./src/thread-messages-list-cache.ts",
+    "./thread-live-query": "./src/thread-live-query.ts",
     "./thread-approval-match": "./src/thread-approval-match.ts",
     "./approval-comment-cache": "./src/approval-comment-cache.ts",
     "./approval-comment-message-list": "./src/approval-comment-message-list.tsx",
@@ -19,6 +22,10 @@
     "./scroll-to-latest": "./src/scroll-to-latest/index.ts",
     "./workspace-section-nav": "./src/workspace-section-nav.tsx",
     "./nav-tooltip": "./src/nav-tooltip.tsx",
+    "./cn": "./src/cn.ts",
+    "./chart": "./src/chart.tsx",
+    "./chart-theme": "./src/chart-theme.ts",
+    "./use-chart-theme": "./src/use-chart-theme.ts",
     "./assistant-shell": "./src/assistant-shell.tsx",
     "./assistant-chat": "./src/assistant-chat.tsx",
     "./thread-summary-export": "./src/thread-summary-export.tsx"
@@ -29,13 +36,18 @@
     "ai": "catalog:ai",
     "gsap": "catalog:animation",
     "lucide-react": ">=0.400.0",
+    "next-themes": ">=0.4.0",
     "react": "catalog:react",
-    "react-dom": "catalog:react"
+    "react-dom": "catalog:react",
+    "recharts": ">=2.15.0",
+    "@supabase/supabase-js": ">=2.0.0"
   },
   "dependencies": {
     "@cocreate/api-contracts": "workspace:*",
     "@tanstack/react-query": "catalog:web",
-    "@tanstack/react-query-devtools": "catalog:web"
+    "@tanstack/react-query-devtools": "catalog:web",
+    "clsx": "catalog:web",
+    "tailwind-merge": "catalog:web"
   },
   "devDependencies": {
     "@ai-sdk/react": "catalog:ai",
@@ -43,6 +55,9 @@
     "ai": "catalog:ai",
     "gsap": "catalog:animation",
     "lucide-react": "catalog:web",
+    "next-themes": "^0.4.6",
+    "recharts": "^2.15.4",
+    "@supabase/supabase-js": "^2.49.1",
     "@types/react": "catalog:react",
     "@types/react-dom": "catalog:react",
     "react": "catalog:react",

@@ -64,9 +64,21 @@ export type SocialListeningAnalyticsResponse = {
   meta: SocialListeningAnalyticsMeta
 }
 
+export type SocialListeningSnapshotEntry = {
+  date: string
+  periodStart: string
+  periodEnd: string
+  source: 'brand24' | 'org_mock'
+  totalMentions?: number
+}
+
 export type SocialListeningSnapshotDatesResponse = {
   ok: true
+  organizationId: string
+  organizationName?: string
+  /** @deprecated Use `snapshots` — kept for backward compatibility */
   dates: string[]
+  snapshots: SocialListeningSnapshotEntry[]
 }
 
 export type SocialListeningCompareResponse = {

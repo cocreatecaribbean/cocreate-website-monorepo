@@ -21,8 +21,9 @@ import { AgencyAccessService } from '../auth/agency-access.service'
 import { isCollaboratorRole } from '../auth/admin-roles'
 import { ClientAccessService } from '../auth/client-access.service'
 import { PrismaService } from '../prisma/prisma.service'
+import { createClientApprovalRecord } from './client-approval-record.util'
 import { ProjectNotificationsService } from './project-notifications.service'
-import { ProjectRealtimeService } from './project-realtime.service'
+import { MessagingEmitService } from '../messaging/messaging-emit.service'
 import { ProjectStorageService } from './project-storage.service'
 import {
   serializeApprovalComment,
@@ -50,7 +51,7 @@ export class ProjectApprovalsService {
     private readonly agencyAccess: AgencyAccessService,
     private readonly storage: ProjectStorageService,
     private readonly notifications: ProjectNotificationsService,
-    private readonly realtime: ProjectRealtimeService,
+    private readonly messaging: MessagingEmitService,
   ) {}
 
   private async getProjectById(projectId: string) {
@@ -101,7 +102,7 @@ export class ProjectApprovalsService {
   }
 
   private publishApprovalThreadUpdate(requestId: string) {
-    void this.realtime.publishThreadUpdate(requestId, { reason: 'checkpoint' })
+    void this.messaging.emitThreadCheckpoint(requestId)
   }
 
   private requestThreadInclude() {
@@ -349,15 +350,8 @@ export class ProjectApprovalsService {
       { omitStoragePath: true },
     )
 
-    await this.realtime.publishThreadUpdate(progress.id, {
-      reason: 'message',
-      messageId: sentMessageId,
-      message: serializedMessage,
-    })
-    void this.realtime.publishThreadUpdate(progress.id, {
-      reason: 'checkpoint',
-      messageId: sentMessageId,
-    })
+    this.messaging.emitThreadMessage(progress.id, serializedMessage as Record<string, unknown>)
+    void this.messaging.emitThreadCheckpoint(progress.id)
 
     return {
       items: fullItems.map((item) => serializeApprovalItem(item, { omitStoragePath: true })),
@@ -445,18 +439,19 @@ export class ProjectApprovalsService {
         },
       })
 
-      await tx.clientApprovalRecord.create({
-        data: {
+      await createClientApprovalRecord(
+        tx,
+        {
           projectId: item.projectId,
           requestId: item.requestId,
           approvalItemId: itemId,
           title: item.title,
           summary: item.note,
           approvedByUserId: client.id,
-          attachmentIds: [item.attachmentId],
           approvedAttachmentId: item.attachmentId,
         },
-      })
+        [item.attachmentId],
+      )
     })
 
     const updated = await this.prisma.projectApprovalItem.findUnique({

@@ -4,7 +4,6 @@ import {
   OrgInboxConversationListResponseSchema,
   OrgInboxCreateConversationResponseSchema,
   OrgInboxMessageListResponseSchema,
-  OrgInboxRealtimeAuthResponseSchema,
   OrgInboxSendMessageResponseSchema,
   OrgInboxUnreadCountResponseSchema,
   type OrgInboxConversation,
@@ -184,11 +183,4 @@ export async function markOrgInboxRead(conversationId: string) {
   await inboxFetch(`/client-portal/inbox/conversations/${conversationId}/mark-read`, {
     method: 'POST',
   })
-}
-
-export async function authorizeOrgInboxRealtime(conversationId: string) {
-  const data = await inboxFetch<unknown>(
-    `/client-portal/inbox/conversations/${conversationId}/realtime`,
-  )
-  return parseApiResponseSafe(OrgInboxRealtimeAuthResponseSchema, data)
 }

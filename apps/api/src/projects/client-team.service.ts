@@ -324,7 +324,10 @@ export class ClientTeamService {
           : {}),
       })
     } catch (err) {
-      await this.prisma.user.delete({ where: { id: user.id } })
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { deletedAt: new Date() },
+      })
       throw err
     }
 

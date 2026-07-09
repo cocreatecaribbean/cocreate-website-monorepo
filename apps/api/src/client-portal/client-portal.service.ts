@@ -1,12 +1,19 @@
-import { Injectable } from '@nestjs/common'
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { UserRole, UserStatus } from '@cocreate/database'
 import type { PortalProfileResponse } from '@cocreate/api-contracts/v1/client-portal'
-import type { UpdateUserPreferencesInput } from '@cocreate/api-contracts/v1/requests/users'
+import type { UpdateOrganizationLogoInput } from '@cocreate/api-contracts/v1/requests/clients'
+import type {
+  UpdateClientProfileInput,
+  UpdateUserPreferencesInput,
+} from '@cocreate/api-contracts/v1/requests/users'
 import type { UserPreferencesResponse } from '@cocreate/api-contracts/v1/shared/preferences'
 import { AuthService } from '../auth/auth.service'
 import { ClientAccessService } from '../auth/client-access.service'
+import { ClientsService } from '../clients/clients.service'
+import { ClientLogoStorageService } from '../clients/client-logo-storage.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { SupabaseAuthService } from '../clients/supabase-auth.service'
+import { ClientProfileService } from '../users/client-profile.service'
 import { UserPreferencesService } from '../users/user-preferences.service'
 
 @Injectable()
@@ -17,6 +24,8 @@ export class ClientPortalService {
     private readonly authService: AuthService,
     private readonly clientAccess: ClientAccessService,
     private readonly preferences: UserPreferencesService,
+    private readonly clientsService: ClientsService,
+    private readonly clientProfiles: ClientProfileService,
   ) {}
 
   private normalizeEmail(email: string) {
@@ -83,7 +92,10 @@ export class ClientPortalService {
   async getSessionProfile(
     client: Awaited<ReturnType<AuthService['requireClient']>>,
   ): Promise<PortalProfileResponse> {
-    const preferences = await this.preferences.getOrCreate(client.id)
+    const [preferences, profileFields] = await Promise.all([
+      this.preferences.getOrCreate(client.id),
+      this.clientProfiles.getProfileFields(client.id),
+    ])
     return {
       ok: true as const,
       user: {
@@ -93,6 +105,8 @@ export class ClientPortalService {
         role: client.role,
         clientOrgRole: client.clientOrgRole,
         canAccessSocialListening: client.canAccessSocialListening,
+        displayName: profileFields.displayName,
+        avatarUrl: profileFields.avatarUrl,
       },
       organization: client.organization,
       permissions: {
@@ -117,6 +131,92 @@ export class ClientPortalService {
   ): Promise<UserPreferencesResponse> {
     const preferences = await this.preferences.update(client.id, dto)
     return { ok: true as const, ...preferences }
+  }
+
+  private assertCanManageOrgTeam(
+    client: Awaited<ReturnType<AuthService['requireClient']>>,
+  ) {
+    if (!this.clientAccess.canManageOrgTeam(client)) {
+      throw new ForbiddenException('Only organization owners can manage branding')
+    }
+    if (!client.organization?.id) {
+      throw new NotFoundException('Organization not found')
+    }
+    return client.organization.id
+  }
+
+  async createOrganizationLogoUploadUrl(
+    client: Awaited<ReturnType<AuthService['requireClient']>>,
+    logoStorage: ClientLogoStorageService,
+    body: { fileName: string; mimeType: string; sizeBytes: number },
+  ) {
+    this.assertCanManageOrgTeam(client)
+    return logoStorage.createUploadUrl(body)
+  }
+
+  async updateOrganizationLogo(
+    client: Awaited<ReturnType<AuthService['requireClient']>>,
+    logoStorage: ClientLogoStorageService,
+    body: UpdateOrganizationLogoInput,
+  ) {
+    const organizationId = this.assertCanManageOrgTeam(client)
+    const logoUrl = body.storagePath?.trim()
+      ? logoStorage.publicUrlForPath(body.storagePath.trim())
+      : body.logoUrl!.trim()
+    const updated = await this.clientsService.updateOrganizationLogo(
+      organizationId,
+      logoUrl,
+    )
+    return {
+      ok: true as const,
+      organization: client.organization
+        ? { ...client.organization, logoUrl: updated.logoUrl }
+        : { id: organizationId, name: updated.name, logoUrl: updated.logoUrl },
+    }
+  }
+
+  async clearOrganizationLogo(
+    client: Awaited<ReturnType<AuthService['requireClient']>>,
+  ) {
+    const organizationId = this.assertCanManageOrgTeam(client)
+    const updated = await this.clientsService.clearOrganizationLogo(organizationId)
+    return {
+      ok: true as const,
+      organization: client.organization
+        ? { ...client.organization, logoUrl: null }
+        : { id: organizationId, name: updated.name, logoUrl: null },
+    }
+  }
+
+  async updateClientProfile(
+    client: Awaited<ReturnType<AuthService['requireClient']>>,
+    dto: UpdateClientProfileInput,
+  ) {
+    const profile = await this.clientProfiles.updateProfile(client.id, dto)
+    return { ok: true as const, profile }
+  }
+
+  async createClientAvatarUploadUrl(
+    client: Awaited<ReturnType<AuthService['requireClient']>>,
+    dto: { fileName: string; mimeType: string; sizeBytes: number },
+  ) {
+    const upload = await this.clientProfiles.createAvatarUploadUrl(client.id, dto)
+    return { ok: true as const, ...upload }
+  }
+
+  async registerClientAvatar(
+    client: Awaited<ReturnType<AuthService['requireClient']>>,
+    dto: { storagePath: string },
+  ) {
+    const profile = await this.clientProfiles.registerAvatar(client.id, dto)
+    return { ok: true as const, profile }
+  }
+
+  async deleteClientAvatar(
+    client: Awaited<ReturnType<AuthService['requireClient']>>,
+  ) {
+    const profile = await this.clientProfiles.deleteAvatar(client.id)
+    return { ok: true as const, profile }
   }
 
   private async isClientAllowed(email: string) {

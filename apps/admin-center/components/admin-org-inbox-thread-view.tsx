@@ -14,7 +14,6 @@ import { adminQueryKeys } from '@/lib/api/query-keys'
 import {
   fetchOrgInboxAttachmentDownloadUrl,
   fetchAdminOrgInboxConversationsForClient,
-  fetchAdminOrgInboxMessages,
   markAdminOrgInboxRead,
   sendAdminOrgInboxMessage,
   uploadOrgInboxFiles,
@@ -25,7 +24,7 @@ import {
   isPendingInboxMessage,
   replacePendingInboxMessage,
 } from '@/lib/inbox/optimistic-inbox-message'
-import { useAdminOrgInboxRealtime } from '@/lib/inbox/use-org-inbox-realtime-admin'
+import { useAdminInboxLive } from '@/lib/messaging/use-admin-inbox-live'
 import {
   conversationSubject,
   formatConversationDate,
@@ -65,18 +64,16 @@ export default function AdminOrgInboxThreadView({
     [conversationsQuery.data, conversationId],
   )
 
-  const messagesQuery = useQuery({
-    queryKey: adminQueryKeys.orgInbox.messages(conversationId),
-    queryFn: () => fetchAdminOrgInboxMessages(conversationId),
-    enabled: Boolean(conversationId),
+  const inboxLive = useAdminInboxLive(conversationId, {
+    invalidateQueryKeys: [
+      adminQueryKeys.orgInbox.messages(conversationId),
+      adminQueryKeys.orgInbox.unreadCount(),
+      adminQueryKeys.orgInbox.orgConversations(organizationId),
+      adminQueryKeys.orgInbox.conversations(),
+    ],
   })
 
-  useAdminOrgInboxRealtime(conversationId, [
-    adminQueryKeys.orgInbox.messages(conversationId),
-    adminQueryKeys.orgInbox.unreadCount(),
-    adminQueryKeys.orgInbox.orgConversations(organizationId),
-    adminQueryKeys.orgInbox.conversations(),
-  ])
+  const messages = inboxLive.messages ?? []
 
   useEffect(() => {
     void markAdminOrgInboxRead(conversationId).then(() => {
@@ -87,7 +84,6 @@ export default function AdminOrgInboxThreadView({
     })
   }, [conversationId, organizationId, queryClient])
 
-  const messages = messagesQuery.data ?? []
   const { panelRef, endRef, notifyUserSent } = useThreadAutoScroll(messages, conversationId)
   const fetchDownloadUrl = useCallback(
     (attachmentId: string) => fetchOrgInboxAttachmentDownloadUrl(attachmentId),
@@ -160,7 +156,7 @@ export default function AdminOrgInboxThreadView({
     }
   }
 
-  if (conversationsQuery.isLoading || messagesQuery.isLoading) {
+  if (conversationsQuery.isLoading || inboxLive.isLoading) {
     return <p className="text-sm text-app-muted">Loading thread…</p>
   }
 

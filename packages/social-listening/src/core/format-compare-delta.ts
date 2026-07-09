@@ -12,6 +12,17 @@ export function formatMetricDeltaLine(
   return `${sign}${delta.change.toLocaleString()} vs baseline`
 }
 
+/** Percent + absolute change on one line with a single "vs baseline" suffix. */
+export function formatMetricDeltaCompact(delta: SocialListeningMetricDelta): string {
+  const sign = delta.change > 0 ? '+' : ''
+  const changePart = `${sign}${delta.change.toLocaleString()}`
+  if (delta.percentChange !== null) {
+    const pctSign = delta.percentChange > 0 ? '+' : ''
+    return `${pctSign}${delta.percentChange.toFixed(1)}% (${changePart} vs baseline)`
+  }
+  return `${changePart} vs baseline`
+}
+
 export function metricDelta(baseline: number, current: number): SocialListeningMetricDelta {
   const change = current - baseline
   const percentChange =

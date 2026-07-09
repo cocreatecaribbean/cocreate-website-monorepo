@@ -11,29 +11,32 @@
   },
   "peerDependencies": {
     "@cocreate/app-ui": "workspace:*",
-    "@nivo/bar": "^0.88.0",
     "@nivo/core": "^0.88.0",
     "@nivo/heatmap": "^0.88.0",
-    "@nivo/line": "^0.88.0",
-    "@nivo/pie": "^0.88.0",
     "@nivo/stream": "^0.88.0",
     "lucide-react": ">=0.400.0",
     "next": ">=15.0.0",
     "next-themes": ">=0.4.0",
     "react": "catalog:react",
-    "react-dom": "catalog:react"
+    "react-dom": "catalog:react",
+    "recharts": ">=2.15.0"
   },
   "dependencies": {
     "@cocreate/api-contracts": "workspace:*"
   },
   "scripts": {
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "jest"
   },
   "devDependencies": {
     "@cocreate/app-ui": "workspace:*",
+    "@types/jest": "^29.5.14",
     "@types/react": "catalog:react",
     "@types/react-dom": "catalog:react",
+    "jest": "catalog:tooling",
     "next-themes": "^0.4.6",
+    "recharts": "^2.15.4",
+    "ts-jest": "^29.3.4",
     "typescript": "catalog:tooling"
   }
 }

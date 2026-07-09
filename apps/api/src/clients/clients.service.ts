@@ -2,11 +2,17 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common'
-import { ClientOrgRole, UserRole, UserStatus } from '@cocreate/database'
+import {
+  ClientOrgRole,
+  UserRole,
+  UserStatus,
+} from '@cocreate/database'
 import { PrismaService } from '../prisma/prisma.service'
 import { uniqueSlug } from '../common/utils/slug.util'
 import type { InviteClientInput } from '@cocreate/api-contracts/v1/requests/clients'
+import { SubscriptionService } from '../billing/subscription.service'
 import { SupabaseAuthService } from './supabase-auth.service'
 import type {
   ClientOrganizationRosterItem,
@@ -19,13 +25,15 @@ export class ClientsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly supabaseAuth: SupabaseAuthService,
+    private readonly subscriptions: SubscriptionService,
   ) {}
 
   normalizeEmail(email: string): string {
     return email.trim().toLowerCase()
   }
 
-  private mapOrganizationRoster(org: {
+  private mapOrganizationRoster(
+    org: {
     id: string
     name: string
     slug: string
@@ -44,7 +52,13 @@ export class ClientsService {
       createdAt: Date
       updatedAt: Date
     }[]
-  }): ClientOrganizationRosterItem {
+  },
+    latestSnapshot?: {
+      createdAt: Date
+      source: string
+      snapshotDate: Date
+    },
+  ): ClientOrganizationRosterItem {
     const primaryUser = this.pickPrimaryContactUser(org.users)
     return {
       id: org.id,
@@ -53,6 +67,11 @@ export class ClientsService {
       logoUrl: org.logoUrl,
       isSocialListeningSubscriber: org.isSocialListeningSubscriber,
       brand24ProjectId: org.brand24ProjectId,
+      socialListeningLastSnapshotAt: latestSnapshot?.createdAt ?? null,
+      socialListeningLastSnapshotDate: latestSnapshot
+        ? latestSnapshot.snapshotDate.toISOString().slice(0, 10)
+        : null,
+      socialListeningLastSnapshotSource: latestSnapshot?.source ?? null,
       createdAt: org.createdAt,
       updatedAt: org.updatedAt,
       primaryContact: primaryUser ? this.mapPrimaryContact(primaryUser) : null,
@@ -118,7 +137,7 @@ export class ClientsService {
           name: companyName,
           slug,
           logoUrl,
-          isSocialListeningSubscriber: enableSocialListening,
+          isSocialListeningSubscriber: false,
         },
       })
 
@@ -129,12 +148,16 @@ export class ClientsService {
           role: UserRole.CLIENT,
           status: UserStatus.INVITED,
           clientOrgRole: ClientOrgRole.OWNER,
-          canAccessSocialListening: enableSocialListening,
+          canAccessSocialListening: false,
         },
       })
 
       return { organization, user }
     })
+
+    if (enableSocialListening) {
+      await this.subscriptions.setAdminCompEntitlement(organization.id, true)
+    }
 
     const portalBase = process.env.CLIENT_PORTAL_URL ?? 'http://localhost:3003'
 
@@ -197,7 +220,23 @@ export class ClientsService {
       },
     })
 
-    return organizations.map((org) => this.mapOrganizationRoster(org))
+    const latestSnapshots = await this.prisma.socialListeningSnapshot.findMany({
+      distinct: ['organizationId'],
+      orderBy: [{ organizationId: 'asc' }, { snapshotDate: 'desc' }],
+      select: {
+        organizationId: true,
+        createdAt: true,
+        source: true,
+        snapshotDate: true,
+      },
+    })
+    const snapshotByOrg = new Map(
+      latestSnapshots.map((row) => [row.organizationId, row]),
+    )
+
+    return organizations.map((org) =>
+      this.mapOrganizationRoster(org, snapshotByOrg.get(org.id)),
+    )
   }
 
   async getClientRosterItem(
@@ -236,24 +275,7 @@ export class ClientsService {
       throw new NotFoundException('Organization not found')
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.organization.update({
-        where: { id: organizationId },
-        data: { isSocialListeningSubscriber: enabled },
-      })
-
-      if (enabled) {
-        await tx.user.updateMany({
-          where: {
-            organizationId,
-            role: UserRole.CLIENT,
-            clientOrgRole: ClientOrgRole.OWNER,
-            status: { not: UserStatus.SUSPENDED },
-          },
-          data: { canAccessSocialListening: true },
-        })
-      }
-    })
+    await this.subscriptions.setAdminCompEntitlement(organizationId, enabled)
 
     const updated = await this.prisma.organization.findUniqueOrThrow({
       where: { id: organizationId },
@@ -293,6 +315,12 @@ export class ClientsService {
           ? null
           : brand24ProjectId.trim()
 
+    if (normalized && !/^[a-zA-Z0-9_-]{3,64}$/.test(normalized)) {
+      throw new BadRequestException(
+        'Brand24 project ID must be 3–64 characters (letters, numbers, hyphens, underscores)',
+      )
+    }
+
     const updated = await this.prisma.organization.update({
       where: { id: organizationId },
       data:
@@ -320,6 +348,57 @@ export class ClientsService {
     })
 
     return this.mapPrimaryContact(updated)
+  }
+
+  async updateOrganizationLogo(
+    organizationId: string,
+    logoUrl: string,
+  ): Promise<ClientOrganizationRosterItem> {
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true },
+    })
+    if (!organization) {
+      throw new NotFoundException('Organization not found')
+    }
+
+    const updated = await this.prisma.organization.update({
+      where: { id: organizationId },
+      data: { logoUrl: logoUrl.trim() },
+      include: {
+        users: {
+          where: { role: UserRole.CLIENT },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    })
+
+    return this.mapOrganizationRoster(updated)
+  }
+
+  async clearOrganizationLogo(
+    organizationId: string,
+  ): Promise<ClientOrganizationRosterItem> {
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true },
+    })
+    if (!organization) {
+      throw new NotFoundException('Organization not found')
+    }
+
+    const updated = await this.prisma.organization.update({
+      where: { id: organizationId },
+      data: { logoUrl: null },
+      include: {
+        users: {
+          where: { role: UserRole.CLIENT },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    })
+
+    return this.mapOrganizationRoster(updated)
   }
 
   /** Legacy allowlist assign — creates org + INVITED user from email alone. */

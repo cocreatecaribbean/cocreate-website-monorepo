@@ -2,7 +2,14 @@
 import { nestApiUrl } from '@cocreate/api-client'
 
 import { createSupabaseBrowserClient } from '@client-portal/lib/supabase/client'
+import type { ReportTemplatesResult } from '@cocreate/social-listening/data-source'
 
+import type { SocialListeningReportTemplateMeta } from '@cocreate/api-contracts/v1/social-listening'
+
+export type ReportTemplateMeta = SocialListeningReportTemplateMeta
+
+let templatesCache: ReportTemplatesResult | null = null
+let templatesPromise: Promise<ReportTemplatesResult> | null = null
 
 async function getBrowserAccessToken(): Promise<string | null> {
   const supabase = createSupabaseBrowserClient()
@@ -10,25 +17,68 @@ async function getBrowserAccessToken(): Promise<string | null> {
   return data.session?.access_token ?? null
 }
 
-import type { SocialListeningReportTemplateMeta } from '@cocreate/api-contracts/v1/social-listening'
+function parseApiErrorMessage(json: unknown, fallback: string): string {
+  if (typeof json !== 'object' || json === null) return fallback
+  const message = (json as { message?: string | string[] }).message
+  if (typeof message === 'string') return message
+  if (Array.isArray(message)) return message.join(', ')
+  return fallback
+}
 
-export type ReportTemplateMeta = SocialListeningReportTemplateMeta
-
-export async function fetchReportTemplates(): Promise<SocialListeningReportTemplateMeta[]> {
+async function fetchReportTemplatesFromApi(): Promise<ReportTemplatesResult> {
   const token = await getBrowserAccessToken()
-  if (!token) return []
+  if (!token) {
+    return {
+      ok: false,
+      message: 'You must be signed in to load report templates.',
+    }
+  }
 
-  const response = await fetch(
-    nestApiUrl('/client-portal/social-listening/reports/templates'),
-    {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: 'no-store',
-    },
-  )
+  try {
+    const response = await fetch(
+      nestApiUrl('/client-portal/social-listening/reports/templates'),
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      },
+    )
 
-  if (!response.ok) return []
-  const json = (await response.json()) as { templates?: ReportTemplateMeta[] }
-  return json.templates ?? []
+    if (!response.ok) {
+      let message = 'Could not load report templates. Check that the API is running and refresh.'
+      try {
+        message = parseApiErrorMessage(await response.json(), message)
+      } catch {
+        // ignore
+      }
+      return { ok: false, message }
+    }
+
+    const json = (await response.json()) as { templates?: ReportTemplateMeta[] }
+    return { ok: true, templates: json.templates ?? [] }
+  } catch {
+    return {
+      ok: false,
+      message:
+        'Could not reach the report API. Check that the API is running and refresh.',
+    }
+  }
+}
+
+export async function fetchReportTemplates(): Promise<ReportTemplatesResult> {
+  if (templatesCache?.ok) return templatesCache
+
+  if (!templatesPromise) {
+    templatesPromise = fetchReportTemplatesFromApi().then((result) => {
+      if (result.ok) {
+        templatesCache = result
+      } else {
+        templatesPromise = null
+      }
+      return result
+    })
+  }
+
+  return templatesPromise
 }
 
 export async function downloadSocialListeningReport(options: {
@@ -58,9 +108,7 @@ export async function downloadSocialListeningReport(options: {
   if (!response.ok) {
     let message = 'Could not generate the report.'
     try {
-      const json = (await response.json()) as { message?: string | string[] }
-      if (typeof json.message === 'string') message = json.message
-      else if (Array.isArray(json.message)) message = json.message.join(', ')
+      message = parseApiErrorMessage(await response.json(), message)
     } catch {
       // ignore
     }

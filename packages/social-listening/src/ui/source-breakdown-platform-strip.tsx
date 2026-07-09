@@ -1,7 +1,7 @@
 'use client'
 
 import PlatformIcon from './platform-icon'
-import { formatMetricDeltaLine } from '@cocreate/social-listening/core'
+import { formatMetricDeltaCompact } from '@cocreate/social-listening/core'
 import { PLATFORM_META, resolvePlatformId } from '@cocreate/social-listening/core'
 import type { PlatformMentionDelta } from '@cocreate/social-listening/core'
 import type { SourceBreakdownRow } from '@cocreate/social-listening/core'
@@ -33,7 +33,7 @@ export default function SourceBreakdownPlatformStrip({
 
   return (
     <section
-      className="portal-animate-in-delay-1 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+      className="portal-animate-in-delay-1 grid grid-cols-[repeat(auto-fill,minmax(min(100%,13.5rem),1fr))] gap-3"
       aria-label="Mentions by platform"
     >
       {sorted.map((row) => {
@@ -75,9 +75,8 @@ export default function SourceBreakdownPlatformStrip({
                   <p className="mt-1 text-xs portal-sl-secondary">
                     Was {delta.baseline.toLocaleString()} on {baselineDate}
                   </p>
-                  <p className={`mt-0.5 text-xs font-medium ${deltaClass}`}>
-                    {formatMetricDeltaLine(delta, true)} ·{' '}
-                    {formatMetricDeltaLine(delta)}
+                  <p className={`mt-0.5 text-xs font-medium leading-snug ${deltaClass}`}>
+                    {formatMetricDeltaCompact(delta)}
                   </p>
                 </>
               ) : (

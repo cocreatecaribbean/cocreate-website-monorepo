@@ -10,6 +10,7 @@ import {
 import type { MentionSnapshotHint } from '@cocreate/social-listening/core'
 import { Plus, X } from 'lucide-react'
 import NavTooltip from '@cocreate/app-ui/nav-tooltip'
+import OrganizationBrandMark from './organization-brand-mark'
 import { slFontSemibold, slFontBold } from './typography'
 
 type SocialListeningSidebarProps = {
@@ -18,6 +19,7 @@ type SocialListeningSidebarProps = {
   settingsActive: boolean
   onOpenSettings: () => void
   organizationName?: string | null
+  organizationLogoUrl?: string | null
   mentionHint?: MentionSnapshotHint
   showSettings?: boolean
   showSetupShortcut?: boolean
@@ -81,6 +83,7 @@ export default function SocialListeningSidebar({
   settingsActive,
   onOpenSettings,
   organizationName,
+  organizationLogoUrl,
   mentionHint,
   showSettings = true,
   showSetupShortcut = true,
@@ -129,11 +132,20 @@ export default function SocialListeningSidebar({
             ) : null}
           </div>
         </div>
-        <p
-          className={`mt-3 truncate text-sm font-semibold tracking-wide text-white uppercase ${slFontBold}`}
-        >
-          {projectLabel}
-        </p>
+        <div className="mt-3 flex items-center gap-2.5">
+          {organizationLogoUrl !== undefined ? (
+            <OrganizationBrandMark
+              name={projectLabel}
+              logoUrl={organizationLogoUrl}
+              size="sm"
+            />
+          ) : null}
+          <p
+            className={`min-w-0 truncate text-sm font-semibold tracking-wide text-white uppercase ${slFontBold}`}
+          >
+            {projectLabel}
+          </p>
+        </div>
         {mentionHint ? (
           <p className="mt-1.5 text-xs leading-snug text-white/55">
             {mentionHint.mentionsLine}

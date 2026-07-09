@@ -18,6 +18,7 @@ import {
 } from '@/lib/admin-nav'
 import { ADMIN_NAV_ITEMS, ADMIN_SUPER_NAV_ITEMS } from '@/lib/admin-nav-items'
 import { useAdminOrgInboxUnreadCountQuery } from '@/lib/api/queries/org-inbox'
+import { useAdminProfileQuery } from '@/lib/api/queries/profile'
 import ThemeToggle from '@/components/theme-toggle'
 
 function resolvePathname(routerPathname: string | null): string {
@@ -55,6 +56,8 @@ export default function AdminSidebar({
   const router = useRouter()
   const { session, loading: sessionLoading, clearQueryCache } = useAdminSession()
   const { data: orgInboxUnread = 0 } = useAdminOrgInboxUnreadCountQuery()
+  const { data: profileData } = useAdminProfileQuery()
+  const avatarUrl = profileData?.profile?.avatarUrl
   const items =
     session?.mode === 'api_key' || isSuperAdminSession(session?.role ?? null)
       ? [...ADMIN_NAV_ITEMS, ...ADMIN_SUPER_NAV_ITEMS]
@@ -132,10 +135,34 @@ export default function AdminSidebar({
       </nav>
 
       {session?.email ? (
-        <div className="mt-4 space-y-1 px-3">
-          <p className="truncate text-xs text-white/60" title={session.email}>
-            Signed in as {session.displayName ?? session.email}
-          </p>
+        <div className="mt-4 space-y-3 px-3">
+          <Link
+            href="/profile"
+            onClick={onNavigate}
+            className="flex items-center gap-3 rounded-xl p-1 transition hover:bg-white/10"
+          >
+            <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white/10 ring-1 ring-white/15">
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-xs font-semibold text-white/80">
+                  {(session.displayName ?? session.email)
+                    .split(/[\s@]+/)
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((part) => part[0]?.toUpperCase() ?? '')
+                    .join('') || '?'}
+                </span>
+              )}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm text-white/90">
+                {session.displayName ?? session.email}
+              </span>
+              <span className="block truncate text-xs text-white/55">{session.email}</span>
+            </span>
+          </Link>
           {!session.profileComplete && session.mode === 'user' ? (
             <Link
               href="/profile"

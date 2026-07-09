@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Patch, Post, Req, UseGuards } from '@nestjs/common'
 import {
   AvatarUploadUrlSchema,
   type AvatarUploadUrlInput,
@@ -61,6 +61,16 @@ export class AdminProfileController {
       return { ok: false as const, message: 'Profile requires admin sign-in' }
     }
     const profile = await this.profiles.registerAvatar(request.adminUser, body)
+    return { ok: true as const, profile }
+  }
+
+  @Delete('profile/avatar')
+  @UseGuards(AdminAuthGuard)
+  async deleteAvatar(@Req() request: AdminRequest) {
+    if (!request.adminUser) {
+      return { ok: false as const, message: 'Profile requires admin sign-in' }
+    }
+    const profile = await this.profiles.deleteAvatar(request.adminUser)
     return { ok: true as const, profile }
   }
 }

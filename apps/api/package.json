@@ -26,7 +26,9 @@
     "@nestjs/config": "catalog:api",
     "@nestjs/core": "catalog:api",
     "@nestjs/platform-express": "catalog:api",
+    "@nestjs/platform-socket.io": "11.1.23",
     "@nestjs/schedule": "catalog:api",
+    "@nestjs/websockets": "11.1.23",
     "@nestjs/swagger": "^11.2.0",
     "@prisma/adapter-pg": "catalog:api",
     "@supabase/supabase-js": "^2.49.8",
@@ -34,7 +36,8 @@
     "pg": "catalog:api",
     "resend": "^6.12.3",
     "reflect-metadata": "catalog:api",
-    "rxjs": "catalog:api"
+    "rxjs": "catalog:api",
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "@nestjs/cli": "catalog:api",

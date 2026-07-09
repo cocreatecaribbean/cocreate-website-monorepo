@@ -27,6 +27,7 @@ export default function AdminOrgInboxConversationList({
   const conversationsQuery = useQuery({
     queryKey: adminQueryKeys.orgInbox.orgConversations(organizationId),
     queryFn: () => fetchAdminOrgInboxConversationsForClient(organizationId),
+    refetchInterval: 15_000,
   })
 
   if (conversationsQuery.isLoading) {

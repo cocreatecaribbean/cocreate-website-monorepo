@@ -1,0 +1,29 @@
+{
+  "name": "@cocreate/messaging",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./events": "./src/events.ts",
+    "./messaging-provider": "./src/messaging-provider.tsx",
+    "./use-thread-live": "./src/use-thread-live.ts",
+    "./use-inbox-live": "./src/use-inbox-live.ts",
+    "./is-messaging-enabled": "./src/is-messaging-enabled.ts"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "catalog:web",
+    "react": "catalog:react",
+    "socket.io-client": "^4.8.0"
+  },
+  "dependencies": {
+    "@cocreate/app-ui": "workspace:*",
+    "@cocreate/api-client": "workspace:*"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "catalog:web",
+    "@types/node": "catalog:tooling",
+    "@types/react": "catalog:react",
+    "react": "catalog:react",
+    "socket.io-client": "^4.8.1",
+    "typescript": "catalog:tooling"
+  }
+}

@@ -5,7 +5,6 @@ import { AdminProjectsController } from './admin-projects.controller'
 import { ClientProjectsController } from './client-projects.controller'
 import { ProjectNotificationMailService } from './project-notification-mail.service'
 import { ProjectNotificationsService } from './project-notifications.service'
-import { ProjectRealtimeService } from './project-realtime.service'
 import { ProjectStorageService } from './project-storage.service'
 import { OrganizationBrandAssetsService } from './organization-brand-assets.service'
 import { ProjectsService } from './projects.service'
@@ -34,7 +33,6 @@ import { AgencyCollaboratorsService } from './agency-collaborators.service'
     OrganizationBrandAssetsService,
     ClientTeamService,
     ProjectStorageService,
-    ProjectRealtimeService,
     ProjectNotificationsService,
     ProjectNotificationMailService,
   ],
@@ -43,7 +41,6 @@ import { AgencyCollaboratorsService } from './agency-collaborators.service'
     ProjectApprovalsService,
     ClientTeamService,
     ProjectNotificationsService,
-    ProjectRealtimeService,
     ProjectStorageService,
   ],
 })

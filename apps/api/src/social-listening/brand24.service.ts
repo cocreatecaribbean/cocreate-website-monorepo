@@ -7,8 +7,14 @@ import type {
   SocialPlatformId,
 } from './social-listening.types'
 import { SENTIMENT_COLORS } from './social-listening.types'
-import { endOfUtcDay } from './social-listening-dates'
+import { endOfUtcDay, formatUtcDateOnly } from './social-listening-dates'
 import { buildOrgScopedMockAnalytics } from './org-scoped-mock'
+import {
+  aggregateSentimentOverTimeByWeek,
+  enumerateCalendarWeeksInPeriod,
+  resolveTimeBlockFromIso,
+  TIME_BLOCKS,
+} from './social-listening-chart-buckets'
 
 export type Brand24FetchOptions = {
   periodStart: Date
@@ -88,13 +94,19 @@ export class Brand24Service {
         periodEnd,
       )
       if (!mentions.length) {
+        this.logger.warn(
+          `Brand24 empty mentions org=${organizationId} project=${brand24ProjectId}`,
+        )
         return {
           data: buildOrgScopedMockAnalytics(organizationId, projectKey, mockOpts),
           source: 'org_mock',
         }
       }
+      this.logger.log(
+        `Brand24 fetched org=${organizationId} project=${brand24ProjectId} mentions=${mentions.length}`,
+      )
       return {
-        data: this.aggregateMentions(mentions),
+        data: this.aggregateMentions(mentions, periodStart, periodEnd),
         source: 'brand24',
       }
     } catch (err) {
@@ -156,7 +168,19 @@ export class Brand24Service {
     return 'neutral'
   }
 
-  private aggregateMentions(mentions: BrandMentionsMention[]): SocialListeningAnalytics {
+  private resolveTimeBlock(isoDateTime: string | undefined): string {
+    return resolveTimeBlockFromIso(isoDateTime)
+  }
+
+  private aggregateMentions(
+    mentions: BrandMentionsMention[],
+    periodStart: Date,
+    periodEnd: Date,
+  ): SocialListeningAnalytics {
+    const periodStartIso = formatUtcDateOnly(periodStart)
+    const periodEndIso = formatUtcDateOnly(periodEnd)
+    const weeks = enumerateCalendarWeeksInPeriod(periodStartIso, periodEndIso)
+
     const sentimentCounts: Record<SentimentId, number> = {
       positive: 0,
       neutral: 0,
@@ -164,17 +188,46 @@ export class Brand24Service {
     }
     const platformCounts = new Map<SocialPlatformId, number>()
     const byDay = new Map<string, Record<SentimentId, number>>()
+    const reachByWeek = new Map<string, number>()
+    const engagementByWeek = new Map<string, number>()
+    const matrixByWeek = new Map<string, Map<string, number>>()
 
     for (const m of mentions) {
       const sentiment = this.resolveSentiment(m.sentiment)
       sentimentCounts[sentiment]++
       const platform = this.resolvePlatform(m.source)
       platformCounts.set(platform, (platformCounts.get(platform) ?? 0) + 1)
-      const day = (m.published_at ?? m.date ?? '').slice(0, 10)
+
+      const published = m.published_at ?? m.date ?? ''
+      const day = published.slice(0, 10)
       if (day) {
         const row = byDay.get(day) ?? { positive: 0, neutral: 0, negative: 0 }
         row[sentiment]++
         byDay.set(day, row)
+
+        const week = weeks.find(
+          (bucket) => day >= bucket.startDate && day <= bucket.endDate,
+        )
+        if (week) {
+          reachByWeek.set(
+            week.startDate,
+            (reachByWeek.get(week.startDate) ?? 0) + (m.reach ?? 0),
+          )
+          engagementByWeek.set(
+            week.startDate,
+            (engagementByWeek.get(week.startDate) ?? 0) +
+              (m.engagement ?? 0) +
+              (m.likes ?? 0) +
+              (m.comments ?? 0) +
+              (m.shares ?? 0),
+          )
+
+          const timeBlock = this.resolveTimeBlock(published)
+          const weekMatrix =
+            matrixByWeek.get(week.label) ?? new Map<string, number>()
+          weekMatrix.set(timeBlock, (weekMatrix.get(timeBlock) ?? 0) + 1)
+          matrixByWeek.set(week.label, weekMatrix)
+        }
       }
     }
 
@@ -188,59 +241,53 @@ export class Brand24Service {
     )
 
     const sortedDays = [...byDay.keys()].sort()
-    const sentimentOverTime = sortedDays.map((date) => ({
+    const dailySentimentOverTime = sortedDays.map((date) => ({
       date,
       ...byDay.get(date)!,
     }))
+    const sentimentOverTime = aggregateSentimentOverTimeByWeek(dailySentimentOverTime, {
+      periodStart: periodStartIso,
+      periodEnd: periodEndIso,
+    })
 
     const sourceBreakdown = [...platformCounts.entries()]
       .map(([platformId, count]) => ({ platformId, mentions: count }))
       .sort((a, b) => b.mentions - a.mentions)
 
-    const totalReach = mentions.reduce((sum, m) => sum + (m.reach ?? 0), 0)
-    const totalEngagement = mentions.reduce(
-      (sum, m) =>
-        sum +
-        (m.engagement ?? 0) +
-        (m.likes ?? 0) +
-        (m.comments ?? 0) +
-        (m.shares ?? 0),
-      0,
-    )
-
     const reachVsEngagement = [
       {
         id: 'Social Reach (Thousands)',
-        data: sortedDays.slice(-7).map((d, i) => ({
-          x: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i % 7],
-          y: Math.round(totalReach / Math.max(sortedDays.length, 1) / 1000),
+        data: weeks.map((week) => ({
+          x: week.label,
+          y: Math.round((reachByWeek.get(week.startDate) ?? 0) / 1000),
         })),
       },
       {
         id: 'Engagement Volume',
-        data: sortedDays.slice(-7).map((d, i) => ({
-          x: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i % 7],
-          y: Math.round(totalEngagement / Math.max(sortedDays.length, 1)),
+        data: weeks.map((week) => ({
+          x: week.label,
+          y: Math.round(engagementByWeek.get(week.startDate) ?? 0),
         })),
       },
     ]
 
-    const mentionMatrix = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(
-      (id, wi) => ({
-        id,
-        data: ['12am-6am', '6am-12pm', '12pm-6pm', '6pm-12am'].map((x, ti) => ({
-          x,
-          y: Math.round(mentions.filter((_, idx) => (idx + wi + ti) % 5 === 0).length * 12),
-        })),
-      }),
-    )
+    const timeBlocks = [...TIME_BLOCKS]
+    const mentionMatrix = weeks.map((week) => ({
+      id: week.label,
+      data: timeBlocks.map((block) => ({
+        x: block,
+        y: matrixByWeek.get(week.label)?.get(block) ?? 0,
+      })),
+    }))
 
     return {
       sentimentSummary,
       sentimentOverTime:
         sentimentOverTime.length > 0
           ? sentimentOverTime
-          : buildOrgScopedMockAnalytics('fallback').sentimentOverTime,
+          : buildOrgScopedMockAnalytics('fallback', undefined, {
+              periodEnd: endOfUtcDay(periodEnd),
+            }).sentimentOverTime,
       sourceBreakdown:
         sourceBreakdown.length > 0
           ? sourceBreakdown

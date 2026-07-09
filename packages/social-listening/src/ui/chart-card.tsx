@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { slFontSemibold } from './typography'
+import ChartSkeleton from './chart-skeleton'
 
 type ChartCardProps = {
   title: string
@@ -9,6 +10,8 @@ type ChartCardProps = {
   accent?: boolean
   /** Avoid stretching to match sibling cards in a grid row (e.g. stream chart) */
   compact?: boolean
+  loading?: boolean
+  loadingVariant?: 'pie' | 'bar' | 'line' | 'stream' | 'heatmap'
   delayClass?: string
   className?: string
   headerAction?: ReactNode
@@ -20,6 +23,8 @@ export default function ChartCard({
   description,
   accent = false,
   compact = false,
+  loading = false,
+  loadingVariant = 'bar',
   delayClass = '',
   className = '',
   headerAction,
@@ -63,9 +68,9 @@ export default function ChartCard({
         </div>
       </header>
       <div
-        className={`portal-chart-card-body p-4 sm:p-5 ${compact ? '' : 'min-h-0 flex-1'}`}
+        className={`@container/chart portal-chart-card-body p-4 sm:p-5 ${compact ? 'portal-chart-card-body-compact min-h-0' : 'min-h-0 flex-1'}`}
       >
-        {children}
+        {loading ? <ChartSkeleton variant={loadingVariant} /> : children}
       </div>
     </article>
   )

@@ -31,6 +31,11 @@ export const RegisterAvatarSchema = z.object({
 })
 export type RegisterAvatarInput = z.infer<typeof RegisterAvatarSchema>
 
+export const UpdateClientProfileSchema = z.object({
+  displayName: z.string().max(120).optional(),
+})
+export type UpdateClientProfileInput = z.infer<typeof UpdateClientProfileSchema>
+
 export const CreateProfileOptionSchema = z.object({
   label: z.string().max(120),
   sortOrder: z.number().int().min(0).optional(),

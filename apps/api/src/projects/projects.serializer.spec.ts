@@ -297,8 +297,8 @@ describe('projects.serializer overview payloads', () => {
         targetPhase: null,
         approvedAt: new Date('2026-06-20T12:00:00.000Z'),
         approvedByUserId: 'client-1',
-        attachmentIds: [],
         approvedAttachmentId: null,
+        recordAttachments: [],
         approvalItem: { attachment },
       },
       { omitStoragePath: true },
@@ -308,7 +308,7 @@ describe('projects.serializer overview payloads', () => {
     expect(serialized.attachments?.[0]?.fileName).toBe('poster.png')
   })
 
-  it('serializes legacy approval history from approvedAttachmentId when attachmentIds is empty', () => {
+  it('serializes approval history from recordAttachments junction rows', () => {
     const attachment = {
       id: 'att-legacy',
       projectId: 'proj-1',
@@ -333,7 +333,7 @@ describe('projects.serializer overview payloads', () => {
         targetPhase: null,
         approvedAt: new Date('2026-06-20T12:00:00.000Z'),
         approvedByUserId: 'client-1',
-        attachmentIds: [],
+        recordAttachments: [],
         approvedAttachmentId: 'att-legacy',
         snapshottedAttachments: [attachment],
       },
@@ -344,7 +344,7 @@ describe('projects.serializer overview payloads', () => {
     expect(serialized.attachments?.[0]?.fileName).toBe('billboard.png')
   })
 
-  it('falls back to message attachment links when attachmentIds is empty', () => {
+  it('falls back to message attachment links when recordAttachments is empty', () => {
     const attachment = {
       id: 'att-msg',
       projectId: 'proj-1',
@@ -369,7 +369,7 @@ describe('projects.serializer overview payloads', () => {
         targetPhase: 'CLIENT_REVIEW',
         approvedAt: new Date('2026-05-27T15:28:34.000Z'),
         approvedByUserId: 'client-1',
-        attachmentIds: [],
+        recordAttachments: [],
         approvedAttachmentId: null,
         message: {
           attachmentLinks: [{ attachment }],
@@ -407,7 +407,7 @@ describe('projects.serializer overview payloads', () => {
         targetPhase: null,
         approvedAt: new Date('2026-05-27T15:28:34.000Z'),
         approvedByUserId: 'client-1',
-        attachmentIds: [],
+        recordAttachments: [],
         approvedAttachmentId: 'att-deleted',
         message: {
           attachmentLinks: [{ attachment }],

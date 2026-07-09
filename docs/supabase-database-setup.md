@@ -40,7 +40,16 @@ Create a **private** bucket named `project-attachments` in **Storage** (Supabase
 
 ### Storage: admin avatars
 
-Create a **private** bucket named `admin-avatars` for Admin Center profile photos. Paths: `admin/{userId}/{uuid}-filename`. Upload and display are mediated by the Nest API (`POST/PATCH /auth/admin/profile/avatar/*`).
+Create a **private** bucket named `admin-avatars` for profile photos (Admin Center and Client Portal). Paths:
+
+- `admin/{userId}/{uuid}-filename` — agency admins
+- `client/{userId}/{uuid}-filename` — client portal users
+
+Upload and display are mediated by the Nest API (`POST/PATCH/DELETE /auth/admin/profile/avatar/*` and `/client-portal/profile/avatar/*`).
+
+### Storage: client logos
+
+Create a **public** bucket named `client-logos` for organization logos. Paths: `logos/{uuid}-filename`. Upload is via signed URL; the API stores the public URL on `Organization.logoUrl` (`POST/PATCH/DELETE /admin/clients/:organizationId/logo/*` and `/client-portal/organization/logo/*`).
 
 ### Local Docker
 
@@ -59,6 +68,12 @@ pnpm --filter @cocreate/api dev
 ```
 
 Admin client APIs: `POST /admin/clients/invite`, `GET /admin/clients`.
+
+### Soft delete and tenant scoping
+
+Core tenant entities (`Organization`, `User`, `ClientProject`) include optional `deletedAt`. The Nest API Prisma client extension excludes soft-deleted rows from read queries by default.
+
+Client-portal requests set an AsyncLocalStorage tenant context; Prisma auto-scopes `organizationId` on tenant-scoped models during those requests as a defense-in-depth guard (see `apps/api/src/prisma/`).
 
 ## Supabase Auth env (all apps)
 

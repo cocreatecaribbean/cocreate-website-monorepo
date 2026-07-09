@@ -72,7 +72,10 @@ model Organization {
   orgInboxConversations      OrgInboxConversation[]
   orgInboxAttachments        OrgInboxAttachment[]
 
+  deletedAt DateTime?
+
   @@index([slug])
+  @@index([deletedAt])
 }
 
 /// Admin-only brand guidelines per client (style guides, logos, PDFs)
@@ -225,9 +228,12 @@ model ClientProject {
   agencyMembers     AgencyProjectMember[]
   approvalItems     ProjectApprovalItem[]
 
+  deletedAt DateTime?
+
   @@index([organizationId])
   @@index([organizationId, status])
   @@index([createdByUserId])
+  @@index([deletedAt])
 }
 
 /// Per-project access for client team members (owners bypass via code)
@@ -353,14 +359,27 @@ model ClientApprovalRecord {
   approvedAt       DateTime               @default(now())
   approvedByUserId String
   approvedBy       User                   @relation("ClientApprovalBy", fields: [approvedByUserId], references: [id])
-  /// Attachment IDs linked to the checkpoint at approval time (history preview source of truth)
-  attachmentIds        String[]               @default([])
   /// Primary file when this history row is a per-file approval
   approvedAttachmentId String?
+  recordAttachments    ClientApprovalRecordAttachment[]
 
   @@index([projectId, approvedAt])
   @@index([approvedByUserId])
   @@index([approvalItemId])
+}
+
+/// FK-enforced snapshot of attachments included in an approval record
+model ClientApprovalRecordAttachment {
+  id               String               @id @default(cuid())
+  approvalRecordId String
+  approvalRecord   ClientApprovalRecord @relation(fields: [approvalRecordId], references: [id], onDelete: Cascade)
+  attachmentId     String
+  attachment       ProjectAttachment    @relation(fields: [attachmentId], references: [id], onDelete: Restrict)
+  createdAt        DateTime             @default(now())
+
+  @@unique([approvalRecordId, attachmentId])
+  @@index([approvalRecordId])
+  @@index([attachmentId])
 }
 
 /// Standalone file sent for client approval (independent lifecycle per file)
@@ -439,6 +458,7 @@ model ProjectAttachment {
   messageLinks     ProjectRequestMessageAttachment[]
   approvalItems    ProjectApprovalItem[]
   approvalCommentLinks ProjectApprovalCommentAttachment[]
+  approvalRecordLinks  ClientApprovalRecordAttachment[]
 
   @@index([projectId])
   @@index([requestId])
@@ -580,6 +600,7 @@ model SocialListeningSubscription {
   paymentMethodExpYear   Int?
   fygaroCustomerRef      String?
   createdByUserId        String?
+  createdBy              User?                                @relation("SlSubscriptionCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   createdAt              DateTime                             @default(now())
   updatedAt              DateTime                             @updatedAt
   paymentEvents          SocialListeningPaymentEvent[]
@@ -629,8 +650,9 @@ model SocialListeningSetup {
   endDate           DateTime                   @db.Date
   brand24ProjectId  String?
   snapshotsCaptured Int                        @default(0)
-  createdBy         SocialListeningSetupActor
+  createdByActor    SocialListeningSetupActor  @map("createdBy")
   createdByUserId   String?
+  createdByUser     User?                      @relation("SlSetupCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   createdAt         DateTime                   @default(now())
 
   @@index([organizationId, status])
@@ -749,6 +771,7 @@ model User {
   canAccessSocialListening Boolean               @default(false)
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
+  deletedAt               DateTime?
   projectsCreated         ClientProject[]        @relation("ProjectCreatedBy")
   projectsApproved        ClientProject[]        @relation("ProjectApprovedBy")
   projectsCompleted       ClientProject[]        @relation("ProjectCompletedBy")
@@ -779,11 +802,14 @@ model User {
   orgInboxMessages          OrgInboxMessage[]         @relation("OrgInboxMessageAuthor")
   orgInboxAttachmentsUploaded OrgInboxAttachment[]    @relation("OrgInboxAttachmentUploader")
   orgInboxReadCursors       OrgInboxReadCursor[]      @relation("OrgInboxReadCursor")
+  socialListeningSubscriptionsCreated SocialListeningSubscription[] @relation("SlSubscriptionCreatedBy")
+  socialListeningSetupsCreated        SocialListeningSetup[]        @relation("SlSetupCreatedBy")
 
   @@index([organizationId])
   @@index([organizationId, clientOrgRole])
   @@index([email])
   @@index([status])
+  @@index([deletedAt])
 }
 
 /// Agency-wide job title options (managed by super admins)

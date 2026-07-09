@@ -3,6 +3,9 @@ import { ConfigService } from '@nestjs/config'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@cocreate/database'
 import { Pool } from 'pg'
+import { softDeleteExtension } from './prisma-extensions'
+import { tenantScopeExtension } from './tenant-scope.extension'
+import { tenantContext } from './tenant-context'
 
 @Injectable()
 export class PrismaService
@@ -15,13 +18,17 @@ export class PrismaService
     const connectionString = config.getOrThrow<string>('DATABASE_URL')
     const pool = new Pool({
       connectionString,
-      // Keep below Supabase Supavisor pool size per instance (see docs/supabase-database-setup.md)
       max: Number(process.env.DATABASE_POOL_MAX ?? 10),
     })
     const adapter = new PrismaPg(pool)
 
     super({ adapter })
     this.pool = pool
+
+    const extended = this.$extends(softDeleteExtension()).$extends(
+      tenantScopeExtension(() => tenantContext.getOrganizationId()),
+    )
+    Object.assign(this, extended)
   }
 
   async onModuleInit() {

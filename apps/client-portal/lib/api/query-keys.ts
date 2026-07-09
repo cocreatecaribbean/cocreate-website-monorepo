@@ -53,6 +53,8 @@ export const queryKeys = {
   requests: {
     all: ['requests'] as const,
     detail: (requestId: string) => [...queryKeys.requests.all, requestId] as const,
+    messages: (requestId: string) =>
+      [...queryKeys.requests.all, requestId, 'messages'] as const,
   },
   attachments: {
     all: ['attachments'] as const,

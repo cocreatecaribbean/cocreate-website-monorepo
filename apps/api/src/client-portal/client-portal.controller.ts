@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Patch,
   Post,
@@ -8,10 +9,12 @@ import {
   Req,
   Res,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common'
 import type { Response } from 'express'
 import { ClientAuthGuard } from '../auth/guards/client-auth.guard'
 import type { ClientPortalRequest } from '../auth/guards/client-auth.guard'
+import { ClientLogoStorageService } from '../clients/client-logo-storage.service'
 import { SocialListeningReportService } from '../social-listening/social-listening-report.service'
 import { SocialListeningService } from '../social-listening/social-listening.service'
 import {
@@ -19,18 +22,33 @@ import {
   type CreateListeningSetupInput,
 } from '@cocreate/api-contracts/v1/requests/social-listening'
 import {
+  LogoUploadUrlSchema,
+  type LogoUploadUrlInput,
+  UpdateOrganizationLogoSchema,
+  type UpdateOrganizationLogoInput,
+} from '@cocreate/api-contracts/v1/requests/clients'
+import {
+  AvatarUploadUrlSchema,
+  type AvatarUploadUrlInput,
+  RegisterAvatarSchema,
+  type RegisterAvatarInput,
+  UpdateClientProfileSchema,
+  type UpdateClientProfileInput,
   UpdateUserPreferencesSchema,
   type UpdateUserPreferencesInput,
 } from '@cocreate/api-contracts/v1/requests/users'
 import { zodBody } from '../common/zod/zod-validation.pipe'
+import { TenantScopeInterceptor } from '../prisma/tenant-scope.interceptor'
 import { ClientPortalService } from './client-portal.service'
 
 @Controller({ path: 'client-portal', version: '1' })
+@UseInterceptors(TenantScopeInterceptor)
 export class ClientPortalController {
   constructor(
     private readonly clientPortalService: ClientPortalService,
     private readonly socialListeningService: SocialListeningService,
     private readonly socialListeningReports: SocialListeningReportService,
+    private readonly logoStorage: ClientLogoStorageService,
   ) {}
 
   @Get('me')
@@ -46,6 +64,74 @@ export class ClientPortalController {
     @Body(zodBody(UpdateUserPreferencesSchema)) body: UpdateUserPreferencesInput,
   ) {
     return this.clientPortalService.updatePreferences(request.clientUser!, body)
+  }
+
+  @Post('organization/logo/upload-url')
+  @UseGuards(ClientAuthGuard)
+  organizationLogoUploadUrl(
+    @Req() request: ClientPortalRequest,
+    @Body(zodBody(LogoUploadUrlSchema)) body: LogoUploadUrlInput,
+  ) {
+    return this.clientPortalService.createOrganizationLogoUploadUrl(
+      request.clientUser!,
+      this.logoStorage,
+      body,
+    )
+  }
+
+  @Patch('organization/logo')
+  @UseGuards(ClientAuthGuard)
+  updateOrganizationLogo(
+    @Req() request: ClientPortalRequest,
+    @Body(zodBody(UpdateOrganizationLogoSchema)) body: UpdateOrganizationLogoInput,
+  ) {
+    return this.clientPortalService.updateOrganizationLogo(
+      request.clientUser!,
+      this.logoStorage,
+      body,
+    )
+  }
+
+  @Delete('organization/logo')
+  @UseGuards(ClientAuthGuard)
+  clearOrganizationLogo(@Req() request: ClientPortalRequest) {
+    return this.clientPortalService.clearOrganizationLogo(request.clientUser!)
+  }
+
+  @Patch('profile')
+  @UseGuards(ClientAuthGuard)
+  updateProfile(
+    @Req() request: ClientPortalRequest,
+    @Body(zodBody(UpdateClientProfileSchema)) body: UpdateClientProfileInput,
+  ) {
+    return this.clientPortalService.updateClientProfile(request.clientUser!, body)
+  }
+
+  @Post('profile/avatar/upload-url')
+  @UseGuards(ClientAuthGuard)
+  clientAvatarUploadUrl(
+    @Req() request: ClientPortalRequest,
+    @Body(zodBody(AvatarUploadUrlSchema)) body: AvatarUploadUrlInput,
+  ) {
+    return this.clientPortalService.createClientAvatarUploadUrl(
+      request.clientUser!,
+      body,
+    )
+  }
+
+  @Patch('profile/avatar')
+  @UseGuards(ClientAuthGuard)
+  registerClientAvatar(
+    @Req() request: ClientPortalRequest,
+    @Body(zodBody(RegisterAvatarSchema)) body: RegisterAvatarInput,
+  ) {
+    return this.clientPortalService.registerClientAvatar(request.clientUser!, body)
+  }
+
+  @Delete('profile/avatar')
+  @UseGuards(ClientAuthGuard)
+  deleteClientAvatar(@Req() request: ClientPortalRequest) {
+    return this.clientPortalService.deleteClientAvatar(request.clientUser!)
   }
 
   @Post('social-listening/setup')

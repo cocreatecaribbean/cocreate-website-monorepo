@@ -7,9 +7,21 @@ import type {
   SocialListeningReportTemplateMeta,
 } from '@cocreate/api-contracts/v1/social-listening'
 import type { CreateListeningSetupPayload } from '@cocreate/api-contracts/v1/requests/social-listening'
+import type { SocialListeningSnapshotDatesResult } from './snapshot-dates'
+
+export type { SocialListeningSnapshotDatesResult, SocialListeningSnapshotDateEntry } from './snapshot-dates'
+export {
+  formatSnapshotOptionLabel,
+  formatSnapshotPeriod,
+  resolveDataSourceLabel,
+} from './snapshot-dates'
 
 export type { SocialListeningReportTemplateMeta as ReportTemplateMeta }
 export type { CreateListeningSetupPayload }
+
+export type ReportTemplatesResult =
+  | { ok: true; templates: SocialListeningReportTemplateMeta[] }
+  | { ok: false; message: string }
 
 export type SocialListeningDataSource = {
   fetchAnalyticsWithStatus: (options?: {
@@ -19,12 +31,12 @@ export type SocialListeningDataSource = {
     | { status: 'not_found' }
     | { status: 'error' }
   >
-  fetchSnapshotDates: () => Promise<string[]>
+  fetchSnapshotDates: () => Promise<SocialListeningSnapshotDatesResult>
   fetchCompare: (options: {
     baseline: string
     current?: string
   }) => Promise<SocialListeningComparePayload | null>
-  fetchReportTemplates: () => Promise<SocialListeningReportTemplateMeta[]>
+  fetchReportTemplates: () => Promise<ReportTemplatesResult>
   downloadReport: (options: {
     templateId: string
     asOf?: string

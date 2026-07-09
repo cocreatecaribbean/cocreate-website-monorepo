@@ -16,7 +16,7 @@ import { parseUtcDateOnly } from './social-listening-dates'
 import type { CreateListeningSetupInput } from '@cocreate/api-contracts/v1/requests/social-listening'
 import { SocialListeningSnapshotService } from './social-listening-snapshot.service'
 import {
-  enumerateUtcDatesInclusive,
+  enumerateUtcMonthlySnapshotDates,
   validateListeningSetupDateRange,
 } from './social-listening-setup-dates'
 import type {
@@ -75,10 +75,6 @@ export class SocialListeningService {
     if (this.snapshots.isEnabled()) {
       const latestSnapshot = await this.snapshots.getSnapshot(organization)
       if (latestSnapshot) return latestSnapshot
-
-      await this.snapshots.captureSnapshot(organization)
-      const saved = await this.snapshots.getSnapshot(organization)
-      if (saved) return saved
     }
 
     const { data, source } = await this.brand24.fetchAnalytics(
@@ -119,7 +115,11 @@ export class SocialListeningService {
       Number.isFinite(parsedLimit) && parsedLimit > 0 && parsedLimit <= 365
         ? parsedLimit
         : 90
-    return this.snapshots.listSnapshotDates(organization.id, safeLimit)
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organization.id },
+      select: { name: true },
+    })
+    return this.snapshots.listSnapshotDates(organization.id, safeLimit, org?.name)
   }
 
   async createListeningSetupForClient(
@@ -173,7 +173,7 @@ export class SocialListeningService {
     })
 
     const orgContext = { id: params.organizationId, brand24ProjectId: projectId }
-    const dates = enumerateUtcDatesInclusive(start, end)
+    const dates = enumerateUtcMonthlySnapshotDates(start, end)
 
     for (const snapshotDate of dates) {
       await this.snapshots.captureSnapshot(orgContext, snapshotDate)
@@ -189,7 +189,7 @@ export class SocialListeningService {
         endDate: end,
         brand24ProjectId: projectId,
         snapshotsCaptured: dates.length,
-        createdBy:
+        createdByActor:
           params.actor === 'ADMIN'
             ? SocialListeningSetupActor.ADMIN
             : SocialListeningSetupActor.CLIENT,

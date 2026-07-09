@@ -3,6 +3,7 @@
 import { Suspense, useCallback, type ReactNode } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import SocialListeningSidebar from './social-listening-sidebar'
+import SocialListeningMobileSubNav from './social-listening-mobile-subnav'
 import type { MentionSnapshotHint } from '@cocreate/social-listening/core'
 import {
   DEFAULT_SETTINGS_NAV,
@@ -18,6 +19,7 @@ import {
 type SocialListeningLayoutProps = {
   children: (activeView: SocialListeningViewId, settingsOpen: boolean) => ReactNode
   organizationName?: string | null
+  organizationLogoUrl?: string | null
   mentionHint?: MentionSnapshotHint
   showSettings?: boolean
   showSetupShortcut?: boolean
@@ -26,6 +28,7 @@ type SocialListeningLayoutProps = {
 function SocialListeningLayoutInner({
   children,
   organizationName,
+  organizationLogoUrl,
   mentionHint,
   showSettings = true,
   showSetupShortcut = true,
@@ -67,7 +70,7 @@ function SocialListeningLayoutInner({
     ? DEFAULT_SETTINGS_NAV
     : activeView === SOCIAL_LISTENING_SETUP.id
       ? SOCIAL_LISTENING_SETUP
-      : (mainNavItems.find((item) => item.id === activeView) ?? SOCIAL_LISTENING_NAV[1])
+      : (mainNavItems.find((item) => item.id === activeView) ?? SOCIAL_LISTENING_NAV[0])
 
   return (
     <div className="portal-sl-shell flex min-h-0 flex-1 flex-col lg:flex-row lg:gap-0">
@@ -78,6 +81,7 @@ function SocialListeningLayoutInner({
           settingsActive={settingsOpen}
           onOpenSettings={openSettings}
           organizationName={organizationName}
+          organizationLogoUrl={organizationLogoUrl}
           mentionHint={mentionHint}
           showSettings={showSettings}
           showSetupShortcut={showSetupShortcut}
@@ -85,6 +89,10 @@ function SocialListeningLayoutInner({
       </div>
 
       <div className="portal-sl-main portal-sl-region flex min-h-0 min-w-0 flex-1 flex-col">
+        <SocialListeningMobileSubNav
+          activeView={activeView}
+          onSelectView={setActiveView}
+        />
         <header className="mb-4 shrink-0 px-1 lg:px-2">
           <p className="portal-eyebrow">{activeMeta.label}</p>
           <p className="portal-sl-body mt-1 text-sm">{activeMeta.description}</p>

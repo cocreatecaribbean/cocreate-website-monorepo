@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 export type PreviewAttachment = {
@@ -132,14 +132,22 @@ function PreviewItem({
   const [url, setUrl] = useState<string | null>(null)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [videoModalOpen, setVideoModalOpen] = useState(false)
+  const fetchDownloadUrlRef = useRef(fetchDownloadUrl)
+  fetchDownloadUrlRef.current = fetchDownloadUrl
   const isImage = attachment.mimeType.startsWith('image/')
   const isVideo = attachment.mimeType.startsWith('video/')
   const previewable = isImage || isVideo
 
   useEffect(() => {
     if (!previewable) return
-    void fetchDownloadUrl(attachment.id).then(setUrl)
-  }, [attachment.id, fetchDownloadUrl, previewable])
+    let cancelled = false
+    void fetchDownloadUrlRef.current(attachment.id).then((nextUrl) => {
+      if (!cancelled) setUrl(nextUrl)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [attachment.id, previewable])
 
   const openFile = async () => {
     const downloadUrl = url ?? (await fetchDownloadUrl(attachment.id))
