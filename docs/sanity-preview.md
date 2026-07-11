@@ -112,6 +112,6 @@ sanity dataset import dev-backup.tar.gz production --replace
 | Presentation routes | `apps/cocreate-webapp-studio/presentation/resolve.ts` |
 | Draft enable/disable | `apps/web/app/api/draft/` |
 | Preview fetch | `apps/web/lib/server/sanity.ts` |
-| Embedded gate | `apps/web/middleware.ts` |
+| Embedded gate | `apps/web/proxy.ts` |
 | Work preview queries | `apps/web/sanity/lib/queries.ts` |
 | Revalidate webhook | `apps/web/app/api/revalidate/route.ts` |

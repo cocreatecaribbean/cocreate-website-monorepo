@@ -19,7 +19,7 @@ function isStudioReferer(referer: string | null): boolean {
   }
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const hasDraftCookie = request.cookies.has('__prerender_bypass')
   const isIframe = request.headers.get('sec-fetch-dest') === 'iframe'
   const fromStudio = isStudioReferer(request.headers.get('referer'))

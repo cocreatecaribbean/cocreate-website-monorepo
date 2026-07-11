@@ -114,9 +114,9 @@ Each admin sets **display name**, one or more **job titles** (from the agency li
 
 ### Admin Center: “Could not load clients/admins” (403)
 
-Supabase sign-in alone is not enough — the email must exist in Prisma with `role: SUPER_ADMIN` or `ADMIN` and `status` not `SUSPENDED` (seed with `seed:admin` or super-admin Team invite). Admin Center middleware calls `GET /auth/admin/me` on page loads (not `/api/*` BFF routes). Expired sessions redirect through `/auth/signout` (clears cookies) then `/login?error=session_expired` to avoid redirect loops. List pages show the API error message (e.g. `Admin access required`) instead of a generic failure.
+Supabase sign-in alone is not enough — the email must exist in Prisma with `role: SUPER_ADMIN` or `ADMIN` and `status` not `SUSPENDED` (seed with `seed:admin` or super-admin Team invite). Admin Center proxy (`apps/admin-center/proxy.ts`) calls `GET /auth/admin/me` on page loads (not `/api/*` BFF routes). Expired sessions redirect through `/auth/signout` (clears cookies) then `/login?error=session_expired` to avoid redirect loops. List pages show the API error message (e.g. `Admin access required`) instead of a generic failure.
 
-**Admin vs Client Portal sessions:** Both apps share one Supabase project but use **separate auth cookies** (`sb-<ref>-admin-auth-token` vs `sb-<ref>-client-auth-token`) so localhost ports 3002/3003 do not overwrite each other. Client middleware also calls `GET /client-portal/me` and signs out non-client roles. After this change, sign in again on each portal once.
+**Admin vs Client Portal sessions:** Both apps share one Supabase project but use **separate auth cookies** (`sb-<ref>-admin-auth-token` vs `sb-<ref>-client-auth-token`) so localhost ports 3002/3003 do not overwrite each other. Client proxy also calls `GET /client-portal/me` and signs out non-client roles. After this change, sign in again on each portal once.
 
 **Client portal roles (`clientOrgRole`):**
 
