@@ -28,7 +28,11 @@
       "persistent": true
     },
     "lint": {},
-    "type-check": {},
+    "type-check": {
+      "dependsOn": [
+        "^build"
+      ]
+    },
     "@cocreate/api#build": {
       "dependsOn": [
         "^build"
