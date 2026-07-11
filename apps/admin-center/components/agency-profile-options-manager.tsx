@@ -143,7 +143,7 @@ function OptionList({
             type="button"
             disabled={deletingId === item.id}
             onClick={() => onDelete(item.id, item.label)}
-            className="admin-btn-ghost text-xs text-red-700/90 hover:text-red-800"
+            className="admin-btn-ghost text-xs text-casablanca hover:text-casablanca/80"
           >
             {deletingId === item.id ? 'Removing…' : 'Delete'}
           </button>
