@@ -6,6 +6,11 @@ allowBuilds:
   esbuild: false
   sharp: false
   unrs-resolver: false
+  "@nestjs/core": true
+  "@prisma/engines": true
+  "@swc/core": true
+  prisma: true
+  "@scarf/scarf": true
 
 # Named catalogs — use "catalog:<name>" in package.json (e.g. catalog:react)
 # https://pnpm.io/catalogs

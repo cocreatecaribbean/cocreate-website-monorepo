@@ -12,7 +12,7 @@
     "baseUrl": ".",
     "paths": {
       "@cocreate/api-contracts/v1/*": ["../api-contracts/src/v1/*"],
-      "@cocreate/social-listening/core": ["../social-listening/src/core/index.ts"]
+      "@cocreate/social-listening/core": ["../social-listening/dist/core/index.d.ts"]
     },
     "types": ["node"]
   },

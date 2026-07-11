@@ -1,0 +1,7 @@
+[build]
+builder = "railpack"
+buildCommand = "pnpm install --frozen-lockfile && pnpm turbo build --filter=@cocreate/api"
+
+[deploy]
+startCommand = "pnpm --filter @cocreate/api start:prod"
+restartPolicyType = "on_failure"

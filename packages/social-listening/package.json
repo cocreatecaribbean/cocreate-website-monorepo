@@ -4,8 +4,18 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/core/index.ts",
-    "./core": "./src/core/index.ts",
+    ".": {
+      "types": "./dist/core/index.d.ts",
+      "require": "./dist/core/index.js",
+      "import": "./dist/core/index.js",
+      "default": "./dist/core/index.js"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "require": "./dist/core/index.js",
+      "import": "./dist/core/index.js",
+      "default": "./dist/core/index.js"
+    },
     "./data-source": "./src/data-source/index.ts",
     "./ui": "./src/ui/index.ts"
   },
@@ -25,6 +35,7 @@
     "@cocreate/api-contracts": "workspace:*"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json && cp dist-package.json dist/package.json",
     "type-check": "tsc --noEmit",
     "test": "jest"
   },
