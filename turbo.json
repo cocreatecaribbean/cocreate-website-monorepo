@@ -33,6 +33,12 @@
         "^build"
       ]
     },
+    "@cocreate/social-listening#type-check": {
+      "dependsOn": [
+        "^build",
+        "build"
+      ]
+    },
     "@cocreate/api#build": {
       "dependsOn": [
         "^build"
