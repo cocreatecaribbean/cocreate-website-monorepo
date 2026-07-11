@@ -167,7 +167,7 @@ export function useSendApprovalCommentMutation(approvalItemId: string) {
     onSuccess: (result, _body, context) => {
       if (!result.ok || !context) return
       const serverComment = result.data.comment as ApprovalCommentLike
-      queryClient.setQueryData(commentsKey, (current) =>
+      queryClient.setQueryData(commentsKey, (current: ApprovalCommentLike[] | undefined) =>
         replacePendingApprovalComment(current, context.optimisticId, serverComment),
       )
     },
