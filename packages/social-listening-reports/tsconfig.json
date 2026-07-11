@@ -2,16 +2,11 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "commonjs",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "declaration": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "baseUrl": ".",
-    "paths": {
-      "@cocreate/api-contracts/v1/*": ["../api-contracts/dist/v1/*"],
-      "@cocreate/social-listening/core": ["../social-listening/dist/core/index.d.ts"]
-    },
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
