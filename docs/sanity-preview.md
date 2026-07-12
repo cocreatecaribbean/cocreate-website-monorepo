@@ -22,7 +22,7 @@ See also [doppler.md](./doppler.md) for portal/API/Supabase tiers (separate from
 
 ## Doppler keys
 
-### `dev` (local + sandbox deploys)
+### `dev` (local only — `doppler.yaml`)
 
 | Key | Example |
 |-----|---------|
@@ -34,18 +34,18 @@ See also [doppler.md](./doppler.md) for portal/API/Supabase tiers (separate from
 | `NEXT_PUBLIC_SANITY_STUDIO_URL` | `http://localhost:3333` |
 | `SANITY_REVALIDATE_SECRET` | random (`openssl rand -base64 32`) |
 
-### `prd` (production Vercel)
+### `stg_sanity_studio` (hosted Studio on Vercel — staging)
 
-| Key | Marketing Vercel | Studio Vercel (`hq`) |
-|-----|------------------|----------------------|
-| `NEXT_PUBLIC_SANITY_DATASET` | `production` | — |
-| `SANITY_STUDIO_DATASET` | — | `production` |
-| `SANITY_API_TOKEN` | prod token | optional |
-| `SANITY_STUDIO_PREVIEW_URL` | — | `https://cocreatecaribbean.com` |
-| `NEXT_PUBLIC_SANITY_STUDIO_URL` | `https://hq.cocreatecaribbean.com` | — |
-| `SANITY_REVALIDATE_SECRET` | same secret | — |
+Sync this config to the Studio Vercel project (not root `dev`).
 
-**Hosted Studio:** `SANITY_STUDIO_PREVIEW_URL` is the **marketing site** origin (iframe target), not the Studio URL. It is baked at **build time** — redeploy after changing it.
+| Key | Example |
+|-----|---------|
+| `SANITY_STUDIO_DATASET` | `dev` |
+| `SANITY_STUDIO_PREVIEW_URL` | `https://hq-preview.cocreatecaribbean.com` |
+| `NEXT_PUBLIC_SANITY_PROJECT_ID` | `5ix7h4ht` |
+| `NEXT_PUBLIC_SANITY_DATASET` | `dev` |
+
+**`SANITY_STUDIO_PREVIEW_URL` is the marketing site** Presentation iframes into (must be public HTTPS). It is **not** the Studio hostname. Baked at **build time** — redeploy Studio after changing it. Local `dev` keeps localhost; do not sync `dev` to Vercel Studio.
 
 ## Local workflow
 
@@ -65,7 +65,7 @@ pnpm dev:studio # studio only
 |---------|-----|
 | 401 on `/api/draft` | Studio and web use different datasets — align `SANITY_STUDIO_DATASET` and `NEXT_PUBLIC_SANITY_DATASET` |
 | Local Studio hits production | Set `SANITY_STUDIO_DATASET=dev` in Doppler (Studio ignores `NEXT_PUBLIC_*` alone) |
-| Hosted Studio previews localhost | Set `SANITY_STUDIO_PREVIEW_URL` on the **Studio** Vercel project to the public marketing URL and redeploy |
+| Hosted Studio previews localhost / build fails | Point Studio’s Doppler sync at `stg_sanity_studio` (public `SANITY_STUDIO_PREVIEW_URL`), not root `dev`; redeploy |
 
 ## Sanity.io dashboard
 

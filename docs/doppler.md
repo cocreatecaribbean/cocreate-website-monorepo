@@ -42,12 +42,18 @@ Use root [`.env.example`](../.env.example) and per-app `*.env.example` for descr
 
 Social listening, Brand24, and demo snapshot toggles are documented in [`apps/api/.env.example`](../apps/api/.env.example).
 
-## Production
+## Deploy sync (Vercel / Railway)
 
-Sync Doppler → Vercel per app (manual for now). Each Vercel project needs the subset of keys that app reads at build/runtime.
+Do **not** sync root `dev` (localhost URLs) to hosted Studio. Use slim configs; local stays on [`doppler.yaml`](../doppler.yaml) → `dev`.
 
-- **Vercel Production** → Doppler `prd`
-- **Vercel Preview** (admin, portal, marketing sandbox) → Doppler `dev` keys (Sanity `dev`, Supabase dev via Railway staging API)
+| Consumer | Doppler config | Notes |
+|----------|----------------|-------|
+| Local `pnpm dev` | `dev` | Includes `SANITY_STUDIO_PREVIEW_URL=http://localhost:3000` |
+| Staging Studio (Vercel) | `stg_sanity_studio` | Slim; `SANITY_STUDIO_PREVIEW_URL=https://hq-preview.cocreatecaribbean.com` (marketing Presentation target) |
+| Staging web / admin / portal | `stg_web`, `stg_admin_portal`, `stg_client_portal` | Slim per app |
+| API (Railway) | `stg` / `prd` (full) | Server secrets |
+
+Point each Vercel project’s Doppler integration at its slim config, not at full `dev`.
 
 Sanity Presentation, datasets, and webhooks: [sanity-preview.md](./sanity-preview.md).
 

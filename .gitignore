@@ -11,6 +11,7 @@ out/
 .env.*
 !.env.example
 combined.env
+docs/doppler-dev-secrets.local.md
 
 # Build outputs
 dist/
