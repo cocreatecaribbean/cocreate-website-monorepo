@@ -1,9 +1,15 @@
 const LOCAL_PREVIEW_ORIGIN = 'http://localhost:3000'
+/** Staging marketing Presentation target when env is unset on Vercel (first deploy before Doppler). */
+const STAGING_PREVIEW_ORIGIN = 'https://hq-preview.cocreatecaribbean.com'
 
-function normalizePreviewOrigin(raw: string | undefined): string {
+function isLocalhostOrigin(origin: string): boolean {
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
+}
+
+function normalizePreviewOrigin(raw: string | undefined, fallback: string): string {
   const value = raw?.trim()
   if (!value) {
-    return LOCAL_PREVIEW_ORIGIN
+    return fallback
   }
 
   const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`
@@ -17,16 +23,14 @@ export const projectId =
   process.env.NEXT_PUBLIC_SANITY_PROJECT_ID ??
   '5ix7h4ht'
 
-const isProductionBuild = process.env.NODE_ENV === 'production'
 const isVercelBuild = Boolean(process.env.VERCEL)
-const isLocalDevServer = !isVercelBuild && !isProductionBuild
+const isLocalDevServer = !isVercelBuild && process.env.NODE_ENV !== 'production'
 
 export const dataset =
   process.env.SANITY_STUDIO_DATASET ??
   process.env.NEXT_PUBLIC_SANITY_DATASET ??
-  (isProductionBuild || process.env.VERCEL_ENV === 'production'
-    ? 'production'
-    : 'dev')
+  // Staging-first: only default to production when Vercel Production env is set.
+  (process.env.VERCEL_ENV === 'production' ? 'production' : 'dev')
 
 if (isLocalDevServer && dataset === 'production') {
   const allowProduction = process.env.SANITY_STUDIO_ALLOW_PRODUCTION === 'true'
@@ -40,24 +44,11 @@ if (isLocalDevServer && dataset === 'production') {
   }
 }
 
-export const previewOrigin = normalizePreviewOrigin(rawPreviewUrl)
-
-// Strict checks only on Vercel so local `pnpm dev` / `sanity build` can keep
-// SANITY_STUDIO_PREVIEW_URL=http://localhost:3000 from Doppler `dev`.
-if (isVercelBuild) {
-  if (!rawPreviewUrl?.trim()) {
-    throw new Error(
-      '[studio] SANITY_STUDIO_PREVIEW_URL is required on Vercel. ' +
-        'Set it in the Studio Doppler config (stg_sanity_studio) ' +
-        'to your public marketing origin (e.g. https://hq-preview.cocreatecaribbean.com), not the Studio URL. ' +
-        'Baked at build time — redeploy after changing the secret.',
-    )
-  }
-
-  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(previewOrigin)) {
-    throw new Error(
-      `[studio] SANITY_STUDIO_PREVIEW_URL must not be localhost on Vercel (got "${previewOrigin}"). ` +
-        'Use a slim Studio Doppler config with a public HTTPS marketing URL — do not sync root `dev` (localhost) to Studio.',
-    )
-  }
+// Build must succeed with zero env (Doppler synced after first deploy). Never throw for preview URL.
+const previewFallback = isVercelBuild ? STAGING_PREVIEW_ORIGIN : LOCAL_PREVIEW_ORIGIN
+let resolvedPreview = normalizePreviewOrigin(rawPreviewUrl, previewFallback)
+if (isVercelBuild && isLocalhostOrigin(resolvedPreview)) {
+  resolvedPreview = STAGING_PREVIEW_ORIGIN
 }
+
+export const previewOrigin = resolvedPreview

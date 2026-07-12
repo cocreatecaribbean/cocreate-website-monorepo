@@ -47,6 +47,8 @@ Sync this config to the Studio Vercel project (not root `dev`).
 
 **`SANITY_STUDIO_PREVIEW_URL` is the marketing site** Presentation iframes into (must be public HTTPS). It is **not** the Studio hostname. Baked at **build time** — redeploy Studio after changing it. Local `dev` keeps localhost; do not sync `dev` to Vercel Studio.
 
+**First Vercel deploy:** Studio builds with **no env** (code defaults: dataset `dev`, preview `https://hq-preview.cocreatecaribbean.com`). Then sync Doppler → `stg_sanity_studio` and **redeploy** so secrets bake in.
+
 ## Local workflow
 
 ```bash
@@ -65,7 +67,7 @@ pnpm dev:studio # studio only
 |---------|-----|
 | 401 on `/api/draft` | Studio and web use different datasets — align `SANITY_STUDIO_DATASET` and `NEXT_PUBLIC_SANITY_DATASET` |
 | Local Studio hits production | Set `SANITY_STUDIO_DATASET=dev` in Doppler (Studio ignores `NEXT_PUBLIC_*` alone) |
-| Hosted Studio previews localhost / build fails | Point Studio’s Doppler sync at `stg_sanity_studio` (public `SANITY_STUDIO_PREVIEW_URL`), not root `dev`; redeploy |
+| Hosted Studio previews localhost / CLI config cannot be loaded | First deploy needs no env (code defaults). Then sync `stg_sanity_studio` and redeploy — do not sync root `dev` |
 
 ## Sanity.io dashboard
 
