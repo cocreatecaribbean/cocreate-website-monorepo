@@ -1,6 +1,6 @@
 const LOCAL_PREVIEW_ORIGIN = 'http://localhost:3000'
 /** Staging marketing Presentation target when env is unset on Vercel (first deploy before Doppler). */
-const STAGING_PREVIEW_ORIGIN = 'https://hq-preview.cocreatecaribbean.com'
+const STAGING_PREVIEW_ORIGIN = 'https://preview.cocreatecaribbean.com'
 
 function isLocalhostOrigin(origin: string): boolean {
   return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)

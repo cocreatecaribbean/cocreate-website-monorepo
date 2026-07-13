@@ -67,14 +67,18 @@ export default function WorkProjectPage({ project }: WorkProjectPageProps) {
                 <MuxVideoPlayer
                   playbackId={primaryVideo.playbackId}
                   title={projectVideoLabel(primaryVideo.role, primaryVideo.title)}
-                  poster={primaryVideo.posterUrl ?? project.coverImageSrc}
+                  poster={
+                    primaryVideo.posterUrl?.trim() ||
+                    project.coverImageSrc?.trim() ||
+                    undefined
+                  }
                   className="h-full w-full"
                 />
               </div>
-            ) : (
+            ) : project.coverImageSrc?.trim() ? (
               <div className="relative aspect-[4/5] w-full overflow-hidden rounded-4xl ring-1 ring-chambray/10 min-[1024px]:aspect-[16/10] min-[1024px]:rounded-[2rem]">
                 <Image
-                  src={project.coverImageSrc}
+                  src={project.coverImageSrc.trim()}
                   alt=""
                   fill
                   priority
@@ -83,6 +87,11 @@ export default function WorkProjectPage({ project }: WorkProjectPageProps) {
                 />
                 <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-chambray/50 via-transparent to-transparent" />
               </div>
+            ) : (
+              <div
+                aria-hidden
+                className="relative aspect-[4/5] w-full overflow-hidden rounded-4xl bg-chambray ring-1 ring-chambray/10 min-[1024px]:aspect-[16/10] min-[1024px]:rounded-[2rem]"
+              />
             )}
 
             <div
@@ -111,7 +120,11 @@ export default function WorkProjectPage({ project }: WorkProjectPageProps) {
                       <MuxVideoPlayer
                         playbackId={video.playbackId}
                         title={projectVideoLabel(video.role, video.title)}
-                        poster={video.posterUrl ?? project.coverImageSrc}
+                        poster={
+                          video.posterUrl?.trim() ||
+                          project.coverImageSrc?.trim() ||
+                          undefined
+                        }
                         className="h-full w-full"
                       />
                     </div>

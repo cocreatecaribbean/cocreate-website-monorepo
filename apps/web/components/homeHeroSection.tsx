@@ -17,6 +17,10 @@ import { EmblaOptionsType } from "embla-carousel";
 import { splitTextGradient } from "@/utils/util-funcs";
 import { consumeSpaNavigation } from "@/lib/scroll/navigation";
 import { prefersNativeScroll } from "@/lib/scroll/native-scroll";
+import {
+  DEFAULT_AGENCY_INTRO,
+  DEFAULT_HERO_REEL_FALLBACK_SRC,
+} from "@/site-info/landing-page-defaults";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText);
 
@@ -84,10 +88,12 @@ function progressToFrameIndex(progress: number) {
 
 export default function HomeHeroSection({
   heroReelPlaybackId = null,
-  fallbackVideoSrc = '/videos/cocreate-2026-reel-web-v1.mp4',
+  fallbackVideoSrc = DEFAULT_HERO_REEL_FALLBACK_SRC,
+  agencyIntro = DEFAULT_AGENCY_INTRO,
 }: {
   heroReelPlaybackId?: string | null
   fallbackVideoSrc?: string
+  agencyIntro?: string
 }) {
   const mainRef = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
@@ -624,8 +630,7 @@ export default function HomeHeroSection({
               3xl:pt-48 3xl:pb-80
               ${fonts.bricolage_grot400.className}`}
           >
-            We are a collective of independent creative professionals, flipping
-            the traditional agency model to deliver transformational creativity.
+            {agencyIntro}
           </p>
         </div>
       </section>

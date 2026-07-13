@@ -1,5 +1,8 @@
+'use client'
+
 import * as fonts from '@/styles/fonts'
 import ViewAllWorkLink from '@/components/work/view-all-work-link'
+import { useWorkPageContent } from '@/components/work/work-cms-provider'
 import { getWorkPageTitle } from '@/site-info/work-page-data'
 import { workPageTopOffsetClass } from '@/lib/work-page-layout'
 import { cn } from '@/utils/tailwind-helpers'
@@ -15,10 +18,13 @@ export default function WorkPageHeader({
   categoryFilterName,
   tagFilterName,
 }: WorkPageHeaderProps) {
+  const { titleLineOne, titleLineTwo } = useWorkPageContent()
   const title = getWorkPageTitle({
     clientName: clientFilterName,
     categoryName: categoryFilterName,
     tagName: tagFilterName,
+    titleLineOne,
+    titleLineTwo,
   })
   const isFiltered = Boolean(clientFilterName ?? categoryFilterName ?? tagFilterName)
 

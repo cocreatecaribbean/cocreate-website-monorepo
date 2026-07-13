@@ -33,7 +33,7 @@ function resolveRedirectTo(request: NextRequest, redirectTo?: string): string {
     }
   }
 
-  return '/work'
+  return '/'
 }
 
 export async function GET(request: NextRequest) {

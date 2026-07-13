@@ -43,7 +43,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { isEnabled } = await draftMode()
+  // joh-style: keep Live/VE mounted whenever draft mode is on so Presentation
+  // soft-nav / router.refresh() can still heartbeat. Page data stays gated on
+  // getSanityPreviewContext() (embedded) so a leftover cookie alone is published-only.
+  const { isEnabled: isDraftMode } = await draftMode()
 
   return (
     <html lang="en" className={`${font.bricolage_grot400.className} antialiased max-w-full overflow-x-hidden`}>
@@ -76,8 +79,8 @@ export default async function RootLayout({
         </CookieConsentProvider>
         </SearchProvider>
         </QueryProvider>
-        {isEnabled && <SanityLive />}
-        {isEnabled && <SanityVisualEditing />}
+        {isDraftMode && <SanityLive />}
+        {isDraftMode && <SanityVisualEditing />}
         
       </body>
     </html> 

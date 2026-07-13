@@ -25,7 +25,9 @@ export function getSanityClient(): SanityClient | null {
       projectId,
       dataset,
       apiVersion,
-      useCdn: true,
+      // API origin — CDN can serve stale published content after Publish + revalidate
+      useCdn: false,
+      perspective: 'published',
     })
   }
 
@@ -41,7 +43,7 @@ export function getStegaSanityClient(): SanityClient | null {
       projectId,
       dataset,
       apiVersion,
-      useCdn: true,
+      useCdn: false,
       stega: {
         studioUrl: getStudioUrl(),
       },

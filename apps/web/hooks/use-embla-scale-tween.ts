@@ -164,14 +164,24 @@ export function useEmblaScaleTween({
   }, [emblaApi, setTweenFactor, setTweenNodes, tweenScale])
 }
 
+/** Embla's public types omit the runtime `direction` arg used by scrollNext/scrollPrev. */
+type EmblaScrollToWithDirection = (
+  index: number,
+  jump?: boolean,
+  direction?: number,
+) => void
+
 export function useEmblaStationarySlideClick(emblaApi: EmblaCarouselType | undefined) {
   return useCallback(
     (index: number) => {
       if (!emblaApi) return
+      if (emblaApi.selectedScrollSnap() === index) return
       const engine = emblaApi.internalEngine()
       const isStationary = Math.abs(engine.scrollBody.velocity()) < 0.1
       if (isStationary) {
-        emblaApi.scrollTo(index)
+        // Prefer forward (content left), same direction as scrollNext — avoids
+        // shortest-path reverse when loop clones put a later slide visually right.
+        ;(emblaApi.scrollTo as EmblaScrollToWithDirection)(index, false, -1)
       }
     },
     [emblaApi],

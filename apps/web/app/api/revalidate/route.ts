@@ -25,11 +25,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const revalidateTypes = new Set(['workProject', 'client'])
+  const revalidateTypes = new Set([
+    'client',
+    'aboutPage',
+    'landingPage',
+    'workPage',
+  ])
   if (body._type && !revalidateTypes.has(body._type)) {
     return NextResponse.json({ revalidated: false, skipped: true })
   }
 
+  if (body._type === 'landingPage') {
+    revalidatePath('/')
+    return NextResponse.json({ revalidated: true, now: Date.now() })
+  }
+
+  if (body._type === 'aboutPage') {
+    revalidatePath('/about')
+    return NextResponse.json({ revalidated: true, now: Date.now() })
+  }
+
+  // workPage holds all projects; client renames affect work tiles
+  revalidatePath('/')
   revalidatePath('/work')
 
   const slug = body.slug?.current?.trim()

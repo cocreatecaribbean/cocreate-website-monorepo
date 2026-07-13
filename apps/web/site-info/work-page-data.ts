@@ -11,6 +11,8 @@ export function getWorkPageTitle(options?: {
   clientName?: string | null
   categoryName?: string | null
   tagName?: string | null
+  titleLineOne?: string | null
+  titleLineTwo?: string | null
 }): WorkPageTitle {
   if (options?.clientName) {
     return {
@@ -35,8 +37,8 @@ export function getWorkPageTitle(options?: {
 
   return {
     variant: 'default',
-    lineOne: workPageTitle.lineOne,
-    lineTwo: workPageTitle.lineTwo,
+    lineOne: options?.titleLineOne?.trim() || workPageTitle.lineOne,
+    lineTwo: options?.titleLineTwo?.trim() || workPageTitle.lineTwo,
   }
 }
 

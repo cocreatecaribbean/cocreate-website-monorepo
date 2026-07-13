@@ -233,17 +233,23 @@ function ArcTile({
     }
   }
 
+  const coverSrc = item.coverImageSrc?.trim() || null
+
   const content = (
     <div className="arc-tile-card__inner relative h-full w-full">
       <div className="arc-tile-card__media relative h-full w-full overflow-hidden">
-        <Image
-          src={item.coverImageSrc}
-          alt=""
-          fill
-          sizes={`(max-width: 639px) ${Math.round(layout.tileWidth)}px, (max-width: 1023px) 240px, 300px`}
-          className="object-cover"
-          draggable={false}
-        />
+        {coverSrc ? (
+          <Image
+            src={coverSrc}
+            alt=""
+            fill
+            sizes={`(max-width: 639px) ${Math.round(layout.tileWidth)}px, (max-width: 1023px) 240px, 300px`}
+            className="object-cover"
+            draggable={false}
+          />
+        ) : (
+          <div aria-hidden className="absolute inset-0 bg-chambray" />
+        )}
       </div>
       <div
         className="arc-tile-card__shade pointer-events-none absolute inset-0 bg-linear-to-t from-chambray/90 via-chambray/30 to-transparent"
@@ -263,7 +269,7 @@ function ArcTile({
         <p
           className={`text-xs uppercase tracking-[0.14em] text-casablanca md:text-sm ${fonts.bricolage_grot400.className}`}
         >
-          {item.clientName}
+          {item.clientName || 'Client'}
         </p>
         <h3
           className={`mt-1 text-base leading-snug text-white max-md:line-clamp-2 md:mt-1.5 md:text-xl md:leading-tight ${fonts.bricolage_grot600.className}`}

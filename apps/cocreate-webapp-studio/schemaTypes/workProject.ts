@@ -1,16 +1,26 @@
-import { defineField, defineType } from 'sanity'
+import {defineField, defineType} from 'sanity'
+import {ClientReferenceInput} from '../components/ClientReferenceInput'
 
 const PROJECT_VIDEO_ROLES = [
-  { title: 'Final ad', value: 'final_ad' },
-  { title: 'Making of', value: 'making_of' },
-  { title: 'Hero reel', value: 'hero_reel' },
-  { title: 'Other', value: 'other' },
+  {title: 'Final ad', value: 'final_ad'},
+  {title: 'Making of', value: 'making_of'},
+  {title: 'Hero reel', value: 'hero_reel'},
+  {title: 'Other', value: 'other'},
 ] as const
 
+type WorkProjectParent = {
+  publishedAt?: string
+  coverImage?: {asset?: {_ref?: string}}
+}
+
+/**
+ * Embedded Work project section (lives on workPage.projects[]).
+ * Same fields as the former document — Add item on Work page creates one.
+ */
 export const workProject = defineType({
   name: 'workProject',
-  title: 'Work Project',
-  type: 'document',
+  title: 'Project',
+  type: 'object',
   fields: [
     defineField({
       name: 'title',
@@ -22,22 +32,36 @@ export const workProject = defineType({
       name: 'slug',
       title: 'Slug',
       type: 'slug',
-      options: { source: 'title', maxLength: 96 },
+      options: {
+        // Nested object: string source resolves on workPage (no title) — use parent
+        source: (_doc, {parent}) =>
+          (parent as {title?: string} | undefined)?.title?.trim() || '',
+        maxLength: 96,
+      },
       validation: (rule) => rule.required(),
     }),
     defineField({
       name: 'client',
       title: 'Client',
       type: 'reference',
-      to: [{ type: 'client' }],
+      to: [{type: 'client'}],
       validation: (rule) => rule.required(),
+      components: {input: ClientReferenceInput},
     }),
     defineField({
       name: 'coverImage',
       title: 'Cover image',
+      description: 'Required to publish. Drafts can save without a cover.',
       type: 'image',
-      options: { hotspot: true },
-      validation: (rule) => rule.required(),
+      options: {hotspot: true},
+      validation: (rule) =>
+        rule.custom((value, context) => {
+          const parent = context.parent as WorkProjectParent | undefined
+          if (parent?.publishedAt && !value?.asset) {
+            return 'Add a cover image before publishing'
+          }
+          return true
+        }),
     }),
     defineField({
       name: 'category',
@@ -45,12 +69,12 @@ export const workProject = defineType({
       type: 'string',
       options: {
         list: [
-          { title: 'Production', value: 'Production' },
-          { title: 'Digital', value: 'Digital' },
-          { title: 'PR & Communications', value: 'PR & Communications' },
-          { title: 'Brands & Strategy', value: 'Brands & Strategy' },
-          { title: 'Talent', value: 'Talent' },
-          { title: 'Analytics', value: 'Analytics' },
+          {title: 'Production', value: 'Production'},
+          {title: 'Digital', value: 'Digital'},
+          {title: 'PR & Communications', value: 'PR & Communications'},
+          {title: 'Brands & Strategy', value: 'Brands & Strategy'},
+          {title: 'Talent', value: 'Talent'},
+          {title: 'Analytics', value: 'Analytics'},
         ],
         layout: 'radio',
       },
@@ -82,7 +106,7 @@ export const workProject = defineType({
               name: 'image',
               title: 'Image',
               type: 'image',
-              options: { hotspot: true },
+              options: {hotspot: true},
               validation: (rule) => rule.required(),
             },
             {
@@ -97,9 +121,9 @@ export const workProject = defineType({
             },
           ],
           preview: {
-            select: { title: 'caption', media: 'image' },
-            prepare({ title, media }) {
-              return { title: title || 'Gallery image', media }
+            select: {title: 'caption', media: 'image'},
+            prepare({title, media}) {
+              return {title: title || 'Gallery image', media}
             },
           },
         },
@@ -119,7 +143,7 @@ export const workProject = defineType({
               name: 'role',
               title: 'Role',
               type: 'string',
-              options: { list: PROJECT_VIDEO_ROLES, layout: 'radio' },
+              options: {list: PROJECT_VIDEO_ROLES, layout: 'radio'},
               validation: (rule) => rule.required(),
             },
             {
@@ -135,8 +159,8 @@ export const workProject = defineType({
             },
           ],
           preview: {
-            select: { title: 'title', role: 'role', subtitle: 'video.asset.status' },
-            prepare({ title, role, subtitle }) {
+            select: {title: 'title', role: 'role', subtitle: 'video.asset.status'},
+            prepare({title, role, subtitle}) {
               return {
                 title: title || role || 'Video',
                 subtitle: subtitle ?? role,
@@ -150,8 +174,8 @@ export const workProject = defineType({
       name: 'tags',
       title: 'Tags',
       type: 'array',
-      of: [{ type: 'string' }],
-      options: { layout: 'tags' },
+      of: [{type: 'string'}],
+      options: {layout: 'tags'},
     }),
     defineField({
       name: 'featured',
@@ -162,14 +186,14 @@ export const workProject = defineType({
     defineField({
       name: 'publishedAt',
       title: 'Published at',
-      description: 'Leave empty to keep as draft. Only published projects appear on the site.',
+      description: 'Leave empty to keep as draft. Only published projects appear on the public site.',
       type: 'datetime',
     }),
     defineField({
       name: 'seo',
       title: 'SEO',
       type: 'object',
-      options: { collapsible: true, collapsed: true },
+      options: {collapsible: true, collapsed: true},
       fields: [
         {
           name: 'metaTitle',
@@ -185,13 +209,6 @@ export const workProject = defineType({
       ],
     }),
   ],
-  orderings: [
-    {
-      title: 'Published date, newest',
-      name: 'publishedAtDesc',
-      by: [{ field: 'publishedAt', direction: 'desc' }],
-    },
-  ],
   preview: {
     select: {
       title: 'title',
@@ -200,11 +217,12 @@ export const workProject = defineType({
       media: 'coverImage',
       publishedAt: 'publishedAt',
     },
-    prepare({ title, subtitle, description, media, publishedAt }) {
+    prepare({title, subtitle, description, media, publishedAt}) {
+      const clientLabel = subtitle || 'No client'
       return {
-        title,
-        subtitle: publishedAt ? `${subtitle} · ${description}` : `${subtitle} · Draft`,
-        media,
+        title: title || 'Untitled project',
+        subtitle: publishedAt ? `${clientLabel} · ${description}` : `${clientLabel} · Draft`,
+        ...(media ? {media} : {}),
       }
     },
   },

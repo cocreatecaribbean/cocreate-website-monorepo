@@ -220,20 +220,24 @@ function CarouselTile({
       }}
     >
       <div className="relative h-full w-full">
-        <Image
-          src={item.coverImageSrc}
-          alt=""
-          fill
-          sizes={`(max-width: 768px) ${Math.round(layout.tileWidth)}px, (max-width: 1024px) 300px, 360px`}
-          className="object-cover"
-          draggable={false}
-        />
+        {item.coverImageSrc?.trim() ? (
+          <Image
+            src={item.coverImageSrc.trim()}
+            alt=""
+            fill
+            sizes={`(max-width: 768px) ${Math.round(layout.tileWidth)}px, (max-width: 1024px) 300px, 360px`}
+            className="object-cover"
+            draggable={false}
+          />
+        ) : (
+          <div aria-hidden className="absolute inset-0 bg-chambray" />
+        )}
         <div className="absolute inset-0 bg-linear-to-t from-chambray/90 via-chambray/25 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 p-3 max-md:p-3.5 md:p-5">
           <p
             className={`text-[10px] uppercase tracking-[0.14em] text-casablanca md:text-xs ${fonts.bricolage_grot400.className}`}
           >
-            {item.clientName}
+            {item.clientName || 'Client'}
           </p>
           <h3
             className={`mt-0.5 text-xs leading-tight text-white max-md:line-clamp-2 md:text-lg ${fonts.bricolage_grot600.className}`}

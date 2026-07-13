@@ -1,0 +1,20 @@
+diff --git a/dist/hooks/index.js b/dist/hooks/index.js
+index 993c43221dbe69a3f30fc79cc75b9afc076450a5..cbf45130cd42de0c06d7c157ad596ca76752ef62 100644
+--- a/dist/hooks/index.js
++++ b/dist/hooks/index.js
+@@ -144,12 +144,14 @@ function usePresentationQuery(props) {
+ 	useEffect(() => {
+ 		if (!comlink$1) return;
+ 		const unsubscribe = comlink$1.on("loader/query-change", handleQueryChange);
++		// Fire immediately so Presentation does not wait ~10s for the first setInterval tick
++		handleQueryHeartbeat(comlink$1);
+ 		const interval = setInterval(() => handleQueryHeartbeat(comlink$1), LISTEN_HEARTBEAT_INTERVAL);
+ 		return () => {
+ 			clearInterval(interval);
+ 			unsubscribe();
+ 		};
+-	}, [comlink$1]);
++	}, [comlink$1, perspective]);
+ 	return useMemo(() => {
+ 		if (stega && state.sourceMap) return {
+ 			...state,

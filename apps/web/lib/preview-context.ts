@@ -2,7 +2,10 @@ import 'server-only'
 
 import { draftMode, headers } from 'next/headers'
 
-/** True when Presentation iframe has enabled draft mode (not a stale draft cookie alone). */
+/**
+ * joh dual gate: draftMode + proxy `x-preview-context: embedded`
+ * (iframe or Studio referer). Leftover draft cookie alone stays published.
+ */
 export async function getSanityPreviewContext(): Promise<boolean> {
   const { isEnabled } = await draftMode()
   if (!isEnabled) {

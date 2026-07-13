@@ -16,6 +16,7 @@ docs/doppler-dev-secrets.local.md
 # Build outputs
 dist/
 build/
+*.tsbuildinfo
 packages/api-contracts/src/**/*.js
 packages/api-contracts/src/**/*.js.map
 packages/api-contracts/src/**/*.d.ts

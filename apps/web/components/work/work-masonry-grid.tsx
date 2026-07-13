@@ -35,16 +35,26 @@ function WorkMasonryTile({
   item: ProjectPreview
   heightClass: string
 }) {
+  const coverSrc = item.coverImageSrc?.trim() || null
+  const hasCover = Boolean(coverSrc)
+
   const media = (
     <div className={`work-tile-card__frame relative w-full ${heightClass}`}>
       <div className="work-tile-card__clip absolute inset-0 overflow-hidden">
-        <Image
-          src={item.coverImageSrc}
-          alt=""
-          fill
-          sizes="(max-width: 767px) 88vw, (max-width: 1023px) 44vw, 440px"
-          className="object-cover"
-        />
+        {hasCover && coverSrc ? (
+          <Image
+            src={coverSrc}
+            alt=""
+            fill
+            sizes="(max-width: 767px) 88vw, (max-width: 1023px) 44vw, 440px"
+            className="object-cover"
+          />
+        ) : (
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-chambray"
+          />
+        )}
         <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-chambray/90 via-chambray/30 to-transparent" />
         <div
           aria-hidden
@@ -60,7 +70,7 @@ function WorkMasonryTile({
           <p
             className={`text-xs uppercase tracking-[0.14em] text-casablanca max-md:text-base md:text-sm ${fonts.bricolage_grot400.className}`}
           >
-            {item.clientName}
+            {item.clientName || 'Client'}
           </p>
           <h2
             className={`mt-1 text-base leading-snug text-white max-md:mt-1.5 max-md:text-xl max-md:leading-tight max-md:line-clamp-2 md:mt-1.5 md:text-xl md:leading-tight ${fonts.bricolage_grot600.className}`}

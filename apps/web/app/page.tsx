@@ -1,20 +1,20 @@
-import HomeHeroSection from '@/components/homeHeroSection'
+import { HomeLanding } from '@/components/home/home-landing'
 import LogoTickerWrapper from '@/components/logoTickerWrapper'
 import ArcGallerySection from '@/components/arc-gallery-section'
-import {
-  fetchFeaturedHeroReelPlaybackId,
-  fetchHomeGalleryPreviews,
-} from '@/lib/cms/work-projects'
+import { fetchLandingPage } from '@/lib/cms/landing-page'
+import { fetchHomeGalleryPreviews } from '@/lib/cms/work-projects'
+import { getSanityPreviewContext } from '@/lib/preview-context'
 
 export default async function Home() {
-  const [galleryItems, heroReelPlaybackId] = await Promise.all([
-    fetchHomeGalleryPreviews(),
-    fetchFeaturedHeroReelPlaybackId(),
+  const preview = await getSanityPreviewContext()
+  const [galleryItems, landing] = await Promise.all([
+    fetchHomeGalleryPreviews(preview),
+    fetchLandingPage(preview),
   ])
 
   return (
     <main className="overflow-x-clip">
-      <HomeHeroSection heroReelPlaybackId={heroReelPlaybackId} />
+      <HomeLanding initial={landing} />
 
       <section className="pb-4 md:pb-6">
         <LogoTickerWrapper />

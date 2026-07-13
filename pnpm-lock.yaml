@@ -200,6 +200,11 @@ catalogs:
       specifier: ^4.4.3
       version: 4.4.3
 
+patchedDependencies:
+  next-sanity@12.4.5:
+    hash: 1f717f4bc20ba6ef6310129777e0ca41bedae9702a9c147792b9da3abcd4fe3e
+    path: patches/next-sanity@12.4.5.patch
+
 importers:
 
   .:
@@ -546,6 +551,9 @@ importers:
       react-dom:
         specifier: catalog:react
         version: 19.2.3(react@19.2.3)
+      rxjs:
+        specifier: catalog:api
+        version: 7.8.2
       sanity:
         specifier: catalog:studio
         version: 5.25.1(@emotion/is-prop-valid@1.4.0)(@noble/hashes@2.2.0)(@oclif/core@4.11.3)(@sanity/cli-core@1.3.2(@noble/hashes@2.2.0)(@types/node@20.19.37)(lightningcss@1.31.1)(terser@5.48.0)(yaml@2.9.0))(@types/node@20.19.37)(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(jiti@2.7.0)(lightningcss@1.31.1)(prismjs@1.30.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(styled-components@6.3.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(terser@5.48.0)(typescript@5.9.3)
@@ -657,7 +665,7 @@ importers:
         version: 16.1.4(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       next-sanity:
         specifier: catalog:web
-        version: 12.4.5(@emotion/is-prop-valid@1.4.0)(@sanity/client@7.22.0)(@sanity/types@5.25.1(@types/react@19.2.9))(next@16.1.4(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react-is@19.2.4)(react@19.2.3)(sanity@5.25.1(@emotion/is-prop-valid@1.4.0)(@noble/hashes@2.2.0)(@oclif/core@4.11.3)(@sanity/cli-core@1.3.2(@noble/hashes@2.2.0)(@types/node@20.19.37)(lightningcss@1.31.1)(terser@5.48.0)(yaml@2.9.0))(@types/node@20.19.37)(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(jiti@2.7.0)(lightningcss@1.31.1)(prismjs@1.30.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(styled-components@6.3.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(terser@5.48.0)(typescript@5.9.3))(styled-components@6.3.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(typescript@5.9.3)
+        version: 12.4.5(patch_hash=1f717f4bc20ba6ef6310129777e0ca41bedae9702a9c147792b9da3abcd4fe3e)(@emotion/is-prop-valid@1.4.0)(@sanity/client@7.22.0)(@sanity/types@5.25.1(@types/react@19.2.9))(next@16.1.4(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react-is@19.2.4)(react@19.2.3)(sanity@5.25.1(@emotion/is-prop-valid@1.4.0)(@noble/hashes@2.2.0)(@oclif/core@4.11.3)(@sanity/cli-core@1.3.2(@noble/hashes@2.2.0)(@types/node@20.19.37)(lightningcss@1.31.1)(terser@5.48.0)(yaml@2.9.0))(@types/node@20.19.37)(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(jiti@2.7.0)(lightningcss@1.31.1)(prismjs@1.30.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(styled-components@6.3.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(terser@5.48.0)(typescript@5.9.3))(styled-components@6.3.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(typescript@5.9.3)
       next-video:
         specifier: catalog:web
         version: 2.6.0(@svta/cml-cta@1.0.1(@svta/cml-structured-field-values@1.0.1(@svta/cml-utils@1.0.1))(@svta/cml-utils@1.0.1))(@svta/cml-structured-field-values@1.0.1(@svta/cml-utils@1.0.1))(@svta/cml-utils@1.0.1)(@types/node@20.19.37)(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(next@16.1.4(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -21468,7 +21476,7 @@ snapshots:
 
   neo-async@2.6.2: {}
 
-  next-sanity@12.4.5(@emotion/is-prop-valid@1.4.0)(@sanity/client@7.22.0)(@sanity/types@5.25.1(@types/react@19.2.9))(next@16.1.4(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react-is@19.2.4)(react@19.2.3)(sanity@5.25.1(@emotion/is-prop-valid@1.4.0)(@noble/hashes@2.2.0)(@oclif/core@4.11.3)(@sanity/cli-core@1.3.2(@noble/hashes@2.2.0)(@types/node@20.19.37)(lightningcss@1.31.1)(terser@5.48.0)(yaml@2.9.0))(@types/node@20.19.37)(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(jiti@2.7.0)(lightningcss@1.31.1)(prismjs@1.30.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(styled-components@6.3.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(terser@5.48.0)(typescript@5.9.3))(styled-components@6.3.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(typescript@5.9.3):
+  next-sanity@12.4.5(patch_hash=1f717f4bc20ba6ef6310129777e0ca41bedae9702a9c147792b9da3abcd4fe3e)(@emotion/is-prop-valid@1.4.0)(@sanity/client@7.22.0)(@sanity/types@5.25.1(@types/react@19.2.9))(next@16.1.4(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react-is@19.2.4)(react@19.2.3)(sanity@5.25.1(@emotion/is-prop-valid@1.4.0)(@noble/hashes@2.2.0)(@oclif/core@4.11.3)(@sanity/cli-core@1.3.2(@noble/hashes@2.2.0)(@types/node@20.19.37)(lightningcss@1.31.1)(terser@5.48.0)(yaml@2.9.0))(@types/node@20.19.37)(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(jiti@2.7.0)(lightningcss@1.31.1)(prismjs@1.30.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(styled-components@6.3.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(terser@5.48.0)(typescript@5.9.3))(styled-components@6.3.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(typescript@5.9.3):
     dependencies:
       '@portabletext/react': 6.2.0(react@19.2.3)
       '@sanity/client': 7.22.0

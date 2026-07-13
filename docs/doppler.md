@@ -49,7 +49,7 @@ Do **not** sync root `dev` (localhost URLs) to hosted Studio. Use slim configs; 
 | Consumer | Doppler config | Notes |
 |----------|----------------|-------|
 | Local `pnpm dev` | `dev` | Includes `SANITY_STUDIO_PREVIEW_URL=http://localhost:3000` |
-| Staging Studio (Vercel) | `stg_sanity_studio` | Slim; `SANITY_STUDIO_PREVIEW_URL=https://hq-preview.cocreatecaribbean.com` (marketing Presentation target) |
+| Staging Studio (Vercel) | `stg_sanity_studio` | Slim; `SANITY_STUDIO_PREVIEW_URL=https://preview.cocreatecaribbean.com` (marketing Presentation target; Studio host is `hq-preview`) |
 | Staging web / admin / portal | `stg_web`, `stg_admin_portal`, `stg_client_portal` | Slim per app |
 | API (Railway) | `stg` / `prd` (full) | Server secrets |
 

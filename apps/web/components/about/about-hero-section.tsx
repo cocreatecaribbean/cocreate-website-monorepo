@@ -1,14 +1,28 @@
 'use client'
 
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import Image from 'next/image'
 import * as fonts from '@/styles/fonts'
 import { useAboutHeroAnimation } from '@/hooks/use-about-hero-animation'
-import { aboutHero } from '@/site-info/about-page-data'
+import { useAboutPageContent } from '@/components/about/about-cms-provider'
+import MuxVideoPlayer from '@/components/media/mux-video-player'
 
 export default function AboutHeroSection() {
   const rootRef = useRef<HTMLElement>(null)
   const { sectionRef, mediaRef, refreshScroll } = useAboutHeroAnimation({ scope: rootRef })
+  const about = useAboutPageContent()
+
+  const useVideo =
+    about.heroMediaType === 'video' && Boolean(about.heroVideoPlaybackId)
+  const imageSrc = about.heroImageUrl || about.fallbackHeroImageSrc
+  const imageIsRemote = imageSrc.startsWith('http')
+
+  useEffect(() => {
+    if (!useVideo) return
+    refreshScroll()
+    // refreshScroll is intentionally unstable (new fn each render from the animation hook)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when hero video changes
+  }, [useVideo, about.heroVideoPlaybackId])
 
   return (
     <section ref={rootRef} aria-label="About CoCreate hero" className="pb-6 max-[767px]:pb-0 min-[768px]:max-[1499px]:pb-0 min-[1500px]:pb-0">
@@ -34,15 +48,29 @@ export default function AboutHeroSection() {
             min-[1024px]:max-h-[46svh] min-[1500px]:min-h-[46svh] min-[1500px]:max-h-[54svh]
           "
         >
-          <Image
-            src={aboutHero.imageSrc}
-            alt={aboutHero.imageAlt}
-            fill
-            priority
-            sizes="(max-width: 1023px) 92vw, (max-width: 1499px) 720px, 55vw"
-            style={{ objectFit: 'cover' }}
-            onLoad={refreshScroll}
-          />
+          {useVideo ? (
+            <MuxVideoPlayer
+              playbackId={about.heroVideoPlaybackId!}
+              title={about.heroHeading}
+              autoPlay
+              muted
+              loop
+              className="absolute inset-0 h-full w-full object-cover [--controls:none]"
+            />
+          ) : (
+            <Image
+              src={imageSrc}
+              alt={about.fallbackHeroImageAlt}
+              fill
+              priority
+              quality={75}
+              sizes="(max-width: 1023px) 92vw, (max-width: 1499px) 720px, 55vw"
+              placeholder={imageIsRemote ? 'empty' : 'blur'}
+              blurDataURL={imageIsRemote ? undefined : about.fallbackHeroBlurDataURL}
+              className="object-cover"
+              onLoad={refreshScroll}
+            />
+          )}
         </div>
 
         <div
@@ -62,7 +90,7 @@ export default function AboutHeroSection() {
               ${fonts.bricolage_grot500.className} mb-5 min-[1500px]:mb-6
             `}
           >
-            {aboutHero.heading}
+            {about.heroHeading}
           </h2>
           <p
             className={`
@@ -72,7 +100,7 @@ export default function AboutHeroSection() {
               leading-relaxed text-center min-[1500px]:text-left
             `}
           >
-            {aboutHero.body}
+            {about.heroBody}
           </p>
         </div>
 

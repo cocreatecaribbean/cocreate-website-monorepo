@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useLayoutEffect, useRef, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, type MouseEvent, type ReactNode } from 'react'
+import { useIsPresentationTool } from 'next-sanity/hooks'
 
 /** Mobile work tiles — inline so iOS respects it (between 2rem original and 4rem) */
 const RADIUS_TOUCH = '3rem'
@@ -46,6 +47,9 @@ export default function WorkTileShell({
   children,
 }: WorkTileShellProps) {
   const ref = useRef<HTMLAnchorElement | HTMLElement>(null)
+  // Always <Link> so radius useLayoutEffect is not killed by Link↔<a> remount.
+  // Presentation: hard-assign on click so iframe load restores draft SSR.
+  const isPresentation = Boolean(useIsPresentationTool())
 
   useLayoutEffect(() => {
     const shell = ref.current
@@ -62,8 +66,19 @@ export default function WorkTileShell({
   }, [])
 
   if (href) {
+    const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
+      if (!isPresentation) return
+      event.preventDefault()
+      window.location.assign(href)
+    }
+
     return (
-      <Link ref={ref as React.RefObject<HTMLAnchorElement>} href={href} className={className}>
+      <Link
+        ref={ref as React.RefObject<HTMLAnchorElement>}
+        href={href}
+        className={className}
+        onClick={onClick}
+      >
         {children}
       </Link>
     )

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import WorkPageContent from '@/components/work/work-page-content'
 import { formatWorkPageTitle, getWorkPageTitle } from '@/site-info/work-page-data'
+import { fetchWorkPage } from '@/lib/cms/work-page'
 import { getSanityPreviewContext } from '@/lib/preview-context'
 import {
   getCategoryDisplayName,
@@ -25,6 +26,8 @@ type WorkPageProps = {
 export async function generateMetadata({
   searchParams,
 }: WorkPageProps): Promise<Metadata> {
+  const preview = await getSanityPreviewContext()
+  const workPage = await fetchWorkPage(preview)
   const { client, category, tag } = await searchParams
   const clientSlug = client?.trim().toLowerCase()
   const categorySlug = category?.trim().toLowerCase()
@@ -36,6 +39,8 @@ export async function generateMetadata({
     clientName,
     categoryName,
     tagName,
+    titleLineOne: workPage.titleLineOne,
+    titleLineTwo: workPage.titleLineTwo,
   })
 
   if (clientName || categoryName || tagName) {
@@ -45,7 +50,7 @@ export async function generateMetadata({
   }
 
   return {
-    title: 'Our Work | CoCreate Caribbean',
+    title: `${formatWorkPageTitle(title)} | CoCreate Caribbean`,
   }
 }
 
@@ -55,7 +60,10 @@ export default async function WorkPage({ searchParams }: WorkPageProps) {
   const clientSlug = client?.trim().toLowerCase() || undefined
   const categorySlug = category?.trim().toLowerCase() || undefined
   const tagSlug = tag?.trim().toLowerCase() || undefined
-  const allProjects = await getWorkProjects(preview)
+  const [allProjects, workPage] = await Promise.all([
+    getWorkProjects(preview),
+    fetchWorkPage(preview),
+  ])
 
   let items = allProjects
   let clientName: string | null = null
@@ -81,6 +89,10 @@ export default async function WorkPage({ searchParams }: WorkPageProps) {
           clientName={clientName}
           categoryName={categoryName}
           tagName={tagName}
+          clientSlug={clientSlug}
+          categorySlug={categorySlug}
+          tagSlug={tagSlug}
+          workPage={workPage}
         />
       </Suspense>
     </main>

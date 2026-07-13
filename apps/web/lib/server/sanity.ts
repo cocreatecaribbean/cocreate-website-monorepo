@@ -37,7 +37,8 @@ function getPublishedClient() {
     const config = getProjectConfig()
     publishedClient = createClient({
       ...config,
-      useCdn: true,
+      // API origin — CDN lag after Publish makes Home/Work look “stuck”
+      useCdn: false,
       token: process.env.SANITY_API_TOKEN,
       perspective: 'published',
     })

@@ -14,7 +14,7 @@ export const aboutTestimonialsMock: readonly AboutTestimonial[] = [
     company: 'Island Fresh Markets',
     quote:
       'CoCreate turned our scattered social presence into a cohesive story. The team listens, moves fast, and the work always feels unmistakably us. From campaign concepts to final delivery, every touchpoint reflected our values and resonated with the communities we serve. They became true partners in how we show up online and in the room.',
-    photoUrl: '/about-us-test-img.jpg',
+    photoUrl: '/about-hero.jpg',
     sortOrder: 1,
   },
   {
@@ -32,7 +32,7 @@ export const aboutTestimonialsMock: readonly AboutTestimonial[] = [
     company: 'Pulse Caribbean Media',
     quote:
       'The motion work alone was worth it — complex ideas became clear, shareable stories. CoCreate feels like an extension of our in-house team.',
-    photoUrl: '/about-us-test-img.jpg',
+    photoUrl: '/about-hero.jpg',
     sortOrder: 3,
   },
   {
@@ -50,7 +50,7 @@ export const aboutTestimonialsMock: readonly AboutTestimonial[] = [
     company: 'NextGen Edu Foundation',
     quote:
       'CoCreate helped us reach younger audiences without dumbing down our mission. Thoughtful strategy, beautiful design, measurable results.',
-    photoUrl: '/about-us-test-img.jpg',
+    photoUrl: '/about-hero.jpg',
     sortOrder: 5,
   },
   {

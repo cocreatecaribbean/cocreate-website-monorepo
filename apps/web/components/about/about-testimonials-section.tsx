@@ -4,19 +4,12 @@ import { useRef } from 'react'
 import * as fonts from '@/styles/fonts'
 import AboutTestimonialsCarousel from '@/components/about/about-testimonials-carousel'
 import { useAboutTestimonialsAnimation } from '@/hooks/use-about-testimonials-animation'
-import type { AboutTestimonialsContent } from '@/lib/cms/about-testimonials'
+import { useAboutPageContent } from '@/components/about/about-cms-provider'
 
-type AboutTestimonialsSectionProps = {
-  content: AboutTestimonialsContent
-}
-
-export default function AboutTestimonialsSection({
-  content,
-}: AboutTestimonialsSectionProps) {
+export default function AboutTestimonialsSection() {
   const sectionRef = useRef<HTMLElement>(null)
   useAboutTestimonialsAnimation({ scope: sectionRef })
-
-  const { section, testimonials } = content
+  const about = useAboutPageContent()
 
   return (
     <section
@@ -32,7 +25,7 @@ export default function AboutTestimonialsSection({
         <p
           className={`mb-3 text-center text-xs font-semibold uppercase tracking-[0.22em] text-sanmarino ${fonts.bricolage_grot600.className}`}
         >
-          {section.eyebrow}
+          {about.testimonialsEyebrow}
         </p>
         <h2
           id="about-testimonials-heading"
@@ -44,22 +37,12 @@ export default function AboutTestimonialsSection({
             ${fonts.bricolage_grot600.className}
           `}
         >
-          {section.title}
+          {about.testimonialsTitle}
         </h2>
-        {/* <p
-          data-about-testimonials-copy
-          className={`
-            mx-auto mt-4 max-w-2xl opacity-0 text-center text-neutral-600
-            text-[clamp(0.95rem,2vw,1.125rem)] leading-relaxed
-            ${fonts.bricolage_grot400.className}
-          `}
-        >
-          {section.description}
-        </p> */}
       </div>
 
       <div data-about-testimonials-panel className="relative opacity-0">
-        <AboutTestimonialsCarousel testimonials={testimonials} />
+        <AboutTestimonialsCarousel testimonials={about.testimonials} />
       </div>
     </section>
   )
