@@ -221,9 +221,7 @@ function ClientPortalDashboardContent({
           ) : hasSocialListening && socialListeningAnalytics ? (
             <>
               {billingNotice ? (
-                <p className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-950 ring-1 ring-emerald-200">
-                  {billingNotice}
-                </p>
+                <p className="portal-alert-success mb-4">{billingNotice}</p>
               ) : null}
               <SocialListeningBillingPanel isOwner={isOwner} />
               <SocialListeningPanel

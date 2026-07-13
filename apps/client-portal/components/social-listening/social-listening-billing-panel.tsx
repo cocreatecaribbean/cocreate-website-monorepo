@@ -71,7 +71,7 @@ export default function SocialListeningBillingPanel({
       </dl>
 
       {showExpiryBanner ? (
-        <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-950 ring-1 ring-amber-200">
+        <p className="portal-alert-warn mt-4">
           Your subscription ends in {daysUntilEnd} day{daysUntilEnd === 1 ? '' : 's'}. Renew or
           turn on auto-renew to avoid interruption.
         </p>

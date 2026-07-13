@@ -78,7 +78,7 @@ Add to project `5ix7h4ht`:
 - `http://localhost:3000`
 - `http://localhost:3333`
 - `https://hq.cocreatecaribbean.com`
-- `https://hq-dev.cocreatecaribbean.com` (sandbox Studio)
+- `https://hq-preview.cocreatecaribbean.com` (sandbox Studio)
 - Marketing preview / production URLs
 
 ### Publish webhook

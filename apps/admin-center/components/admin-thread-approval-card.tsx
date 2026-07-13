@@ -27,9 +27,13 @@ function statusLabel(status: ThreadApprovalItem['status']) {
 }
 
 function statusClass(status: ThreadApprovalItem['status']) {
-  if (status === 'PENDING') return 'bg-amber-100 text-amber-900'
-  if (status === 'NEEDS_CHANGES') return 'bg-red-100 text-red-900'
-  return 'bg-emerald-100 text-emerald-900'
+  if (status === 'PENDING') {
+    return 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200'
+  }
+  if (status === 'NEEDS_CHANGES') {
+    return 'bg-red-100 text-red-900 dark:bg-red-500/20 dark:text-red-200'
+  }
+  return 'bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-300'
 }
 
 export default function AdminThreadApprovalCard({

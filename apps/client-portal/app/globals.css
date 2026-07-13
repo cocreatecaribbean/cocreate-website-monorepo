@@ -123,7 +123,23 @@
   .dark .portal-chart-glow { filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35)); }
   .dark .text-chambray { color: #f8fafc; }
   .dark .text-sanmarino { color: var(--color-casablanca); }
-  .dark .text-emerald-700, .dark .text-emerald-800, .dark .text-emerald-900 { color: var(--text-info-accent); }
+  /* Success greens stay green — do not remap to casablanca (yellow-on-white alerts). */
+  .dark .text-emerald-700,
+  .dark .text-emerald-800,
+  .dark .text-emerald-900,
+  .dark .text-emerald-950 { color: #6ee7b7; }
+  /* Light pastel alert surfaces become dark-friendly tints in dark mode. */
+  .dark .bg-emerald-50,
+  .dark .bg-emerald-50\/90,
+  .dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.18); }
+  .dark .bg-amber-50,
+  .dark .bg-amber-50\/90,
+  .dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.18); }
+  .dark .bg-red-50,
+  .dark .bg-red-50\/90,
+  .dark .bg-red-100 { background-color: rgba(239, 68, 68, 0.18); }
+  .dark .text-amber-900,
+  .dark .text-amber-950 { color: #fcd34d; }
   .dark .hover\:text-chambray:hover { color: var(--color-casablanca); }
   .dark .hover\:text-sanmarino:hover { color: #f8fafc; }
   .dark .group:hover .group-hover\:text-chambray { color: var(--color-casablanca); }

@@ -7,11 +7,11 @@ import { useSocialListeningStatsQuery, useSocialListeningSubscriptionsQuery } fr
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 
 const statusClass: Record<string, string> = {
-  ACTIVE: 'bg-emerald-100 text-emerald-900',
-  PENDING_PAYMENT: 'bg-amber-100 text-amber-900',
-  PAST_DUE: 'bg-red-100 text-red-900',
-  CANCELLED: 'bg-slate-100 text-slate-700',
-  EXPIRED: 'bg-slate-100 text-slate-600',
+  ACTIVE: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-300',
+  PENDING_PAYMENT: 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200',
+  PAST_DUE: 'bg-red-100 text-red-900 dark:bg-red-500/20 dark:text-red-200',
+  CANCELLED: 'bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200',
+  EXPIRED: 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300',
 }
 
 export default function SocialListeningCenter() {

@@ -87,33 +87,25 @@ export default function ClientPortalLoginForm() {
         </form>
 
         {clientRequired && !message ? (
-          <p className="mt-4 rounded-2xl bg-amber-50/90 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200/60">
+          <p className="portal-alert-warn mt-4">
             This email is not authorized for the Client Portal. Use the email your CoCreate
             team invited, or sign in to the Admin Center instead.
           </p>
         ) : null}
         {sessionExpired && !message ? (
-          <p className="mt-4 rounded-2xl bg-amber-50/90 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200/60">
+          <p className="portal-alert-warn mt-4">
             Your session expired. Request a new sign-in link below.
           </p>
         ) : null}
         {authError && !message ? (
-          <p className="mt-4 rounded-2xl bg-amber-50/90 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200/60">
+          <p className="portal-alert-warn mt-4">
             That sign-in link expired or was already used. Request a new invite from your
             CoCreate team.
           </p>
         ) : null}
-        {message ? (
-          <p className="mt-4 rounded-2xl bg-emerald-50/90 px-4 py-3 text-sm text-emerald-800 ring-1 ring-emerald-200/60">
-            {message}
-          </p>
-        ) : null}
+        {message ? <p className="portal-alert-success mt-4">{message}</p> : null}
         {devSignInUrl ? <DevSignInLink url={devSignInUrl} /> : null}
-        {error ? (
-          <p className="mt-4 rounded-2xl bg-red-50/90 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200/60">
-            {error}
-          </p>
-        ) : null}
+        {error ? <p className="portal-alert-error mt-4">{error}</p> : null}
 
         <div className={`mt-8 flex flex-col gap-3 text-sm ${bricolage_grot500.className}`}>
           <Link

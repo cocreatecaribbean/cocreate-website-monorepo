@@ -51,10 +51,10 @@ function StatusBadge({ status }: { status: string }) {
     <span
       className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
         isSuspended
-          ? 'bg-red-100 text-red-800'
+          ? 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-200'
           : isActive
-            ? 'bg-emerald-100 text-emerald-900'
-            : 'bg-amber-100 text-amber-900'
+            ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-300'
+            : 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200'
       }`}
     >
       {label}
