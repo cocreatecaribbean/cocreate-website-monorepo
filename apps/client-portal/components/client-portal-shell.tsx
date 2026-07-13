@@ -1,7 +1,6 @@
 'use client'
 
-import Link from 'next/link'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { LogOut, Menu } from 'lucide-react'
 import PortalDrawerShell from '@cocreate/app-ui/portal-drawer-shell'
@@ -17,6 +16,28 @@ type ClientPortalShellProps = {
   organizationLogoUrl?: string | null
   hasSocialListening?: boolean
   children: React.ReactNode
+}
+
+/** Never use <Link href="/auth/signout"> — Next.js Link prefetch GETs the route and signs users out. */
+function SignOutButton({
+  className,
+  children,
+}: {
+  className?: string
+  children: React.ReactNode
+}) {
+  const router = useRouter()
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={() => {
+        router.push('/auth/signout')
+      }}
+    >
+      {children}
+    </button>
+  )
 }
 
 export default function ClientPortalShell(props: ClientPortalShellProps) {
@@ -105,10 +126,10 @@ function ClientPortalShellInner({
               {userEmail}
             </p>
             <PortalUserAvatar size="sm" />
-            <Link href="/auth/signout" className="portal-btn-ghost">
+            <SignOutButton className="portal-btn-ghost">
               <LogOut className="h-4 w-4 shrink-0" aria-hidden />
               <span className="hidden sm:inline">Sign out</span>
-            </Link>
+            </SignOutButton>
           </div>
         </header>
       </div>
@@ -140,10 +161,10 @@ function DesktopHeader({
             {userEmail}
           </p>
           <PortalUserAvatar size="sm" />
-          <Link href="/auth/signout" className="portal-btn-ghost">
+          <SignOutButton className="portal-btn-ghost">
             <LogOut className="h-4 w-4 shrink-0" aria-hidden />
             <span className="hidden sm:inline">Sign out</span>
-          </Link>
+          </SignOutButton>
         </div>
       </header>
     </div>
@@ -160,12 +181,9 @@ function PortalFooter({ userEmail }: { userEmail: string }) {
         <p className="hidden text-xs uppercase tracking-[0.14em] text-app-muted dark:text-casablanca/90 lg:block">
           CoCreate Caribbean · Client Portal
         </p>
-        <Link
-          href="/auth/signout"
-          className="text-sanmarino transition hover:text-chambray dark:text-casablanca dark:hover:text-white"
-        >
+        <SignOutButton className="text-sanmarino transition hover:text-chambray dark:text-casablanca dark:hover:text-white">
           Sign out
-        </Link>
+        </SignOutButton>
       </div>
     </footer>
   )

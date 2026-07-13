@@ -109,7 +109,7 @@ export async function proxy(request: NextRequest) {
   if (!user) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('next', pathname)
-    return NextResponse.redirect(loginUrl)
+    return redirectWithCookies(response, loginUrl)
   }
 
   return response

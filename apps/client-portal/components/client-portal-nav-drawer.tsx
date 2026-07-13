@@ -141,7 +141,8 @@ function ClientPortalNavDrawerInner({
       const targetPath = pathname.startsWith('/attention') ? '/' : pathname
       const query = params.toString()
       router.replace(query ? `${targetPath}?${query}` : targetPath, { scroll: false })
-      onClose()
+      // Close after this tap finishes so the departing drawer cannot ghost-click Sign out.
+      window.setTimeout(() => onClose(), 0)
     },
     [onClose, pathname, router, searchParams],
   )

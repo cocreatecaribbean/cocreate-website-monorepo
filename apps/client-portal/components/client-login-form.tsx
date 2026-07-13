@@ -114,12 +114,16 @@ export default function ClientPortalLoginForm() {
           >
             ← Back to portal home
           </Link>
-          <Link
-            href="/auth/signout"
+          {/* Do not use <Link href="/auth/signout"> — Link prefetch GETs the route and signs users out. */}
+          <button
+            type="button"
+            onClick={() => {
+              window.location.assign('/auth/signout')
+            }}
             className="inline-flex w-fit text-app-muted transition hover:text-chambray"
           >
             Sign out
-          </Link>
+          </button>
         </div>
       </div>
     </main>

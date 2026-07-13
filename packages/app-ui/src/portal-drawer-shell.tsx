@@ -1,6 +1,9 @@
 'use client'
 
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+
+/** Match `.portal-drawer-aside` transform duration so ghost taps cannot hit content underneath. */
+const DRAWER_CLOSE_GUARD_MS = 350
 
 export type PortalDrawerShellProps = {
   open: boolean
@@ -26,11 +29,29 @@ export default function PortalDrawerShell({
   variant = 'persistent',
   className,
 }: PortalDrawerShellProps) {
+  const wasOpenRef = useRef(false)
+  const [blockGhostClicks, setBlockGhostClicks] = useState(false)
+
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : ''
     return () => {
       document.body.style.overflow = ''
     }
+  }, [open])
+
+  useEffect(() => {
+    if (open) {
+      wasOpenRef.current = true
+      setBlockGhostClicks(false)
+      return
+    }
+    if (!wasOpenRef.current) return
+
+    // Keep an invisible full-screen catcher briefly after close so the same
+    // tap that selected a bottom nav item (e.g. Settings) cannot hit Sign out.
+    setBlockGhostClicks(true)
+    const timer = window.setTimeout(() => setBlockGhostClicks(false), DRAWER_CLOSE_GUARD_MS)
+    return () => window.clearTimeout(timer)
   }, [open])
 
   const asideClassName = [
@@ -39,14 +60,26 @@ export default function PortalDrawerShell({
     variant === 'persistent' ? 'portal-drawer-aside--persistent' : 'portal-drawer-aside--overlay',
   ].join(' ')
 
+  const showBackdrop = open || blockGhostClicks
+
   const drawer = (
     <>
-      {open ? (
+      {showBackdrop ? (
         <button
           type="button"
-          aria-label="Close menu"
-          className="portal-drawer-backdrop"
-          onClick={() => onOpenChange(false)}
+          aria-label={open ? 'Close menu' : undefined}
+          aria-hidden={!open}
+          tabIndex={open ? 0 : -1}
+          className={`portal-drawer-backdrop${blockGhostClicks && !open ? ' portal-drawer-backdrop--linger' : ''}`}
+          onClick={() => {
+            if (open) onOpenChange(false)
+          }}
+          onPointerUp={(event) => {
+            if (!open) {
+              event.preventDefault()
+              event.stopPropagation()
+            }
+          }}
         />
       ) : null}
       <aside className={asideClassName}>{sidebar}</aside>

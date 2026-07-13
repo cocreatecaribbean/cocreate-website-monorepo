@@ -381,6 +381,10 @@
   .portal-drawer-backdrop {
     @apply fixed inset-0 z-40 bg-chambray/40 backdrop-blur-sm lg:hidden;
   }
+  /* Invisible catcher after close — blocks iOS/Android ghost taps through the drawer. */
+  .portal-drawer-backdrop--linger {
+    @apply bg-transparent backdrop-blur-none;
+  }
   .portal-drawer-nav-item {
     @apply flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] transition-all duration-200;
   }
