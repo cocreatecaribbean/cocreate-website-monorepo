@@ -18,6 +18,11 @@ import {
 
 const LandingCmsContext = createContext<LandingPageContent | null>(null)
 
+/** Stable identity — inline `{ query }` each render can retrigger the Presentation effect. */
+const LANDING_PRESENTATION_QUERY_OPTIONS = {
+  query: LANDING_PRESENTATION_QUERY,
+}
+
 type LandingCmsProviderProps = {
   initial: LandingPageContent
   children: ReactNode
@@ -25,18 +30,27 @@ type LandingCmsProviderProps = {
 
 export function LandingCmsProvider({ initial, children }: LandingCmsProviderProps) {
   const isPresentation = Boolean(useIsPresentationTool())
-  const presentation = usePresentationQuery({
-    query: LANDING_PRESENTATION_QUERY,
-  })
+  const presentation = usePresentationQuery(LANDING_PRESENTATION_QUERY_OPTIONS)
 
   const presentationData = presentation.data as LandingPresentationResult | undefined
 
+  /** Value-stable snapshot so new object refs with identical data do not remount consumers. */
+  const presentationSnapshot = useMemo(() => {
+    if (presentationData == null) return null
+    try {
+      return JSON.stringify(presentationData)
+    } catch {
+      return null
+    }
+  }, [presentationData])
+
   const content = useMemo(() => {
-    if (!isPresentation || presentationData == null) {
+    if (!isPresentation || presentationSnapshot == null) {
       return initial
     }
-    return mergeLandingPageContent(initial, presentationData)
-  }, [initial, isPresentation, presentationData])
+    const live = JSON.parse(presentationSnapshot) as LandingPresentationResult
+    return mergeLandingPageContent(initial, live)
+  }, [initial, isPresentation, presentationSnapshot])
 
   return (
     <LandingCmsContext.Provider value={content}>{children}</LandingCmsContext.Provider>

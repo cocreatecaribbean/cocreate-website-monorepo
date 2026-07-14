@@ -18,6 +18,7 @@ function HomeHeroFromCms() {
   )
 }
 
+/** Always the same tree — do not swap branches when Presentation detection settles (that remounts SplitText). */
 export function HomeLanding({ initial }: { initial: LandingPageContent }) {
   return (
     <LandingCmsProvider initial={initial}>

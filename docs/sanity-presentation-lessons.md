@@ -211,3 +211,9 @@ Use this before touching Presentation:
 | “Just widen the proxy a little” after a soft-nav bug | Starts the leak/hang loop again |
 
 **When stuck:** open joh-webapp About + FX Presentation paths and copy them. Do not freestyle.
+
+---
+
+## Related: home hero remount + SplitText pile
+
+Swapping HomeLanding branches when Presentation settles remounts SplitText and contributed to a blue letter pile under the nav. That is **not** fixed by changing the intro `gsap.from` values — see [hero-headline-intro.md](./hero-headline-intro.md).

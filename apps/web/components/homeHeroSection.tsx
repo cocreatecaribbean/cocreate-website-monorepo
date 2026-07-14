@@ -65,6 +65,13 @@ function getReloadScrollY(): number | null {
   return Number.isFinite(y) ? y : null;
 }
 
+/** True when restore would leave the hero mid/past the intro (not a near-top refresh). */
+function isDeepReloadRestore(): boolean {
+  const y = getReloadScrollY();
+  if (y == null) return false;
+  return y > Math.min(window.innerHeight * 0.35, 280);
+}
+
 /** px — must match Tailwind translate-y on brand_elem; mobile uses a higher (smaller y) start */
 function getBrandStartY(): number {
   if (typeof window === "undefined") return 160;
@@ -233,6 +240,10 @@ export default function HomeHeroSection({
     () => {
       const enteredViaSpa = consumeSpaNavigation();
 
+      let h1_text_split: SplitText | null = null;
+      let about_text_split: SplitText | null = null;
+      let headlineTween: gsap.core.Tween | null = null;
+
       const ctx = gsap.context(() => {
       if (prefersReducedMotion()) {
         const canvas = canvasRef.current;
@@ -283,10 +294,34 @@ export default function HomeHeroSection({
         }, 200);
       };
 
-      // ─── Split Text ─────────────────────────────────────────────────────────
+      const waitForSmoothContentReady = () =>
+        new Promise<void>((resolve) => {
+          const check = () => {
+            const content = document.getElementById("smooth-content");
+            const opacity = content
+              ? (gsap.getProperty(content, "opacity") as number)
+              : 1;
+            if (opacity >= 0.99) {
+              resolve();
+              return;
+            }
+            requestAnimationFrame(check);
+          };
+          check();
+        });
 
-      const h1_text_split = new SplitText(".headline-text", { type: "words" });
-      const about_text_split = new SplitText(".about-text", {
+      const runAfterLayoutReady = async (fn: () => void) => {
+        if (document.fonts?.ready) {
+          await document.fonts.ready.catch(() => undefined);
+        }
+        await waitForSmoothContentReady();
+        fn();
+      };
+
+      // ─── SplitText ─────────────────────────────────────────────────────────
+
+      h1_text_split = new SplitText(".headline-text", { type: "words" });
+      about_text_split = new SplitText(".about-text", {
         type: "words",
         linesClass: "overflow-hidden",
       });
@@ -295,7 +330,7 @@ export default function HomeHeroSection({
 
       // ─── Intro Animation ────────────────────────────────────────────────────
 
-      gsap.from(h1_text_split.words, {
+      headlineTween = gsap.from(h1_text_split.words, {
         y: -100,
         opacity: 0,
         duration: 1.5,
@@ -378,30 +413,6 @@ export default function HomeHeroSection({
         const st = ScrollTrigger.getById("home-hero-pin");
         if (!st) return;
         scheduleFrameFromProgress(st.progress, false);
-      };
-
-      const waitForSmoothContentReady = () =>
-        new Promise<void>((resolve) => {
-          const check = () => {
-            const content = document.getElementById("smooth-content");
-            const opacity = content
-              ? (gsap.getProperty(content, "opacity") as number)
-              : 1;
-            if (opacity >= 0.99) {
-              resolve();
-              return;
-            }
-            requestAnimationFrame(check);
-          };
-          check();
-        });
-
-      const runAfterLayoutReady = async (fn: () => void) => {
-        if (document.fonts?.ready) {
-          await document.fonts.ready.catch(() => undefined);
-        }
-        await waitForSmoothContentReady();
-        fn();
       };
 
       // ─── ScrollTriggers ─────────────────────────────────────────────────────
@@ -505,7 +516,7 @@ export default function HomeHeroSection({
         gsap.to(mainRef.current, { autoAlpha: 1, duration: 0.2 });
       };
 
-      if (getReloadScrollY() != null) {
+      if (isDeepReloadRestore()) {
         gsap.set(container.current, { visibility: "hidden" });
         void runAfterLayoutReady(() => {
           ScrollTrigger.refresh(true);
@@ -519,7 +530,17 @@ export default function HomeHeroSection({
 
       }, mainRef);
 
-      return () => ctx.revert();
+      return () => {
+        headlineTween?.kill();
+        headlineTween = null;
+        if (h1_text_split) gsap.killTweensOf(h1_text_split.words);
+        if (about_text_split) gsap.killTweensOf(about_text_split.words);
+        h1_text_split?.revert();
+        about_text_split?.revert();
+        h1_text_split = null;
+        about_text_split = null;
+        ctx.revert();
+      };
     },
     { scope: mainRef }
   );
@@ -580,8 +601,7 @@ export default function HomeHeroSection({
             text-[clamp(3rem,5vw,7rem)] md:text-[clamp(4rem,5vw,7rem)]
             leading-none uppercase w-[90%] sm:w-[65%] md:w-[70%] lg:w-[70%] 2xl:w-[65%] 3xl:w-[60%]
             mx-auto pt-60 landscape:pt-20 landscape:lg:pt-48 landscape:xl:pt-72 landscape:2xl:pt-90 overflow-hidden
-            col-span-1 col-start-1 row-span-1 row-start-1 text-center bg-clip-text
-            bg-linear-to-r from-blue-900 to-yellow-600 text-transparent
+            col-span-1 col-start-1 row-span-1 row-start-1 text-center
             ${fonts.bricolage_grot800.className}
           `}
         >
@@ -617,6 +637,7 @@ export default function HomeHeroSection({
       <section className="bg-white">
         <div className="w-screen">
           <p
+            key={agencyIntro}
             className={`about-text
               text-[clamp(2.3rem,4vw,4rem)]
               xl:text-[clamp(2rem,4vw,6rem)]
