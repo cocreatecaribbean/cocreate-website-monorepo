@@ -41,8 +41,15 @@ export default function TestimonialChatCard({
             >
               {testimonial.name}
             </p>
+            {testimonial.jobTitle ? (
+              <p
+                className={`mt-0.5 truncate text-xs italic text-neutral-600 sm:mt-1 sm:text-sm ${fonts.bricolage_grot500.className}`}
+              >
+                {testimonial.jobTitle}
+              </p>
+            ) : null}
             <p
-              className={`mt-0.5 truncate text-xs text-neutral-500 sm:mt-1 sm:text-sm ${fonts.bricolage_grot400.className}`}
+              className={`mt-0.5 truncate text-xs text-neutral-500 sm:text-sm ${fonts.bricolage_grot400.className}`}
             >
               {testimonial.company}
             </p>

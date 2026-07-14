@@ -118,7 +118,6 @@ export function ProgressCheckPanel({
               <input
                 type="file"
                 multiple
-                accept="image/*,video/*,.pdf"
                 onChange={(e) => onFilesChange(e.target.files)}
                 className="sr-only"
               />

@@ -15,7 +15,8 @@ export function useIsTextClamped(ref: RefObject<HTMLElement | null>): boolean {
     if (!element) return
 
     const update = () => {
-      setIsClamped(checkIsClamped(element))
+      const next = checkIsClamped(element)
+      setIsClamped((prev) => (prev === next ? prev : next))
     }
 
     update()

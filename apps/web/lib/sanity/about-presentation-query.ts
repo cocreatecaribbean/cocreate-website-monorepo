@@ -2,7 +2,12 @@
 export const ABOUT_PRESENTATION_QUERY = `
 *[_type == "aboutPage" && _id == "aboutPage"][0] {
   heroMediaType,
-  "heroImageUrl": heroImage.asset->url,
+  heroImage {
+    crop,
+    hotspot,
+    asset,
+    "assetUrl": asset->url
+  },
   "heroVideoPlaybackId": heroVideo.asset->playbackId,
   heroHeading,
   heroBody,
@@ -11,14 +16,30 @@ export const ABOUT_PRESENTATION_QUERY = `
     "_id": _key,
     name,
     company,
+    jobTitle,
     quote,
-    "photoUrl": photo.asset->url
+    photo {
+      crop,
+      hotspot,
+      asset,
+      "assetUrl": asset->url
+    }
   }
 }
 `
 
+export type AboutSanityImage = {
+  asset?: {_ref?: string; _type?: string; url?: string} | null
+  /** Resolved original URL for fallback when urlFor fails */
+  assetUrl?: string | null
+  crop?: unknown
+  hotspot?: unknown
+} | null
+
 export type AboutPresentationResult = {
   heroMediaType?: string | null
+  heroImage?: AboutSanityImage
+  /** Already-resolved URL (merge/fallback only) */
   heroImageUrl?: string | null
   heroVideoPlaybackId?: string | null
   heroHeading?: string | null
@@ -28,7 +49,9 @@ export type AboutPresentationResult = {
     _id?: string | null
     name?: string | null
     company?: string | null
+    jobTitle?: string | null
     quote?: string | null
+    photo?: AboutSanityImage
     photoUrl?: string | null
   } | null> | null
 }

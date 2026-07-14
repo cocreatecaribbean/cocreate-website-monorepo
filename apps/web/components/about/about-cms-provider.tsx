@@ -18,6 +18,11 @@ import {
 
 const AboutCmsContext = createContext<AboutPageContent | null>(null)
 
+/** Stable identity — inline `{ query }` each render can retrigger the Presentation effect. */
+const ABOUT_PRESENTATION_QUERY_OPTIONS = {
+  query: ABOUT_PRESENTATION_QUERY,
+}
+
 type AboutCmsProviderProps = {
   initial: AboutPageContent
   children: ReactNode
@@ -25,18 +30,27 @@ type AboutCmsProviderProps = {
 
 export function AboutCmsProvider({ initial, children }: AboutCmsProviderProps) {
   const isPresentation = Boolean(useIsPresentationTool())
-  const presentation = usePresentationQuery({
-    query: ABOUT_PRESENTATION_QUERY,
-  })
+  const presentation = usePresentationQuery(ABOUT_PRESENTATION_QUERY_OPTIONS)
 
   const presentationData = presentation.data as AboutPresentationResult | undefined
 
+  /** Value-stable snapshot so new object refs with identical data do not remount consumers. */
+  const presentationSnapshot = useMemo(() => {
+    if (presentationData == null) return null
+    try {
+      return JSON.stringify(presentationData)
+    } catch {
+      return null
+    }
+  }, [presentationData])
+
   const content = useMemo(() => {
-    if (!isPresentation || presentationData == null) {
+    if (!isPresentation || presentationSnapshot == null) {
       return initial
     }
-    return mergeAboutPageContent(initial, presentationData)
-  }, [initial, isPresentation, presentationData])
+    const live = JSON.parse(presentationSnapshot) as AboutPresentationResult
+    return mergeAboutPageContent(initial, live)
+  }, [initial, isPresentation, presentationSnapshot])
 
   return (
     <AboutCmsContext.Provider value={content}>{children}</AboutCmsContext.Provider>

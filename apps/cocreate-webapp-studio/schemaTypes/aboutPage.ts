@@ -14,7 +14,8 @@ export const aboutPage = defineType({
     defineField({
       name: 'heroMediaType',
       title: 'Hero media type',
-      description: 'Use an image or a Mux video for the About hero visual.',
+      description:
+        'Image or Mux video for the About hero. Media itself is optional — empty uses the site default image.',
       type: 'string',
       options: {
         list: [
@@ -29,32 +30,18 @@ export const aboutPage = defineType({
     defineField({
       name: 'heroImage',
       title: 'Hero image',
+      description: 'Leave empty to use the site default About hero image.',
       type: 'image',
       options: {hotspot: true},
       hidden: ({parent}) => parent?.heroMediaType !== 'image',
-      validation: (rule) =>
-        rule.custom((value, context) => {
-          const parent = context.parent as {heroMediaType?: string} | undefined
-          if (parent?.heroMediaType === 'image' && !value?.asset) {
-            return 'Add a hero image'
-          }
-          return true
-        }),
     }),
     defineField({
       name: 'heroVideo',
       title: 'Hero video',
-      description: 'Upload via Mux. Shown when media type is Video.',
+      description:
+        'Upload via Mux when media type is Video. Leave empty to use the site default hero image.',
       type: 'mux.video',
       hidden: ({parent}) => parent?.heroMediaType !== 'video',
-      validation: (rule) =>
-        rule.custom((value, context) => {
-          const parent = context.parent as {heroMediaType?: string} | undefined
-          if (parent?.heroMediaType === 'video' && !value) {
-            return 'Add a Mux hero video'
-          }
-          return true
-        }),
     }),
     defineField({
       name: 'heroHeading',

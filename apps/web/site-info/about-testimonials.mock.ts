@@ -11,6 +11,7 @@ export const aboutTestimonialsMock: readonly AboutTestimonial[] = [
   {
     id: 't1',
     name: 'Marcia Clarke',
+    jobTitle: 'Marketing Director',
     company: 'Island Fresh Markets',
     quote:
       'CoCreate turned our scattered social presence into a cohesive story. The team listens, moves fast, and the work always feels unmistakably us. From campaign concepts to final delivery, every touchpoint reflected our values and resonated with the communities we serve. They became true partners in how we show up online and in the room.',
@@ -20,6 +21,7 @@ export const aboutTestimonialsMock: readonly AboutTestimonial[] = [
   {
     id: 't2',
     name: 'David Singh',
+    jobTitle: 'Head of Brand',
     company: 'Harbourview Financial',
     quote:
       'From brand refresh to campaign rollout, they delivered polish without losing warmth. Our audience engagement jumped within the first quarter.',
@@ -29,6 +31,7 @@ export const aboutTestimonialsMock: readonly AboutTestimonial[] = [
   {
     id: 't3',
     name: 'Aisha Williams',
+    jobTitle: 'Creative Lead',
     company: 'Pulse Caribbean Media',
     quote:
       'The motion work alone was worth it — complex ideas became clear, shareable stories. CoCreate feels like an extension of our in-house team.',
@@ -38,6 +41,7 @@ export const aboutTestimonialsMock: readonly AboutTestimonial[] = [
   {
     id: 't4',
     name: 'Ryan Baptiste',
+    jobTitle: 'VP of Marketing',
     company: 'Blue Horizon Resorts',
     quote:
       'They balanced luxury positioning with authentic Caribbean voice. Every deliverable was on-brand and ready for our sales team to use immediately.',
@@ -47,6 +51,7 @@ export const aboutTestimonialsMock: readonly AboutTestimonial[] = [
   {
     id: 't5',
     name: 'Keisha Morgan',
+    jobTitle: 'Executive Director',
     company: 'NextGen Edu Foundation',
     quote:
       'CoCreate helped us reach younger audiences without dumbing down our mission. Thoughtful strategy, beautiful design, measurable results.',
@@ -56,6 +61,7 @@ export const aboutTestimonialsMock: readonly AboutTestimonial[] = [
   {
     id: 't6',
     name: 'James Porter',
+    jobTitle: 'COO',
     company: 'Summit Logistics Group',
     quote:
       'Professional from kickoff to launch. They kept us in the loop, hit every milestone, and the new site finally reflects the scale of our operation.',

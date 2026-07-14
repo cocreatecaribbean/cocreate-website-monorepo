@@ -62,6 +62,14 @@ Sync this config to the Studio Vercel project (not root `dev`).
 
 **First Vercel deploy:** Studio builds with **no env** (code defaults: dataset `dev`, preview `https://preview.cocreatecaribbean.com`). Then sync Doppler → `stg_sanity_studio` and **redeploy** so secrets bake in.
 
+### Hosted Studio: stale chunk / “Failed to fetch dynamically imported module”
+
+After a Studio redeploy, an open tab can still request old hashed files under `/static/` (for example `refractor-….js` from Vision). If that file is gone, a catch-all SPA rewrite that maps everything to `index.html` makes the browser treat HTML as a JS module → `TypeError: Failed to fetch dynamically imported module`.
+
+**Recovery:** hard-refresh Studio (`Cmd+Shift+R`) or open a private window on `hq-preview`. If it still fails on a fresh load, redeploy the Studio Vercel project.
+
+**Deploy config:** [`apps/cocreate-webapp-studio/vercel.json`](../apps/cocreate-webapp-studio/vercel.json) rewrites SPA routes but **excludes** `/static/*`, so missing hashed assets return **404** instead of the HTML shell. This is unrelated to image/Mux uploads or About schema — those use Sanity’s asset API once Studio JS loads.
+
 ## Local workflow
 
 ```bash

@@ -1,5 +1,5 @@
 'use client'
-import { nestApiUrl } from '@cocreate/api-client'
+
 import {
   OrgInboxConversationListResponseSchema,
   OrgInboxCreateConversationResponseSchema,
@@ -12,24 +12,24 @@ import {
 import type { CreateOrgInboxConversationInput } from '@cocreate/api-contracts/v1/requests/org-inbox'
 
 import { parseApiResponseSafe } from '@/lib/api/parse-response'
-import { getPortalAccessToken } from '@/lib/api/portal-access-token'
 
 export type { OrgInboxConversation, OrgInboxMessage }
 
-async function getToken() {
-  return getPortalAccessToken()
+/** Same-origin BFF — mirrors project uploads; avoids browser→Nest CORS on attachments. */
+function inboxProxyUrl(path: string): string {
+  const normalized = path.startsWith('/') ? path : `/${path}`
+  if (!normalized.startsWith('/client-portal')) {
+    throw new Error(`inboxFetch path must start with /client-portal: ${path}`)
+  }
+  return `/api${normalized}`
 }
 
 async function inboxFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = await getToken()
-  if (!token) throw new Error('Not signed in')
-
   let response: Response
   try {
-    response = await fetch(nestApiUrl(path), {
+    response = await fetch(inboxProxyUrl(path), {
       ...init,
       headers: {
-        Authorization: `Bearer ${token}`,
         ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
         ...init?.headers,
       },
@@ -136,7 +136,13 @@ export async function uploadOrgInboxFiles(
         body: file,
       })
       if (!putResponse.ok) {
-        return { ok: false, message: `Upload failed for ${file.name}` }
+        const detail = await putResponse.text().catch(() => '')
+        return {
+          ok: false,
+          message: detail
+            ? `Upload failed for ${file.name}: ${detail.slice(0, 200)}`
+            : `Upload failed for ${file.name}`,
+        }
       }
       const registered = await registerOrgInboxAttachment(conversationId, {
         storagePath: urlResult.storagePath,

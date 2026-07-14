@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { X } from 'lucide-react'
 import * as fonts from '@/styles/fonts'
+import { formatTestimonialQuoteParagraphs } from '@/lib/format-testimonial-quote'
 import type { AboutTestimonial } from '@/types/about-testimonial'
 
 const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'
@@ -24,6 +25,7 @@ export default function TestimonialReadMoreModal({
   const dialogId = useId()
   const headingId = `${dialogId}-heading`
   const [mounted, setMounted] = useState(false)
+  const quoteParagraphs = formatTestimonialQuoteParagraphs(testimonial.quote)
 
   useEffect(() => {
     setMounted(true)
@@ -112,8 +114,15 @@ export default function TestimonialReadMoreModal({
               >
                 {testimonial.name}
               </p>
+              {testimonial.jobTitle ? (
+                <p
+                  className={`mt-1 text-sm italic text-neutral-600 ${fonts.bricolage_grot500.className}`}
+                >
+                  {testimonial.jobTitle}
+                </p>
+              ) : null}
               <p
-                className={`mt-1 text-sm text-neutral-500 ${fonts.bricolage_grot400.className}`}
+                className={`mt-0.5 text-sm text-neutral-500 ${fonts.bricolage_grot400.className}`}
               >
                 {testimonial.company}
               </p>
@@ -127,11 +136,13 @@ export default function TestimonialReadMoreModal({
             >
               &ldquo;
             </span>
-            <p
-              className={`relative text-[0.95rem] leading-relaxed text-neutral-700 sm:text-base sm:leading-relaxed ${fonts.bricolage_grot400.className}`}
+            <div
+              className={`relative space-y-4 text-[0.95rem] leading-relaxed text-neutral-700 sm:text-base sm:leading-relaxed ${fonts.bricolage_grot400.className}`}
             >
-              {testimonial.quote}
-            </p>
+              {quoteParagraphs.map((paragraph, index) => (
+                <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>
+              ))}
+            </div>
           </div>
         </article>
       </div>

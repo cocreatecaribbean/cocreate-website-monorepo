@@ -165,7 +165,12 @@ export const SEARCH_WORK_QUERY = defineQuery(`
 export const ABOUT_PAGE_QUERY = defineQuery(`
   ${aboutPageDoc} {
     heroMediaType,
-    "heroImageUrl": heroImage.asset->url,
+    heroImage {
+      crop,
+      hotspot,
+      asset,
+      "assetUrl": asset->url
+    },
     "heroVideoPlaybackId": heroVideo.asset->playbackId,
     heroHeading,
     heroBody,
@@ -174,8 +179,14 @@ export const ABOUT_PAGE_QUERY = defineQuery(`
       "_id": _key,
       name,
       company,
+      jobTitle,
       quote,
-      "photoUrl": photo.asset->url
+      photo {
+        crop,
+        hotspot,
+        asset,
+        "assetUrl": asset->url
+      }
     }
   }
 `)

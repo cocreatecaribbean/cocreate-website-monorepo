@@ -13,6 +13,12 @@ export const aboutTestimonial = defineType({
       validation: (rule) => rule.required(),
     }),
     defineField({
+      name: 'jobTitle',
+      title: 'Job title',
+      type: 'string',
+      description: 'Optional role shown under the name (e.g. Brand Manager).',
+    }),
+    defineField({
       name: 'company',
       title: 'Company',
       type: 'string',
@@ -34,6 +40,15 @@ export const aboutTestimonial = defineType({
     }),
   ],
   preview: {
-    select: {title: 'name', subtitle: 'company', media: 'photo'},
+    select: {title: 'name', subtitle: 'company', media: 'photo', jobTitle: 'jobTitle'},
+    prepare({title, subtitle, media, jobTitle}) {
+      const role = typeof jobTitle === 'string' ? jobTitle.trim() : ''
+      const company = typeof subtitle === 'string' ? subtitle.trim() : ''
+      return {
+        title: title || 'Testimonial',
+        subtitle: [role, company].filter(Boolean).join(' · ') || undefined,
+        media,
+      }
+    },
   },
 })
