@@ -33,17 +33,16 @@ const NavDesktop: React.FC = () => {
       <ul
         className={`flex min-w-0 flex-row flex-nowrap items-center gap-[clamp(1.5rem,3.5vw,2.5rem)] ${fonts.bricolage_grot500.className}`}
       >
-        <div className="flex flex-row flex-nowrap items-center gap-[clamp(1.5rem,3.5vw,2.5rem)]">
-          {menu_names.map((item, id) => {
-            const isActive = !isClientPortalOpen && pathname === `/${item}`;
-            const label = getMenuLabel(item);
+        {menu_names.map((item, id) => {
+          const isActive = !isClientPortalOpen && pathname === `/${item}`;
+          const label = getMenuLabel(item);
 
-            return (
-              <li key={id}>
-                <Link
-                  href={`/${item}`}
-                  onClick={closeSearch}
-                  className={`
+          return (
+            <li key={id}>
+              <Link
+                href={`/${item}`}
+                onClick={closeSearch}
+                className={`
                     relative inline-block
                     transition-all duration-300 hover:-translate-y-2
                     before:content-[''] before:absolute before:left-1/2 before:top-0 before:z-0
@@ -60,22 +59,22 @@ const NavDesktop: React.FC = () => {
                         : "after:opacity-0 hover:after:opacity-100"
                     }
                   `}
-                >
-                  <span className="relative z-[1] whitespace-nowrap">{label}</span>
-                </Link>
-              </li>
-            );
-          })}
-          <li>
-            <button
-              type="button"
-              aria-current={isClientPortalOpen ? "page" : undefined}
-              onClick={() => {
-                closeSearch()
-                if (isClientPortalOpen) closeClientPortalLogin()
-                else openClientPortalLogin()
-              }}
-              className={`
+              >
+                <span className="relative z-[1] whitespace-nowrap">{label}</span>
+              </Link>
+            </li>
+          );
+        })}
+        <li>
+          <button
+            type="button"
+            aria-current={isClientPortalOpen ? "page" : undefined}
+            onClick={() => {
+              closeSearch()
+              if (isClientPortalOpen) closeClientPortalLogin()
+              else openClientPortalLogin()
+            }}
+            className={`
                     relative inline-block cursor-pointer
                     transition-all duration-300 hover:-translate-y-2
                     before:content-[''] before:absolute before:left-1/2 before:top-0 before:z-0
@@ -92,10 +91,11 @@ const NavDesktop: React.FC = () => {
                         : "after:opacity-0 hover:after:opacity-100"
                     }
                   `}
-            >
-              <span className="relative z-[1] whitespace-nowrap">{clientPortalNav.label}</span>
-            </button>
-          </li>
+          >
+            <span className="relative z-[1] whitespace-nowrap">{clientPortalNav.label}</span>
+          </button>
+        </li>
+        <li>
           <button
             type="button"
             aria-label="Open search"
@@ -106,7 +106,7 @@ const NavDesktop: React.FC = () => {
               <Search className="h-5 w-5" strokeWidth={2.25} />
             </span>
           </button>
-        </div>
+        </li>
       </ul>
     </div>
   );

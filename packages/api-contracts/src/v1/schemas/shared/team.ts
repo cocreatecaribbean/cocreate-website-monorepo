@@ -15,6 +15,7 @@ export const ClientTeamMemberSchema = z.object({
   status: z.string(),
   clientOrgRole: ClientOrgRoleSchema.nullable(),
   canAccessSocialListening: z.boolean(),
+  canAccessGetHelp: z.boolean(),
   createdAt: isoDateTimeString,
   updatedAt: isoDateTimeString,
 })
@@ -25,7 +26,9 @@ export const ProjectMemberSchema = z.object({
   userId: z.string(),
   email: z.string(),
   clientOrgRole: ClientOrgRoleSchema.nullable(),
-  access: ClientProjectAccessLevelSchema,
+  /** @deprecated assignment is on/off */
+  access: ClientProjectAccessLevelSchema.optional(),
+  isOwner: z.boolean().optional(),
   grantedByUserId: z.string(),
   createdAt: isoDateTimeString,
 })
@@ -45,8 +48,11 @@ export const ProjectTeamCardSchema = z.object({
   phase: ClientProjectPhaseSchema,
   creatorUserId: z.string(),
   creatorEmail: z.string(),
+  ownerUserId: z.string(),
+  ownerEmail: z.string().nullable(),
   coverImageUrl: z.string().nullable().optional(),
   canManage: z.boolean(),
+  viewerIsOwner: z.boolean(),
   members: z.array(ProjectMemberSchema),
 })
 export type ProjectTeamCard = z.infer<typeof ProjectTeamCardSchema>
@@ -56,6 +62,7 @@ export const TeamHubPermissionsSchema = z.object({
   canInviteImmediately: z.boolean(),
   canRequestInvite: z.boolean(),
   canToggleSocialListening: z.boolean(),
+  canToggleGetHelp: z.boolean(),
 })
 export type TeamHubPermissions = z.infer<typeof TeamHubPermissionsSchema>
 
@@ -99,6 +106,10 @@ export const ProjectMembersResponseSchema = z.object({
   ok: z.literal(true),
   projectId: z.string(),
   creator: ProjectMembersCreatorSchema,
+  ownerUserId: z.string(),
+  ownerEmail: z.string().nullable(),
+  viewerIsOwner: z.boolean(),
+  canTransferOwnership: z.boolean(),
   members: z.array(ProjectMemberSchema),
   canManage: z.boolean(),
   assignableMembers: z.array(AssignableProjectMemberSchema).optional(),

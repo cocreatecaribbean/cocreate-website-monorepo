@@ -26,15 +26,15 @@ export function buildClientDashboardKpis(stats: ClientDashboardStats) {
     stats.activeProjectsAwaitingReview > 0
       ? `${pluralize(stats.activeProjectsAwaitingReview, 'project')} awaiting your review`
       : stats.activeProjects > 0
-        ? 'No checkpoints pending'
+        ? 'No reviews pending'
         : 'Submit a project to get started'
 
-  const approvalsHint =
-    stats.pendingApprovals > 0
-      ? stats.pendingApprovals === 1
-        ? '1 file to review'
-        : `${stats.pendingApprovals} files to review`
-      : 'All caught up'
+  const topPicksHint =
+    stats.topPicksCount > 0
+      ? stats.topPicksCount === 1
+        ? '1 favorited file'
+        : `${stats.topPicksCount} favorited files`
+      : 'No top picks yet'
 
   const filesHint = formatRelativeUploadTime(stats.lastSharedFileAt)
 
@@ -45,9 +45,9 @@ export function buildClientDashboardKpis(stats: ClientDashboardStats) {
       hint: activeHint,
     },
     {
-      label: 'Pending approvals',
-      value: String(stats.pendingApprovals),
-      hint: approvalsHint,
+      label: 'Top Picks',
+      value: String(stats.topPicksCount),
+      hint: topPicksHint,
     },
     {
       label: 'Shared files',

@@ -8,12 +8,22 @@ General WhatsApp-style chat between a client organization and the CoCreate accou
 
 Distinct from **Approvals / Inbox** (project checkpoint threads).
 
+## Access policy (client portal)
+
+| Role | Get Help access |
+|------|-----------------|
+| `ADMIN` | Always |
+| `CONTRIBUTOR` | Per-member `ClientOrganizationMembership.canAccessGetHelp` (default `true`) |
+| `VIEWER` / `SOCIAL_ANALYST` | Never |
+
+Org Admins manage the flag per teammate in Client Portal → Team (invite checkbox and On/Off toggle in the members table), same pattern as Social Listening. Updates use `PATCH /client-portal/team/:userId` with `{ canAccessGetHelp: boolean }`. The computed permission is exposed as `permissions.canAccessGetHelp` on `/client-portal/me` (membership flags are re-read on every authenticated request so toggles apply immediately).
+
 ## Conversation model
 
 | Visibility | Who can see | Who can create |
 |------------|-------------|----------------|
 | `ORG_WIDE` | All org client users + CoCreate admins | Auto-created on first access |
-| `RESTRICTED` | Selected participants + CoCreate admins | Org admins (`canManageOrgTeam`, `OWNER`, `PROJECT_MANAGER`) |
+| `RESTRICTED` | Selected participants + CoCreate admins | Org admins (`canManageOrgTeam` / `ADMIN`) |
 
 One org-wide conversation per organization; optional additional restricted threads with explicit participants.
 

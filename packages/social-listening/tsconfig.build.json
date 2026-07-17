@@ -1,12 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "declaration": true,
     "outDir": "./dist/core",
     "rootDir": "./src/core",
-    "baseUrl": ".",
     "paths": {
       "@cocreate/api-contracts/v1/*": ["../api-contracts/dist/v1/*"]
     },

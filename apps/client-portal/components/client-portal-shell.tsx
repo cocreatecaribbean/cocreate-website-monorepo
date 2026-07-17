@@ -7,7 +7,10 @@ import PortalDrawerShell from '@cocreate/app-ui/portal-drawer-shell'
 import ClientPortalNavDrawer from '@/components/client-portal-nav-drawer'
 import PortalBrandHeader from '@/components/portal-brand-header'
 import PortalUserAvatar from '@/components/portal-user-avatar'
+import OrganizationSwitcher from '@/components/organization-switcher'
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
+import { setActiveOrganizationId } from '@/lib/api/active-organization'
+import { resolveCanUseSocialListening } from '@/lib/portal-profile-types'
 import { bricolage_grot500 } from '@/styles/fonts'
 
 type ClientPortalShellProps = {
@@ -81,11 +84,18 @@ function ClientPortalShellInner({
   const resolvedOrgName = profile?.organization?.name ?? organizationName
   const resolvedOrgLogo = profile?.organization?.logoUrl ?? organizationLogoUrl
   const resolvedSocialListening =
-    hasSocialListening ?? Boolean(profile?.user.canAccessSocialListening)
+    hasSocialListening ??
+    (profile ? resolveCanUseSocialListening(profile) : false)
 
   useEffect(() => {
     setMenuOpen(false)
   }, [pathname, searchParams])
+
+  useEffect(() => {
+    if (profile?.organization?.id) {
+      setActiveOrganizationId(profile.organization.id)
+    }
+  }, [profile?.organization?.id])
 
   return (
     <PortalDrawerShell
@@ -122,6 +132,7 @@ function ClientPortalShellInner({
             />
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <OrganizationSwitcher />
             <p className="hidden max-w-44 truncate text-sm text-app-muted dark:text-white/90 lg:block">
               {userEmail}
             </p>

@@ -4,7 +4,6 @@ import {
   PortalNotificationType,
   Prisma,
   ProjectRequestStatus,
-  ProjectRequestType,
   UserRole,
   UserStatus,
 } from '@cocreate/database'
@@ -164,9 +163,13 @@ export class ProjectNotificationsService {
     const clients = await this.prisma.user.findMany({
       where: {
         id: { in: params.userIds },
-        organizationId: params.organizationId,
         role: UserRole.CLIENT,
-        status: UserStatus.ACTIVE,
+        organizationMemberships: {
+          some: {
+            organizationId: params.organizationId,
+            status: { not: UserStatus.SUSPENDED },
+          },
+        },
       },
       select: { id: true, email: true },
     })
@@ -314,76 +317,6 @@ export class ProjectNotificationsService {
     return { count: result.count }
   }
 
-  private clientApprovalsUnreadWhere(
-    userId: string,
-    organizationId: string,
-    accessibleProjects: Prisma.ClientProjectWhereInput,
-  ): Prisma.PortalNotificationWhereInput {
-    return {
-      userId,
-      organizationId,
-      readAt: null,
-      type: {
-        in: [
-          PortalNotificationType.CHECKPOINT_PENDING,
-          PortalNotificationType.APPROVAL_FILE_PENDING,
-          PortalNotificationType.APPROVAL_REVISION_SENT,
-        ],
-      },
-      project: accessibleProjects,
-    }
-  }
-
-  async unreadCheckpointApprovalsCountForClient(
-    userId: string,
-    accessibleProjects: Prisma.ClientProjectWhereInput,
-  ) {
-    const organizationId =
-      typeof accessibleProjects.organizationId === 'string'
-        ? accessibleProjects.organizationId
-        : undefined
-    if (!organizationId) return 0
-
-    return this.prisma.portalNotification.count({
-      where: this.clientApprovalsUnreadWhere(
-        userId,
-        organizationId,
-        accessibleProjects,
-      ),
-    })
-  }
-
-  async markCheckpointApprovalsReadForClient(
-    userId: string,
-    accessibleProjects: Prisma.ClientProjectWhereInput,
-    requestId?: string,
-  ) {
-    const organizationId =
-      typeof accessibleProjects.organizationId === 'string'
-        ? accessibleProjects.organizationId
-        : undefined
-    if (!organizationId) return { count: 0 }
-
-    if (requestId) {
-      return this.markRequestNotificationsReadForClient(
-        userId,
-        organizationId,
-        accessibleProjects,
-        requestId,
-      )
-    }
-
-    const result = await this.prisma.portalNotification.updateMany({
-      where: this.clientApprovalsUnreadWhere(
-        userId,
-        organizationId,
-        accessibleProjects,
-      ),
-      data: { readAt: new Date() },
-    })
-    return { count: result.count }
-  }
-
   private clientAttentionUnreadWhere(
     userId: string,
     organizationId: string,
@@ -395,21 +328,6 @@ export class ProjectNotificationsService {
       organizationId,
       readAt: null,
       OR: [
-        {
-          type: PortalNotificationType.CHECKPOINT_PENDING,
-          requestId: { not: null },
-          request: {
-            type: ProjectRequestType.PROGRESS,
-            project: accessibleProjects,
-            messages: {
-              some: {
-                requiresClientApproval: true,
-                supersededAt: null,
-                clientApprovedAt: null,
-              },
-            },
-          },
-        },
         {
           type: PortalNotificationType.REQUEST_MESSAGE,
           requestId: { not: null },

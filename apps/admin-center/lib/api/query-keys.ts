@@ -34,6 +34,8 @@ export const adminQueryKeys = {
       [...adminQueryKeys.team.all, 'members', organizationId] as const,
     invites: (organizationId: string) =>
       [...adminQueryKeys.team.all, 'invites', organizationId] as const,
+    projectMembers: (organizationId: string, projectId: string) =>
+      [...adminQueryKeys.team.all, 'project-members', organizationId, projectId] as const,
   },
   socialListening: {
     all: ['admin', 'social-listening'] as const,
@@ -90,10 +92,15 @@ export const adminQueryKeys = {
     messages: (requestId: string) =>
       [...adminQueryKeys.requests.all, requestId, 'messages'] as const,
   },
-  approvals: {
-    all: ['admin', 'approvals'] as const,
-    project: (projectId: string, params?: Record<string, unknown>) =>
-      [...adminQueryKeys.approvals.all, 'project', projectId, params ?? {}] as const,
+  topPicks: {
+    all: ['admin', 'top-picks'] as const,
+    project: (projectId: string, tags?: string[]) =>
+      [...adminQueryKeys.topPicks.all, 'project', projectId, tags ?? []] as const,
+  },
+  fileReactions: {
+    all: ['admin', 'file-reactions'] as const,
+    project: (projectId: string) =>
+      [...adminQueryKeys.fileReactions.all, 'project', projectId] as const,
   },
   orgInbox: {
     all: ['admin', 'org-inbox'] as const,

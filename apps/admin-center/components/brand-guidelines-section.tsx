@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { FileMediaTile } from '@cocreate/app-ui/file-media-tile'
 import FilePreviewModal from '@/components/file-preview-modal'
 import { formatRelativeTime } from '@/lib/format-relative-time'
 import {
@@ -11,7 +12,7 @@ import {
 } from '@/lib/projects/fetch-brand-assets'
 import type { OrganizationBrandAsset } from '@/lib/projects/types'
 import { bricolage_grot600 } from '@/styles/fonts'
-import { BookOpen, Download, FileText, Loader2, Trash2, Upload } from 'lucide-react'
+import { BookOpen, Download, Loader2, Trash2, Upload } from 'lucide-react'
 
 type BrandGuidelinesSectionProps = {
   organizationId: string
@@ -32,23 +33,17 @@ function BrandFileRow({
   onPreview: (file: OrganizationBrandAsset, url: string | null) => void
   onDeleted: () => void
 }) {
-  const [thumbUrl, setThumbUrl] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const isImage = file.mimeType.startsWith('image/')
-
-  useEffect(() => {
-    if (!isImage) return
-    void fetchBrandAssetDownloadUrl(file.id).then(setThumbUrl)
-  }, [file.id, isImage])
+  const resolveUrl = () => fetchBrandAssetDownloadUrl(file.id)
 
   const openPreview = async () => {
-    const url = thumbUrl ?? (await fetchBrandAssetDownloadUrl(file.id))
+    const url = await resolveUrl()
     onPreview(file, url)
   }
 
   const onDownload = async (event: React.MouseEvent) => {
     event.stopPropagation()
-    const url = thumbUrl ?? (await fetchBrandAssetDownloadUrl(file.id))
+    const url = await resolveUrl()
     if (!url) return
     const anchor = document.createElement('a')
     anchor.href = url
@@ -67,21 +62,21 @@ function BrandFileRow({
   }
 
   return (
-    <li className="flex flex-col gap-3 border-b border-chambray/6 px-5 py-4 last:border-0 lg:grid lg:grid-cols-[1fr_110px_80px_72px] lg:items-center lg:gap-4">
-      <button
-        type="button"
-        onClick={() => void openPreview()}
-        className="group flex min-w-0 items-center gap-3 rounded-xl px-1 py-1 text-left transition hover:bg-chambray/6"
-        aria-label={`Preview ${file.fileName}`}
-      >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-casablanca/20 text-chambray ring-1 ring-casablanca/30">
-          {isImage && thumbUrl ? (
-            <img src={thumbUrl} alt={file.fileName} className="h-full w-full object-cover" />
-          ) : (
-            <FileText className="h-5 w-5" aria-hidden />
-          )}
-        </div>
-        <div className="min-w-0">
+    <li className="flex flex-col gap-3 border-b border-chambray/6 px-5 py-4 last:border-0 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <FileMediaTile
+          fileName={file.fileName}
+          mimeType={file.mimeType}
+          size="sm"
+          fetchUrl={resolveUrl}
+          onClick={() => void openPreview()}
+          className="bg-casablanca/20 text-chambray ring-1 ring-casablanca/30"
+        />
+        <button
+          type="button"
+          onClick={() => void openPreview()}
+          className="group min-w-0 text-left"
+        >
           <p
             className={`truncate text-sm text-chambray underline-offset-4 transition group-hover:underline ${bricolage_grot600.className}`}
           >
@@ -90,10 +85,15 @@ function BrandFileRow({
           {file.uploadedByName ? (
             <p className="truncate text-xs text-app-muted">Uploaded by {file.uploadedByName}</p>
           ) : null}
-        </div>
-      </button>
-      <p className="text-xs text-app-muted">{formatRelativeTime(file.createdAt)}</p>
-      <span className="text-xs text-app-muted">{formatBytes(file.sizeBytes)}</span>
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 lg:justify-end">
+        <p className="whitespace-nowrap text-xs text-app-muted">
+          {formatRelativeTime(file.createdAt)}
+        </p>
+        <span className="whitespace-nowrap text-xs text-app-muted">
+          {formatBytes(file.sizeBytes)}
+        </span>
       <div className="flex items-center justify-end gap-1">
         <button
           type="button"
@@ -116,6 +116,7 @@ function BrandFileRow({
             <Trash2 className="h-4 w-4" aria-hidden />
           )}
         </button>
+      </div>
       </div>
     </li>
   )

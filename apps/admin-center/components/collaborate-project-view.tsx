@@ -7,6 +7,7 @@ import { ArrowLeft, FolderOpen, MessageSquare, Shield } from 'lucide-react'
 import CollaborateProjectFiles from '@/components/collaborate-project-files'
 import { useAdminSession } from '@/components/admin-session-provider'
 import RequestMessageThread from '@/components/request-message-thread'
+import ResizableAdminThreadSurface from '@/components/resizable-admin-thread-surface'
 import TeamReviewPanel from '@/components/team-review-panel'
 import { adminQueryKeys } from '@/lib/api/query-keys'
 import { useAdminProjectQuery } from '@/lib/api/queries/projects'
@@ -135,28 +136,35 @@ export default function CollaborateProjectView({ projectId }: CollaborateProject
           ) : null}
 
           {activeThread === 'client-progress' && progress ? (
-            <section className="admin-glass-card p-5 sm:p-6">
-              <h2 className={`text-lg text-chambray ${bricolage_grot700.className}`}>
-                Client progress
-              </h2>
-              <p className="mt-1 text-sm text-app-muted">
-                For context only — reply in team review.
-              </p>
-              <div className="mt-4">
-                <RequestMessageThread
-                  request={progress}
-                  viewerRole="ADMIN"
-                  currentUserId={currentUserId}
-                  readOnly
-                  onSendMessage={async () => ({ ok: false, message: 'Read-only' })}
-                  onThreadUpdate={() => void refreshThread(progress.id)}
-                  invalidateQueryKeys={[
-                    adminQueryKeys.requests.detail(progress.id),
-                    adminQueryKeys.projects.detail(project.id),
-                  ]}
-                />
+            <ResizableAdminThreadSurface
+              storageKey={`admin-thread-surface:collaborate-progress:${progress.id}`}
+              className="admin-glass-card p-5 sm:p-6"
+            >
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div className="shrink-0">
+                  <h2 className={`text-lg text-chambray ${bricolage_grot700.className}`}>
+                    Client progress
+                  </h2>
+                  <p className="mt-1 text-sm text-app-muted">
+                    For context only — reply in team review.
+                  </p>
+                </div>
+                <div className="mt-4 flex min-h-0 flex-1 flex-col">
+                  <RequestMessageThread
+                    request={progress}
+                    viewerRole="ADMIN"
+                    currentUserId={currentUserId}
+                    readOnly
+                    onSendMessage={async () => ({ ok: false, message: 'Read-only' })}
+                    onThreadUpdate={() => void refreshThread(progress.id)}
+                    invalidateQueryKeys={[
+                      adminQueryKeys.requests.detail(progress.id),
+                      adminQueryKeys.projects.detail(project.id),
+                    ]}
+                  />
+                </div>
               </div>
-            </section>
+            </ResizableAdminThreadSurface>
           ) : null}
         </>
       ) : (

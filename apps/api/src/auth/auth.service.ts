@@ -21,21 +21,41 @@ export type AuthenticatedAdmin = {
 /** Core admin or project-scoped collaborator (Admin Center). */
 export type AuthenticatedAgencyUser = AuthenticatedAdmin
 
+export type ClientOrganizationSummary = {
+  id: string
+  name: string
+  slug: string
+  logoUrl: string | null
+  isSocialListeningSubscriber: boolean
+}
+
+export type ClientMembershipSummary = {
+  organizationId: string
+  organizationName: string
+  organizationSlug: string
+  clientOrgRole: ClientOrgRole
+  status: UserStatus
+  canAccessSocialListening: boolean
+}
+
 export type AuthenticatedClient = {
   id: string
   email: string
   role: UserRole
+  /** Status of the *active* org membership (not global User.status). */
   status: UserStatus
   supabaseAuthId: string | null
   clientOrgRole: ClientOrgRole | null
   canAccessSocialListening: boolean
-  organization: {
-    id: string
-    name: string
-    slug: string
-    logoUrl: string | null
-    isSocialListeningSubscriber: boolean
-  } | null
+  canAccessGetHelp: boolean
+  organization: ClientOrganizationSummary | null
+  /** Non-suspended memberships available for org switcher. */
+  memberships: ClientMembershipSummary[]
+}
+
+export type RequireClientOptions = {
+  /** Preferred org from X-Organization-Id / invite deep-link. */
+  organizationId?: string | null
 }
 
 @Injectable()
@@ -44,6 +64,7 @@ export class AuthService {
   private readonly publicClient: SupabaseClient | null
   private readonly supabaseUserCache = new AuthTokenCache<User>()
   private readonly agencyUserCache = new AuthTokenCache<AuthenticatedAgencyUser>()
+  /** Cache key includes active org so switcher works. */
   private readonly clientUserCache = new AuthTokenCache<AuthenticatedClient>()
 
   constructor(
@@ -76,6 +97,10 @@ export class AuthService {
 
   private normalizeEmail(email: string) {
     return email.trim().toLowerCase()
+  }
+
+  private clientCacheKey(accessToken: string, organizationId?: string | null) {
+    return `${accessToken}::${organizationId ?? ''}`
   }
 
   async getSupabaseUserFromToken(accessToken: string) {
@@ -159,7 +184,7 @@ export class AuthService {
       logoUrl: string | null
       isSocialListeningSubscriber: boolean
     } | null,
-  ) {
+  ): ClientOrganizationSummary | null {
     if (!organization) return null
     return {
       id: organization.id,
@@ -170,30 +195,129 @@ export class AuthService {
     }
   }
 
-  private async loadClientByEmail(email: string) {
+  private async loadClientUserRow(email: string) {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: { organization: true },
+      include: {
+        organizationMemberships: {
+          where: { status: { not: UserStatus.SUSPENDED } },
+          include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                logoUrl: true,
+                isSocialListeningSubscriber: true,
+                deletedAt: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
     })
 
-    if (
-      !user ||
-      user.role !== UserRole.CLIENT ||
-      user.status === UserStatus.SUSPENDED
-    ) {
+    if (!user || user.role !== UserRole.CLIENT || user.deletedAt) {
       throw new ForbiddenException('Client portal access denied')
     }
 
-    return user
+    const memberships = user.organizationMemberships.filter(
+      (m) => !m.organization.deletedAt,
+    )
+    if (memberships.length === 0) {
+      throw new ForbiddenException('Client portal access denied')
+    }
+
+    return { user, memberships }
   }
 
-  async requireClient(accessToken: string): Promise<AuthenticatedClient> {
-    const cached = this.clientUserCache.get(accessToken)
+  private pickActiveMembership<
+    T extends { organizationId: string; organization: { id: string } },
+  >(
+    memberships: T[],
+    preferredOrganizationId: string | null | undefined,
+    lastActiveOrganizationId: string | null,
+  ): T {
+    if (
+      preferredOrganizationId &&
+      memberships.some((m) => m.organizationId === preferredOrganizationId)
+    ) {
+      return memberships.find((m) => m.organizationId === preferredOrganizationId)!
+    }
+    if (
+      lastActiveOrganizationId &&
+      memberships.some((m) => m.organizationId === lastActiveOrganizationId)
+    ) {
+      return memberships.find((m) => m.organizationId === lastActiveOrganizationId)!
+    }
+    return memberships[0]!
+  }
+
+  private toAuthenticatedClient(
+    user: {
+      id: string
+      email: string
+      role: UserRole
+      supabaseAuthId: string | null
+    },
+    active: {
+      status: UserStatus
+      clientOrgRole: ClientOrgRole
+      canAccessSocialListening: boolean
+      canAccessGetHelp: boolean
+      organization: {
+        id: string
+        name: string
+        slug: string
+        logoUrl: string | null
+        isSocialListeningSubscriber: boolean
+      }
+    },
+    memberships: Array<{
+      organizationId: string
+      clientOrgRole: ClientOrgRole
+      status: UserStatus
+      canAccessSocialListening: boolean
+      canAccessGetHelp: boolean
+      organization: { id: string; name: string; slug: string }
+    }>,
+    supabaseAuthId: string,
+  ): AuthenticatedClient {
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      status: active.status,
+      supabaseAuthId,
+      clientOrgRole: active.clientOrgRole,
+      canAccessSocialListening: active.canAccessSocialListening,
+      canAccessGetHelp: active.canAccessGetHelp,
+      organization: this.mapClientOrganization(active.organization),
+      memberships: memberships.map((m) => ({
+        organizationId: m.organizationId,
+        organizationName: m.organization.name,
+        organizationSlug: m.organization.slug,
+        clientOrgRole: m.clientOrgRole,
+        status: m.status,
+        canAccessSocialListening: m.canAccessSocialListening,
+        canAccessGetHelp: m.canAccessGetHelp,
+      })),
+    }
+  }
+
+  async requireClient(
+    accessToken: string,
+    options: RequireClientOptions = {},
+  ): Promise<AuthenticatedClient> {
+    const preferredOrgId = options.organizationId?.trim() || null
+    const cacheKey = this.clientCacheKey(accessToken, preferredOrgId)
+    const cached = this.clientUserCache.get(cacheKey)
     if (cached) return cached
 
     const authUser = await this.getSupabaseUserFromToken(accessToken)
     const email = this.normalizeEmail(authUser.email!)
-    const user = await this.loadClientByEmail(email)
+    const { user, memberships } = await this.loadClientUserRow(email)
 
     if (user.supabaseAuthId !== authUser.id) {
       await this.prisma.user.update({
@@ -202,44 +326,158 @@ export class AuthService {
       })
     }
 
-    const result = {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-      supabaseAuthId: authUser.id,
-      clientOrgRole: user.clientOrgRole,
-      canAccessSocialListening: user.canAccessSocialListening,
-      organization: this.mapClientOrganization(user.organization),
+    const active = this.pickActiveMembership(
+      memberships,
+      preferredOrgId,
+      user.lastActiveOrganizationId,
+    )
+
+    if (user.lastActiveOrganizationId !== active.organizationId) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { lastActiveOrganizationId: active.organizationId },
+      })
     }
-    this.clientUserCache.set(accessToken, result)
+
+    // Promote INVITED → ACTIVE on first successful session for this membership
+    if (active.status === UserStatus.INVITED) {
+      await this.prisma.clientOrganizationMembership.update({
+        where: { id: active.id },
+        data: { status: UserStatus.ACTIVE },
+      })
+      active.status = UserStatus.ACTIVE
+    }
+
+    const result = this.toAuthenticatedClient(
+      user,
+      active,
+      memberships,
+      authUser.id,
+    )
+    this.clientUserCache.set(cacheKey, result)
     return result
   }
 
-  async syncClientSession(accessToken: string) {
+  /**
+   * Prefer this over reading `requireClient` results directly when capability
+   * toggles must be current (team SL / Get Help flags).
+   */
+  async requireClientWithFreshCapabilities(
+    accessToken: string,
+    options: RequireClientOptions = {},
+  ): Promise<AuthenticatedClient> {
+    const client = await this.requireClient(accessToken, options)
+    return this.refreshClientMembershipCapabilities(client)
+  }
+
+  async setActiveOrganization(
+    accessToken: string,
+    organizationId: string,
+  ): Promise<AuthenticatedClient> {
     const authUser = await this.getSupabaseUserFromToken(accessToken)
     const email = this.normalizeEmail(authUser.email!)
-    const user = await this.loadClientByEmail(email)
+    const { user, memberships } = await this.loadClientUserRow(email)
 
-    const updated = await this.prisma.user.update({
+    const target = memberships.find((m) => m.organizationId === organizationId)
+    if (!target) {
+      throw new ForbiddenException('You do not belong to that organization')
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastActiveOrganizationId: organizationId },
+    })
+
+    return this.requireClient(accessToken, { organizationId })
+  }
+
+  async syncClientSession(
+    accessToken: string,
+    options: RequireClientOptions = {},
+  ) {
+    const authUser = await this.getSupabaseUserFromToken(accessToken)
+    const email = this.normalizeEmail(authUser.email!)
+    const { user, memberships } = await this.loadClientUserRow(email)
+
+    const preferredOrgId =
+      options.organizationId?.trim() ||
+      (typeof authUser.user_metadata?.organizationId === 'string'
+        ? authUser.user_metadata.organizationId
+        : null)
+
+    const active = this.pickActiveMembership(
+      memberships,
+      preferredOrgId,
+      user.lastActiveOrganizationId,
+    )
+
+    await this.prisma.user.update({
       where: { id: user.id },
       data: {
         status: UserStatus.ACTIVE,
         supabaseAuthId: authUser.id,
+        lastActiveOrganizationId: active.organizationId,
       },
-      include: { organization: true },
     })
+
+    if (active.status === UserStatus.INVITED) {
+      await this.prisma.clientOrganizationMembership.update({
+        where: { id: active.id },
+        data: { status: UserStatus.ACTIVE },
+      })
+      active.status = UserStatus.ACTIVE
+    }
+
+    const client = this.toAuthenticatedClient(
+      user,
+      active,
+      memberships,
+      authUser.id,
+    )
 
     return {
       user: {
-        id: updated.id,
-        email: updated.email,
-        status: updated.status,
-        role: updated.role,
-        clientOrgRole: updated.clientOrgRole,
-        canAccessSocialListening: updated.canAccessSocialListening,
+        id: client.id,
+        email: client.email,
+        status: client.status,
+        role: client.role,
+        clientOrgRole: client.clientOrgRole,
+        canAccessSocialListening: client.canAccessSocialListening,
       },
-      organization: this.mapClientOrganization(updated.organization),
+      organization: client.organization,
+      memberships: client.memberships,
+    }
+  }
+
+  /**
+   * Re-read capability flags from the active org membership so Team toggles
+   * take effect on `/me` without waiting for the auth token cache TTL.
+   */
+  async refreshClientMembershipCapabilities(
+    client: AuthenticatedClient,
+  ): Promise<AuthenticatedClient> {
+    const organizationId = client.organization?.id
+    if (!organizationId) return client
+
+    const membership = await this.prisma.clientOrganizationMembership.findUnique({
+      where: {
+        userId_organizationId: { userId: client.id, organizationId },
+      },
+      select: {
+        status: true,
+        clientOrgRole: true,
+        canAccessSocialListening: true,
+        canAccessGetHelp: true,
+      },
+    })
+    if (!membership) return client
+
+    return {
+      ...client,
+      status: membership.status,
+      clientOrgRole: membership.clientOrgRole,
+      canAccessSocialListening: membership.canAccessSocialListening,
+      canAccessGetHelp: membership.canAccessGetHelp,
     }
   }
 

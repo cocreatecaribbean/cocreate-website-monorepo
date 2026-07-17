@@ -1,10 +1,8 @@
 import {
-  BadRequestException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common'
 import {
-  ProjectApprovalItemStatus,
   ProjectAttachmentVisibility,
   UserRole,
 } from '@cocreate/database'
@@ -25,8 +23,9 @@ describe('ProjectsService library attachment delete', () => {
     role: 'CLIENT' as const,
     status: 'ACTIVE' as const,
     supabaseAuthId: 'sb-client',
-    clientOrgRole: 'OWNER' as const,
+    clientOrgRole: 'ADMIN' as const,
     canAccessSocialListening: false,
+    canAccessGetHelp: true,
     organization: {
       id: 'org-1',
       name: 'Acme',
@@ -43,13 +42,6 @@ describe('ProjectsService library attachment delete', () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
         count: jest.fn().mockResolvedValue(0),
       },
-      projectApprovalItem: {
-        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
-        count: jest.fn().mockResolvedValue(0),
-      },
-      projectApprovalCommentAttachment: {
-        count: jest.fn().mockResolvedValue(0),
-      },
       projectAttachment: {
         delete: jest.fn().mockResolvedValue({ id: 'att-1' }),
       },
@@ -61,10 +53,6 @@ describe('ProjectsService library attachment delete', () => {
       },
       projectRequestMessageAttachment: {
         findUnique: jest.fn(),
-      },
-      projectApprovalItem: {
-        findFirst: jest.fn().mockResolvedValue(null),
-        findMany: jest.fn(),
       },
       projectRequest: {
         findUnique: jest.fn(),
@@ -99,7 +87,6 @@ describe('ProjectsService library attachment delete', () => {
 
     const messaging = {
       emitThreadMessage: jest.fn(),
-      emitThreadCheckpoint: jest.fn(),
       emitThreadAttachment: jest.fn(),
       emitThreadStatus: jest.fn(),
     }
@@ -114,7 +101,6 @@ describe('ProjectsService library attachment delete', () => {
       messaging as never,
       { inviteMember: jest.fn() } as never,
       { getUserById: jest.fn() } as never,
-      { listApprovalItemsForProject: jest.fn() } as never,
       {} as never,
     )
 
@@ -191,25 +177,6 @@ describe('ProjectsService library attachment delete', () => {
 
     expect(result.ok).toBe(true)
     expect(result.thread).toBeDefined()
-  })
-
-  it('blocks clients from deleting approved library files', async () => {
-    const { service, prisma } = createService()
-
-    prisma.projectAttachment.findUnique.mockResolvedValue({
-      id: 'att-1',
-      projectId: 'proj-1',
-      storagePath: 'org/proj/att-1.png',
-      fileName: 'hero.png',
-      uploadedByUserId: 'client-1',
-      visibility: ProjectAttachmentVisibility.CLIENT,
-      messageLinks: [],
-    })
-    prisma.projectApprovalItem.findFirst.mockResolvedValue({ id: 'approval-1' })
-
-    await expect(
-      service.removeAttachmentFromMessage(clientActor, 'att-1'),
-    ).rejects.toBeInstanceOf(BadRequestException)
   })
 
   it('blocks clients from deleting files they did not upload', async () => {

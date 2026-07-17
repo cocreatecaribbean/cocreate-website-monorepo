@@ -39,7 +39,7 @@ export default function AdminClientMessagesView({
   return (
     <div className={`space-y-4 ${conversationId ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden' : ''}`}>
       <p className={`text-sm text-app-muted ${conversationId ? 'shrink-0' : ''}`}>
-        General org chat with this client (not project approval threads — see Inbox).
+        General org chat with this client (not project message threads — see Inbox).
       </p>
       <div
         className={`lg:grid lg:grid-cols-[minmax(0,280px)_1fr] lg:gap-6 ${

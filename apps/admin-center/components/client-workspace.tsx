@@ -8,36 +8,22 @@ import BrandGuidelinesSection from '@/components/brand-guidelines-section'
 import ClientAdminSettingsPanel from '@/components/client-admin-settings-panel'
 import AdminOrganizationLogoEditor from '@/components/organization-logo-editor'
 import ProjectStatusAttribution from '@/components/project-status-attribution'
-import RequestMessageThread from '@/components/request-message-thread'
 import AdminToast from '@/components/admin-toast'
-import MarkInboxReadOnView from '@/components/mark-inbox-read-on-view'
-import ThreadSummaryExport from '@cocreate/app-ui/thread-summary-export'
 import ClientTeamPanel from '@/components/client-team-panel'
 import AdminClientMessagesView from '@/components/admin-client-messages-view'
 import CreateProjectModal from '@/components/create-project-modal'
-import { CancellationResolveForm, tabForThreadType } from '@/components/project-workspace-shared'
-import { useAdminSession } from '@/components/admin-session-provider'
-import { isCoreTeamSession } from '@/lib/admin-session'
+import { tabForThreadType } from '@/components/project-workspace-shared'
 import {
   adminFetchErrorHint,
   AdminApiFetchError,
   fetchAdminBff,
 } from '@/lib/admin-api-fetch'
 import { useApproveClientProjectMutation } from '@/lib/api/mutations/projects'
-import { useMarkInboxReadMutation } from '@/lib/api/mutations/clients'
 import { adminQueryKeys } from '@/lib/api/query-keys'
-import {
-  downloadAdminProjectThreadSummaryPdf,
-  generateAdminProjectThreadSummary,
-} from '@/lib/api/mutations/thread-summary'
-import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-project-files'
-import type { ProjectRequestMessage } from '@/lib/projects/types'
 import {
   useClientActivityQuery,
   useClientDetailQuery,
-  useClientInboxQuery,
   useClientProjectsQuery,
-  useInboxUnreadCountQuery,
 } from '@/lib/api/queries/clients'
 import { prefetchAdminProjectOverview } from '@/lib/api/queries/projects'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
@@ -47,32 +33,12 @@ import {
   CheckCircle2,
   FileText,
   FolderKanban,
-  Inbox,
   LayoutGrid,
   MessageSquare,
   Users,
 } from 'lucide-react'
 
-type TabId = 'overview' | 'projects' | 'files' | 'inbox' | 'messages' | 'activity' | 'team'
-
-const requestTypeLabel: Record<string, string> = {
-  ONBOARDING: 'Onboarding',
-  PROGRESS: 'Progress',
-  CANCELLATION: 'Cancellation request',
-  INTERNAL: 'Team review',
-}
-
-function inboxThreadSubtitle(type: string, threadTitle: string, projectTitle: string | null) {
-  const typeLabel = requestTypeLabel[type] ?? type
-  if (
-    type !== 'ONBOARDING' &&
-    threadTitle.trim() &&
-    threadTitle.trim() !== projectTitle?.trim()
-  ) {
-    return `${typeLabel} · ${threadTitle}`
-  }
-  return typeLabel
-}
+type TabId = 'overview' | 'projects' | 'files' | 'messages' | 'activity' | 'team'
 
 type ClientWorkspaceProps = {
   organizationId: string
@@ -83,41 +49,26 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
-  const { session } = useAdminSession()
-  const currentUserId = session?.mode === 'user' ? session.userId : null
-  const isCoreTeam =
-    session?.mode === 'user' && isCoreTeamSession(session.role)
-  const canTrackUnread = session?.mode === 'user' && isCoreTeam
 
   const [tab, setTab] = useState<TabId>(initialTab)
 
   const clientQuery = useClientDetailQuery(organizationId)
   const projectsQuery = useClientProjectsQuery(organizationId)
-  const needsInboxData = tab === 'inbox' || tab === 'overview'
-  const inboxQuery = useClientInboxQuery(organizationId, needsInboxData)
   const activityQuery = useClientActivityQuery(organizationId, tab === 'activity')
-  const unreadQuery = useInboxUnreadCountQuery(organizationId, canTrackUnread)
-  const { mutateAsync: markAllInboxRead } = useMarkInboxReadMutation(organizationId)
   const approveProjectMutation = useApproveClientProjectMutation(organizationId)
 
   const client = clientQuery.data
   const projects = projectsQuery.data ?? []
-  const inbox = inboxQuery.data ?? []
   const activity = activityQuery.data ?? []
-  const unreadCount = unreadQuery.data ?? 0
   const loading =
     clientQuery.isLoading ||
     projectsQuery.isLoading ||
-    (needsInboxData && inboxQuery.isLoading) ||
     (tab === 'activity' && activityQuery.isLoading)
-  const tabContentLoading =
-    (tab === 'inbox' && inboxQuery.isLoading) ||
-    (tab === 'activity' && activityQuery.isLoading)
+  const tabContentLoading = tab === 'activity' && activityQuery.isLoading
 
   const queryError =
     clientQuery.error ??
     projectsQuery.error ??
-    (needsInboxData ? inboxQuery.error : null) ??
     (tab === 'activity' ? activityQuery.error : null)
   const loadError = queryError
     ? queryError instanceof AdminApiFetchError
@@ -127,7 +78,6 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         : 'Could not load client workspace.'
     : null
 
-  const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null)
   const messagesThreadOpen =
     tab === 'messages' && Boolean(searchParams.get('conversationId'))
   const [error, setError] = useState<string | null>(null)
@@ -137,7 +87,6 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   const [highlightInviteRequestId, setHighlightInviteRequestId] = useState<string | null>(null)
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
   const deepLinkAppliedRef = useRef(false)
-  const inboxMarkedReadRef = useRef(false)
 
   const workspaceSections = useMemo(
     () =>
@@ -152,17 +101,9 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
         },
         { id: 'team' as const, label: 'Team', description: 'Client-side contacts and access', icon: Users },
         { id: 'messages' as const, label: 'Messages', description: 'Conversations with this client', icon: MessageSquare },
-        {
-          id: 'inbox' as const,
-          label: 'Inbox',
-          description: 'Pending items and requests requiring action',
-          icon: Inbox,
-          badge: unreadCount > 0 ? unreadCount : undefined,
-          ariaLabel: unreadCount > 0 ? `Inbox (${unreadCount} unread)` : 'Inbox',
-        },
         { id: 'activity' as const, label: 'Activity', description: 'Recent updates across this client workspace', icon: CheckCircle2 },
       ] as const,
-    [unreadCount],
+    [],
   )
 
   const selectTab = (itemId: TabId) => {
@@ -178,34 +119,9 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
   }
 
   useEffect(() => {
-    if (tab !== 'inbox') return
-    if (inbox.length === 0) {
-      setSelectedInboxId(null)
-      return
-    }
-    if (!selectedInboxId || !inbox.some((item) => item.id === selectedInboxId)) {
-      setSelectedInboxId(inbox[0]!.id)
-    }
-  }, [tab, inbox, selectedInboxId])
-
-  useEffect(() => {
-    if (tab !== 'inbox') {
-      inboxMarkedReadRef.current = false
-      return
-    }
-    if (!canTrackUnread || loading || inboxMarkedReadRef.current) return
-
-    inboxMarkedReadRef.current = true
-    void markAllInboxRead(undefined).catch(() => {
-      inboxMarkedReadRef.current = false
-    })
-  }, [tab, loading, canTrackUnread, markAllInboxRead])
-
-  useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const t = params.get('tab')
     if (
-      t === 'inbox' ||
       t === 'overview' ||
       t === 'activity' ||
       t === 'projects' ||
@@ -257,50 +173,6 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
     }
   }, [loading, organizationId, projects, router])
 
-  const refreshThread = async (requestId: string) => {
-    await queryClient.invalidateQueries({
-      queryKey: adminQueryKeys.requests.detail(requestId),
-    })
-    await queryClient.invalidateQueries({
-      queryKey: adminQueryKeys.projects.byOrganization(organizationId),
-    })
-    await queryClient.invalidateQueries({
-      queryKey: adminQueryKeys.inbox.list(organizationId),
-    })
-  }
-
-  const sendAdminMessage = async (
-    requestId: string,
-    body: string,
-    attachmentIds?: string[],
-  ) => {
-    try {
-      const message = await fetchAdminBff<ProjectRequestMessage>(
-        `/api/project-requests/${requestId}/messages`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            body,
-            attachmentIds: attachmentIds?.length ? attachmentIds : undefined,
-          }),
-        },
-      )
-      await queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.projects.byOrganization(organizationId),
-      })
-      await queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.inbox.list(organizationId),
-      })
-      return { ok: true as const, data: message }
-    } catch (err) {
-      return {
-        ok: false,
-        message: err instanceof Error ? err.message : 'Send failed',
-      }
-    }
-  }
-
   const markProjectComplete = async (projectId: string) => {
     setCompletingId(projectId)
     setError(null)
@@ -332,50 +204,6 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
       setError(err instanceof Error ? err.message : 'Approve failed')
     } finally {
       setApprovingId(null)
-    }
-  }
-
-  const resolveRequest = async (requestId: string, status: 'RESOLVED' | 'REJECTED') => {
-    setError(null)
-    try {
-      await fetchAdminBff(`/api/project-requests/${requestId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      })
-      setSuccess(status === 'RESOLVED' ? 'Request resolved.' : 'Request rejected.')
-      await refreshThread(requestId)
-      void queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.clients.activity(organizationId),
-      })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Update failed')
-    }
-  }
-
-  const resolveCancellation = async (
-    requestId: string,
-    payload: {
-      outcome: string
-      feeAmount?: number
-      feeNotes?: string
-      message?: string
-    },
-  ) => {
-    setError(null)
-    try {
-      await fetchAdminBff(`/api/project-requests/${requestId}/resolve-cancellation`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      setSuccess('Cancellation resolved and client notified.')
-      await refreshThread(requestId)
-      void queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.clients.activity(organizationId),
-      })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not resolve cancellation')
     }
   }
 
@@ -437,13 +265,6 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                     {projects.filter((p) => p.status === 'SUBMITTED').length}
                   </span>{' '}
                   awaiting approval
-                </li>
-                <li>
-                  <span className="font-medium text-chambray">{inbox.length}</span> open inbox
-                  items
-                  {unreadCount > 0 ? (
-                    <span className="text-app-muted"> · {unreadCount} unread</span>
-                  ) : null}
                 </li>
               </ul>
             </section>
@@ -509,11 +330,6 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
                         >
                           {project.title}
                         </Link>
-                        {project.hasPendingCheckpoint ? (
-                          <span className="ml-2 rounded-full bg-casablanca/25 px-2 py-0.5 text-xs">
-                            Awaiting client approval
-                          </span>
-                        ) : null}
                       </p>
                       <p className="mt-1 line-clamp-2 text-sm text-app-muted">
                         {project.description}
@@ -579,111 +395,6 @@ export default function ClientWorkspace({ organizationId, initialTab = 'projects
               <AdminClientMessagesView organizationId={organizationId} />
             </div>
           </Suspense>
-        ) : tab === 'inbox' ? (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,280px)_1fr]">
-            <ul className="admin-glass-card divide-y divide-chambray/6 overflow-hidden">
-              {inbox.length === 0 ? (
-                <li className="px-5 py-8 text-sm text-app-muted">Inbox is clear.</li>
-              ) : (
-                inbox.map((item) => {
-                  const selected = item.id === selectedInboxId
-                  return (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedInboxId(item.id)}
-                        className={`w-full px-5 py-4 text-left transition ${
-                          selected ? 'bg-chambray/8' : 'hover:bg-chambray/5'
-                        }`}
-                      >
-                        <p className={`text-sm text-chambray ${bricolage_grot600.className}`}>
-                          {item.projectTitle ?? item.title}
-                        </p>
-                        <p className="mt-1 text-xs text-app-muted">
-                          {inboxThreadSubtitle(item.type, item.title, item.projectTitle)}
-                        </p>
-                      </button>
-                    </li>
-                  )
-                })
-              )}
-            </ul>
-            {selectedInboxId ? (
-              (() => {
-                const item = inbox.find((entry) => entry.id === selectedInboxId)
-                if (!item) return null
-                return (
-                  <section className="admin-glass-card w-full max-w-2xl p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-chambray ${bricolage_grot600.className}`}>
-                          {item.projectTitle ?? item.title}
-                        </p>
-                        <p className="mt-1 text-sm text-app-muted">
-                          {inboxThreadSubtitle(item.type, item.title, item.projectTitle)}
-                        </p>
-                      </div>
-                      <ThreadSummaryExport
-                        triggerClassName="admin-btn-ghost shrink-0 px-3 py-1.5 text-xs"
-                        panelClassName="admin-glass-card"
-                        primaryButtonClassName="admin-btn-primary px-4 py-2 text-sm"
-                        ghostButtonClassName="admin-btn-ghost px-4 py-2 text-sm"
-                        fetchAttachmentDownloadUrl={fetchAttachmentDownloadUrl}
-                        onGenerate={(options) =>
-                          generateAdminProjectThreadSummary(item.id, options)
-                        }
-                        onExportPdf={(options) =>
-                          downloadAdminProjectThreadSummaryPdf(item.id, options)
-                        }
-                      />
-                    </div>
-                    <div className="mt-4">
-                      {canTrackUnread ? (
-                        <MarkInboxReadOnView
-                          organizationId={organizationId}
-                          requestId={item.id}
-                          enabled
-                          onMarked={() => {
-                            queryClient.setQueryData<number>(
-                              adminQueryKeys.inbox.unreadCount(organizationId),
-                              (current) => Math.max(0, (current ?? 0) - 1),
-                            )
-                            void queryClient.invalidateQueries({
-                              queryKey: adminQueryKeys.inbox.list(organizationId),
-                            })
-                          }}
-                        />
-                      ) : null}
-                      <RequestMessageThread
-                        request={item}
-                        viewerRole="ADMIN"
-                        currentUserId={currentUserId}
-                        showResolveActions={item.type !== 'CANCELLATION'}
-                        invalidateQueryKeys={[adminQueryKeys.requests.detail(item.id)]}
-                        onSendMessage={(body, attachmentIds) =>
-                          sendAdminMessage(item.id, body, attachmentIds)
-                        }
-                        onThreadUpdate={() => void refreshThread(item.id)}
-                        onResolve={
-                          item.type !== 'CANCELLATION'
-                            ? async (status) => {
-                                await resolveRequest(item.id, status)
-                              }
-                            : undefined
-                        }
-                      />
-                      {item.type === 'CANCELLATION' &&
-                      !['RESOLVED', 'REJECTED'].includes(item.status) ? (
-                        <CancellationResolveForm
-                          onResolve={(payload) => resolveCancellation(item.id, payload)}
-                        />
-                      ) : null}
-                    </div>
-                  </section>
-                )
-              })()
-            ) : null}
-          </div>
         ) : (
           <ul className="admin-glass-card divide-y divide-chambray/6 overflow-hidden">
             {activity.length === 0 ? (

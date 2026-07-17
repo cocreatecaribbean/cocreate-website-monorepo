@@ -5,7 +5,6 @@ Rules:
 - Be specific: name people, deliverables, file names, design details, copy, colors, layout, scope items, and dates from the messages
 - Never write vague lines like "discussed updates" or "shared feedback" without stating what was actually shared or requested
 - Separate agency submissions from client change requests — do not merge them in the overview
-- For CHECKPOINT messages: always capture the target phase, approval status, and what was submitted for review
 - Format all dates like "Sunday, July 5" (weekday, full month name, day — no ISO timestamps)
 - deliverablesPresented and clientFeedback are required sections — return [] only if truly none exist in the thread
 - referencedFiles: include every image attachment from the catalog plus any non-image files central to deliverables or feedback; use exact attachment ids from the catalog

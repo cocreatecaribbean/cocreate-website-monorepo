@@ -12,7 +12,6 @@ import {
   TeamMemberMutationResponseSchema,
   type AssignableProjectMember,
   type ClientOrgRole,
-  type ClientProjectAccessLevel,
   type OrgTeamListResponse,
   type PortalPermissions,
   type PortalProfile,
@@ -33,6 +32,7 @@ import {
 
 import { parseApiResponseSafe } from '@/lib/api/parse-response'
 import { getPortalAccessToken } from '@/lib/api/portal-access-token'
+import { portalAuthHeaders } from '@/lib/api/active-organization'
 
 function parseTeamMutationResponse<S extends z.ZodTypeAny>(
   schema: S,
@@ -47,7 +47,6 @@ function parseTeamMutationResponse<S extends z.ZodTypeAny>(
 export type {
   AssignableProjectMember,
   ClientOrgRole,
-  ClientProjectAccessLevel,
   OrgTeamListResponse,
   PortalPermissions,
   PortalProfile,
@@ -79,9 +78,8 @@ async function teamFetch<T>(path: string, init?: RequestInit): Promise<T> {
     response = await fetch(nestApiUrl(path), {
       ...init,
       headers: {
-        Authorization: `Bearer ${token}`,
+        ...portalAuthHeaders(token, init?.headers),
         ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-        ...init?.headers,
       },
       cache: 'no-store',
     })
@@ -110,6 +108,7 @@ export async function fetchPortalProfile(): Promise<PortalProfile | null> {
     return {
       user: parsed.user,
       organization: parsed.organization,
+      memberships: parsed.memberships,
       permissions: parsed.permissions,
       preferences: parsed.preferences,
     }
@@ -163,6 +162,7 @@ export async function inviteTeamMember(body: {
   email: string
   clientOrgRole: ClientOrgRole
   canAccessSocialListening?: boolean
+  canAccessGetHelp?: boolean
 }): Promise<TeamInviteMemberResponse> {
   const data = await teamFetch<unknown>('/client-portal/team/invite', {
     method: 'POST',
@@ -173,13 +173,23 @@ export async function inviteTeamMember(body: {
 
 export async function updateTeamMember(
   userId: string,
-  body: { clientOrgRole?: ClientOrgRole; canAccessSocialListening?: boolean },
+  body: {
+    clientOrgRole?: ClientOrgRole
+    canAccessSocialListening?: boolean
+    canAccessGetHelp?: boolean
+  },
 ): Promise<TeamMemberMutationResponse> {
   const data = await teamFetch<unknown>(`/client-portal/team/${userId}`, {
     method: 'PATCH',
     body: JSON.stringify(body),
   })
   return parseTeamMutationResponse(TeamMemberMutationResponseSchema, data)
+}
+
+export async function removeTeamMember(userId: string): Promise<{ ok: true }> {
+  return teamFetch<{ ok: true }>(`/client-portal/team/${userId}`, {
+    method: 'DELETE',
+  })
 }
 
 export async function fetchProjectMembers(
@@ -191,13 +201,23 @@ export async function fetchProjectMembers(
 
 export async function addProjectMember(
   projectId: string,
-  body: { email: string; access: ClientProjectAccessLevel },
+  body: { email: string },
 ): Promise<ProjectMemberMutationResponse> {
   const data = await teamFetch<unknown>(`/client-portal/projects/${projectId}/members`, {
     method: 'POST',
     body: JSON.stringify(body),
   })
   return parseTeamMutationResponse(ProjectMemberMutationResponseSchema, data)
+}
+
+export async function transferProjectOwnership(
+  projectId: string,
+  body: { newOwnerUserId: string },
+): Promise<{ ok: true; ownerUserId: string }> {
+  return teamFetch(`/client-portal/projects/${projectId}/owner`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
 }
 
 export async function removeProjectMember(projectId: string, userId: string) {

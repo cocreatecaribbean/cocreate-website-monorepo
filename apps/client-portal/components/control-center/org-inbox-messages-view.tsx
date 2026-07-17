@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import OrgInboxAttachmentComposer from '@/components/org-inbox-attachment-composer'
+import ResizableMessageTextarea from '@cocreate/app-ui/resizable-message-textarea'
 import { LinkifiedBody, RequestAttachments } from '@/lib/projects/thread-content'
 import { canSendThreadMessage } from '@/lib/messaging/can-send-thread-message'
 import { useThreadAutoScroll } from '@/lib/projects/use-thread-auto-scroll'
@@ -45,6 +46,9 @@ export default function OrgInboxMessagesView() {
 
   const { data: profile } = usePortalProfileQuery()
   const canManageTeam = Boolean(profile?.permissions.canManageOrgTeam)
+  const canSendMessages = Boolean(
+    profile?.permissions.canSendMessages ?? profile?.permissions.canAccessGetHelp,
+  )
 
   const conversationsQuery = useQuery({
     queryKey: queryKeys.inbox.conversations(),
@@ -150,6 +154,7 @@ export default function OrgInboxMessagesView() {
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault()
+    if (!canSendMessages) return
     if (
       !conversationId ||
       !canSendThreadMessage(body, [], pendingFiles, uploading || sendMutation.isPending)
@@ -320,40 +325,47 @@ export default function OrgInboxMessagesView() {
                     {error}
                   </p>
                 ) : null}
-                <form
-                  onSubmit={(e) => void onSubmit(e)}
-                  className="portal-thread-composer shrink-0 space-y-2 border-t border-chambray/10 pt-4"
-                >
-                  <textarea
-                    value={body}
-                    onChange={(e) => setBody(e.target.value)}
-                    rows={2}
-                    placeholder="Write a message…"
-                    className="portal-textarea min-h-16 w-full resize-y text-sm md:min-h-[5.5rem]"
-                  />
-                  <div className="portal-thread-composer-toolbar flex flex-wrap items-center gap-2">
-                    <OrgInboxAttachmentComposer
-                      disabled={uploading || sendMutation.isPending}
-                      pendingFiles={pendingFiles}
-                      onPendingFilesChange={setPendingFiles}
-                      toolbar
+                {canSendMessages ? (
+                  <form
+                    onSubmit={(e) => void onSubmit(e)}
+                    className="portal-thread-composer shrink-0 space-y-2 border-t border-chambray/10 pt-4"
+                  >
+                    <ResizableMessageTextarea
+                      storageKey="portal-org-inbox-composer"
+                      value={body}
+                      onChange={(e) => setBody(e.target.value)}
+                      placeholder="Write a message…"
+                      className="portal-textarea w-full text-sm"
                     />
-                    <button
-                      type="submit"
-                      disabled={
-                        !canSendThreadMessage(
-                          body,
-                          [],
-                          pendingFiles,
-                          uploading || sendMutation.isPending,
-                        )
-                      }
-                      className="portal-btn-primary ml-auto"
-                    >
-                      {uploading ? 'Uploading…' : 'Send'}
-                    </button>
-                  </div>
-                </form>
+                    <div className="portal-thread-composer-toolbar flex flex-wrap items-center gap-2">
+                      <OrgInboxAttachmentComposer
+                        disabled={uploading || sendMutation.isPending}
+                        pendingFiles={pendingFiles}
+                        onPendingFilesChange={setPendingFiles}
+                        toolbar
+                      />
+                      <button
+                        type="submit"
+                        disabled={
+                          !canSendThreadMessage(
+                            body,
+                            [],
+                            pendingFiles,
+                            uploading || sendMutation.isPending,
+                          )
+                        }
+                        className="portal-btn-primary ml-auto"
+                      >
+                        {uploading ? 'Uploading…' : 'Send'}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <p className="shrink-0 border-t border-chambray/10 pt-4 text-sm text-app-muted">
+                    You can view this conversation, but only Admins and Contributors can send
+                    messages.
+                  </p>
+                )}
               </div>
             ) : (
               <p className="p-4 text-sm text-app-muted md:p-0">This thread could not be found.</p>

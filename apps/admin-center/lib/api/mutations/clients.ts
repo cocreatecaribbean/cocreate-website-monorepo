@@ -4,28 +4,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { fetchAdminBff } from '@/lib/admin-api-fetch'
 import { adminQueryKeys } from '@/lib/api/query-keys'
-import { markInboxRead } from '@/lib/projects/inbox-unread'
-
-export function useMarkInboxReadMutation(organizationId: string) {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (requestId?: string) => markInboxRead(organizationId, requestId),
-    onSuccess: (_data, requestId) => {
-      if (requestId) {
-        queryClient.setQueryData<number>(
-          adminQueryKeys.inbox.unreadCount(organizationId),
-          (current) => Math.max(0, (current ?? 0) - 1),
-        )
-      } else {
-        queryClient.setQueryData(adminQueryKeys.inbox.unreadCount(organizationId), 0)
-      }
-      void queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.inbox.list(organizationId),
-      })
-    },
-  })
-}
 
 export function useSuspendClientUserMutation() {
   const queryClient = useQueryClient()

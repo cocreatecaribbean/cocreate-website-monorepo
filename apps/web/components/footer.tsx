@@ -81,12 +81,14 @@ const Footer:React.FC = ()=>{
                             onSubmit={onNewsletterSubmit}
                             className='relative flex flex-col items-center w-fit'
                             noValidate
+                            suppressHydrationWarning
                         >
                             <div>
                                 <h3 className='text-[0.4em] lg:text-[0.25em] w-fit leading-none mb-4'>Join our mailing list to stay Inspired!</h3>
                             </div>
 
                             <input
+                                suppressHydrationWarning
                                 type="text"
                                 name="website"
                                 value={website}
@@ -147,7 +149,7 @@ const Footer:React.FC = ()=>{
                     </ul>
                 </section>
             </div>
-            <small className={`text-[clamp(0.8rem,1vw,1rem)] block lg:hidden mx-auto mt-20 w-fit `}>&copy; {`${year ?? new Date().getFullYear()}`} CoCreate Caribbean Limited.</small>
+                        <small className={`text-[clamp(0.8rem,1vw,1rem)] block lg:hidden mx-auto mt-20 w-fit `}>&copy; {year != null ? `${year}` : ''} CoCreate Caribbean Limited.</small>
         </footer>
     )
 }

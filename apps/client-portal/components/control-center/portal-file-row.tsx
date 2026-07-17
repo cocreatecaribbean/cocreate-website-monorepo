@@ -1,9 +1,15 @@
 'use client'
 
-import type { ProjectAttachmentWithUsage } from '@/lib/projects/api-types'
-import { useAttachmentDownloadUrl } from '@/lib/api/queries/projects'
+import type {
+  ProjectAttachmentWithReactions,
+  ProjectAttachmentWithUsage,
+  ProjectFileReactionKind,
+} from '@/lib/projects/api-types'
+import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-projects-client'
+import FileReactionMenu from '@/components/control-center/file-reaction-menu'
+import { FileMediaTile } from '@cocreate/app-ui/file-media-tile'
 import { bricolage_grot600 } from '@/styles/fonts'
-import { Download, FileText, Play, Trash2 } from 'lucide-react'
+import { Download, Trash2 } from 'lucide-react'
 
 export function formatFileBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -29,6 +35,9 @@ type PortalFileRowProps = {
   onDelete?: (file: ProjectAttachmentWithUsage) => Promise<void>
   deleting?: boolean
   canDelete?: boolean
+  showReaction?: boolean
+  initialReaction?: ProjectFileReactionKind | null
+  onReactionChange?: (result: ProjectAttachmentWithReactions) => void
 }
 
 export default function PortalFileRow({
@@ -38,21 +47,26 @@ export default function PortalFileRow({
   onDelete,
   deleting = false,
   canDelete = false,
+  showReaction = false,
+  initialReaction = null,
+  onReactionChange,
 }: PortalFileRowProps) {
-  const isImage = file.mimeType.startsWith('image/')
-  const isVideo = file.mimeType.startsWith('video/')
-  const { data: downloadResult } = useAttachmentDownloadUrl(file.id)
-  const downloadUrl = downloadResult?.url ?? null
-
-  const openPreview = () => {
-    onPreview(file, downloadUrl)
+  const resolveUrl = async () => {
+    const result = await fetchAttachmentDownloadUrl(file.id)
+    return result.url
   }
 
-  const onDownload = (event: React.MouseEvent) => {
+  const openPreview = async () => {
+    const url = await resolveUrl()
+    onPreview(file, url)
+  }
+
+  const onDownload = async (event: React.MouseEvent) => {
     event.stopPropagation()
-    if (!downloadUrl) return
+    const url = await resolveUrl()
+    if (!url) return
     const anchor = document.createElement('a')
-    anchor.href = downloadUrl
+    anchor.href = url
     anchor.download = file.fileName
     anchor.rel = 'noopener noreferrer'
     anchor.click()
@@ -69,45 +83,46 @@ export default function PortalFileRow({
   }
 
   return (
-    <li
-      className={`flex flex-col gap-3 border-b border-chambray/6 px-5 py-4 last:border-0 sm:grid sm:items-center sm:gap-4 ${
-        projectTitle
-          ? 'sm:grid-cols-[1fr_180px_100px_80px]'
-          : 'sm:grid-cols-[1fr_100px_80px]'
-      }`}
-    >
-      <button
-        type="button"
-        onClick={() => void openPreview()}
-        className="group flex min-w-0 items-center gap-3 rounded-xl px-1 py-1 text-left transition hover:bg-chambray/6"
-        aria-label={`Preview ${file.fileName}`}
-      >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-sanmarino/10 text-sanmarino">
-          {isImage && downloadUrl ? (
-            <img
-              src={downloadUrl}
-              alt={file.fileName}
-              className="h-full w-full object-cover"
-            />
-          ) : isVideo ? (
-            <Play className="h-5 w-5" aria-hidden />
-          ) : (
-            <FileText className="h-5 w-5" aria-hidden />
-          )}
-        </div>
-        <p
-          className={`truncate text-sm text-chambray underline-offset-4 transition group-hover:underline ${bricolage_grot600.className}`}
+    <li className="flex flex-col gap-3 border-b border-chambray/6 px-5 py-4 last:border-0 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-x-6 sm:gap-y-2">
+      <div className="flex min-w-0 items-center gap-3">
+        <FileMediaTile
+          fileName={file.fileName}
+          mimeType={file.mimeType}
+          size="sm"
+          fetchUrl={resolveUrl}
+          onClick={() => void openPreview()}
+        />
+        <button
+          type="button"
+          onClick={() => void openPreview()}
+          className="group min-w-0 text-left"
         >
-          {file.fileName}
+          <p
+            className={`truncate text-sm text-chambray underline-offset-4 transition group-hover:underline ${bricolage_grot600.className}`}
+          >
+            {file.fileName}
+          </p>
+          {projectTitle ? (
+            <p className="mt-0.5 truncate text-xs text-app-muted">{projectTitle}</p>
+          ) : null}
+        </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:justify-end">
+        <p className="whitespace-nowrap text-xs text-app-muted">
+          {formatFileRelativeTime(file.createdAt)}
         </p>
-      </button>
-      {projectTitle ? (
-        <p className="truncate text-xs text-app-muted">{projectTitle}</p>
-      ) : null}
-      <p className="text-xs text-app-muted">{formatFileRelativeTime(file.createdAt)}</p>
-      <div className="flex items-center justify-between gap-2 sm:justify-end">
-        <span className="text-xs text-app-muted">{formatFileBytes(file.sizeBytes)}</span>
-        <div className="flex items-center gap-1">
+        <span className="whitespace-nowrap text-xs text-app-muted">
+          {formatFileBytes(file.sizeBytes)}
+        </span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {showReaction ? (
+            <FileReactionMenu
+              attachmentId={file.id}
+              initialReaction={initialReaction}
+              onChange={onReactionChange}
+            />
+          ) : null}
           <button
             type="button"
             onClick={(event) => void onDownload(event)}

@@ -102,8 +102,6 @@ function scoreImageAttachment(
 
   let score = messageIndex.get(message.id) ?? 0
 
-  if (message.checkpoint) score += 1000
-
   const bodyLower = message.body.toLowerCase()
   const fileNameLower = entry.fileName.toLowerCase()
   if (bodyLower.includes(fileNameLower) || fileNameLower.includes(bodyLower.slice(0, 20))) {

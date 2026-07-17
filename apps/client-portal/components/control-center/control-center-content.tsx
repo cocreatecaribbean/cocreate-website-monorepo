@@ -1,8 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import ControlCenterApprovalsView from '@/components/control-center/control-center-approvals-view'
-import ControlCenterFilesSection from '@/components/control-center/control-center-files-section'
 import ControlCenterProjectsView from '@/components/control-center/control-center-projects-view'
 import ClientPortalRecentUpdates from '@/components/client-portal-recent-updates'
 import OrgInboxMessagesView from '@/components/control-center/org-inbox-messages-view'
@@ -16,7 +14,7 @@ import { useDashboardStatsQuery } from '@/lib/api/queries/projects'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import {
   ArrowRight,
-  CheckCircle2,
+  Star,
   FileText,
   FolderKanban,
 } from 'lucide-react'
@@ -28,8 +26,8 @@ const KPI_META = [
     accent: 'bg-sanmarino/10 text-sanmarino',
   },
   {
-    label: 'Pending approvals',
-    icon: CheckCircle2,
+    label: 'Top Picks',
+    icon: Star,
     accent: 'bg-casablanca/15 text-chambray',
   },
   {
@@ -53,10 +51,6 @@ export default function ControlCenterContent({
       return <OverviewSection />
     case 'projects':
       return <ControlCenterProjectsView key={projectsListKey} />
-    case 'approvals':
-      return <ControlCenterApprovalsView />
-    case 'files':
-      return <ControlCenterFilesSection />
     case 'activity':
       return <ActivitySection />
     case 'messages':
@@ -136,7 +130,7 @@ function OverviewSection() {
       : buildClientDashboardKpis({
           activeProjects: 0,
           activeProjectsAwaitingReview: 0,
-          pendingApprovals: 0,
+          topPicksCount: 0,
           sharedFiles: 0,
           lastSharedFileAt: null,
         })
@@ -151,7 +145,8 @@ function OverviewSection() {
             What needs you today
           </h3>
           <p className="mt-4 text-sm text-app-muted">
-            Open Approvals for reviews from your CoCreate team, or check{' '}
+            Open a project and visit its Top Picks tab for files your CoCreate team loved, or
+            check{' '}
             <Link href={ATTENTION_PAGE_PATH} className="text-sanmarino hover:underline">
               items needing attention
             </Link>
@@ -161,7 +156,7 @@ function OverviewSection() {
             href={ATTENTION_PAGE_PATH}
             className="portal-btn-primary mt-5 w-full gap-2 sm:w-auto"
           >
-            Review approvals
+            View attention items
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
         </section>

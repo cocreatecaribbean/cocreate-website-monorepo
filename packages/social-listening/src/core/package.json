@@ -1,0 +1,4 @@
+{
+  "//": "Marks src/core as CommonJS so tsconfig.build.json (module: nodenext) type-checks and emits CJS despite the package-level \"type\": \"module\". Mirrors dist-package.json, which is copied into dist/ at build time.",
+  "type": "commonjs"
+}

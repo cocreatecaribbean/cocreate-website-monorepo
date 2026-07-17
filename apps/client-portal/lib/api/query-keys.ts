@@ -37,13 +37,13 @@ export const queryKeys = {
     all: ['profile'] as const,
     portal: () => [...queryKeys.profile.all, 'portal'] as const,
   },
-  approvals: {
-    all: ['approvals'] as const,
-    open: () => [...queryKeys.approvals.all, 'open'] as const,
-    history: () => [...queryKeys.approvals.all, 'history'] as const,
-    unreadCount: () => [...queryKeys.approvals.all, 'unread-count'] as const,
-    comments: (approvalItemId: string) =>
-      [...queryKeys.approvals.all, 'comments', approvalItemId] as const,
+  topPicks: {
+    all: ['top-picks'] as const,
+  },
+  fileReactions: {
+    all: ['file-reactions'] as const,
+    project: (projectId: string) =>
+      [...queryKeys.fileReactions.all, 'project', projectId] as const,
   },
   attention: {
     all: ['attention'] as const,

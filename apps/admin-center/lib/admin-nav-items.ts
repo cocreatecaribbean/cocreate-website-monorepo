@@ -43,7 +43,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   },
   {
     id: 'messages',
-    label: 'Messages',
+    label: 'Get Help',
     href: '/messages',
     description: 'Team and client conversations across accounts',
     icon: MessageSquare,

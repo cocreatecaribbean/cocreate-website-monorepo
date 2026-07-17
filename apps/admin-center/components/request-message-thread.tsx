@@ -2,19 +2,21 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { AttachmentReactionCluster } from '@cocreate/app-ui/attachment-previews'
 import EmojiPickerButton from '@/components/emoji-picker-button'
 import { useAdminSession } from '@/components/admin-session-provider'
+import { useProjectFileReactions } from '@/lib/api/queries/file-reactions'
+import { emojisFromReactionTags } from '@/lib/projects/file-reaction-display'
 import MessageAttachmentComposer, {
   resolvePendingMessageAttachments,
 } from '@/components/message-attachment-composer'
-import { stageProjectFiles } from '@/lib/projects/fetch-project-files'
-import type { StagedProjectFile } from '@/lib/projects/fetch-project-files'
 import { insertAtTextareaCursor } from '@/lib/insert-at-textarea-cursor'
 import { useAdminThreadLive } from '@/lib/messaging/use-admin-thread-live'
 import { adminQueryKeys } from '@/lib/api/query-keys'
 import { fetchAdminBff } from '@/lib/admin-api-fetch'
 import { useThreadAutoScroll } from '@/lib/projects/use-thread-auto-scroll'
 import { ThreadScrollEnd } from '@cocreate/app-ui/scroll-to-latest'
+import ResizableMessageTextarea from '@cocreate/app-ui/resizable-message-textarea'
 import type { ProjectRequestItem, ProjectRequestMessage } from '@/lib/projects/types'
 import { formatActorWithTitle } from '@/lib/projects/project-display'
 import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-project-files'
@@ -23,11 +25,6 @@ import type { ThreadAttachment } from '@/lib/projects/thread-content'
 import { removeThreadAttachment } from '@/lib/projects/remove-thread-attachment'
 import { isCoreTeamSession } from '@/lib/admin-session'
 import { canRemoveThreadAttachment } from '@cocreate/app-ui/thread-message-merge'
-import {
-  approvalItemsForMessage,
-  nonApprovalMessageAttachments,
-} from '@cocreate/app-ui/thread-approval-match'
-import AdminThreadApprovalCard from '@/components/admin-thread-approval-card'
 import {
   addOptimisticRequestMessageToMessagesList,
   invalidateRequestThreadMessages,
@@ -40,33 +37,6 @@ import {
 } from '@/lib/projects/optimistic-request-message'
 import { canSendThreadMessage } from '@/lib/messaging/can-send-thread-message'
 import { bricolage_grot600 } from '@/styles/fonts'
-import type { ThreadApprovalItem } from '@/lib/projects/thread-approval-items'
-
-export type CheckpointComposeConfig = {
-  enabled: boolean
-  title: string
-  onTitleChange: (value: string) => void
-  requestApproval: boolean
-  onRequestApprovalChange: (value: boolean) => void
-  onSendCheckpoint: (payload: {
-    title: string
-    body: string
-    attachmentIds: string[]
-    stagedAttachments?: StagedProjectFile[]
-  }) => Promise<{ ok: boolean; message?: string }>
-}
-
-function canSendCheckpointThreadMessage(
-  title: string,
-  body: string,
-  selectedAttachmentIds: string[],
-  pendingFiles: File[],
-  uploading: boolean,
-): boolean {
-  if (uploading) return false
-  if (!title.trim()) return false
-  return canSendThreadMessage(body, selectedAttachmentIds, pendingFiles, false)
-}
 
 type RequestMessageThreadProps = {
   request: ProjectRequestItem
@@ -84,21 +54,8 @@ type RequestMessageThreadProps = {
     body: string,
     attachmentIds?: string[],
   ) => Promise<{ ok: boolean; message?: string; data?: ProjectRequestMessage }>
-  onResolve?: (status: 'RESOLVED' | 'REJECTED') => Promise<void>
-  showResolveActions?: boolean
   onThreadUpdate?: () => void
   invalidateQueryKeys?: import('@tanstack/react-query').QueryKey[]
-  checkpointCompose?: CheckpointComposeConfig
-  threadApprovalItems?: ThreadApprovalItem[]
-  onApprovalReply?: (
-    approvalItemId: string,
-    body: string,
-  ) => Promise<{ ok: boolean; message?: string }>
-  onApprovalUploadRevision?: (
-    approvalItemId: string,
-    file: File,
-    note?: string,
-  ) => Promise<{ ok: boolean; message?: string }>
 }
 
 function initialAuthorRole(request: ProjectRequestItem): 'ADMIN' | 'CLIENT' {
@@ -154,24 +111,26 @@ export default function RequestMessageThread({
   libraryVisibility,
   uploadVisibility,
   onSendMessage,
-  onResolve,
-  showResolveActions = false,
   readOnly = false,
   onThreadUpdate,
   invalidateQueryKeys,
-  checkpointCompose,
-  threadApprovalItems = [],
-  onApprovalReply,
-  onApprovalUploadRevision,
 }: RequestMessageThreadProps) {
   const queryClient = useQueryClient()
   const { session } = useAdminSession()
+  const { reactionsById } = useProjectFileReactions(request.projectId)
   const isCoreTeam =
     session?.mode === 'user' && isCoreTeamSession(session.role)
+  const refreshFileReactions = useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: adminQueryKeys.fileReactions.project(request.projectId),
+    })
+    void queryClient.invalidateQueries({ queryKey: adminQueryKeys.topPicks.all })
+  }, [queryClient, request.projectId])
   const threadLive = useAdminThreadLive(
     !parentOwnsMessages && loadMessages ? request.id : undefined,
     {
       onThreadUpdate,
+      onAttachmentUpdate: refreshFileReactions,
       invalidateQueryKeys,
     },
   )
@@ -187,7 +146,6 @@ export default function RequestMessageThread({
   const [hasMoreOlder, setHasMoreOlder] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [sendingCheckpoint, setSendingCheckpoint] = useState(false)
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -201,7 +159,6 @@ export default function RequestMessageThread({
     setSelectedAttachmentIds([])
     setPendingFiles([])
     setError(null)
-    setSendingCheckpoint(false)
   }, [request.id])
 
   const queryMessages = parentOwnsMessages ? liveMessages : threadLive.messages
@@ -378,96 +335,10 @@ export default function RequestMessageThread({
     }
   }
 
-  const onSubmitCheckpoint = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!checkpointCompose?.enabled || !checkpointCompose.requestApproval) return
-    if (
-      !canSendCheckpointThreadMessage(
-        checkpointCompose.title,
-        reply,
-        selectedAttachmentIds,
-        pendingFiles,
-        uploading || sendingCheckpoint,
-      )
-    ) {
-      return
-    }
-
-    const bodyText = reply.trim()
-    const savedReply = bodyText
-    const savedTitle = checkpointCompose.title
-    const savedSelectedIds = [...selectedAttachmentIds]
-    const savedPendingFiles = [...pendingFiles]
-    const hasUploads = savedPendingFiles.length > 0
-
-    setSendingCheckpoint(true)
-    setError(null)
-
-    try {
-      if (hasUploads) setUploading(true)
-
-      let attachmentIds = [...savedSelectedIds]
-      let stagedAttachments: StagedProjectFile[] | undefined
-
-      if (hasUploads && checkpointCompose.requestApproval) {
-        try {
-          stagedAttachments = await stageProjectFiles(request.projectId, savedPendingFiles)
-        } catch (err) {
-          setReply(savedReply)
-          setSelectedAttachmentIds(savedSelectedIds)
-          setPendingFiles(savedPendingFiles)
-          setError(err instanceof Error ? err.message : 'Could not upload attachments')
-          return
-        }
-      } else if (hasUploads) {
-        const uploaded = await resolvePendingMessageAttachments(
-          request.projectId,
-          savedPendingFiles,
-          uploadVisibility ? { visibility: uploadVisibility } : undefined,
-        )
-        if (!uploaded.ok) {
-          setReply(savedReply)
-          setSelectedAttachmentIds(savedSelectedIds)
-          setPendingFiles(savedPendingFiles)
-          setError(uploaded.message ?? 'Could not upload attachments')
-          return
-        }
-        attachmentIds = [...new Set([...attachmentIds, ...uploaded.attachmentIds])]
-      }
-
-      const result = await checkpointCompose.onSendCheckpoint({
-        title: savedTitle.trim(),
-        body: bodyText,
-        attachmentIds,
-        stagedAttachments,
-      })
-      if (!result.ok) {
-        setReply(savedReply)
-        setSelectedAttachmentIds(savedSelectedIds)
-        setPendingFiles(savedPendingFiles)
-        setError(result.message ?? 'Could not send progress check')
-      } else {
-        setReply('')
-        setSelectedAttachmentIds([])
-        setPendingFiles([])
-      }
-    } catch {
-      setReply(savedReply)
-      setSelectedAttachmentIds(savedSelectedIds)
-      setPendingFiles(savedPendingFiles)
-      setError('Could not send progress check')
-    } finally {
-      setUploading(false)
-      setSendingCheckpoint(false)
-    }
-  }
-
-  const checkpointMode =
-    Boolean(checkpointCompose?.enabled) && Boolean(checkpointCompose?.requestApproval)
-  const composeBusy = uploading || sendingCheckpoint
+  const composeBusy = uploading
 
   return (
-    <div className="admin-message-thread-shell max-h-[min(56svh,520px)]">
+    <div className="admin-message-thread-shell admin-message-thread-shell--capped">
       <div ref={panelRef} className="admin-thread-panel">
         {hasMoreOlder ? (
           <button
@@ -487,31 +358,16 @@ export default function RequestMessageThread({
           messages.map((msg) => {
             const baseIndex = baseMessages.findIndex((entry) => entry.id === msg.id)
             const messageAttachments =
-              baseIndex >= 0 ? attachmentsByMessage.get(baseIndex) : undefined
-            const attachmentIdsForMessage =
-              messageAttachments?.map((attachment) => attachment.id) ?? []
-            const inlineApprovalItems =
-              request.type === 'PROGRESS' && threadApprovalItems.length > 0
-                ? approvalItemsForMessage(
-                    msg.id,
-                    request.id,
-                    attachmentIdsForMessage,
-                    threadApprovalItems,
-                  )
-                : []
-            const displayAttachments = nonApprovalMessageAttachments(
-              messageAttachments,
-              inlineApprovalItems,
-            )
+              msg.attachments?.length
+                ? msg.attachments
+                : baseIndex >= 0
+                  ? attachmentsByMessage.get(baseIndex)
+                  : undefined
+            const displayAttachments = messageAttachments ?? []
             const isMine = messageIsMine(msg, viewerRole, currentUserId)
             const authorLabel = messageAuthorLabel(msg, isMine)
             const isPending = isPendingRequestMessage(msg.id)
-            const showMessageBubble =
-              Boolean(msg.body.trim()) ||
-              msg.messageKind === 'CHECKPOINT' ||
-              Boolean(msg.supersededAt) ||
-              Boolean(msg.clientApprovedAt) ||
-              Boolean(msg.isPendingApproval)
+            const showMessageBubble = Boolean(msg.body.trim())
             return (
               <div
                 key={msg.id}
@@ -533,27 +389,7 @@ export default function RequestMessageThread({
                     isMine ? 'admin-msg-mine' : 'admin-msg-theirs'
                   } ${isPending ? 'opacity-80' : ''} ${bricolage_grot600.className}`}
                 >
-                  {msg.messageKind === 'CHECKPOINT' ? (
-                    <span className="mb-1 block text-[0.65rem] font-semibold uppercase tracking-wide text-sanmarino">
-                      Progress check
-                    </span>
-                  ) : null}
-                  {msg.body.trim() ? <LinkifiedBody body={msg.body} /> : null}
-                  {msg.supersededAt ? (
-                    <span className="mt-2 block text-xs text-app-muted italic">
-                      Superseded by a newer review
-                    </span>
-                  ) : null}
-                  {msg.clientApprovedAt ? (
-                    <span className="admin-info-text mt-2 block text-xs">
-                      Client approved {new Date(msg.clientApprovedAt).toLocaleString()}
-                    </span>
-                  ) : null}
-                  {msg.isPendingApproval ? (
-                    <span className="mt-2 block text-xs text-amber-800">
-                      Awaiting client approval
-                    </span>
-                  ) : null}
+                  <LinkifiedBody body={msg.body} />
                 </div>
                 ) : null}
                 {displayAttachments.length ? (
@@ -585,18 +421,17 @@ export default function RequestMessageThread({
                           }
                         : undefined
                     }
+                    renderAttachmentAction={(attachment) => {
+                      const reacted = reactionsById.get(attachment.id)
+                      if (!reacted?.tags.length) return null
+                      return (
+                        <AttachmentReactionCluster
+                          emojis={emojisFromReactionTags(reacted.tags)}
+                        />
+                      )
+                    }}
                   />
                 ) : null}
-                {inlineApprovalItems.length > 0 && onApprovalReply
-                  ? inlineApprovalItems.map((item) => (
-                      <AdminThreadApprovalCard
-                        key={item.id}
-                        item={item}
-                        onReply={onApprovalReply}
-                        onUploadRevision={onApprovalUploadRevision}
-                      />
-                    ))
-                  : null}
               </div>
             )
           })
@@ -606,36 +441,13 @@ export default function RequestMessageThread({
 
       {canCompose ? (
         <form
-          onSubmit={(e) =>
-            void (checkpointMode ? onSubmitCheckpoint(e) : onSubmit(e))
-          }
+          onSubmit={(e) => void onSubmit(e)}
           className="admin-thread-composer shrink-0 space-y-2 border-t border-chambray/10 pt-4"
         >
-          {checkpointCompose?.enabled ? (
-            <label className="flex items-center gap-2 text-sm text-app-muted">
-              <input
-                type="checkbox"
-                checked={checkpointCompose.requestApproval}
-                onChange={(e) => checkpointCompose.onRequestApprovalChange(e.target.checked)}
-                disabled={composeBusy}
-                className="rounded border-chambray/30"
-              />
-              Send for approval
-            </label>
-          ) : null}
-          {checkpointMode ? (
-            <input
-              type="text"
-              value={checkpointCompose?.title ?? ''}
-              onChange={(e) => checkpointCompose?.onTitleChange(e.target.value)}
-              placeholder="Title (e.g. Approve phase 2 deliverables)"
-              disabled={composeBusy}
-              className="admin-input w-full"
-            />
-          ) : null}
           <div className="relative">
-            <textarea
+            <ResizableMessageTextarea
               ref={textareaRef}
+              storageKey={`admin-thread-composer:${request.id}`}
               value={reply}
               onChange={(e) => setReply(e.target.value)}
               placeholder={
@@ -645,8 +457,7 @@ export default function RequestMessageThread({
                     ? 'Message the team…'
                     : 'Follow up with the client…'
               }
-              rows={2}
-              className="admin-textarea min-h-16 w-full resize-y md:min-h-[5.5rem]"
+              className="admin-textarea w-full"
             />
           </div>
           {error ? <p className="text-sm text-red-700">{error}</p> : null}
@@ -671,20 +482,7 @@ export default function RequestMessageThread({
             <button
               type="submit"
               disabled={
-                checkpointMode
-                  ? !canSendCheckpointThreadMessage(
-                      checkpointCompose?.title ?? '',
-                      reply,
-                      selectedAttachmentIds,
-                      pendingFiles,
-                      composeBusy,
-                    )
-                  : !canSendThreadMessage(
-                      reply,
-                      selectedAttachmentIds,
-                      pendingFiles,
-                      composeBusy,
-                    )
+                !canSendThreadMessage(reply, selectedAttachmentIds, pendingFiles, composeBusy)
               }
               className="admin-btn-primary ml-auto text-sm"
             >
@@ -694,8 +492,6 @@ export default function RequestMessageThread({
                 ) : (
                   'Sending…'
                 )
-              ) : checkpointMode ? (
-                'Send for approval'
               ) : (
                 <>
                   <span className="md:hidden">Send</span>
@@ -703,24 +499,6 @@ export default function RequestMessageThread({
                 </>
               )}
             </button>
-            {showResolveActions && onResolve ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => void onResolve('RESOLVED')}
-                  className="admin-btn-ghost text-sm"
-                >
-                  Resolve
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void onResolve('REJECTED')}
-                  className="admin-btn-ghost text-sm"
-                >
-                  Reject
-                </button>
-              </>
-            ) : null}
           </div>
         </form>
       ) : isClosed ? (

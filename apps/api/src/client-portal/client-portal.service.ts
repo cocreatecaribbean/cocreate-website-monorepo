@@ -84,43 +84,49 @@ export class ClientPortalService {
     }
   }
 
-  async syncSession(accessToken: string) {
-    const payload = await this.authService.syncClientSession(accessToken)
+  async syncSession(accessToken: string, organizationId?: string | null) {
+    const payload = await this.authService.syncClientSession(accessToken, {
+      organizationId,
+    })
     return { ok: true as const, ...payload }
+  }
+
+  async setActiveOrganization(
+    accessToken: string,
+    organizationId: string,
+  ) {
+    const client = await this.authService.setActiveOrganization(
+      accessToken,
+      organizationId,
+    )
+    return this.getSessionProfile(client)
   }
 
   async getSessionProfile(
     client: Awaited<ReturnType<AuthService['requireClient']>>,
   ): Promise<PortalProfileResponse> {
+    const freshClient =
+      await this.authService.refreshClientMembershipCapabilities(client)
     const [preferences, profileFields] = await Promise.all([
-      this.preferences.getOrCreate(client.id),
-      this.clientProfiles.getProfileFields(client.id),
+      this.preferences.getOrCreate(freshClient.id),
+      this.clientProfiles.getProfileFields(freshClient.id),
     ])
     return {
       ok: true as const,
       user: {
-        id: client.id,
-        email: client.email,
-        status: client.status,
-        role: client.role,
-        clientOrgRole: client.clientOrgRole,
-        canAccessSocialListening: client.canAccessSocialListening,
+        id: freshClient.id,
+        email: freshClient.email,
+        status: freshClient.status,
+        role: freshClient.role,
+        clientOrgRole: freshClient.clientOrgRole,
+        canAccessSocialListening: freshClient.canAccessSocialListening,
+        canAccessGetHelp: freshClient.canAccessGetHelp,
         displayName: profileFields.displayName,
         avatarUrl: profileFields.avatarUrl,
       },
-      organization: client.organization,
-      permissions: {
-        canManageOrgTeam: this.clientAccess.canManageOrgTeam(client),
-        canAccessTeamHub: this.clientAccess.canAccessTeamHub(client),
-        canManageOrgRoles: this.clientAccess.canManageOrgRoles(client),
-        canInviteOrgMemberImmediately:
-          this.clientAccess.canInviteOrgMemberImmediately(client),
-        canRequestOrgInvite: this.clientAccess.canRequestOrgInvite(client),
-        canToggleSocialListeningForTeam:
-          this.clientAccess.canToggleSocialListeningForTeam(client),
-        canCreateProject: this.clientAccess.canCreateProject(client),
-        canUseSocialListening: this.clientAccess.canUseSocialListening(client),
-      },
+      organization: freshClient.organization,
+      memberships: freshClient.memberships,
+      permissions: this.clientAccess.buildPortalPermissions(freshClient),
       preferences,
     }
   }

@@ -2,16 +2,17 @@
 
 import { z } from 'zod'
 import {
-  ClientApprovalRecordItemSchema,
   ClientDashboardStatsSchema,
   ClientFilesLibrarySchema,
   ClientProjectDetailSchema,
   ClientProjectSummarySchema,
   ClientRecentActivityItemSchema,
-  OpenApprovalsResponseSchema,
   PortalNotificationItemSchema,
+  FileReactionsResponseSchema,
+  ProjectAttachmentWithReactionsSchema,
   ProjectRequestItemSchema,
   ProjectRequestMessageSchema,
+  TopPicksResponseSchema,
 } from '@cocreate/api-contracts/v1/client-portal'
 
 import { parseApiResponseSafe } from '@/lib/api/parse-response'
@@ -22,41 +23,20 @@ import {
 } from '@/lib/control-center/project-workspace'
 import type { ClientRecentActivityItem } from '@/lib/dashboard/types'
 import type {
-  ClientApprovalRecordItem,
   ClientDashboardStats,
   ClientProjectDetail,
   ClientProjectSummary,
-  PendingApprovalFileItem,
   PortalNotificationItem,
+  FileReactionsResponse,
+  ProjectAttachmentWithReactions,
+  ProjectFileReactionKind,
   ClientFilesLibrary,
   FilesQuery,
   ProjectAttachment,
   ProjectRequestItem,
   ProjectRequestMessage,
+  TopPicksResponse,
 } from '@/lib/projects/api-types'
-import { mapPendingApprovalFilesFromApi } from '@/lib/projects/pending-approval-files'
-
-export type ApprovalsListResult<T> = {
-  items: T[]
-  parseFailed?: boolean
-}
-
-function parseApprovalsList<S extends z.ZodTypeAny>(
-  schema: S,
-  data: unknown,
-  label: string,
-): { items: z.infer<S>; parseFailed?: boolean } {
-  const parsed = parseApiResponseSafe(schema, data)
-  if (parsed) return { items: parsed }
-  if (process.env.NODE_ENV === 'development') {
-    console.warn(`[${label}] Response parse failed; using raw array fallback`)
-  }
-  return {
-    items: (Array.isArray(data) ? data : []) as z.infer<S>,
-    parseFailed: true,
-  }
-}
-
 
 function portalProxyUrl(path: string): string {
   const normalized = path.startsWith('/') ? path : `/${path}`
@@ -166,86 +146,64 @@ export async function createProject(payload: {
   return { ok: true, project: result.data }
 }
 
-export async function fetchOpenApprovals(): Promise<
-  ApprovalsListResult<PendingApprovalFileItem>
-> {
-  const result = await portalFetch<unknown>('/client-portal/projects/requests/open')
-  if (!result.ok) {
-    throw new Error(result.message)
-  }
-  const parsed = parseApiResponseSafe(OpenApprovalsResponseSchema, result.data)
-  if (parsed) {
-    const files =
-      parsed.files.length > 0
-        ? parsed.files
-        : parsed.items.map((item) => ({
-            id: item.id,
-            approvalItemId: item.id,
-            attachmentId: item.attachmentId,
-            fileName: item.fileName,
-            mimeType: item.mimeType,
-            sizeBytes: item.sizeBytes,
-            createdAt: item.createdAt,
-            requestId: item.requestId,
-            messageId: item.sentMessageId ?? '',
-            projectId: item.projectId,
-            projectTitle: item.projectTitle,
-            checkpointTitle: item.title,
-            checkpointBody: item.note ?? '',
-            status: item.status,
-            revisionNumber: item.revisionNumber,
-            sentAt: item.sentAt,
-          }))
-    return { items: files }
-  }
-  if (process.env.NODE_ENV === 'development') {
-    console.warn('[fetchOpenApprovals] Response parse failed; using raw fallback')
-  }
-  const fallbackFiles =
-    typeof result.data === 'object' &&
-    result.data &&
-    'files' in result.data &&
-    Array.isArray((result.data as { files: unknown }).files)
-      ? ((result.data as { files: PendingApprovalFileItem[] }).files)
-      : []
-  return { items: fallbackFiles, parseFailed: true }
-}
-
-export function getPendingApprovalFilesFromOpenApprovals(
-  result: ApprovalsListResult<PendingApprovalFileItem> | undefined,
-) {
-  return mapPendingApprovalFilesFromApi(result?.items ?? [])
-}
-
-export async function fetchUnreadApprovalsCount(): Promise<number> {
-  const result = await portalFetch<{ count: number }>(
-    '/client-portal/approvals/unread-count',
-  )
-  return result.ok ? result.data.count : 0
-}
-
-export async function markApprovalsRead(requestId?: string): Promise<void> {
-  await portalFetch('/client-portal/approvals/mark-read', {
-    method: 'POST',
-    body: JSON.stringify(requestId ? { requestId } : {}),
-  })
-}
-
-export async function fetchApprovalHistory(): Promise<
-  ApprovalsListResult<ClientApprovalRecordItem>
-> {
+export async function fetchProjectTopPicks(
+  projectId: string,
+  tags?: string[],
+): Promise<TopPicksResponse> {
+  const params = new URLSearchParams()
+  if (tags?.length) params.set('tags', tags.join(','))
+  const query = params.toString()
   const result = await portalFetch<unknown>(
-    '/client-portal/approvals/history',
+    `/client-portal/projects/${encodeURIComponent(projectId)}/top-picks${query ? `?${query}` : ''}`,
   )
   if (!result.ok) {
     throw new Error(result.message)
   }
-  const { items, parseFailed } = parseApprovalsList(
-    z.array(ClientApprovalRecordItemSchema),
-    result.data,
-    'fetchApprovalHistory',
+  return (
+    parseApiResponseSafe(TopPicksResponseSchema, result.data) ?? {
+      items: [],
+      availableTags: [],
+    }
   )
-  return { items, parseFailed }
+}
+
+export async function fetchProjectFileReactions(
+  projectId: string,
+): Promise<FileReactionsResponse> {
+  const result = await portalFetch<unknown>(
+    `/client-portal/projects/${encodeURIComponent(projectId)}/file-reactions`,
+  )
+  if (!result.ok) {
+    throw new Error(result.message)
+  }
+  return (
+    parseApiResponseSafe(FileReactionsResponseSchema, result.data) ?? {
+      items: [],
+    }
+  )
+}
+
+export async function setFileReaction(
+  attachmentId: string,
+  kind: ProjectFileReactionKind,
+): Promise<ProjectAttachmentWithReactions | null> {
+  const result = await portalFetch<unknown>(
+    `/client-portal/attachments/${encodeURIComponent(attachmentId)}/reaction`,
+    { method: 'PUT', body: JSON.stringify({ kind }) },
+  )
+  if (!result.ok) return null
+  return parseApiResponseSafe(ProjectAttachmentWithReactionsSchema, result.data)
+}
+
+export async function clearFileReaction(
+  attachmentId: string,
+): Promise<ProjectAttachmentWithReactions | null> {
+  const result = await portalFetch<unknown>(
+    `/client-portal/attachments/${encodeURIComponent(attachmentId)}/reaction`,
+    { method: 'DELETE' },
+  )
+  if (!result.ok) return null
+  return parseApiResponseSafe(ProjectAttachmentWithReactionsSchema, result.data)
 }
 
 export async function createCancellationRequest(
@@ -255,65 +213,6 @@ export async function createCancellationRequest(
   return portalFetch<ProjectRequestItem>(
     `/client-portal/projects/${projectId}/cancellation-request`,
     { method: 'POST', body: JSON.stringify({ reason }) },
-  )
-}
-
-export async function approveCheckpointMessage(requestId: string, messageId: string) {
-  return portalFetch<ProjectRequestMessage>(
-    `/client-portal/project-requests/${requestId}/messages/${messageId}/approve`,
-    { method: 'POST', body: JSON.stringify({}) },
-  )
-}
-
-export async function approveCheckpointFile(
-  requestId: string,
-  messageId: string,
-  attachmentId: string,
-) {
-  return portalFetch<{
-    attachmentId: string
-    fileName: string
-    checkpointCompleted: boolean
-    remainingFiles: number
-  }>(
-    `/client-portal/project-requests/${requestId}/messages/${messageId}/files/${encodeURIComponent(attachmentId)}/approve`,
-    { method: 'POST', body: JSON.stringify({}) },
-  )
-}
-
-export async function approveApprovalItem(approvalItemId: string) {
-  return portalFetch<{ item: unknown }>(
-    `/client-portal/approvals/${encodeURIComponent(approvalItemId)}/approve`,
-    { method: 'POST', body: JSON.stringify({}) },
-  )
-}
-
-export async function requestApprovalNeedsChanges(
-  approvalItemId: string,
-  body?: string,
-) {
-  return portalFetch<{ item: unknown }>(
-    `/client-portal/approvals/${encodeURIComponent(approvalItemId)}/needs-changes`,
-    {
-      method: 'POST',
-      body: JSON.stringify(body ? { body } : {}),
-    },
-  )
-}
-
-export async function fetchApprovalComments(approvalItemId: string) {
-  return portalFetch<{ comments: unknown[] }>(
-    `/client-portal/approvals/${encodeURIComponent(approvalItemId)}/comments`,
-  )
-}
-
-export async function sendApprovalComment(approvalItemId: string, body: string) {
-  return portalFetch<{ comment: unknown }>(
-    `/client-portal/approvals/${encodeURIComponent(approvalItemId)}/comments`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ body }),
-    },
   )
 }
 
@@ -400,21 +299,6 @@ export async function fetchProjectFiles(
   )
   if (!result.ok) return null
   return parseApiResponseSafe(ClientFilesLibrarySchema, result.data)
-}
-
-export async function resolveRequest(requestId: string, status: 'RESOLVED' | 'REJECTED') {
-  return portalFetch<ProjectRequestItem>(`/client-portal/project-requests/${requestId}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status }),
-  })
-}
-
-export function navigateToApprovals(requestId?: string) {
-  const params = new URLSearchParams(window.location.search)
-  params.set('ccView', 'approvals')
-  if (requestId) params.set('requestId', requestId)
-  const query = params.toString()
-  window.location.href = query ? `/?${query}` : '/?ccView=approvals'
 }
 
 export function navigateToProject(projectId: string, tab?: PortalProjectTabId) {

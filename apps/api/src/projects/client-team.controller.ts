@@ -16,6 +16,8 @@ import {
   type InviteTeamMemberInput,
   RequestTeamInviteSchema,
   type RequestTeamInviteInput,
+  TransferProjectOwnershipSchema,
+  type TransferProjectOwnershipInput,
   UpdateTeamMemberSchema,
   type UpdateTeamMemberInput,
 } from '@cocreate/api-contracts/v1/requests/projects'
@@ -70,6 +72,15 @@ export class ClientTeamController {
     return this.team.updateTeamMemberAsClient(request.clientUser!, userId, body)
   }
 
+  @Delete('team/:userId')
+  @UseGuards(ClientOwnerGuard)
+  removeTeamMember(
+    @Req() request: ClientPortalRequest,
+    @Param('userId') userId: string,
+  ) {
+    return this.team.removeOrgMembershipAsClient(request.clientUser!, userId)
+  }
+
   @Get('projects/:projectId/members')
   listProjectMembers(
     @Req() request: ClientPortalRequest,
@@ -94,5 +105,15 @@ export class ClientTeamController {
     @Param('userId') userId: string,
   ) {
     return this.team.removeProjectMember(request.clientUser!, projectId, userId)
+  }
+
+  @Patch('projects/:projectId/owner')
+  transferProjectOwnership(
+    @Req() request: ClientPortalRequest,
+    @Param('projectId') projectId: string,
+    @Body(zodBody(TransferProjectOwnershipSchema))
+    body: TransferProjectOwnershipInput,
+  ) {
+    return this.team.transferProjectOwnership(request.clientUser!, projectId, body)
   }
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -15,6 +16,38 @@ export type FetchAttachmentDownloadUrl = (
   attachmentId: string,
 ) => Promise<string | null>
 
+export type RenderAttachmentAction = (
+  attachment: PreviewAttachment,
+) => ReactNode
+
+export type RenderAttachmentBadge = (
+  attachment: PreviewAttachment,
+) => ReactNode
+
+/** Read-only emoji cluster for aggregate file reactions. */
+export function AttachmentReactionCluster({
+  emojis,
+  className = '',
+}: {
+  emojis: string[]
+  className?: string
+}) {
+  const shown = emojis.slice(0, 3)
+  if (!shown.length) return null
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 rounded-full border border-chambray/15 bg-white/95 px-1.5 py-0.5 text-[11px] leading-none shadow-sm dark:border-white/10 dark:bg-slate-900/95 ${className}`.trim()}
+      aria-label={`Reactions: ${shown.join(' ')}`}
+    >
+      {shown.map((emoji, index) => (
+        <span key={`${emoji}-${index}`} aria-hidden>
+          {emoji}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 type AttachmentPreviewsProps = {
   attachments?: PreviewAttachment[]
   fetchDownloadUrl: FetchAttachmentDownloadUrl
@@ -25,6 +58,9 @@ type AttachmentPreviewsProps = {
   onDeleteAttachment?: (attachmentId: string) => void | Promise<void>
   canDeleteAttachment?: (attachmentId: string) => boolean
   deletingAttachmentId?: string | null
+  renderAttachmentAction?: RenderAttachmentAction
+  /** Top-right overlay on the card (e.g. aggregate reaction emojis). */
+  renderAttachmentBadge?: RenderAttachmentBadge
 }
 
 type MediaPreviewOverlayProps = {
@@ -33,6 +69,28 @@ type MediaPreviewOverlayProps = {
   url: string
   fileName: string
   onClose: () => void
+}
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M3 6h18" />
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+      <line x1="10" x2="10" y1="11" y2="17" />
+      <line x1="14" x2="14" y1="11" y2="17" />
+    </svg>
+  )
 }
 
 function MediaPreviewOverlay({
@@ -120,6 +178,8 @@ function PreviewItem({
   onDeleteAttachment,
   canDelete = false,
   deleting = false,
+  action,
+  badge,
 }: {
   attachment: PreviewAttachment
   fetchDownloadUrl: FetchAttachmentDownloadUrl
@@ -128,6 +188,8 @@ function PreviewItem({
   onDeleteAttachment?: (attachmentId: string) => void | Promise<void>
   canDelete?: boolean
   deleting?: boolean
+  action?: ReactNode
+  badge?: ReactNode
 }) {
   const [url, setUrl] = useState<string | null>(null)
   const [lightboxOpen, setLightboxOpen] = useState(false)
@@ -137,6 +199,7 @@ function PreviewItem({
   const isImage = attachment.mimeType.startsWith('image/')
   const isVideo = attachment.mimeType.startsWith('video/')
   const previewable = isImage || isVideo
+  const showFooter = canDelete && Boolean(onDeleteAttachment)
 
   useEffect(() => {
     if (!previewable) return
@@ -170,59 +233,80 @@ function PreviewItem({
 
   const cardClass =
     variant === 'admin'
-      ? 'rounded-xl border border-chambray/10 bg-white/40 p-3 dark:border-white/10 dark:bg-white/5'
-      : 'rounded-xl border border-chambray/10 bg-white/30 p-3 dark:border-white/10 dark:bg-white/5'
+      ? 'rounded-xl border border-chambray/10 bg-white/40 dark:border-white/10 dark:bg-white/5'
+      : 'rounded-xl border border-chambray/10 bg-white/30 dark:border-white/10 dark:bg-white/5'
   const mediaClass = compact
     ? 'max-h-32 w-full rounded-lg object-contain'
     : 'max-h-64 w-full rounded-lg object-contain'
 
   return (
     <>
-      <div className={`${cardClass} relative`}>
-        {canDelete && onDeleteAttachment ? (
-          <button
-            type="button"
-            disabled={deleting}
-            onClick={() => void onDeleteAttachment(attachment.id)}
-            className={`absolute right-2 top-2 rounded-md px-2 py-1 text-[0.65rem] font-medium ${
-              variant === 'admin'
-                ? 'bg-white/90 text-red-700 hover:bg-white dark:bg-chambray/90 dark:text-red-300'
-                : 'bg-white/90 text-red-700 hover:bg-white dark:bg-chambray/90 dark:text-red-300'
-            } disabled:opacity-50`}
-            aria-label={`Remove ${attachment.fileName}`}
-          >
-            {deleting ? 'Removing…' : 'Remove'}
-          </button>
+      <div className="relative pr-3">
+        <div className={`relative ${cardClass} overflow-hidden`}>
+          {badge ? (
+            <div className="pointer-events-none absolute top-2 right-2 z-10">
+              {badge}
+            </div>
+          ) : null}
+          <div className="p-3">
+            {isImage && url ? (
+              <button
+                type="button"
+                onClick={() => void openFile()}
+                className="block w-full cursor-zoom-in text-left"
+                aria-label={`View ${attachment.fileName} full size`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={attachment.fileName} className={mediaClass} />
+              </button>
+            ) : isVideo && url ? (
+              <button
+                type="button"
+                onClick={() => void openFile()}
+                className="block w-full cursor-pointer text-left"
+                aria-label={`Play ${attachment.fileName} full size`}
+              >
+                <video src={url} controls className={mediaClass} preload="metadata" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void openFile()}
+                className="flex w-full items-center gap-2 text-left text-sm text-sanmarino hover:text-chambray dark:hover:text-casablanca"
+              >
+                <span className="min-w-0 flex-1 truncate">{attachment.fileName}</span>
+                <span aria-hidden>↗</span>
+              </button>
+            )}
+          </div>
+
+          {showFooter ? (
+            <div className="flex items-center justify-between gap-2 border-t border-chambray/10 px-3 py-2 dark:border-white/10">
+              <p className="min-w-0 truncate text-[0.7rem] text-app-muted">
+                {attachment.fileName}
+              </p>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  void onDeleteAttachment?.(attachment.id)
+                }}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-50 dark:text-red-300 dark:hover:bg-red-950/40"
+                aria-label={`Remove ${attachment.fileName}`}
+              >
+                <TrashIcon className="h-3.5 w-3.5" />
+                {deleting ? 'Removing…' : 'Remove'}
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        {action ? (
+          <div className="absolute top-1/2 -right-1 z-10 -translate-y-1/2 translate-x-1/2">
+            {action}
+          </div>
         ) : null}
-        {isImage && url ? (
-          <button
-            type="button"
-            onClick={() => void openFile()}
-            className="block w-full cursor-zoom-in text-left"
-            aria-label={`View ${attachment.fileName} full size`}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={url} alt={attachment.fileName} className={mediaClass} />
-          </button>
-        ) : isVideo && url ? (
-          <button
-            type="button"
-            onClick={() => void openFile()}
-            className="block w-full cursor-pointer text-left"
-            aria-label={`Play ${attachment.fileName} full size`}
-          >
-            <video src={url} controls className={mediaClass} preload="metadata" />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => void openFile()}
-            className="flex w-full items-center gap-2 text-left text-sm text-sanmarino hover:text-chambray dark:hover:text-casablanca"
-          >
-            <span className="min-w-0 flex-1 truncate">{attachment.fileName}</span>
-            <span aria-hidden>↗</span>
-          </button>
-        )}
       </div>
 
       {lightboxOpen && url ? (
@@ -258,6 +342,8 @@ export function AttachmentPreviews({
   onDeleteAttachment,
   canDeleteAttachment,
   deletingAttachmentId = null,
+  renderAttachmentAction,
+  renderAttachmentBadge,
 }: AttachmentPreviewsProps) {
   if (!attachments?.length) return null
 
@@ -268,7 +354,7 @@ export function AttachmentPreviews({
           Files to review
         </p>
       ) : null}
-      <div className={`grid gap-2 ${compact ? 'grid-cols-1' : 'sm:grid-cols-2'}`}>
+      <div className={`grid gap-3 ${compact ? 'grid-cols-1' : 'sm:grid-cols-2'}`}>
         {attachments.map((attachment) => (
           <PreviewItem
             key={attachment.id}
@@ -279,6 +365,8 @@ export function AttachmentPreviews({
             onDeleteAttachment={onDeleteAttachment}
             canDelete={canDeleteAttachment?.(attachment.id) ?? Boolean(onDeleteAttachment)}
             deleting={deletingAttachmentId === attachment.id}
+            action={renderAttachmentAction?.(attachment)}
+            badge={renderAttachmentBadge?.(attachment)}
           />
         ))}
       </div>

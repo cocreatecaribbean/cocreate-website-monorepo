@@ -6,9 +6,14 @@ import FilePreviewModal from '@/components/file-preview-modal'
 import PortalFileRow from '@/components/control-center/portal-file-row'
 import type { ClientFilesLibrary, ProjectAttachmentWithUsage } from '@/lib/projects/api-types'
 import { useUploadProjectFilesMutation } from '@/lib/api/mutations/files'
+import {
+  useProjectFileReactions,
+  useSyncFileReactionCache,
+} from '@/lib/api/queries/file-reactions'
 import { queryKeys } from '@/lib/api/query-keys'
 import { fetchProjectFiles } from '@/lib/projects/fetch-projects-client'
 import { removeLibraryAttachment } from '@/lib/projects/remove-library-attachment'
+import { usePortalPermissions } from '@/lib/team/use-portal-permissions'
 import { bricolage_grot600 } from '@/styles/fonts'
 import { FolderKanban, Loader2, Upload } from 'lucide-react'
 
@@ -41,6 +46,11 @@ export default function PortalProjectFilesPanel({
   onRefresh,
   onLibraryChange,
 }: PortalProjectFilesPanelProps) {
+  const { canReactToFiles, canSendMessages } = usePortalPermissions()
+  const canUpload = canSendMessages
+  const showReaction = canReactToFiles
+  const { reactionsById } = useProjectFileReactions(projectId)
+  const syncReactionCache = useSyncFileReactionCache(projectId)
   const queryClient = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
   const uploadMutation = useUploadProjectFilesMutation(projectId)
@@ -110,7 +120,7 @@ export default function PortalProjectFilesPanel({
   const totalCount = group.libraryUploads.length + group.usedInThreads.length
   const uploading = uploadMutation.isPending
   const canDeleteFile = (file: ProjectAttachmentWithUsage) =>
-    Boolean(currentUserId && file.uploadedByUserId === currentUserId)
+    Boolean(canUpload && currentUserId && file.uploadedByUserId === currentUserId)
 
   if (loading) {
     return (
@@ -141,26 +151,30 @@ export default function PortalProjectFilesPanel({
             </span>
           </div>
           <div>
-            <input
-              ref={inputRef}
-              type="file"
-              multiple
-              className="sr-only"
-              onChange={(e) => void onUpload(e.target.files)}
-            />
-            <button
-              type="button"
-              disabled={uploading}
-              onClick={() => inputRef.current?.click()}
-              className="portal-btn-ghost inline-flex items-center gap-2 text-sm"
-            >
-              {uploading ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : (
-                <Upload className="h-4 w-4" aria-hidden />
-              )}
-              Add files
-            </button>
+            {canUpload ? (
+              <>
+                <input
+                  ref={inputRef}
+                  type="file"
+                  multiple
+                  className="sr-only"
+                  onChange={(e) => void onUpload(e.target.files)}
+                />
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => inputRef.current?.click()}
+                  className="portal-btn-ghost inline-flex items-center gap-2 text-sm"
+                >
+                  {uploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  ) : (
+                    <Upload className="h-4 w-4" aria-hidden />
+                  )}
+                  Add files
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
 
@@ -191,6 +205,9 @@ export default function PortalProjectFilesPanel({
                       onDelete={handleDeleteFile}
                       deleting={deletingAttachmentId === file.id}
                       canDelete={canDeleteFile(file)}
+                      showReaction={showReaction}
+                      initialReaction={reactionsById.get(file.id)?.myReaction ?? null}
+                      onReactionChange={syncReactionCache}
                     />
                   ))}
                 </ul>
@@ -212,6 +229,9 @@ export default function PortalProjectFilesPanel({
                       onDelete={handleDeleteFile}
                       deleting={deletingAttachmentId === file.id}
                       canDelete={canDeleteFile(file)}
+                      showReaction={showReaction}
+                      initialReaction={reactionsById.get(file.id)?.myReaction ?? null}
+                      onReactionChange={syncReactionCache}
                     />
                   ))}
                 </ul>

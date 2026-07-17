@@ -98,7 +98,7 @@ export default function SocialListeningSidebar({
       className="portal-sl-sidebar flex h-full min-h-0 flex-col"
       aria-label="Social listening navigation"
     >
-      <div className="border-b border-white/10 px-4 py-4">
+      <div className="shrink-0 border-b border-white/10 px-4 py-4">
         <div className="flex items-center justify-between gap-2">
           <p
             className={`text-[0.65rem] font-semibold tracking-[0.22em] text-white/45 uppercase ${slFontBold}`}
@@ -159,7 +159,7 @@ export default function SocialListeningSidebar({
         ) : null}
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
+      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
         {SOCIAL_LISTENING_NAV.map((item) => (
           <NavButton
             key={item.id}
@@ -171,7 +171,7 @@ export default function SocialListeningSidebar({
         ))}
       </nav>
 
-      <div className="space-y-0.5 border-t border-white/10 px-2 py-3">
+      <div className="shrink-0 space-y-0.5 border-t border-white/10 px-2 py-3">
         <NavButton
           item={SOCIAL_LISTENING_REPORTS}
           active={!settingsActive && activeView === SOCIAL_LISTENING_REPORTS.id}

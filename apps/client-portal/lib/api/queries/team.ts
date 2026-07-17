@@ -11,13 +11,15 @@ import {
   fetchTeamHub,
 } from '@/lib/team/fetch-team-client'
 
+/** Profile drives nav permissions (Get Help / Social Listening toggles) — keep relatively fresh. */
 export function usePortalProfileQuery() {
   const seed = usePortalProfileSeed()
   return useQuery({
     queryKey: queryKeys.profile.portal(),
     queryFn: fetchPortalProfile,
     initialData: seed ?? undefined,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   })
 }
 

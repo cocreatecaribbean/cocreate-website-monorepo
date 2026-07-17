@@ -45,7 +45,7 @@ Animating **opacity to 0** on those clipped/fill nodes does **not** reliably hid
 - No `bg-clip-text` / `text-transparent` / gradient utilities on the parent `h1`.
 - Gradient only on an **inner** span per word; the outer SplitText word stays a normal opacity/`y` target.
 
-Same class of footgun: contact headline wave notes that parent `bg-clip-text` is invisible after SplitText — see [`use-contact-headline-wave.ts`](../apps/web/hooks/use-contact-headline-wave.ts).
+Same class of footgun on **Contact** (`/contact`): parent `h1.contact-page-title` must **not** have `bg-clip-text` / `text-transparent` / gradient utilities. SplitText char wave in [`use-contact-headline-wave.ts`](../apps/web/hooks/use-contact-headline-wave.ts) paints gradient on **inner** spans only — otherwise iPhone SE shows a blue glyph scrap under the mobile nav.
 
 ### 3. Wrong safeguard: `overflow-hidden` on `.headline-text`
 

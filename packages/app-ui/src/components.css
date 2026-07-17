@@ -232,6 +232,18 @@
   .admin-message-thread-shell {
     @apply flex min-h-0 w-full max-w-[min(100%,var(--thread-column-max))] flex-col overflow-hidden;
   }
+  /* Default desktop height cap for request threads (not Get Help cards that size the shell itself) */
+  .admin-message-thread-shell--capped {
+    max-height: min(56svh, 520px);
+  }
+  /* Explicitly resized cards: shell fills the card; history scrolls; composer stays pinned */
+  .admin-thread-surface--sized .admin-message-thread-shell,
+  .admin-thread-surface--sized .admin-message-thread-shell--capped {
+    max-height: none;
+    max-width: none;
+    height: 100%;
+    flex: 1 1 0%;
+  }
   .portal-message-thread-shell .portal-thread-panel,
   .admin-message-thread-shell .admin-thread-panel,
   .admin-message-thread-shell .portal-thread-panel {
@@ -446,22 +458,14 @@
     @apply fixed right-4 z-[235] flex flex-col items-end gap-3 sm:right-6;
     bottom: max(1.25rem, env(safe-area-inset-bottom));
   }
-  .assistant-shell--above-cookie {
-    bottom: calc(max(1.25rem, env(safe-area-inset-bottom)) + 18.5rem);
-  }
-  @media (min-width: 640px) {
-    .assistant-shell--above-cookie {
-      bottom: calc(max(2rem, env(safe-area-inset-bottom)) + 17rem);
-    }
-  }
   .assistant-shell-panel {
     @apply flex w-[min(calc(100vw-2rem),22rem)] flex-col overflow-hidden rounded-2xl border border-chambray/10 bg-white shadow-[0_12px_40px_rgba(57,65,154,0.18)];
     height: min(70vh, 28rem);
   }
   .assistant-shell-fab {
-    @apply flex h-14 w-14 items-center justify-center rounded-full bg-chambray text-casablanca shadow-[0_8px_24px_rgba(57,65,154,0.35)] transition hover:bg-sanmarino hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-casablanca;
+    @apply flex h-14 w-14 items-center justify-center rounded-full bg-neutral-950 text-casablanca shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition hover:bg-neutral-900 hover:text-casablanca focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-casablanca;
   }
   .assistant-shell-fab[aria-expanded='true'] {
-    @apply bg-sanmarino text-white;
+    @apply bg-neutral-900 text-casablanca;
   }
 }

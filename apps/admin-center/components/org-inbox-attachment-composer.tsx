@@ -1,7 +1,8 @@
 'use client'
 
 import { useRef } from 'react'
-import { Paperclip, X } from 'lucide-react'
+import { AttachmentPreviewChip } from '@cocreate/app-ui/file-media-tile'
+import { Paperclip } from 'lucide-react'
 
 type OrgInboxAttachmentComposerProps = {
   disabled?: boolean
@@ -47,24 +48,17 @@ export default function OrgInboxAttachmentComposer({
       {pendingFiles.length > 0 ? (
         <ul className="flex flex-wrap gap-2">
           {pendingFiles.map((file, index) => (
-            <li
+            <AttachmentPreviewChip
               key={`${file.name}-${index}`}
-              className="inline-flex max-w-full items-center gap-1 rounded-full border border-chambray/10 bg-chambray/[0.03] px-2 py-1 text-xs text-chambray"
-            >
-              <span className="truncate">{file.name}</span>
-              <button
-                type="button"
-                onClick={() =>
-                  onPendingFilesChange(
-                    pendingFiles.filter((_, fileIndex) => fileIndex !== index),
-                  )
-                }
-                className="rounded-full p-0.5 hover:bg-chambray/10"
-                aria-label={`Remove ${file.name}`}
-              >
-                <X className="h-3 w-3" aria-hidden />
-              </button>
-            </li>
+              fileName={file.name}
+              mimeType={file.type || 'application/octet-stream'}
+              localFile={file}
+              onRemove={() =>
+                onPendingFilesChange(
+                  pendingFiles.filter((_, fileIndex) => fileIndex !== index),
+                )
+              }
+            />
           ))}
         </ul>
       ) : null}

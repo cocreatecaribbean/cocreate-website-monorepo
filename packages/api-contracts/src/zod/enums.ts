@@ -2,9 +2,15 @@ import { z } from 'zod'
 
 /** Wire enums — keep in sync with Prisma @cocreate/database. */
 
-export const ClientOrgRoleSchema = z.enum(['OWNER', 'PROJECT_MANAGER', 'MEMBER'])
+export const ClientOrgRoleSchema = z.enum([
+  'ADMIN',
+  'CONTRIBUTOR',
+  'VIEWER',
+  'SOCIAL_ANALYST',
+])
 export type ClientOrgRole = z.infer<typeof ClientOrgRoleSchema>
 
+/** @deprecated Project assignment is on/off; kept for transitional clients */
 export const ClientProjectAccessLevelSchema = z.enum(['MANAGE', 'VIEW'])
 export type ClientProjectAccessLevel = z.infer<typeof ClientProjectAccessLevelSchema>
 

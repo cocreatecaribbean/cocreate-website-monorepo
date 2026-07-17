@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useState } from 'react'
+import PromoteToAdminDialog from '@/components/promote-to-admin-dialog'
 import { useInviteClientTeamMemberMutation } from '@/lib/api/mutations/clients'
 import {
   useApproveTeamInviteMutation,
@@ -10,12 +11,13 @@ import {
 } from '@/lib/api/mutations/team'
 import { useClientTeamQuery } from '@/lib/api/queries/team'
 import { bricolage_grot600 } from '@/styles/fonts'
-type ClientOrgRole = 'OWNER' | 'PROJECT_MANAGER' | 'MEMBER'
+type ClientOrgRole = 'ADMIN' | 'CONTRIBUTOR' | 'VIEWER' | 'SOCIAL_ANALYST'
 
 const roleLabels: Record<ClientOrgRole, string> = {
-  OWNER: 'Owner',
-  PROJECT_MANAGER: 'Project manager',
-  MEMBER: 'Member',
+  ADMIN: 'Admin',
+  CONTRIBUTOR: 'Contributor',
+  VIEWER: 'Viewer',
+  SOCIAL_ANALYST: 'Social analyst',
 }
 
 export default function ClientTeamPanel({
@@ -39,10 +41,14 @@ export default function ClientTeamPanel({
 
   const [actingRequestId, setActingRequestId] = useState<string | null>(null)
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<ClientOrgRole>('MEMBER')
+  const [role, setRole] = useState<ClientOrgRole>('CONTRIBUTOR')
   const [socialListening, setSocialListening] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [devSignInUrl, setDevSignInUrl] = useState<string | null>(null)
+  const [pendingPromote, setPendingPromote] = useState<{
+    id: string
+    email: string
+  } | null>(null)
 
   const loadError = isError
     ? queryError instanceof Error
@@ -91,9 +97,19 @@ export default function ClientTeamPanel({
   ) => {
     try {
       await updateMemberMutation.mutateAsync({ userId, body })
+      return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed')
+      return false
     }
+  }
+
+  const onRoleSelect = (member: { id: string; email: string }, clientOrgRole: ClientOrgRole) => {
+    if (clientOrgRole === 'ADMIN') {
+      setPendingPromote({ id: member.id, email: member.email })
+      return
+    }
+    void onPatch(member.id, { clientOrgRole })
   }
 
   const onApproveRequest = async (requestId: string) => {
@@ -138,12 +154,25 @@ export default function ClientTeamPanel({
           : 'admin-glass-card overflow-visible p-5 sm:p-6'
       }
     >
+      <PromoteToAdminDialog
+        open={Boolean(pendingPromote)}
+        memberEmail={pendingPromote?.email ?? ''}
+        confirming={updateMemberMutation.isPending}
+        onConfirm={() => {
+          if (!pendingPromote) return
+          void onPatch(pendingPromote.id, { clientOrgRole: 'ADMIN' }).then((ok) => {
+            if (ok) setPendingPromote(null)
+          })
+        }}
+        onCancel={() => setPendingPromote(null)}
+      />
+
       {embedded ? null : (
         <>
           <h3 className={`text-lg text-chambray ${bricolage_grot600.className}`}>Portal team</h3>
           <p className="mt-1 text-sm text-app-muted">
-            Add emails for this client org. Assign one owner (super user); they manage project
-            managers and members in the client portal.
+            Add emails for this client org. Assign Admins, Contributors, Viewers, and Social
+            Analysts. Admins manage the portal team and invite rights.
           </p>
         </>
       )}
@@ -154,7 +183,7 @@ export default function ClientTeamPanel({
             Pending invite requests ({inviteRequests.length})
           </p>
           <p className="mt-1 text-xs text-app-muted">
-            Project managers requested these emails from the client portal. Approve to send the
+            Contributors requested these emails from the client portal. Approve to send the
             Supabase invitation.
           </p>
           <ul className="mt-3 space-y-3">
@@ -225,9 +254,10 @@ export default function ClientTeamPanel({
             onChange={(e) => setRole(e.target.value as ClientOrgRole)}
             className="admin-input"
           >
-            <option value="OWNER">Owner (super user)</option>
-            <option value="PROJECT_MANAGER">Project manager</option>
-            <option value="MEMBER">Member</option>
+            <option value="ADMIN">Admin</option>
+            <option value="CONTRIBUTOR">Contributor</option>
+            <option value="VIEWER">Viewer</option>
+            <option value="SOCIAL_ANALYST">Social analyst</option>
           </select>
           <label className="flex items-center gap-2 text-sm text-app-muted">
             <input
@@ -263,23 +293,22 @@ export default function ClientTeamPanel({
                   <td className="py-2 pr-3">{member.email}</td>
                   <td className="py-2 pr-3">
                     <select
-                      value={member.clientOrgRole ?? 'MEMBER'}
-                      disabled={member.clientOrgRole === 'OWNER'}
+                      value={member.clientOrgRole ?? 'CONTRIBUTOR'}
+                      disabled={member.clientOrgRole === 'ADMIN'}
                       onChange={(e) =>
-                        onPatch(member.id, {
-                          clientOrgRole: e.target.value as ClientOrgRole,
-                        })
+                        onRoleSelect(member, e.target.value as ClientOrgRole)
                       }
                       className="admin-input py-1 pr-9 pl-3 text-sm"
                     >
-                      <option value="OWNER">Owner</option>
-                      <option value="PROJECT_MANAGER">Project manager</option>
-                      <option value="MEMBER">Member</option>
+                      <option value="ADMIN">Admin</option>
+            <option value="CONTRIBUTOR">Contributor</option>
+            <option value="VIEWER">Viewer</option>
+            <option value="SOCIAL_ANALYST">Social analyst</option>
                     </select>
                   </td>
                   <td className="py-2 pr-3 capitalize">{member.status.toLowerCase()}</td>
                   <td className="py-2 pr-3">
-                    {member.clientOrgRole === 'OWNER' ? (
+                    {member.clientOrgRole === 'ADMIN' ? (
                       <span className="text-app-muted">Included with company subscription</span>
                     ) : (
                       <button
@@ -305,7 +334,7 @@ export default function ClientTeamPanel({
                         Suspend
                       </button>
                     ) : (
-                      roleLabels[member.clientOrgRole ?? 'MEMBER']
+                      roleLabels[member.clientOrgRole ?? 'CONTRIBUTOR']
                     )}
                   </td>
                 </tr>

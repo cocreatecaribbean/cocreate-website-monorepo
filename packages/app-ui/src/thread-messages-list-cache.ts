@@ -5,6 +5,11 @@ export type ThreadMessageListItem = {
   createdAt?: string
 }
 
+export type MatchPendingThreadMessage<T extends ThreadMessageListItem> = (
+  pending: T,
+  incoming: T,
+) => boolean
+
 function isPendingMessageId(id: string): boolean {
   return id.startsWith('pending-')
 }
@@ -12,9 +17,22 @@ function isPendingMessageId(id: string): boolean {
 export function appendThreadMessageToList<T extends ThreadMessageListItem>(
   messages: T[] | undefined,
   message: T,
+  matchPending?: MatchPendingThreadMessage<T>,
 ): T[] {
   const current = messages ?? []
   if (current.some((entry) => entry.id === message.id)) return current
+
+  if (matchPending && !isPendingMessageId(message.id)) {
+    const pendingIndex = current.findIndex(
+      (entry) => isPendingMessageId(entry.id) && matchPending(entry, message),
+    )
+    if (pendingIndex >= 0) {
+      const next = [...current]
+      next[pendingIndex] = message
+      return next
+    }
+  }
+
   return [...current, message]
 }
 
@@ -70,9 +88,10 @@ export function appendThreadMessageToListCache<T extends ThreadMessageListItem>(
   queryClient: QueryClient,
   messagesQueryKey: QueryKey,
   message: T,
+  matchPending?: MatchPendingThreadMessage<T>,
 ): void {
   queryClient.setQueryData<T[]>(messagesQueryKey, (current) =>
-    appendThreadMessageToList(current, message),
+    appendThreadMessageToList(current, message, matchPending),
   )
 }
 

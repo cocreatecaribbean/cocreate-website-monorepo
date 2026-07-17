@@ -20,24 +20,3 @@ export async function GET(
   const data = await response.json()
   return NextResponse.json(data, { status: response.status })
 }
-
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ requestId: string }> },
-) {
-  const { requestId } = await params
-  const headers = await adminApiHeaders(true)
-  if (!headers) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-  }
-
-  const body = await request.json()
-  const response = await fetch(nestApiUrl(`/admin/project-requests/${requestId}`), {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify(body),
-    cache: 'no-store',
-  })
-  const data = await response.json()
-  return NextResponse.json(data, { status: response.status })
-}

@@ -26,7 +26,7 @@ type AttachmentDownloadResponse = {
   download: { signedUrl: string }
 }
 
-/** Upload bytes to storage only; register later via checkpoint API. */
+/** Upload bytes to storage only; caller registers the attachment afterward. */
 async function stageSingleProjectFile(
   projectId: string,
   file: File,

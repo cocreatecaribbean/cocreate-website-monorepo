@@ -120,27 +120,33 @@ Supabase sign-in alone is not enough — the email must exist in Prisma with `ro
 
 **Client portal roles (`clientOrgRole`):**
 
-| Role | Team hub | Org roster | Invite new email | Project roster |
-|------|----------|------------|------------------|----------------|
-| `OWNER` | Yes | All members | Immediate (Supabase) | All org projects |
-| `PROJECT_MANAGER` | Yes | All except owner | Request → admin approval | Created projects + shared projects |
-| `MEMBER` | No | — | — | Projects they are added to |
+| Role | Team hub | Invite teammates | Projects | Messaging / uploads | Social Listening |
+|------|----------|------------------|----------|---------------------|------------------|
+| `ADMIN` | Yes | Immediate (Supabase) | All org projects; can create | Yes | Yes when org subscribed |
+| `CONTRIBUTOR` | No | — | Assigned projects only | Yes | Yes when org subscribed |
+| `VIEWER` | No | — | Assigned projects (read-only) | No | No |
+| `SOCIAL_ANALYST` | No | — | None | No | Yes when org subscribed (landing) |
 
-**Org owner (super user):** The first email on **Admin → Clients → Invite** is stored as `clientOrgRole: OWNER`. On the roster, use **Set as org owner** or **Manage team** to change roles or invite PMs/members. Role changes are stored on `User.clientOrgRole` and sync between Admin Center and the client portal (same API service).
+**Org admin:** The first email on **Admin → Clients → Invite** becomes an Admin **membership** on the new org (`ClientOrganizationMembership`). The same email can hold memberships in multiple client orgs (one login). Role/status for portal access come from the **active org membership**, not a global “one org per user” field. Promoting someone to Admin grants access to all projects in **that** org and invite rights (UI confirms this).
 
-**Client portal Team hub:** Owners and project managers open **Control Center → Team** (`/?ccView=team`). Owners invite teammates immediately and choose which PMs/members **can view Social Listening** (when the company subscription is active). Project managers can promote existing members between `PROJECT_MANAGER` and `MEMBER`, and **request** a new email invite — that creates `ClientTeamInviteRequest` (pending) and notifies CoCreate admins (`TEAM_INVITE_REQUEST`). Approve or reject under **Admin → Clients → [org] → Team** (or `?tab=team&inviteRequestId=…` from the notification link); approval runs the normal Supabase invite.
+**Email uniqueness:** Login identity (`User.email`) is global. Inviting someone already on another client org **adds a membership** to this org (“Already on this team” only if they’re already on *this* org). Agency accounts cannot be invited as clients.
+
+- **Brand-new email:** membership `INVITED` + Supabase/Resend **Auth invite** email (sign-in link).
+- **Existing client** (already has Auth / Active on another org): membership `ACTIVE` + in-app notification + transactional **“You’ve been added to {org}”** email (not a new Auth invite). Portal UI says “Added … to the team” rather than “Invitation sent”.
+
+**Client portal Team hub:** Admins open **Control Center → Team** (`/?ccView=team`). Admins invite teammates immediately. Social Listening visibility for non-Admin/Contributor roles can still be toggled when the company subscription is active (Admins and Contributors get SL with the org subscription). Project owners (Admin who owns the project) assign Contributors and Viewers on each project. Users with multiple org memberships get an org switcher in the portal header.
 
 **API (client portal, bearer token):**
 
 | Method | Path | Who |
 |--------|------|-----|
-| GET | `/client-portal/team/hub` | Owner, project manager |
-| GET | `/client-portal/team` | Owner, project manager |
-| PATCH | `/client-portal/team/:userId` | Owner (full); PM (PM/Member only, not owner) |
-| POST | `/client-portal/team/invite` | Owner only |
-| POST | `/client-portal/team/invite-requests` | Project manager only |
+| GET | `/client-portal/team/hub` | Admin |
+| GET | `/client-portal/team` | Admin |
+| PATCH | `/client-portal/team/:userId` | Admin |
+| DELETE | `/client-portal/team/:userId` | Admin (removes membership; can re-invite later) |
+| POST | `/client-portal/team/invite` | Admin |
 
-**API (admin):** `GET/POST …/organizations/:id/team/*` and `…/team/invite-requests/:id/approve|reject`.
+**API (admin):** `GET/POST …/organizations/:id/team/*` and project member routes `…/projects/:projectId/members` plus `PATCH …/projects/:projectId/owner`.
 
 ### Local auth without email rate limits
 
@@ -152,7 +158,7 @@ Supabase caps auth emails (~4/hour per address, project-wide). For local dev, th
 
 ### Auth emails via Resend (recommended)
 
-The API sends invite and magic-link emails through **Resend’s API** (not Supabase SMTP) when these are set in Doppler:
+The API sends invite, magic-link, and **membership-added** emails through **Resend’s API** (not Supabase SMTP) when these are set in Doppler:
 
 ```env
 AUTH_DEV_LINKS=false
@@ -173,28 +179,33 @@ All use `RESEND_API_KEY` and a verified `mail.cocreatecaribbean.com` domain. Eac
 
 | Flow | From address | Env |
 |------|----------------|-----|
-| Auth invites & magic links | `no-reply@mail.cocreatecaribbean.com` | `AUTH_EMAIL_FROM`, `AUTH_EMAIL_FROM_NAME` |
+| Auth invites, magic links & membership-added | `no-reply@mail.cocreatecaribbean.com` | `AUTH_EMAIL_FROM`, `AUTH_EMAIL_FROM_NAME` |
 | Newsletter double opt-in | `signup@mail.cocreatecaribbean.com` | `NEWSLETTER_FROM_EMAIL`, `NEWSLETTER_FROM_NAME` |
 | Social Listening billing | `billingupdates@mail.cocreatecaribbean.com` | `BILLING_FROM_EMAIL`, `BILLING_FROM_NAME` |
 | Project workspace (client + admin) | `updates@mail.cocreatecaribbean.com` | `PROJECT_UPDATES_FROM_EMAIL`, `PROJECT_UPDATES_FROM_NAME` |
 
 ### Client portal entitlements
 
-**Social Listening access** uses two layers (enforced in `ClientAccessService.canUseSocialListening` and `SocialListeningService.requireSubscriberOrg`):
+**Social Listening access** uses org subscription, role, and per-member flags (enforced in `ClientAccessService` and Social Listening services):
 
 | Layer | Field | Who sets it | Effect |
 |-------|--------|-------------|--------|
 | Company subscription | `SocialListeningSubscription` (+ synced `Organization.isSocialListeningSubscriber`) | Fygaro webhook, client subscribe flow, or Admin → **Social Listening Center** | Org is entitled when `status = ACTIVE` and `currentPeriodEnd > now` |
-| Teammate visibility | `User.canAccessSocialListening` | Owner (Team hub) or admin (team panel) for PMs/members | That user may open the dashboard **if** the org is subscribed |
-| Owner | *(implicit)* | Org subscription | Owner **always** passes the gate when subscribed (no per-user toggle in Team UI) |
+| Role + membership flag | `ClientOrganizationMembership.clientOrgRole` + `canAccessSocialListening` | Admin invite / Team On/Off toggle | `ADMIN` and `SOCIAL_ANALYST`: full SL when org subscribed. `CONTRIBUTOR`: view analytics + export PDFs only when `canAccessSocialListening` is on; **never** create listening setups. `VIEWER`: never |
+
+| Capability | Admin | Social Analyst | Contributor (flag on) | Contributor (flag off) |
+|------------|-------|----------------|----------------------|------------------------|
+| View analytics | Yes | Yes | Yes | No |
+| Export PDF reports | Yes | Yes | Yes | No |
+| Create listening setup | Yes | Yes | No | No |
 
 **Admin → Social Listening Center** (`/social-listening`): subscription roster, grant comp/manual plans, cancel/extend, create listening setups for clients, **view the same analytics dashboard as clients** (`/social-listening/subscriptions/:organizationId/analytics`), payment event log, billing email log.
 
 CoCreate admins can view org-scoped analytics for any active subscription (admin- or client-created setups). Disclose this in client-facing terms/privacy policy.
 
-When a subscription activates (Fygaro webhook or admin grant), active org **owners** get `canAccessSocialListening: true` and `Organization.isSocialListeningSubscriber` is synced.
+When a subscription activates (Fygaro webhook or admin grant), `Organization.isSocialListeningSubscriber` is synced.
 
-`GET /client-portal/me` exposes `permissions.canUseSocialListening` (Bearer JWT, server-side).
+`GET /client-portal/me` exposes `permissions.canUseSocialListening`, `canViewSocialListening`, and `canManageSocialListeningSetup` (Bearer JWT, server-side). Social Analysts land on Social Listening only (Control Center hidden).
 
 **Billing (Fygaro + Resend):**
 
@@ -202,7 +213,7 @@ When a subscription activates (Fygaro webhook or admin grant), active org **owne
 |----------|---------|
 | `POST /client-portal/social-listening/subscribe` | Start Fygaro checkout for Pulse/Growth/Scale |
 | `GET /client-portal/social-listening/subscription` | Plan, renewal date, auto-renew, masked card |
-| `PATCH /client-portal/social-listening/subscription/auto-renew` | Toggle auto-renew (owner) |
+| `PATCH /client-portal/social-listening/subscription/auto-renew` | Toggle auto-renew (admin) |
 | `POST /client-portal/social-listening/subscription/cancel` | Cancel at period end |
 | `POST /client-portal/social-listening/subscription/renew` | Manual renewal checkout URL |
 | `POST /webhooks/fygaro` | Payment + renewal webhooks (signature verified) |

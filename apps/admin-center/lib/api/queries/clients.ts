@@ -8,9 +8,7 @@ import type {
   ClientOrganizationRosterItem,
   ClientProjectSummary,
   ProjectActivityItem,
-  ProjectRequestItem,
 } from '@/lib/projects/types'
-import { fetchInboxUnreadCount } from '@/lib/projects/inbox-unread'
 
 export function useClientsQuery() {
   return useQuery({
@@ -29,33 +27,12 @@ export function useClientProjectsQuery(organizationId: string) {
   })
 }
 
-export function useClientInboxQuery(organizationId: string, enabled = true) {
-  return useQuery({
-    queryKey: adminQueryKeys.inbox.list(organizationId),
-    queryFn: () =>
-      fetchAdminBff<ProjectRequestItem[]>(`/api/clients/${organizationId}/inbox`),
-    enabled: Boolean(organizationId) && enabled,
-  })
-}
-
 export function useClientActivityQuery(organizationId: string, enabled = true) {
   return useQuery({
     queryKey: adminQueryKeys.clients.activity(organizationId),
     queryFn: () =>
       fetchAdminBff<ProjectActivityItem[]>(`/api/clients/${organizationId}/activity`),
     enabled: Boolean(organizationId) && enabled,
-  })
-}
-
-export function useInboxUnreadCountQuery(
-  organizationId: string,
-  enabled = true,
-) {
-  return useQuery({
-    queryKey: adminQueryKeys.inbox.unreadCount(organizationId),
-    queryFn: () => fetchInboxUnreadCount(organizationId),
-    enabled: Boolean(organizationId) && enabled,
-    staleTime: 30 * 1000,
   })
 }
 

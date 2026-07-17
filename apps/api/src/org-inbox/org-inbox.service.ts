@@ -59,6 +59,12 @@ export class OrgInboxService {
     private readonly threadSummaryStore: ThreadSummaryStoreService,
   ) {}
 
+  private assertClientCanAccessGetHelp(client: AuthenticatedClient) {
+    if (!this.clientAccess.canAccessGetHelp(client)) {
+      throw new ForbiddenException('You do not have access to Get Help messaging')
+    }
+  }
+
   private clientPortalMessagesHref(conversationId: string) {
     return `/?ccView=messages&conversationId=${encodeURIComponent(conversationId)}`
   }
@@ -228,6 +234,7 @@ export class OrgInboxService {
 
     if (viewer.role === UserRole.CLIENT) {
       const client = viewer as AuthenticatedClient
+      this.assertClientCanAccessGetHelp(client)
       const organizationId = this.clientAccess.requireOrganizationId(client)
       if (attachment.organizationId !== organizationId) {
         throw new NotFoundException('Attachment not found')
@@ -359,6 +366,7 @@ export class OrgInboxService {
     client: AuthenticatedClient,
     conversationId: string,
   ) {
+    this.assertClientCanAccessGetHelp(client)
     const organizationId = this.clientAccess.requireOrganizationId(client)
     const conversation = await this.prisma.orgInboxConversation.findFirst({
       where: { id: conversationId, organizationId },
@@ -378,6 +386,7 @@ export class OrgInboxService {
   }
 
   async listConversationsForClient(client: AuthenticatedClient) {
+    this.assertClientCanAccessGetHelp(client)
     const organizationId = this.clientAccess.requireOrganizationId(client)
     await this.ensureOrgWideConversation(organizationId, client.id)
 
@@ -493,9 +502,7 @@ export class OrgInboxService {
     client: AuthenticatedClient,
     dto: CreateOrgInboxConversationInput,
   ) {
-    if (!this.clientAccess.canManageOrgTeam(client)) {
-      throw new ForbiddenException('Only org admins can start private conversations')
-    }
+    this.assertClientCanAccessGetHelp(client)
 
     const organizationId = this.clientAccess.requireOrganizationId(client)
     const visibility = dto.visibility ?? OrgInboxVisibility.RESTRICTED
@@ -533,6 +540,7 @@ export class OrgInboxService {
   }
 
   async sendMessageAsClient(client: AuthenticatedClient, conversationId: string, dto: SendOrgInboxMessageInput) {
+    this.assertClientCanAccessGetHelp(client)
     const organizationId = this.clientAccess.requireOrganizationId(client)
     const conversation = await this.assertClientCanViewConversation(client, conversationId)
 
@@ -684,6 +692,12 @@ export class OrgInboxService {
     return { ok: true as const, message: serialized }
   }
 
+  async markReadForClient(client: AuthenticatedClient, conversationId: string) {
+    this.assertClientCanAccessGetHelp(client)
+    await this.assertClientCanViewConversation(client, conversationId)
+    return this.markRead(client.id, conversationId)
+  }
+
   async markRead(userId: string, conversationId: string) {
     await this.prisma.orgInboxReadCursor.upsert({
       where: { conversationId_userId: { conversationId, userId } },
@@ -694,6 +708,7 @@ export class OrgInboxService {
   }
 
   async unreadCountForClient(client: AuthenticatedClient) {
+    this.assertClientCanAccessGetHelp(client)
     const organizationId = this.clientAccess.requireOrganizationId(client)
     const conversations = await this.prisma.orgInboxConversation.findMany({
       where: {

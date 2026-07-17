@@ -1,6 +1,11 @@
 'use client'
 
-import { AttachmentPreviews } from '@cocreate/app-ui/attachment-previews'
+import type { ReactNode } from 'react'
+import {
+  AttachmentPreviews,
+  type PreviewAttachment,
+  type RenderAttachmentBadge,
+} from '@cocreate/app-ui/attachment-previews'
 import { indexAttachmentsByMessage as indexAttachmentsByMessageBase } from '@cocreate/app-ui/thread-message-merge'
 import type { AttachmentDownloadUrlResult } from '@/lib/projects/fetch-projects-client'
 
@@ -11,7 +16,6 @@ export type ThreadAttachment = {
   fileName: string
   mimeType: string
   createdAt?: string
-  clientApprovedAt?: string | null
   uploadedByUserId?: string
 }
 
@@ -123,6 +127,8 @@ type RequestAttachmentsProps = {
   onDeleteAttachment?: (attachmentId: string) => void | Promise<void>
   canDeleteAttachment?: (attachmentId: string) => boolean
   deletingAttachmentId?: string | null
+  renderAttachmentAction?: (attachment: PreviewAttachment) => ReactNode
+  renderAttachmentBadge?: RenderAttachmentBadge
 }
 
 type MessageWithAttachments = {
@@ -148,6 +154,8 @@ export function RequestAttachments({
   onDeleteAttachment,
   canDeleteAttachment,
   deletingAttachmentId = null,
+  renderAttachmentAction,
+  renderAttachmentBadge,
 }: RequestAttachmentsProps) {
   return (
     <AttachmentPreviews
@@ -163,6 +171,8 @@ export function RequestAttachments({
       onDeleteAttachment={onDeleteAttachment}
       canDeleteAttachment={canDeleteAttachment}
       deletingAttachmentId={deletingAttachmentId}
+      renderAttachmentAction={renderAttachmentAction}
+      renderAttachmentBadge={renderAttachmentBadge}
     />
   )
 }

@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   BadRequestException,
@@ -30,27 +31,24 @@ import {
   type RegisterAttachmentInput,
   RegisterCoverSchema,
   type RegisterCoverInput,
-  UpdateRequestSchema,
-  type UpdateRequestInput,
+  SetFileReactionSchema,
+  type SetFileReactionInput,
+  TopPicksQuerySchema,
   UploadUrlSchema,
   type UploadUrlInput,
-  RequestApprovalNeedsChangesSchema,
-  type RequestApprovalNeedsChangesInput,
-  AddApprovalCommentSchema,
-  type AddApprovalCommentInput,
 } from '@cocreate/api-contracts/v1/requests/projects'
 import { ClientAuthGuard } from '../auth/guards/client-auth.guard'
 import type { ClientPortalRequest } from '../auth/guards/client-auth.guard'
 import { zodBody } from '../common/zod/zod-validation.pipe'
 import { ProjectsService } from './projects.service'
-import { ProjectApprovalsService } from './project-approvals.service'
+import { ProjectFileReactionsService } from './project-file-reactions.service'
 
 @Controller({ path: 'client-portal', version: '1' })
 @UseGuards(ClientAuthGuard)
 export class ClientProjectsController {
   constructor(
     private readonly projects: ProjectsService,
-    private readonly approvals: ProjectApprovalsService,
+    private readonly reactions: ProjectFileReactionsService,
   ) {}
 
   @Get('projects')
@@ -74,60 +72,50 @@ export class ClientProjectsController {
     return this.projects.createForClient(req.clientUser!, body)
   }
 
-  @Get('projects/requests/open')
-  listOpenRequests(@Req() req: ClientPortalRequest) {
-    return this.projects.listPendingApprovalFilesForClient(req.clientUser!)
-  }
-
-  @Get('approvals/open')
-  listOpenApprovals(@Req() req: ClientPortalRequest) {
-    return this.approvals.listOpenForClient(req.clientUser!)
-  }
-
-  @Post('approvals/:itemId/approve')
-  approveFile(@Req() req: ClientPortalRequest, @Param('itemId') itemId: string) {
-    return this.approvals.approveItem(req.clientUser!, itemId)
-  }
-
-  @Post('approvals/:itemId/needs-changes')
-  requestNeedsChanges(
+  @Get('top-picks')
+  listOrgTopPicks(
     @Req() req: ClientPortalRequest,
-    @Param('itemId') itemId: string,
-    @Body(zodBody(RequestApprovalNeedsChangesSchema)) body: RequestApprovalNeedsChangesInput,
+    @Query() query: Record<string, string | string[] | undefined>,
   ) {
-    return this.approvals.requestNeedsChanges(req.clientUser!, itemId, body)
+    const parsed = TopPicksQuerySchema.safeParse(query)
+    const tags = parsed.success ? parsed.data.tags : []
+    return this.reactions.listTopPicksForClientOrg(req.clientUser!, tags)
   }
 
-  @Get('approvals/:itemId/comments')
-  listApprovalComments(@Req() req: ClientPortalRequest, @Param('itemId') itemId: string) {
-    return this.approvals.listComments(req.clientUser!, itemId)
-  }
-
-  @Post('approvals/:itemId/comments')
-  addApprovalComment(
+  @Get('projects/:id/top-picks')
+  listProjectTopPicks(
     @Req() req: ClientPortalRequest,
-    @Param('itemId') itemId: string,
-    @Body(zodBody(AddApprovalCommentSchema)) body: AddApprovalCommentInput,
+    @Param('id') id: string,
+    @Query() query: Record<string, string | string[] | undefined>,
   ) {
-    return this.approvals.addComment(req.clientUser!, itemId, body)
+    const parsed = TopPicksQuerySchema.safeParse(query)
+    const tags = parsed.success ? parsed.data.tags : []
+    return this.reactions.listTopPicksForProject(req.clientUser!, id, tags)
   }
 
-  @Get('approvals/history')
-  listApprovalHistory(@Req() req: ClientPortalRequest) {
-    return this.projects.listApprovalHistoryForClient(req.clientUser!)
-  }
-
-  @Get('approvals/unread-count')
-  unreadApprovalsCount(@Req() req: ClientPortalRequest) {
-    return this.projects.unreadApprovalsCountForClient(req.clientUser!)
-  }
-
-  @Post('approvals/mark-read')
-  markApprovalsRead(
+  @Get('projects/:id/file-reactions')
+  listProjectFileReactions(
     @Req() req: ClientPortalRequest,
-    @Body(zodBody(MarkInboxReadSchema)) body: MarkInboxReadInput,
+    @Param('id') id: string,
   ) {
-    return this.projects.markApprovalsReadForClient(req.clientUser!, body.requestId)
+    return this.reactions.listReactionsForProject(req.clientUser!, id)
+  }
+
+  @Put('attachments/:attachmentId/reaction')
+  setAttachmentReaction(
+    @Req() req: ClientPortalRequest,
+    @Param('attachmentId') attachmentId: string,
+    @Body(zodBody(SetFileReactionSchema)) body: SetFileReactionInput,
+  ) {
+    return this.reactions.setReaction(req.clientUser!, attachmentId, body.kind)
+  }
+
+  @Delete('attachments/:attachmentId/reaction')
+  clearAttachmentReaction(
+    @Req() req: ClientPortalRequest,
+    @Param('attachmentId') attachmentId: string,
+  ) {
+    return this.reactions.clearReaction(req.clientUser!, attachmentId)
   }
 
   @Get('attention/unread-count')
@@ -307,39 +295,6 @@ export class ClientProjectsController {
     @Body(zodBody(CreateRequestMessageSchema)) body: CreateRequestMessageInput,
   ) {
     return this.projects.addRequestMessage(req.clientUser!, requestId, body)
-  }
-
-  @Post('project-requests/:requestId/messages/:messageId/approve')
-  approveCheckpoint(
-    @Req() req: ClientPortalRequest,
-    @Param('requestId') requestId: string,
-    @Param('messageId') messageId: string,
-  ) {
-    return this.projects.approveCheckpoint(req.clientUser!, requestId, messageId)
-  }
-
-  @Post('project-requests/:requestId/messages/:messageId/files/:attachmentId/approve')
-  approveCheckpointFile(
-    @Req() req: ClientPortalRequest,
-    @Param('requestId') requestId: string,
-    @Param('messageId') messageId: string,
-    @Param('attachmentId') attachmentId: string,
-  ) {
-    return this.projects.approveCheckpointFile(
-      req.clientUser!,
-      requestId,
-      messageId,
-      attachmentId,
-    )
-  }
-
-  @Patch('project-requests/:requestId')
-  updateRequest(
-    @Req() req: ClientPortalRequest,
-    @Param('requestId') requestId: string,
-    @Body(zodBody(UpdateRequestSchema)) body: UpdateRequestInput,
-  ) {
-    return this.projects.updateRequest(req.clientUser!, requestId, body)
   }
 
   @Get('notifications')

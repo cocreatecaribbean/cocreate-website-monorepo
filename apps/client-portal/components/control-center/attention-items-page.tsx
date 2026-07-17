@@ -107,8 +107,8 @@ export default function AttentionItemsPage({ organizationName }: AttentionItemsP
               </li>
             ))}
           </ul>
-          <Link href="/?ccView=approvals" className="portal-btn-primary inline-flex">
-            Open approvals
+          <Link href="/?ccView=projects" className="portal-btn-primary inline-flex">
+            Browse projects
           </Link>
         </section>
       ) : (

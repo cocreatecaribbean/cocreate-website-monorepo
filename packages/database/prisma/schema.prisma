@@ -31,14 +31,10 @@ enum UserStatus {
 
 /// Role within a client organization (CLIENT users only)
 enum ClientOrgRole {
-  OWNER
-  PROJECT_MANAGER
-  MEMBER
-}
-
-enum ClientProjectAccessLevel {
-  MANAGE
-  VIEW
+  ADMIN
+  CONTRIBUTOR
+  VIEWER
+  SOCIAL_ANALYST
 }
 
 enum ClientTeamInviteRequestStatus {
@@ -61,7 +57,9 @@ model Organization {
   brand24ProjectId            String?
   createdAt                   DateTime @default(now())
   updatedAt                   DateTime @updatedAt
-  users                       User[]
+  users                       User[]   @relation("UserLegacyOrganization")
+  memberships                 ClientOrganizationMembership[]
+  lastActiveUsers             User[]   @relation("UserLastActiveOrganization")
   socialListeningSnapshots    SocialListeningSnapshot[]
   clientProjects              ClientProject[]
   portalNotifications         PortalNotification[]
@@ -146,13 +144,14 @@ enum ProjectRequestType {
 
 enum ProjectMessageKind {
   CHAT
-  CHECKPOINT
 }
 
-enum ProjectApprovalItemStatus {
-  PENDING
-  APPROVED
-  NEEDS_CHANGES
+enum ProjectFileReactionKind {
+  LOVE_THIS
+  SHIP_IT
+  GREAT_DIRECTION
+  ANOTHER_VERSION
+  NEEDS_A_TWEAK
 }
 
 enum CancellationOutcome {
@@ -177,14 +176,10 @@ enum PortalNotificationType {
   PHASE_APPROVAL
   REQUEST_RESOLVED
   REQUEST_MESSAGE
-  CHECKPOINT_PENDING
-  CHECKPOINT_APPROVED
-  APPROVAL_FILE_PENDING
-  APPROVAL_NEEDS_CHANGES
-  APPROVAL_REVISION_SENT
   CANCELLATION_REQUESTED
   CANCELLATION_RESOLVED
   TEAM_INVITE_REQUEST
+  ORGANIZATION_MEMBERSHIP_ADDED
   ORG_INBOX_MESSAGE
 }
 
@@ -210,6 +205,9 @@ model ClientProject {
   phase            ClientProjectPhase  @default(DISCOVERY)
   createdByUserId  String
   createdBy        User                @relation("ProjectCreatedBy", fields: [createdByUserId], references: [id])
+  /// Org Admin who owns this project (assigns Contributors/Viewers)
+  ownerUserId      String
+  owner            User                @relation("ProjectOwnedBy", fields: [ownerUserId], references: [id])
   approvedByUserId  String?
   approvedBy        User?               @relation("ProjectApprovedBy", fields: [approvedByUserId], references: [id])
   approvedAt        DateTime?
@@ -223,30 +221,28 @@ model ClientProject {
   attachments       ProjectAttachment[]
   activities        ProjectActivity[]
   notifications     PortalNotification[]
-  clientApprovals   ClientApprovalRecord[]
   members           ClientProjectMember[]
   agencyMembers     AgencyProjectMember[]
-  approvalItems     ProjectApprovalItem[]
 
   deletedAt DateTime?
 
   @@index([organizationId])
   @@index([organizationId, status])
   @@index([createdByUserId])
+  @@index([ownerUserId])
   @@index([deletedAt])
 }
 
-/// Per-project access for client team members (owners bypass via code)
+/// Per-project assignment for Contributors and Viewers (Admins do not need rows)
 model ClientProjectMember {
-  id              String                   @id @default(cuid())
+  id              String        @id @default(cuid())
   projectId       String
-  project         ClientProject            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project         ClientProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   userId          String
-  user            User                     @relation("ProjectMembership", fields: [userId], references: [id], onDelete: Cascade)
-  access          ClientProjectAccessLevel
+  user            User          @relation("ProjectMembership", fields: [userId], references: [id], onDelete: Cascade)
   grantedByUserId String
-  grantedBy       User                     @relation("ProjectMembershipGrantedBy", fields: [grantedByUserId], references: [id])
-  createdAt       DateTime                 @default(now())
+  grantedBy       User          @relation("ProjectMembershipGrantedBy", fields: [grantedByUserId], references: [id])
+  createdAt       DateTime      @default(now())
 
   @@unique([projectId, userId])
   @@index([userId])
@@ -292,8 +288,6 @@ model ProjectRequest {
   attachments         ProjectAttachment[]
   notifications       PortalNotification[]
   messages            ProjectRequestMessage[]
-  approvalRecords     ClientApprovalRecord[]
-  approvalItems       ProjectApprovalItem[]
 
   @@unique([projectId, type])
   @@index([projectId])
@@ -303,141 +297,32 @@ model ProjectRequest {
 
 /// Threaded messages on a project request (admin ↔ client)
 model ProjectRequestMessage {
-  id                     String                 @id @default(cuid())
-  requestId              String
-  request                ProjectRequest         @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  authorUserId           String
-  author                 User                   @relation("RequestMessageAuthor", fields: [authorUserId], references: [id])
-  authorRole             ProjectMessageAuthorRole
-  body                   String                 @db.Text
-  messageKind            ProjectMessageKind     @default(CHAT)
-  checkpointTargetPhase  ClientProjectPhase?
-  requiresClientApproval Boolean                @default(false)
-  clientApprovedAt       DateTime?
-  clientApprovedByUserId String?
-  clientApprovedBy       User?                  @relation("MessageApprovedBy", fields: [clientApprovedByUserId], references: [id])
-  supersededAt           DateTime?
-  createdAt              DateTime               @default(now())
-  approvalRecords        ClientApprovalRecord[]
-  attachmentLinks        ProjectRequestMessageAttachment[]
-  approvalItemsSent      ProjectApprovalItem[] @relation("ApprovalItemSentMessage")
+  id             String                   @id @default(cuid())
+  requestId      String
+  request        ProjectRequest           @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  authorUserId   String
+  author         User                     @relation("RequestMessageAuthor", fields: [authorUserId], references: [id])
+  authorRole     ProjectMessageAuthorRole
+  body           String                   @db.Text
+  messageKind    ProjectMessageKind       @default(CHAT)
+  createdAt      DateTime                 @default(now())
+  attachmentLinks ProjectRequestMessageAttachment[]
 
   @@index([requestId, createdAt])
 }
 
 /// Links project library files to specific thread messages (reusable across messages)
 model ProjectRequestMessageAttachment {
-  id                     String                @id @default(cuid())
-  messageId              String
-  message                ProjectRequestMessage   @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  attachmentId           String
-  attachment             ProjectAttachment       @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
-  clientApprovedAt       DateTime?
-  clientApprovedByUserId String?
-  clientApprovedBy       User?                   @relation("MessageAttachmentApprovedBy", fields: [clientApprovedByUserId], references: [id])
-  createdAt              DateTime                @default(now())
+  id           String                @id @default(cuid())
+  messageId    String
+  message      ProjectRequestMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  attachmentId String
+  attachment   ProjectAttachment     @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime              @default(now())
 
   @@unique([messageId, attachmentId])
   @@index([messageId])
   @@index([attachmentId])
-}
-
-/// Client-approved progress checkpoints (Approvals history)
-model ClientApprovalRecord {
-  id               String               @id @default(cuid())
-  projectId        String
-  project          ClientProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  requestId        String
-  request          ProjectRequest         @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  messageId        String?
-  message          ProjectRequestMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  approvalItemId   String?
-  approvalItem     ProjectApprovalItem? @relation(fields: [approvalItemId], references: [id], onDelete: Cascade)
-  title            String
-  summary          String?                @db.Text
-  targetPhase      ClientProjectPhase?
-  approvedAt       DateTime               @default(now())
-  approvedByUserId String
-  approvedBy       User                   @relation("ClientApprovalBy", fields: [approvedByUserId], references: [id])
-  /// Primary file when this history row is a per-file approval
-  approvedAttachmentId String?
-  recordAttachments    ClientApprovalRecordAttachment[]
-
-  @@index([projectId, approvedAt])
-  @@index([approvedByUserId])
-  @@index([approvalItemId])
-}
-
-/// FK-enforced snapshot of attachments included in an approval record
-model ClientApprovalRecordAttachment {
-  id               String               @id @default(cuid())
-  approvalRecordId String
-  approvalRecord   ClientApprovalRecord @relation(fields: [approvalRecordId], references: [id], onDelete: Cascade)
-  attachmentId     String
-  attachment       ProjectAttachment    @relation(fields: [attachmentId], references: [id], onDelete: Restrict)
-  createdAt        DateTime             @default(now())
-
-  @@unique([approvalRecordId, attachmentId])
-  @@index([approvalRecordId])
-  @@index([attachmentId])
-}
-
-/// Standalone file sent for client approval (independent lifecycle per file)
-model ProjectApprovalItem {
-  id              String                    @id @default(cuid())
-  projectId       String
-  project         ClientProject             @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  requestId       String
-  request         ProjectRequest            @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  attachmentId    String
-  attachment      ProjectAttachment         @relation(fields: [attachmentId], references: [id], onDelete: Restrict)
-  title           String
-  note            String?                   @db.Text
-  status          ProjectApprovalItemStatus @default(PENDING)
-  revisionNumber  Int                       @default(1)
-  sentByUserId    String
-  sentBy          User                      @relation("ApprovalItemSentBy", fields: [sentByUserId], references: [id])
-  sentMessageId   String?
-  sentMessage     ProjectRequestMessage?    @relation("ApprovalItemSentMessage", fields: [sentMessageId], references: [id], onDelete: SetNull)
-  sentAt          DateTime                  @default(now())
-  decidedAt       DateTime?
-  decidedByUserId String?
-  decidedBy       User?                     @relation("ApprovalItemDecidedBy", fields: [decidedByUserId], references: [id])
-  createdAt       DateTime                  @default(now())
-  updatedAt       DateTime                  @updatedAt
-  comments        ProjectApprovalComment[]
-  approvalRecords ClientApprovalRecord[]
-
-  @@index([projectId, status])
-  @@index([requestId, status])
-  @@index([status, sentAt])
-}
-
-/// File-scoped feedback thread on an approval item
-model ProjectApprovalComment {
-  id             String                   @id @default(cuid())
-  approvalItemId String
-  approvalItem   ProjectApprovalItem      @relation(fields: [approvalItemId], references: [id], onDelete: Cascade)
-  authorUserId   String
-  author         User                     @relation("ApprovalCommentAuthor", fields: [authorUserId], references: [id])
-  authorRole     ProjectMessageAuthorRole
-  body           String                   @db.Text
-  createdAt      DateTime                 @default(now())
-  attachmentLinks ProjectApprovalCommentAttachment[]
-
-  @@index([approvalItemId, createdAt])
-}
-
-model ProjectApprovalCommentAttachment {
-  id           String                 @id @default(cuid())
-  commentId    String
-  comment      ProjectApprovalComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
-  attachmentId String
-  attachment   ProjectAttachment      @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
-  createdAt    DateTime               @default(now())
-
-  @@unique([commentId, attachmentId])
-  @@index([commentId])
 }
 
 /// Files stored in Supabase Storage (private bucket)
@@ -456,13 +341,27 @@ model ProjectAttachment {
   uploadedBy       User            @relation("AttachmentUploadedBy", fields: [uploadedByUserId], references: [id])
   createdAt        DateTime        @default(now())
   messageLinks     ProjectRequestMessageAttachment[]
-  approvalItems    ProjectApprovalItem[]
-  approvalCommentLinks ProjectApprovalCommentAttachment[]
-  approvalRecordLinks  ClientApprovalRecordAttachment[]
+  reactions        ProjectFileReaction[]
 
   @@index([projectId])
   @@index([requestId])
   @@index([projectId, visibility])
+}
+
+/// Per-user reaction on a project file (drives Top Picks + tag filters)
+model ProjectFileReaction {
+  id           String                 @id @default(cuid())
+  attachmentId String
+  attachment   ProjectAttachment      @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind         ProjectFileReactionKind
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  @@unique([attachmentId, userId])
+  @@index([attachmentId, kind])
+  @@index([userId])
 }
 
 /// Append-only audit log per project
@@ -761,18 +660,24 @@ model User {
   email          String        @unique
   /// Supabase Auth user id (linked after invite or first sign-in)
   supabaseAuthId String?       @unique
+  /// @deprecated Prefer ClientOrganizationMembership; kept for migration dual-read
   organizationId String?
-  organization            Organization?          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization            Organization?          @relation("UserLegacyOrganization", fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Last org the client portal session used (multi-membership)
+  lastActiveOrganizationId String?
+  lastActiveOrganization   Organization?         @relation("UserLastActiveOrganization", fields: [lastActiveOrganizationId], references: [id], onDelete: SetNull)
   role                    UserRole               @default(CLIENT)
   status                  UserStatus             @default(INVITED)
-  /// Client org role (null for agency admins)
+  /// @deprecated Prefer membership.clientOrgRole
   clientOrgRole           ClientOrgRole?
-  /// User-level gate when org has social listening subscription
+  /// @deprecated Prefer membership.canAccessSocialListening
   canAccessSocialListening Boolean               @default(false)
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
   deletedAt               DateTime?
+  organizationMemberships ClientOrganizationMembership[]
   projectsCreated         ClientProject[]        @relation("ProjectCreatedBy")
+  projectsOwned           ClientProject[]        @relation("ProjectOwnedBy")
   projectsApproved        ClientProject[]        @relation("ProjectApprovedBy")
   projectsCompleted       ClientProject[]        @relation("ProjectCompletedBy")
   requestsCreated         ProjectRequest[]       @relation("RequestCreatedBy")
@@ -782,12 +687,7 @@ model User {
   projectActivities       ProjectActivity[]      @relation("ActivityActor")
   portalNotifications     PortalNotification[]
   requestMessages         ProjectRequestMessage[] @relation("RequestMessageAuthor")
-  messagesApproved        ProjectRequestMessage[] @relation("MessageApprovedBy")
-  messageAttachmentsApproved ProjectRequestMessageAttachment[] @relation("MessageAttachmentApprovedBy")
-  clientApprovals         ClientApprovalRecord[]  @relation("ClientApprovalBy")
-  approvalItemsSent       ProjectApprovalItem[]   @relation("ApprovalItemSentBy")
-  approvalItemsDecided    ProjectApprovalItem[]   @relation("ApprovalItemDecidedBy")
-  approvalComments        ProjectApprovalComment[] @relation("ApprovalCommentAuthor")
+  fileReactions           ProjectFileReaction[]
   projectMemberships      ClientProjectMember[]   @relation("ProjectMembership")
   projectMembershipsGranted ClientProjectMember[] @relation("ProjectMembershipGrantedBy")
   agencyProjectMemberships AgencyProjectMember[]  @relation("AgencyProjectMembership")
@@ -807,9 +707,32 @@ model User {
 
   @@index([organizationId])
   @@index([organizationId, clientOrgRole])
+  @@index([lastActiveOrganizationId])
   @@index([email])
   @@index([status])
   @@index([deletedAt])
+}
+
+/// Per-org membership for CLIENT users (same email/login can belong to many orgs)
+model ClientOrganizationMembership {
+  id                       String        @id @default(cuid())
+  userId                   String
+  user                     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId           String
+  organization             Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientOrgRole            ClientOrgRole
+  status                   UserStatus    @default(INVITED)
+  canAccessSocialListening Boolean       @default(false)
+  /// Per-member Get Help (org inbox) access; Admins always have access in app logic
+  canAccessGetHelp         Boolean       @default(true)
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@index([organizationId, clientOrgRole])
+  @@index([organizationId, status])
+  @@index([userId, status])
 }
 
 /// Agency-wide job title options (managed by super admins)

@@ -17,7 +17,10 @@ function isGapChar(char: HTMLElement) {
   return !char.textContent?.trim()
 }
 
-/** Per-char gradient — parent bg-clip-text is invisible after SplitText */
+/**
+ * Gradient on an INNER span so the outer SplitText char can animate `y`
+ * reliably (parent/outer bg-clip + text-fill cause ghost glyphs under the nav).
+ */
 function applyHeadlineCharGradient(chars: HTMLElement[]) {
   const letterChars = chars.filter((char) => !isGapChar(char))
   const total = letterChars.length
@@ -35,17 +38,23 @@ function applyHeadlineCharGradient(chars: HTMLElement[]) {
       return
     }
 
+    const inner = document.createElement('span')
+    while (char.firstChild) {
+      inner.appendChild(char.firstChild)
+    }
+    char.appendChild(inner)
+
     const progress = total > 1 ? (letterIndex / (total - 1)) * 100 : 0
     letterIndex += 1
 
-    char.style.backgroundImage =
+    inner.style.display = 'inline-block'
+    inner.style.backgroundImage =
       'linear-gradient(to right, #406eb5, #406eb5 45%, #f6b03f 80%)'
-    char.style.backgroundSize = `${total * 100}% 100%`
-    char.style.backgroundPosition = `${progress}% 0`
-    char.style.backgroundClip = 'text'
-    char.style.webkitBackgroundClip = 'text'
-    char.style.webkitTextFillColor = 'transparent'
-    char.style.color = 'transparent'
+    inner.style.backgroundSize = `${total * 100}% 100%`
+    inner.style.backgroundPosition = `${progress}% 0`
+    inner.style.setProperty('-webkit-background-clip', 'text')
+    inner.style.backgroundClip = 'text'
+    inner.style.setProperty('-webkit-text-fill-color', 'transparent')
   })
 }
 

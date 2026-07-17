@@ -107,3 +107,77 @@ export function useSuspendClientTeamMemberMutation(organizationId: string) {
     },
   })
 }
+
+export function useAddProjectClientMemberMutation(
+  organizationId: string,
+  projectId: string,
+) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (body: { email: string }) =>
+      fetchAdminBff(
+        `/api/clients/${organizationId}/projects/${projectId}/members`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.team.projectMembers(organizationId, projectId),
+      })
+    },
+  })
+}
+
+export function useRemoveProjectClientMemberMutation(
+  organizationId: string,
+  projectId: string,
+) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (userId: string) =>
+      fetchAdminBff(
+        `/api/clients/${organizationId}/projects/${projectId}/members/${userId}`,
+        { method: 'DELETE' },
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.team.projectMembers(organizationId, projectId),
+      })
+    },
+  })
+}
+
+export function useTransferProjectOwnershipMutation(
+  organizationId: string,
+  projectId: string,
+) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (body: { newOwnerUserId: string }) =>
+      fetchAdminBff(
+        `/api/clients/${organizationId}/projects/${projectId}/owner`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.team.projectMembers(organizationId, projectId),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.team.members(organizationId),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.projects.workspace(organizationId, projectId),
+      })
+    },
+  })
+}

@@ -42,7 +42,7 @@ export class ClientsService {
     brand24ProjectId: string | null
     createdAt: Date
     updatedAt: Date
-    users: {
+    users?: {
       id: string
       email: string
       role: UserRole
@@ -52,6 +52,20 @@ export class ClientsService {
       createdAt: Date
       updatedAt: Date
     }[]
+    memberships?: Array<{
+      status: UserStatus
+      clientOrgRole: ClientOrgRole
+      canAccessSocialListening: boolean
+      createdAt: Date
+      updatedAt: Date
+      user: {
+        id: string
+        email: string
+        role: UserRole
+        createdAt: Date
+        updatedAt: Date
+      }
+    }>
   },
     latestSnapshot?: {
       createdAt: Date
@@ -59,7 +73,20 @@ export class ClientsService {
       snapshotDate: Date
     },
   ): ClientOrganizationRosterItem {
-    const primaryUser = this.pickPrimaryContactUser(org.users)
+    const members =
+      org.memberships?.map((m) => ({
+        id: m.user.id,
+        email: m.user.email,
+        role: m.user.role,
+        status: m.status,
+        clientOrgRole: m.clientOrgRole as ClientOrgRole | null,
+        canAccessSocialListening: m.canAccessSocialListening,
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
+      })) ??
+      org.users ??
+      []
+    const primaryUser = this.pickPrimaryContactUser(members)
     return {
       id: org.id,
       name: org.name,
@@ -85,7 +112,7 @@ export class ClientsService {
     },
   >(users: T[]): T | undefined {
     if (users.length === 0) return undefined
-    const owner = users.find((u) => u.clientOrgRole === ClientOrgRole.OWNER)
+    const owner = users.find((u) => u.clientOrgRole === ClientOrgRole.ADMIN)
     return owner ?? users[0]
   }
 
@@ -116,8 +143,10 @@ export class ClientsService {
     const companyName = dto.companyName.trim()
 
     const existingUser = await this.prisma.user.findUnique({ where: { email } })
-    if (existingUser) {
-      throw new ConflictException(`A user with email ${email} already exists`)
+    if (existingUser && existingUser.role !== UserRole.CLIENT) {
+      throw new ConflictException(
+        'This email is an agency account and can’t join a client org',
+      )
     }
 
     const slug = await uniqueSlug(companyName, async (candidate) => {
@@ -131,57 +160,128 @@ export class ClientsService {
     const enableSocialListening = dto.enableSocialListening ?? false
     const logoUrl = dto.logoUrl?.trim() || null
 
-    const { organization, user } = await this.prisma.$transaction(async (tx) => {
-      const organization = await tx.organization.create({
-        data: {
-          name: companyName,
-          slug,
-          logoUrl,
-          isSocialListeningSubscriber: false,
-        },
-      })
+    const { organization, user, needsAuthInvite } = await this.prisma.$transaction(
+      async (tx) => {
+        const organization = await tx.organization.create({
+          data: {
+            name: companyName,
+            slug,
+            logoUrl,
+            isSocialListeningSubscriber: false,
+          },
+        })
 
-      const user = await tx.user.create({
-        data: {
-          email,
-          organizationId: organization.id,
-          role: UserRole.CLIENT,
-          status: UserStatus.INVITED,
-          clientOrgRole: ClientOrgRole.OWNER,
-          canAccessSocialListening: false,
-        },
-      })
+        if (existingUser) {
+          if (existingUser.deletedAt) {
+            await tx.user.update({
+              where: { id: existingUser.id },
+              data: { deletedAt: null },
+            })
+          }
 
-      return { organization, user }
-    })
+          const membershipStatus = existingUser.supabaseAuthId
+            ? UserStatus.ACTIVE
+            : UserStatus.INVITED
+
+          await tx.clientOrganizationMembership.create({
+            data: {
+              userId: existingUser.id,
+              organizationId: organization.id,
+              clientOrgRole: ClientOrgRole.ADMIN,
+              status: membershipStatus,
+              canAccessSocialListening: false,
+            },
+          })
+
+          await tx.user.update({
+            where: { id: existingUser.id },
+            data: {
+              organizationId: existingUser.organizationId ?? organization.id,
+              lastActiveOrganizationId: organization.id,
+              clientOrgRole: ClientOrgRole.ADMIN,
+              status:
+                membershipStatus === UserStatus.ACTIVE
+                  ? UserStatus.ACTIVE
+                  : existingUser.status,
+            },
+          })
+
+          return {
+            organization,
+            user: existingUser,
+            needsAuthInvite: !existingUser.supabaseAuthId,
+          }
+        }
+
+        const user = await tx.user.create({
+          data: {
+            email,
+            organizationId: organization.id,
+            lastActiveOrganizationId: organization.id,
+            role: UserRole.CLIENT,
+            status: UserStatus.INVITED,
+            clientOrgRole: ClientOrgRole.ADMIN,
+            canAccessSocialListening: false,
+            organizationMemberships: {
+              create: {
+                organizationId: organization.id,
+                clientOrgRole: ClientOrgRole.ADMIN,
+                status: UserStatus.INVITED,
+                canAccessSocialListening: false,
+              },
+            },
+          },
+        })
+
+        return { organization, user, needsAuthInvite: true }
+      },
+    )
 
     if (enableSocialListening) {
       await this.subscriptions.setAdminCompEntitlement(organization.id, true)
     }
 
     const portalBase = process.env.CLIENT_PORTAL_URL ?? 'http://localhost:3003'
+    const redirectTo = `${portalBase}/auth/callback?organizationId=${encodeURIComponent(organization.id)}`
 
-    let invitation: Awaited<ReturnType<SupabaseAuthService['inviteUserByEmail']>>
-    try {
-      invitation = await this.supabaseAuth.inviteUserByEmail({
-        email,
-        organizationId: organization.id,
-        organizationSlug: organization.slug,
-        redirectTo: `${portalBase}/auth/callback`,
-      })
-    } catch (err) {
-      await this.prisma.$transaction(async (tx) => {
-        await tx.user.delete({ where: { id: user.id } })
-        await tx.organization.delete({ where: { id: organization.id } })
-      })
-      throw err
+    let invitation: Awaited<ReturnType<SupabaseAuthService['inviteUserByEmail']>> | {
+      status: string
+      invitationId?: string
+      devSignInUrl?: string
     }
 
-    if (invitation.status === 'sent') {
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { supabaseAuthId: invitation.invitationId },
-      })
+    if (needsAuthInvite) {
+      try {
+        invitation = await this.supabaseAuth.inviteUserByEmail({
+          email,
+          organizationId: organization.id,
+          organizationSlug: organization.slug,
+          redirectTo,
+        })
+      } catch (err) {
+        await this.prisma.$transaction(async (tx) => {
+          await tx.clientOrganizationMembership.deleteMany({
+            where: { userId: user.id, organizationId: organization.id },
+          })
+          if (!existingUser) {
+            await tx.user.delete({ where: { id: user.id } })
+          }
+          await tx.organization.delete({ where: { id: organization.id } })
+        })
+        throw err
+      }
+
+      if (invitation.status === 'sent' && invitation.invitationId) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { supabaseAuthId: invitation.invitationId },
+        })
+      }
+    } else {
+      invitation = {
+        status: 'stubbed' as const,
+        invitationId: existingUser?.supabaseAuthId ?? undefined,
+      }
     }
 
     const contact = await this.prisma.user.findUniqueOrThrow({
@@ -199,9 +299,9 @@ export class ClientsService {
       },
       user: this.mapPrimaryContact(contact),
       invitation: {
-        provider: 'supabase-auth',
-        status: invitation.status,
-        invitationId: invitation.invitationId,
+        provider: 'supabase-auth' as const,
+        status: invitation.status as 'sent' | 'stubbed' | 'dev_link',
+        invitationId: invitation.invitationId ?? '',
         ...(invitation.devSignInUrl
           ? { devSignInUrl: invitation.devSignInUrl }
           : {}),
@@ -213,8 +313,10 @@ export class ClientsService {
     const organizations = await this.prisma.organization.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
-        users: {
-          where: { role: UserRole.CLIENT },
+        memberships: {
+          include: {
+            user: true,
+          },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -245,8 +347,10 @@ export class ClientsService {
     const organization = await this.prisma.organization.findUnique({
       where: { id: organizationId },
       include: {
-        users: {
-          where: { role: UserRole.CLIENT },
+        memberships: {
+          include: {
+            user: true,
+          },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -264,8 +368,10 @@ export class ClientsService {
     const organization = await this.prisma.organization.findUnique({
       where: { id: organizationId },
       include: {
-        users: {
-          where: { role: UserRole.CLIENT },
+        memberships: {
+          include: {
+            user: true,
+          },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -280,8 +386,10 @@ export class ClientsService {
     const updated = await this.prisma.organization.findUniqueOrThrow({
       where: { id: organizationId },
       include: {
-        users: {
-          where: { role: UserRole.CLIENT },
+        memberships: {
+          include: {
+            user: true,
+          },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -297,8 +405,10 @@ export class ClientsService {
     const organization = await this.prisma.organization.findUnique({
       where: { id: organizationId },
       include: {
-        users: {
-          where: { role: UserRole.CLIENT },
+        memberships: {
+          include: {
+            user: true,
+          },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -326,8 +436,10 @@ export class ClientsService {
       data:
         normalized === undefined ? {} : { brand24ProjectId: normalized },
       include: {
-        users: {
-          where: { role: UserRole.CLIENT },
+        memberships: {
+          include: {
+            user: true,
+          },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -366,8 +478,10 @@ export class ClientsService {
       where: { id: organizationId },
       data: { logoUrl: logoUrl.trim() },
       include: {
-        users: {
-          where: { role: UserRole.CLIENT },
+        memberships: {
+          include: {
+            user: true,
+          },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -391,8 +505,10 @@ export class ClientsService {
       where: { id: organizationId },
       data: { logoUrl: null },
       include: {
-        users: {
-          where: { role: UserRole.CLIENT },
+        memberships: {
+          include: {
+            user: true,
+          },
           orderBy: { createdAt: 'asc' },
         },
       },

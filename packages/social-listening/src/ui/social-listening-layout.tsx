@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, type ReactNode } from 'react'
+import { Suspense, useCallback, useEffect, type ReactNode } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import SocialListeningSidebar from './social-listening-sidebar'
 import SocialListeningMobileSubNav from './social-listening-mobile-subnav'
@@ -44,6 +44,15 @@ function SocialListeningLayoutInner({
 
   const mainNavItems = [...SOCIAL_LISTENING_NAV, SOCIAL_LISTENING_REPORTS]
 
+  // Contributors (and anyone without setup permission) cannot stay on setup via deep link.
+  useEffect(() => {
+    if (showSetupShortcut || activeView !== SOCIAL_LISTENING_SETUP.id) return
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete(SOCIAL_LISTENING_VIEW_QUERY)
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }, [activeView, pathname, router, searchParams, showSetupShortcut])
+
   const setActiveView = useCallback(
     (view: SocialListeningViewId) => {
       const params = new URLSearchParams(searchParams.toString())
@@ -74,7 +83,7 @@ function SocialListeningLayoutInner({
 
   return (
     <div className="portal-sl-shell flex min-h-0 flex-1 flex-col lg:flex-row lg:gap-0">
-      <div className="hidden w-[220px] shrink-0 lg:block xl:w-[240px]">
+      <div className="hidden h-full min-h-0 w-[220px] shrink-0 lg:block xl:w-[240px]">
         <SocialListeningSidebar
           activeView={activeView}
           onSelectView={setActiveView}
@@ -88,7 +97,7 @@ function SocialListeningLayoutInner({
         />
       </div>
 
-      <div className="portal-sl-main portal-sl-region flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="portal-sl-main portal-sl-region flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
         <SocialListeningMobileSubNav
           activeView={activeView}
           onSelectView={setActiveView}

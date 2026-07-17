@@ -36,9 +36,45 @@ export const ProjectAttachmentSchema = z.object({
   mimeType: z.string(),
   sizeBytes: z.number(),
   createdAt: isoDateTimeString,
-  clientApprovedAt: isoDateTimeString.nullable().optional(),
 })
 export type ProjectAttachment = z.infer<typeof ProjectAttachmentSchema>
+
+export const ProjectFileReactionKindSchema = z.enum([
+  'LOVE_THIS',
+  'SHIP_IT',
+  'GREAT_DIRECTION',
+  'ANOTHER_VERSION',
+  'NEEDS_A_TWEAK',
+])
+export type ProjectFileReactionKind = z.infer<typeof ProjectFileReactionKindSchema>
+
+export const ProjectFileReactionTagSchema = z.object({
+  kind: ProjectFileReactionKindSchema,
+  label: z.string(),
+  count: z.number().int().nonnegative(),
+  isPositive: z.boolean(),
+})
+export type ProjectFileReactionTag = z.infer<typeof ProjectFileReactionTagSchema>
+
+export const ProjectAttachmentWithReactionsSchema = ProjectAttachmentSchema.extend({
+  myReaction: ProjectFileReactionKindSchema.nullable(),
+  tags: z.array(ProjectFileReactionTagSchema).default([]),
+  isTopPick: z.boolean(),
+})
+export type ProjectAttachmentWithReactions = z.infer<
+  typeof ProjectAttachmentWithReactionsSchema
+>
+
+export const TopPicksResponseSchema = z.object({
+  items: z.array(ProjectAttachmentWithReactionsSchema),
+  availableTags: z.array(ProjectFileReactionTagSchema),
+})
+export type TopPicksResponse = z.infer<typeof TopPicksResponseSchema>
+
+export const FileReactionsResponseSchema = z.object({
+  items: z.array(ProjectAttachmentWithReactionsSchema),
+})
+export type FileReactionsResponse = z.infer<typeof FileReactionsResponseSchema>
 
 export const ProjectRequestMessageBaseSchema = z.object({
   id: z.string(),
@@ -48,12 +84,7 @@ export const ProjectRequestMessageBaseSchema = z.object({
   authorDisplayName: z.string().nullable().optional(),
   authorJobTitle: z.string().nullable().optional(),
   body: z.string(),
-  messageKind: z.enum(['CHAT', 'CHECKPOINT']).optional(),
-  checkpointTargetPhase: ClientProjectPhaseSchema.nullable().optional(),
-  requiresClientApproval: z.boolean().optional(),
-  clientApprovedAt: isoDateTimeString.nullable().optional(),
-  supersededAt: isoDateTimeString.nullable().optional(),
-  isPendingApproval: z.boolean().optional(),
+  messageKind: z.enum(['CHAT']).optional(),
   createdAt: isoDateTimeString,
   attachmentIds: z.array(z.string()).optional(),
   attachments: z.array(ProjectAttachmentSchema).optional(),

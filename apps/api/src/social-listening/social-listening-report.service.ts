@@ -38,6 +38,15 @@ export class SocialListeningReportService {
     return { ok: true, templates: listReportTemplates() }
   }
 
+  listTemplatesForClient(client: AuthenticatedClient): ReportTemplatesListResponse {
+    if (!this.clientAccess.canViewSocialListening(client)) {
+      throw new ForbiddenException(
+        'You do not have permission to view Social Listening reports',
+      )
+    }
+    return this.listTemplates()
+  }
+
   async generatePdfForClient(
     client: AuthenticatedClient,
     templateId: string,
@@ -45,9 +54,9 @@ export class SocialListeningReportService {
     baseline?: string,
     current?: string,
   ): Promise<{ buffer: Buffer; filename: string }> {
-    if (!this.clientAccess.canUseSocialListening(client)) {
+    if (!this.clientAccess.canViewSocialListening(client)) {
       throw new ForbiddenException(
-        'Social Listening is not enabled for your account',
+        'You do not have permission to export Social Listening reports',
       )
     }
 

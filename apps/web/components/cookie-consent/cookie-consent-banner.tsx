@@ -32,7 +32,7 @@ export default function CookieConsentBanner() {
       aria-labelledby={headingId}
       aria-describedby={descriptionId}
       aria-live="polite"
-      className={`cookie-consent-banner fixed right-4 z-[240] w-[min(calc(100vw-2rem),22rem)] rounded-2xl border border-white/10 bg-chambray text-white shadow-[0_8px_32px_rgba(57,65,154,0.35)] bottom-[max(1.25rem,env(safe-area-inset-bottom))] sm:right-6 sm:bottom-8 ${fonts.bricolage_grot400.className}`}
+      className={`cookie-consent-banner fixed left-4 z-[240] w-[min(calc(100vw-2rem),22rem)] rounded-2xl border border-white/10 bg-chambray text-white shadow-[0_8px_32px_rgba(57,65,154,0.35)] bottom-[max(1.25rem,env(safe-area-inset-bottom))] sm:left-6 sm:bottom-8 ${fonts.bricolage_grot400.className}`}
     >
       <div className="flex flex-col gap-4 p-5">
         <div className="flex items-start gap-3">

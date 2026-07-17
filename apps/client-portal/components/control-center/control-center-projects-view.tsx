@@ -13,7 +13,6 @@ import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import { useProjectQuery, useProjectsQuery, prefetchClientProjectOverview } from '@/lib/api/queries/projects'
 import { queryKeys } from '@/lib/api/query-keys'
 import { CONTROL_CENTER_VIEW_QUERY } from '@/lib/control-center/nav'
-import { navigateToApprovals } from '@/lib/projects/fetch-projects-client'
 import {
   applyProjectWorkspaceParams,
   parsePortalProjectTab,
@@ -22,8 +21,9 @@ import {
   type PortalProjectTabId,
 } from '@/lib/control-center/project-workspace'
 import ProjectCover from '@/components/project-cover'
+import { AttachmentPreviewChip } from '@cocreate/app-ui/file-media-tile'
 import { bricolage_grot600 } from '@/styles/fonts'
-import { Bell, Calendar, ExternalLink, Plus } from 'lucide-react'
+import { Calendar, ExternalLink, Plus } from 'lucide-react'
 
 export default function ControlCenterProjectsView() {
   const router = useRouter()
@@ -34,9 +34,13 @@ export default function ControlCenterProjectsView() {
 
   const { data: profile } = usePortalProfileQuery()
   const canCreateProject = profile?.permissions.canCreateProject ?? false
+  const isViewer = Boolean(profile?.permissions.isViewer)
+  const isContributor = Boolean(profile?.permissions.isContributor)
 
   const openedProjectId = searchParams.get(PROJECT_ID_QUERY)
-  const activeProjectTab = parsePortalProjectTab(searchParams.get(PROJECT_TAB_QUERY))
+  const activeProjectTab = parsePortalProjectTab(searchParams.get(PROJECT_TAB_QUERY), {
+    isViewer,
+  })
 
   const { data: projects = [], isLoading: loading } = useProjectsQuery()
   const {
@@ -51,7 +55,7 @@ export default function ControlCenterProjectsView() {
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [files, setFiles] = useState<FileList | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [error, setError] = useState<string | null>(null)
 
   const replaceSearchParams = useCallback(
@@ -77,13 +81,13 @@ export default function ControlCenterProjectsView() {
   }, [openedProjectId, detail?.id, markAttentionRead])
 
   const openProject = useCallback(
-    (projectId: string, tab: PortalProjectTabId = 'overview') => {
+    (projectId: string, tab: PortalProjectTabId = isViewer ? 'progress' : 'overview') => {
       replaceSearchParams((params) => {
         params.set(CONTROL_CENTER_VIEW_QUERY, 'projects')
         applyProjectWorkspaceParams(params, projectId, tab)
       })
     },
-    [replaceSearchParams],
+    [isViewer, replaceSearchParams],
   )
 
   const closeProject = useCallback(() => {
@@ -113,7 +117,7 @@ export default function ControlCenterProjectsView() {
     const result = await createProjectMutation.mutateAsync({
       title: title.trim(),
       description: description.trim(),
-      files: files?.length ? Array.from(files) : undefined,
+      files: files.length ? files : undefined,
     })
     if (!result.ok || !result.project) {
       setError(result.message ?? 'Could not create project')
@@ -124,7 +128,7 @@ export default function ControlCenterProjectsView() {
     }
     setTitle('')
     setDescription('')
-    setFiles(null)
+    setFiles([])
     setShowForm(false)
     openProject(result.project.id)
   }
@@ -174,7 +178,9 @@ export default function ControlCenterProjectsView() {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className={`text-sm text-app-muted ${bricolage_grot600.className}`}>
-          Submit new work for agency review. Approved projects become active.
+          {canCreateProject
+            ? 'Submit new work for agency review. Approved projects become active.'
+            : 'Projects you’ve been assigned to appear here.'}
         </p>
         {canCreateProject ? (
           <button
@@ -212,14 +218,33 @@ export default function ControlCenterProjectsView() {
             rows={4}
             className="portal-input w-full resize-y"
           />
-          <div>
+          <div className="space-y-2">
             <label className="text-sm text-app-muted">Attachments (optional)</label>
             <input
               type="file"
               multiple
-              onChange={(e) => setFiles(e.target.files)}
+              onChange={(e) => {
+                const next = e.target.files ? Array.from(e.target.files) : []
+                if (next.length) setFiles((prev) => [...prev, ...next])
+                e.target.value = ''
+              }}
               className="mt-2 block w-full text-sm text-app-muted"
             />
+            {files.length > 0 ? (
+              <ul className="flex flex-wrap gap-2">
+                {files.map((file, index) => (
+                  <AttachmentPreviewChip
+                    key={`${file.name}-${index}`}
+                    fileName={file.name}
+                    mimeType={file.type || 'application/octet-stream'}
+                    localFile={file}
+                    onRemove={() =>
+                      setFiles((prev) => prev.filter((_, fileIndex) => fileIndex !== index))
+                    }
+                  />
+                ))}
+              </ul>
+            ) : null}
           </div>
           <div className="flex gap-2">
             <button type="submit" disabled={submitting} className="portal-btn-primary text-sm">
@@ -284,23 +309,26 @@ export default function ControlCenterProjectsView() {
                   Open project
                   <ExternalLink className="h-3.5 w-3.5" aria-hidden />
                 </button>
-                {project.hasPendingCheckpoint ? (
-                  <button
-                    type="button"
-                    onClick={() => navigateToApprovals()}
-                    className="portal-btn-primary mt-2 w-full gap-2 text-sm"
-                  >
-                    <Bell className="h-4 w-4" aria-hidden />
-                    Approval needed
-                  </button>
-                ) : null}
               </div>
             </article>
           ))}
           {projects.length === 0 ? (
-            <p className="col-span-full text-sm text-app-muted">
-              No projects yet. Create one to get started.
-            </p>
+            <div className="portal-glass-card col-span-full space-y-2 p-8 text-center">
+              <p className={`text-chambray ${bricolage_grot600.className}`}>
+                {canCreateProject
+                  ? 'No projects yet'
+                  : isContributor || isViewer
+                    ? 'Welcome — you’re not on a project yet'
+                    : 'No projects yet'}
+              </p>
+              <p className="text-sm text-app-muted">
+                {canCreateProject
+                  ? 'Create one to get started with your CoCreate team.'
+                  : isContributor || isViewer
+                    ? 'An Admin will assign you to a project. Until then you can update your theme in Settings.'
+                    : 'Check back soon.'}
+              </p>
+            </div>
           ) : null}
         </div>
       )}

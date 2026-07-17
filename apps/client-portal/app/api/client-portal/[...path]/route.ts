@@ -9,7 +9,7 @@ async function handleProxy(
   const url = new URL(request.url)
   const nestPath = `/client-portal/${path.join('/')}${url.search}`
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD'
-  const headers = await portalApiHeaders(hasBody)
+  const headers = await portalApiHeaders(hasBody, request)
   return proxyPortalApi(nestPath, headers, {
     method: request.method,
     body: hasBody ? await request.text() : undefined,

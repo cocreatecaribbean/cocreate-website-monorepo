@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { LucideIcon } from 'lucide-react'
 import {
+  Star,
   Bell,
   FileText,
   FolderKanban,
@@ -12,6 +13,7 @@ import {
   Users,
 } from 'lucide-react'
 import PortalProjectFilesPanel from '@/components/control-center/portal-project-files-panel'
+import PortalProjectTopPicksPanel from '@/components/control-center/portal-project-top-picks-panel'
 import RequestMessageThread from '@/components/control-center/request-message-thread'
 import { useClientThreadLive } from '@/lib/messaging/use-client-thread-live'
 import ThreadSummaryExport from '@cocreate/app-ui/thread-summary-export'
@@ -21,13 +23,7 @@ import ProjectTeamAside from '@/components/project-team-aside'
 import type { PortalProjectTabId } from '@/lib/control-center/project-workspace'
 import type { ClientProjectDetail, ProjectRequestItem } from '@/lib/projects/api-types'
 import { queryKeys } from '@/lib/api/query-keys'
-import {
-  useApproveApprovalItemMutation,
-  useRequestApprovalNeedsChangesMutation,
-} from '@/lib/api/mutations/approvals'
-import { useOpenApprovalsQuery } from '@/lib/api/queries/approvals'
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
-import { getPendingApprovalFilesFromOpenApprovals } from '@/lib/projects/fetch-projects-client'
 import { prefetchRequestThread } from '@/lib/api/queries/projects'
 import {
   createCancellationRequest,
@@ -57,8 +53,9 @@ function formatPhaseLabel(phase: string | null | undefined): string {
 const TABS: Array<{ id: PortalProjectTabId; label: string; description: string; icon: LucideIcon }> = [
   { id: 'overview', label: 'Overview', description: 'Project snapshot, status, and key details', icon: LayoutGrid },
   { id: 'onboarding', label: 'Onboarding', description: 'Initial setup, requirements, and kickoff with your team', icon: Sparkles },
-  { id: 'progress', label: 'Progress', description: 'Day-to-day messages, deliverables, and checkpoints', icon: Bell },
+  { id: 'progress', label: 'Progress', description: 'Day-to-day messages, deliverables, and updates', icon: Bell },
   { id: 'files', label: 'Files', description: 'Shared deliverables and project assets', icon: FileText },
+  { id: 'top-picks', label: 'Top Picks', description: 'Files your team loved on this project', icon: Star },
   { id: 'team', label: 'Team', description: 'People on this project and their roles', icon: Users },
 ]
 
@@ -75,14 +72,6 @@ type LazyThreadProps = {
     body: string,
     attachmentIds?: string[],
   ) => Promise<{ ok: boolean; message?: string; data?: import('@/lib/projects/api-types').ProjectRequestMessage }>
-  pendingApprovalFiles?: import('@/lib/projects/pending-approval-files').PendingApprovalFile[]
-  onApproveFile?: (
-    approvalItemId: string,
-  ) => Promise<{ ok: boolean; message?: string }>
-  onNeedsChangesFile?: (
-    approvalItemId: string,
-    body?: string,
-  ) => Promise<{ ok: boolean; message?: string }>
 }
 
 function LazyRequestMessageThread({
@@ -123,14 +112,8 @@ export default function PortalProjectWorkspace({
   const queryClient = useQueryClient()
   const { data: profile } = usePortalProfileQuery()
   const currentUserId = profile?.user.id ?? null
-  const { data: openApprovalsResult, refetch: refetchOpenApprovals } = useOpenApprovalsQuery()
-  const approveItem = useApproveApprovalItemMutation()
-  const requestNeedsChanges = useRequestApprovalNeedsChangesMutation()
-  const projectPendingApprovals = useMemo(() => {
-    return getPendingApprovalFilesFromOpenApprovals(openApprovalsResult).filter(
-      (file) => file.projectId === project.id,
-    )
-  }, [openApprovalsResult, project.id])
+  const isViewer = Boolean(profile?.permissions.isViewer)
+  const canSendMessages = profile?.permissions.canSendMessages !== false && !isViewer
   const [tab, setTab] = useState<PortalProjectTabId>(initialTab)
   const [message, setMessage] = useState<string | null>(null)
   const [cancelReason, setCancelReason] = useState('')
@@ -141,29 +124,40 @@ export default function PortalProjectWorkspace({
   const contentRef = useRef<HTMLDivElement>(null)
   const { canManage, loading: membersLoading } = useProjectMembers(project.id)
 
-  useEffect(() => {
-    if (tab === 'progress') {
-      void refetchOpenApprovals()
-    }
-  }, [refetchOpenApprovals, tab])
-
   const isOnboarded = project.status !== 'SUBMITTED'
-  const visibleTabs = useMemo(
-    () => TABS.filter((item) => item.id !== 'progress' || isOnboarded),
-    [isOnboarded],
-  )
+  const visibleTabs = useMemo(() => {
+    if (isViewer) {
+      return TABS.filter((item) => item.id === 'progress' || item.id === 'top-picks').filter(
+        (item) => item.id !== 'progress' || isOnboarded,
+      )
+    }
+    return TABS.filter((item) => item.id !== 'progress' || isOnboarded)
+  }, [isOnboarded, isViewer])
 
   useEffect(() => {
-    const next =
+    let next =
       initialTab === 'progress' && !isOnboarded ? 'overview' : initialTab
+    if (isViewer) {
+      if (next !== 'progress' && next !== 'top-picks') {
+        next = isOnboarded ? 'progress' : 'top-picks'
+      }
+      if (next === 'progress' && !isOnboarded) next = 'top-picks'
+    }
     setTab(next)
-  }, [initialTab, project.id, isOnboarded])
+  }, [initialTab, project.id, isOnboarded, isViewer])
 
   useEffect(() => {
     if (!isOnboarded && tab === 'progress') {
-      setTab('overview')
+      setTab(isViewer ? 'top-picks' : 'overview')
     }
-  }, [isOnboarded, tab])
+  }, [isOnboarded, tab, isViewer])
+
+  useEffect(() => {
+    if (!isViewer) return
+    if (tab !== 'progress' && tab !== 'top-picks') {
+      setTab(isOnboarded ? 'progress' : 'top-picks')
+    }
+  }, [isViewer, tab, isOnboarded])
 
   useEffect(() => {
     setCoverImageUrl(project.coverImageUrl ?? null)
@@ -206,7 +200,8 @@ export default function PortalProjectWorkspace({
   const onboardingClosed = onboarding
     ? ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(onboarding.status)
     : false
-  const canCancel = project.status === 'ACTIVE' || project.status === 'ON_HOLD'
+  const canCancel =
+    !isViewer && (project.status === 'ACTIVE' || project.status === 'ON_HOLD')
 
   const requestCancellation = async () => {
     if (!window.confirm('Request to cancel this project? CoCreate will review and respond.')) {
@@ -241,24 +236,7 @@ export default function PortalProjectWorkspace({
     },
   })
 
-  const progressThreadProps = progress
-    ? {
-        ...threadProps(progress),
-        pendingApprovalFiles: projectPendingApprovals,
-        onApproveFile: async (approvalItemId: string) => {
-          const result = await approveItem.mutateAsync(approvalItemId)
-          if (result.ok) {
-            void queryClient.invalidateQueries({ queryKey: queryKeys.requests.messages(progress.id) })
-            void queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(project.id) })
-          }
-          return { ok: result.ok, message: result.ok ? undefined : result.message }
-        },
-        onNeedsChangesFile: async (approvalItemId: string, body?: string) => {
-          const result = await requestNeedsChanges.mutateAsync({ approvalItemId, body })
-          return { ok: result.ok, message: result.ok ? undefined : result.message }
-        },
-      }
-    : null
+  const progressThreadProps = progress ? threadProps(progress) : null
 
   const showProgressThread = Boolean(progress && isOnboarded)
 
@@ -271,6 +249,12 @@ export default function PortalProjectWorkspace({
     showProgressThread && progress ? progress.id : undefined,
     {
       invalidateQueryKeys: progressInvalidateQueryKeys,
+      onAttachmentUpdate: () => {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.fileReactions.project(project.id),
+        })
+        void queryClient.invalidateQueries({ queryKey: queryKeys.topPicks.all })
+      },
     },
   )
 
@@ -472,7 +456,7 @@ export default function PortalProjectWorkspace({
                     <div className="min-w-0 flex-1">
                       <p className={`text-chambray ${bricolage_grot600.className}`}>Project progress</p>
                       <p className="mt-1 text-xs text-app-muted">
-                        Updates, progress checks, and replies with CoCreate.
+                        Updates, deliverables, and replies with CoCreate.
                       </p>
                     </div>
                     <ThreadSummaryExport
@@ -493,6 +477,7 @@ export default function PortalProjectWorkspace({
                     liveMessages={progressLive.messages}
                     liveMessagesLoading={progressLive.isLoading}
                     loadMessages={false}
+                    readOnly={!canSendMessages}
                   />
                 </div>
               </section>
@@ -501,7 +486,7 @@ export default function PortalProjectWorkspace({
             )
           ) : null}
 
-          {tab === 'files' ? (
+          {tab === 'files' && !isViewer ? (
             <PortalProjectFilesPanel
               projectId={project.id}
               projectTitle={project.title}
@@ -514,8 +499,11 @@ export default function PortalProjectWorkspace({
             />
           ) : null}
 
+          {tab === 'top-picks' ? (
+            <PortalProjectTopPicksPanel projectId={project.id} />
+          ) : null}
 
-          {tab === 'team' ? <ProjectTeamAside projectId={project.id} /> : null}
+          {tab === 'team' && !isViewer ? <ProjectTeamAside projectId={project.id} /> : null}
         </div>
       </div>
     </main>

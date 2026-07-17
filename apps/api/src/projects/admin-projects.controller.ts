@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   BadRequestException,
@@ -13,8 +14,6 @@ import {
   UseGuards,
 } from '@nestjs/common'
 import {
-  CreateCheckpointSchema,
-  type CreateCheckpointInput,
   CreateProjectForAdminSchema,
   type CreateProjectForAdminInput,
   CreateRequestMessageSchema,
@@ -27,25 +26,20 @@ import {
   type RegisterBrandAssetInput,
   ResolveCancellationSchema,
   type ResolveCancellationInput,
+  SetFileReactionSchema,
+  type SetFileReactionInput,
+  TopPicksQuerySchema,
   UpdateProjectSchema,
   type UpdateProjectInput,
-  UpdateRequestSchema,
-  type UpdateRequestInput,
   UploadUrlSchema,
   type UploadUrlInput,
-  SendApprovalFilesSchema,
-  type SendApprovalFilesInput,
-  SubmitApprovalRevisionSchema,
-  type SubmitApprovalRevisionInput,
-  AddApprovalCommentSchema,
-  type AddApprovalCommentInput,
 } from '@cocreate/api-contracts/v1/requests/projects'
 import { AdminAuthGuard } from '../auth/guards/admin-auth.guard'
 import type { AdminRequest } from '../auth/guards/admin-auth.guard'
 import { zodBody } from '../common/zod/zod-validation.pipe'
 import { OrganizationBrandAssetsService } from './organization-brand-assets.service'
 import { ProjectsService } from './projects.service'
-import { ProjectApprovalsService } from './project-approvals.service'
+import { ProjectFileReactionsService } from './project-file-reactions.service'
 import { ProjectAttachmentVisibility } from '@cocreate/database'
 
 @Controller({ path: 'admin', version: '1' })
@@ -54,7 +48,7 @@ export class AdminProjectsController {
   constructor(
     private readonly projects: ProjectsService,
     private readonly brandAssets: OrganizationBrandAssetsService,
-    private readonly approvals: ProjectApprovalsService,
+    private readonly reactions: ProjectFileReactionsService,
   ) {}
 
   private actor(req: AdminRequest) {
@@ -86,73 +80,37 @@ export class AdminProjectsController {
     return this.projects.updateProject(this.actor(req), id, body)
   }
 
-  @Post('projects/:id/review-requests')
-  createReviewRequest(
+  @Get('projects/:id/top-picks')
+  listProjectTopPicks(
     @Req() req: AdminRequest,
     @Param('id') id: string,
-    @Body(zodBody(CreateCheckpointSchema)) body: CreateCheckpointInput,
+    @Query() query: Record<string, string | string[] | undefined>,
   ) {
-    return this.projects.sendProgressCheckpoint(this.actor(req), id, body)
+    const parsed = TopPicksQuerySchema.safeParse(query)
+    const tags = parsed.success ? parsed.data.tags : []
+    return this.reactions.listTopPicksForProject(this.actor(req), id, tags)
   }
 
-  @Post('projects/:id/checkpoints')
-  sendCheckpoint(
+  @Get('projects/:id/file-reactions')
+  listProjectFileReactions(@Req() req: AdminRequest, @Param('id') id: string) {
+    return this.reactions.listReactionsForProject(this.actor(req), id)
+  }
+
+  @Put('attachments/:attachmentId/reaction')
+  setAttachmentReaction(
     @Req() req: AdminRequest,
-    @Param('id') id: string,
-    @Body(zodBody(CreateCheckpointSchema)) body: CreateCheckpointInput,
+    @Param('attachmentId') attachmentId: string,
+    @Body(zodBody(SetFileReactionSchema)) body: SetFileReactionInput,
   ) {
-    return this.projects.sendProgressCheckpoint(this.actor(req), id, body)
+    return this.reactions.setReaction(this.actor(req), attachmentId, body.kind)
   }
 
-  @Post('projects/:id/approvals')
-  sendApprovalFiles(
+  @Delete('attachments/:attachmentId/reaction')
+  clearAttachmentReaction(
     @Req() req: AdminRequest,
-    @Param('id') id: string,
-    @Body(zodBody(SendApprovalFilesSchema)) body: SendApprovalFilesInput,
+    @Param('attachmentId') attachmentId: string,
   ) {
-    return this.approvals.sendApprovalFiles(this.actor(req), id, body)
-  }
-
-  @Get('projects/:id/approvals')
-  listApprovalFiles(
-    @Req() req: AdminRequest,
-    @Param('id') id: string,
-    @Query('status') status?: string,
-    @Query('includeComments') includeComments?: string,
-  ) {
-    const parsedStatus =
-      status === 'PENDING' || status === 'APPROVED' || status === 'NEEDS_CHANGES'
-        ? status
-        : undefined
-    return this.approvals.listApprovalItemsForProject(
-      this.actor(req),
-      id,
-      parsedStatus,
-      { includeComments: includeComments === 'true' },
-    )
-  }
-
-  @Post('approvals/:itemId/revision')
-  submitApprovalRevision(
-    @Req() req: AdminRequest,
-    @Param('itemId') itemId: string,
-    @Body(zodBody(SubmitApprovalRevisionSchema)) body: SubmitApprovalRevisionInput,
-  ) {
-    return this.approvals.submitRevision(this.actor(req), itemId, body)
-  }
-
-  @Get('approvals/:itemId/comments')
-  listApprovalComments(@Req() req: AdminRequest, @Param('itemId') itemId: string) {
-    return this.approvals.listComments(this.actor(req), itemId)
-  }
-
-  @Post('approvals/:itemId/comments')
-  addApprovalComment(
-    @Req() req: AdminRequest,
-    @Param('itemId') itemId: string,
-    @Body(zodBody(AddApprovalCommentSchema)) body: AddApprovalCommentInput,
-  ) {
-    return this.approvals.addComment(this.actor(req), itemId, body)
+    return this.reactions.clearReaction(this.actor(req), attachmentId)
   }
 
   @Post('projects/:id/attachments/upload-url')
@@ -292,15 +250,6 @@ export class AdminProjectsController {
     @Body(zodBody(CreateRequestMessageSchema)) body: CreateRequestMessageInput,
   ) {
     return this.projects.addRequestMessage(this.actor(req), requestId, body)
-  }
-
-  @Patch('project-requests/:requestId')
-  updateRequest(
-    @Req() req: AdminRequest,
-    @Param('requestId') requestId: string,
-    @Body(zodBody(UpdateRequestSchema)) body: UpdateRequestInput,
-  ) {
-    return this.projects.updateRequest(this.actor(req), requestId, body)
   }
 
   @Post('project-requests/:requestId/resolve-cancellation')

@@ -18,7 +18,7 @@ export class ClientOwnerGuard implements CanActivate {
       throw new ForbiddenException('Client authentication required')
     }
     if (!this.clientAccess.canManageOrgTeam(client)) {
-      throw new ForbiddenException('Organization owner access required')
+      throw new ForbiddenException('Organization admin access required')
     }
     return true
   }

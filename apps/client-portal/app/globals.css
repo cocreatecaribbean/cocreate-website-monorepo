@@ -78,7 +78,9 @@
   .portal-sl-nav-item:disabled { cursor: not-allowed !important; }
   .portal-sl-main { @apply p-4 sm:p-6 lg:border-l lg:border-chambray/8 lg:pl-6; }
   .dark .portal-sl-main { @apply lg:border-white/10; }
-  .portal-sl-shell { @apply lg:min-h-[520px]; }
+  .portal-sl-shell {
+    @apply lg:min-h-[520px] lg:max-h-[calc(100dvh-7.5rem)] lg:overflow-hidden;
+  }
   .portal-chart-card-header { border-color: var(--surface-border); background-color: var(--chart-header-bg); }
   .portal-chart-card-body { background-image: var(--chart-body-gradient); min-height: 18rem; container-type: inline-size; container-name: chart; }
   .portal-chart-card-body-compact { min-height: 0; }

@@ -30,19 +30,19 @@ export default function ControlCenterPanel({ organizationName }: ControlCenterPa
           <p
             className={`mt-2 hidden max-w-2xl text-sm leading-relaxed text-app-muted md:block lg:hidden ${bricolage_grot600.className}`}
           >
-            Projects, approvals, files, and messages in one place. Use the menu above to jump
+            Projects, top picks, files, and messages in one place. Use the menu above to jump
             straight to what you need.
           </p>
           <p
             className={`mt-2 hidden max-w-2xl text-sm leading-relaxed text-app-muted lg:block ${bricolage_grot600.className}`}
           >
-            Projects, approvals, files, and messages in one place. Use the sidebar to jump
+            Projects, top picks, files, and messages in one place. Use the sidebar to jump
             straight to what you need.
           </p>
         </div>
       </section>
 
-      <section className="portal-sl-frame portal-animate-in portal-animate-in-delay-1 overflow-hidden">
+      <section className="portal-sl-frame portal-animate-in portal-animate-in-delay-1 overflow-hidden lg:sticky lg:top-24 lg:z-10">
         <ControlCenterLayout organizationName={organizationName}>
           {(activeView, projectsListKey) => (
             <ControlCenterContent activeView={activeView} projectsListKey={projectsListKey} />

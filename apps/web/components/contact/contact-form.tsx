@@ -53,7 +53,9 @@ export default function ContactForm() {
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-neutral-600">{contactInfo.blurb}</p>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+        {/* suppressHydrationWarning: Chrome on iOS injects __gcruniqueid attributes
+            into form elements before React hydrates */}
+        <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate suppressHydrationWarning>
           <input
             type="text"
             name="website"
@@ -63,6 +65,7 @@ export default function ContactForm() {
             autoComplete="off"
             aria-hidden
             className="pointer-events-none absolute h-0 w-0 opacity-0"
+            suppressHydrationWarning
           />
 
           <div>
@@ -78,6 +81,7 @@ export default function ContactForm() {
               onChange={(e) => setName(e.target.value)}
               autoComplete="name"
               className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base text-slate-900 outline-none transition focus:border-sanmarino/50 focus:ring-2 focus:ring-sanmarino/15"
+              suppressHydrationWarning
             />
           </div>
 
@@ -94,6 +98,7 @@ export default function ContactForm() {
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
               className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base text-slate-900 outline-none transition focus:border-sanmarino/50 focus:ring-2 focus:ring-sanmarino/15"
+              suppressHydrationWarning
             />
           </div>
 
@@ -109,6 +114,7 @@ export default function ContactForm() {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               className="w-full resize-y rounded-xl border border-slate-200 px-4 py-3 text-base text-slate-900 outline-none transition focus:border-sanmarino/50 focus:ring-2 focus:ring-sanmarino/15"
+              suppressHydrationWarning
             />
           </div>
 

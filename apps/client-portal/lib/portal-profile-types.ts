@@ -8,7 +8,7 @@ export type {
   PortalProfileUser,
 } from '@cocreate/api-contracts/v1/client-portal'
 
-/** Mirrors API `canUseSocialListening` when permissions are absent (e.g. stale shape). */
+/** Mirrors API `canViewSocialListening` / `canUseSocialListening` when permissions are absent. */
 export function resolveCanUseSocialListening(profile: {
   user: Pick<
     import('@cocreate/api-contracts/v1/client-portal').PortalProfileUser,
@@ -20,14 +20,19 @@ export function resolveCanUseSocialListening(profile: {
   > | null
   permissions?: Pick<
     import('@cocreate/api-contracts/v1/client-portal').PortalPermissions,
-    'canUseSocialListening'
+    'canUseSocialListening' | 'canViewSocialListening'
   >
 }): boolean {
+  if (profile.permissions?.canViewSocialListening !== undefined) {
+    return profile.permissions.canViewSocialListening
+  }
   if (profile.permissions?.canUseSocialListening !== undefined) {
     return profile.permissions.canUseSocialListening
   }
   const orgSubscribed = Boolean(profile.organization?.isSocialListeningSubscriber)
   if (!orgSubscribed) return false
-  if (profile.user.clientOrgRole === 'OWNER') return true
-  return profile.user.canAccessSocialListening
+  const role = profile.user.clientOrgRole
+  if (role === 'ADMIN' || role === 'SOCIAL_ANALYST') return true
+  if (role === 'CONTRIBUTOR') return Boolean(profile.user.canAccessSocialListening)
+  return false
 }

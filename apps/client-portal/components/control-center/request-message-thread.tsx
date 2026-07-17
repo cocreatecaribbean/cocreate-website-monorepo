@@ -2,11 +2,18 @@
 
 import { FormEvent, useCallback, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { AttachmentReactionCluster } from '@cocreate/app-ui/attachment-previews'
 import EmojiPickerButton from '@/components/emoji-picker-button'
+import FileReactionMenu from '@/components/control-center/file-reaction-menu'
+import {
+  useProjectFileReactions,
+  useSyncFileReactionCache,
+} from '@/lib/api/queries/file-reactions'
+import { emojisFromReactionTags } from '@/lib/projects/file-reaction-display'
 import MessageAttachmentComposer, {
   resolvePendingMessageAttachments,
 } from '@/components/message-attachment-composer'
-import ThreadApprovalCard from '@/components/control-center/thread-approval-card'
+import ResizableMessageTextarea from '@cocreate/app-ui/resizable-message-textarea'
 import { insertAtTextareaCursor } from '@/lib/insert-at-textarea-cursor'
 import { useThreadAutoScroll } from '@/lib/projects/use-thread-auto-scroll'
 import { ThreadScrollEnd } from '@cocreate/app-ui/scroll-to-latest'
@@ -19,6 +26,7 @@ import { removeThreadAttachment } from '@/lib/projects/remove-thread-attachment'
 import { useClientThreadLive } from '@/lib/messaging/use-client-thread-live'
 import { queryKeys } from '@/lib/api/query-keys'
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
+import { usePortalPermissions } from '@/lib/team/use-portal-permissions'
 import { canRemoveThreadAttachment } from '@cocreate/app-ui/thread-message-merge'
 import {
   addOptimisticRequestMessageToMessagesList,
@@ -31,11 +39,6 @@ import {
   isPendingRequestMessage,
 } from '@/lib/projects/optimistic-request-message'
 import { canSendThreadMessage } from '@/lib/messaging/can-send-thread-message'
-import type { PendingApprovalFile } from '@/lib/projects/pending-approval-files'
-import {
-  nonApprovalMessageAttachments,
-  pendingApprovalFilesForMessage,
-} from '@/lib/projects/pending-approval-files'
 import { bricolage_grot600 } from '@/styles/fonts'
 
 type RequestMessageThreadProps = {
@@ -51,18 +54,8 @@ type RequestMessageThreadProps = {
     body: string,
     attachmentIds?: string[],
   ) => Promise<{ ok: boolean; message?: string; data?: ProjectRequestMessage }>
-  onResolve?: (status: 'RESOLVED' | 'REJECTED') => Promise<void>
-  showResolveActions?: boolean
   onThreadUpdate?: () => void
   invalidateQueryKeys?: import('@tanstack/react-query').QueryKey[]
-  pendingApprovalFiles?: PendingApprovalFile[]
-  onApproveFile?: (
-    approvalItemId: string,
-  ) => Promise<{ ok: boolean; message?: string }>
-  onNeedsChangesFile?: (
-    approvalItemId: string,
-    body?: string,
-  ) => Promise<{ ok: boolean; message?: string }>
 }
 
 function initialAuthorRole(request: ProjectRequestItem): 'ADMIN' | 'CLIENT' {
@@ -89,22 +82,27 @@ export default function RequestMessageThread({
   liveMessagesLoading = false,
   viewerRole,
   onSendMessage,
-  onResolve,
-  showResolveActions = false,
   readOnly = false,
   onThreadUpdate,
   invalidateQueryKeys,
-  pendingApprovalFiles = [],
-  onApproveFile,
-  onNeedsChangesFile,
 }: RequestMessageThreadProps) {
   const queryClient = useQueryClient()
   const { data: profile } = usePortalProfileQuery()
+  const { canReactToFiles } = usePortalPermissions()
+  const { reactionsById } = useProjectFileReactions(request.projectId)
+  const syncReactionCache = useSyncFileReactionCache(request.projectId)
   const currentUserId = profile?.user.id ?? null
+  const refreshFileReactions = useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.fileReactions.project(request.projectId),
+    })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.topPicks.all })
+  }, [queryClient, request.projectId])
   const threadLive = useClientThreadLive(
     !parentOwnsMessages && loadMessages ? request.id : undefined,
     {
       onThreadUpdate,
+      onAttachmentUpdate: refreshFileReactions,
       invalidateQueryKeys,
     },
   )
@@ -146,7 +144,6 @@ export default function RequestMessageThread({
   const { panelRef, endRef, notifyUserSent } = useThreadAutoScroll(messages, request.id)
   const inputClass = 'portal-textarea w-full resize-y'
   const btnPrimary = 'portal-btn-primary text-sm'
-  const btnGhost = 'portal-btn-ghost text-sm'
 
   const fetchDownloadUrl = useCallback(
     (attachmentId: string) => fetchAttachmentDownloadUrl(attachmentId),
@@ -291,28 +288,9 @@ export default function RequestMessageThread({
                   : undefined
             const isMine = viewerRole === 'CLIENT' && msg.authorRole === 'CLIENT'
             const isPending = isPendingRequestMessage(msg.id)
-            const attachmentIdsForMessage =
-              messageAttachments?.map((attachment) => attachment.id) ?? []
-            const inlineApprovalFiles =
-              viewerRole === 'CLIENT' && onApproveFile && onNeedsChangesFile
-                ? pendingApprovalFilesForMessage(
-                    msg.id,
-                    request.id,
-                    attachmentIdsForMessage,
-                    pendingApprovalFiles,
-                  )
-                : []
+            const displayAttachments = messageAttachments ?? []
 
-            const displayAttachments = nonApprovalMessageAttachments(
-              messageAttachments,
-              inlineApprovalFiles,
-            )
-
-            const showMessageBubble =
-              Boolean(msg.body.trim()) ||
-              msg.messageKind === 'CHECKPOINT' ||
-              Boolean(msg.supersededAt) ||
-              Boolean(msg.clientApprovedAt)
+            const showMessageBubble = Boolean(msg.body.trim())
             return (
               <div
                 key={msg.id}
@@ -346,22 +324,7 @@ export default function RequestMessageThread({
                     isMine ? 'portal-msg-mine' : 'portal-msg-theirs'
                   } ${isPending ? 'opacity-80' : ''} ${bricolage_grot600.className}`}
                 >
-                  {msg.messageKind === 'CHECKPOINT' ? (
-                    <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wide text-sanmarino">
-                      Progress check
-                    </p>
-                  ) : null}
                   {msg.body.trim() ? <LinkifiedBody body={msg.body} /> : null}
-                  {msg.supersededAt ? (
-                    <p className="mt-2 text-xs text-app-muted italic">
-                      Superseded by a newer review from CoCreate
-                    </p>
-                  ) : null}
-                  {msg.clientApprovedAt ? (
-                    <p className="portal-info-text mt-2 text-xs">
-                      Approved {new Date(msg.clientApprovedAt).toLocaleString()}
-                    </p>
-                  ) : null}
                 </div>
                 ) : null}
                 {displayAttachments.length ? (
@@ -393,18 +356,31 @@ export default function RequestMessageThread({
                           }
                         : undefined
                     }
+                    renderAttachmentBadge={(attachment) => {
+                      const reacted = reactionsById.get(attachment.id)
+                      if (!reacted?.tags.length) return null
+                      return (
+                        <AttachmentReactionCluster
+                          emojis={emojisFromReactionTags(reacted.tags)}
+                        />
+                      )
+                    }}
+                    renderAttachmentAction={
+                      canReactToFiles
+                        ? (attachment) => (
+                            <FileReactionMenu
+                              attachmentId={attachment.id}
+                              compact
+                              initialReaction={
+                                reactionsById.get(attachment.id)?.myReaction ?? null
+                              }
+                              onChange={syncReactionCache}
+                            />
+                          )
+                        : undefined
+                    }
                   />
                 ) : null}
-                {inlineApprovalFiles.length > 0
-                  ? inlineApprovalFiles.map((file) => (
-                      <ThreadApprovalCard
-                        key={file.approvalItemId}
-                        file={file}
-                        onApprove={onApproveFile!}
-                        onNeedsChanges={onNeedsChangesFile!}
-                      />
-                    ))
-                  : null}
               </div>
             )
           })
@@ -418,8 +394,9 @@ export default function RequestMessageThread({
           className="portal-thread-composer shrink-0 space-y-2 border-t border-chambray/10 pt-4"
         >
           <div className="relative">
-            <textarea
+            <ResizableMessageTextarea
               ref={textareaRef}
+              storageKey={`portal-thread-composer:${request.id}`}
               value={reply}
               onChange={(e) => setReply(e.target.value)}
               placeholder={
@@ -427,8 +404,7 @@ export default function RequestMessageThread({
                   ? 'Write your response to CoCreate…'
                   : 'Follow up with the client…'
               }
-              rows={2}
-              className={`${inputClass} min-h-16 md:min-h-[5.5rem]`}
+              className={inputClass}
             />
           </div>
           {error ? <p className="portal-alert-error">{error}</p> : null}
@@ -466,24 +442,6 @@ export default function RequestMessageThread({
                 </>
               )}
             </button>
-            {showResolveActions && onResolve ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => void onResolve('RESOLVED')}
-                  className={btnGhost}
-                >
-                  Resolve
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void onResolve('REJECTED')}
-                  className={btnGhost}
-                >
-                  Reject
-                </button>
-              </>
-            ) : null}
           </div>
         </form>
       ) : isClosed ? (

@@ -1,20 +1,17 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   Bell,
-  CheckCircle2,
-  FileText,
   FolderKanban,
   LayoutDashboard,
   MessageSquare,
   Users,
 } from 'lucide-react'
 import { PORTAL_SETTINGS } from '@/lib/portal/nav'
+import type { PortalPermissions } from '@cocreate/api-contracts/v1/client-portal'
 
 export type ControlCenterViewId =
   | 'overview'
   | 'projects'
-  | 'approvals'
-  | 'files'
   | 'activity'
   | 'messages'
   | 'team'
@@ -44,20 +41,6 @@ export const CONTROL_CENTER_NAV: ControlCenterNavItem[] = [
     icon: FolderKanban,
   },
   {
-    id: 'approvals',
-    label: 'Approvals',
-    shortLabel: 'Review',
-    description: 'Review checkpoints and approval history',
-    icon: CheckCircle2,
-  },
-  {
-    id: 'files',
-    label: 'Files',
-    shortLabel: 'Files',
-    description: 'Deliverables and shared assets',
-    icon: FileText,
-  },
-  {
     id: 'activity',
     label: 'Activity',
     shortLabel: 'Feed',
@@ -66,9 +49,9 @@ export const CONTROL_CENTER_NAV: ControlCenterNavItem[] = [
   },
   {
     id: 'messages',
-    label: 'Messages',
-    shortLabel: 'Chat',
-    description: 'Direct line to your account team',
+    label: 'Get Help',
+    shortLabel: 'Help',
+    description: 'Ask CoCreate for help in a message thread',
     icon: MessageSquare,
   },
 ]
@@ -81,12 +64,58 @@ export const CONTROL_CENTER_TEAM: ControlCenterNavItem = {
   icon: Users,
 }
 
-export function buildControlCenterNavItems(canAccessTeamHub: boolean): ControlCenterNavItem[] {
-  if (!canAccessTeamHub) return [...CONTROL_CENTER_NAV]
-  const items = [...CONTROL_CENTER_NAV]
+export type ControlCenterNavPermissions = Pick<
+  PortalPermissions,
+  | 'canAccessOverview'
+  | 'canAccessActivity'
+  | 'canAccessGetHelp'
+  | 'canAccessTeamHub'
+  | 'isViewer'
+  | 'isSocialAnalyst'
+  | 'isContributor'
+  | 'isAdmin'
+>
+
+/** Role-aware control-center nav. Social Analysts get an empty list (SL shell only). */
+export function buildControlCenterNavItems(
+  permissions: ControlCenterNavPermissions | boolean,
+): ControlCenterNavItem[] {
+  // Back-compat: older call sites passed only canAccessTeamHub
+  const perms: ControlCenterNavPermissions =
+    typeof permissions === 'boolean'
+      ? {
+          canAccessTeamHub: permissions,
+          canAccessOverview: true,
+          canAccessActivity: true,
+          canAccessGetHelp: true,
+          isViewer: false,
+          isSocialAnalyst: false,
+          isContributor: false,
+          isAdmin: permissions,
+        }
+      : permissions
+
+  if (perms.isSocialAnalyst) return []
+
+  const canOverview = perms.canAccessOverview ?? perms.isAdmin ?? false
+  const canActivity = perms.canAccessActivity ?? perms.isAdmin ?? false
+  const canGetHelp = perms.canAccessGetHelp ?? false
+  const canTeam = Boolean(perms.canAccessTeamHub)
+
+  const items = CONTROL_CENTER_NAV.filter((item) => {
+    if (item.id === 'overview') return canOverview
+    if (item.id === 'activity') return canActivity
+    if (item.id === 'messages') return canGetHelp
+    return true // projects always
+  })
+
+  if (!canTeam) return items
+
   const messagesIndex = items.findIndex((item) => item.id === 'messages')
-  items.splice(messagesIndex + 1, 0, CONTROL_CENTER_TEAM)
-  return items
+  const insertAt = messagesIndex >= 0 ? messagesIndex + 1 : items.length
+  const withTeam = [...items]
+  withTeam.splice(insertAt, 0, CONTROL_CENTER_TEAM)
+  return withTeam
 }
 
 export const CONTROL_CENTER_SETTINGS: ControlCenterNavItem = {
@@ -104,10 +133,32 @@ const VALID_VIEWS = new Set<string>([
 ])
 
 export function parseControlCenterView(value: string | null): ControlCenterViewId {
+  if (value === 'approvals' || value === 'files' || value === 'top-picks') {
+    return 'projects'
+  }
   if (value && VALID_VIEWS.has(value)) {
     return value as ControlCenterViewId
   }
   return 'overview'
+}
+
+/** Pick a safe default view given which nav items the user can see. */
+export function defaultControlCenterView(
+  navItems: ControlCenterNavItem[],
+): ControlCenterViewId {
+  if (navItems.some((item) => item.id === 'overview')) return 'overview'
+  if (navItems.some((item) => item.id === 'projects')) return 'projects'
+  return 'settings'
+}
+
+export function resolveControlCenterView(
+  value: string | null,
+  navItems: ControlCenterNavItem[],
+): ControlCenterViewId {
+  const parsed = parseControlCenterView(value)
+  if (parsed === 'settings') return 'settings'
+  if (navItems.some((item) => item.id === parsed)) return parsed
+  return defaultControlCenterView(navItems)
 }
 
 export const CONTROL_CENTER_VIEW_QUERY = 'ccView'

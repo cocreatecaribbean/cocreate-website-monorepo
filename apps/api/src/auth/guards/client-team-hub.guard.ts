@@ -18,7 +18,7 @@ export class ClientTeamHubGuard implements CanActivate {
       throw new ForbiddenException('Client authentication required')
     }
     if (!this.clientAccess.canAccessTeamHub(client)) {
-      throw new ForbiddenException('Team access requires owner or project manager role')
+      throw new ForbiddenException('Team access requires admin role')
     }
     return true
   }

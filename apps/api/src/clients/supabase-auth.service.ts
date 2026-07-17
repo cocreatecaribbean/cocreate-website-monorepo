@@ -216,6 +216,39 @@ export class SupabaseAuthService implements OnModuleInit {
     return signInUrl
   }
 
+  /**
+   * Notify an existing client they were added to another org (not an Auth invite).
+   * Best-effort: never throws — invite/attach still succeeds if email fails.
+   */
+  async notifyExistingClientAddedToOrg(params: {
+    email: string
+    organizationName: string
+    roleLabel: string
+    portalUrl: string
+  }): Promise<'sent' | 'dev' | 'skipped'> {
+    if (this.useDevSignInLinks()) {
+      this.logger.warn(
+        `[DEV] Membership added for ${params.email} → ${params.organizationName} (${params.roleLabel}). Portal: ${params.portalUrl}`,
+      )
+      return 'dev'
+    }
+
+    try {
+      return await this.resendMail.sendMembershipAddedEmail({
+        to: params.email,
+        organizationName: params.organizationName,
+        roleLabel: params.roleLabel,
+        portalUrl: params.portalUrl,
+      })
+    } catch (err) {
+      this.logger.error(
+        `Failed to send membership-added email to ${params.email}`,
+        err instanceof Error ? err.stack : err,
+      )
+      return 'skipped'
+    }
+  }
+
   async inviteUserByEmail(payload: SupabaseInvitePayload): Promise<SupabaseInviteResult> {
     if (!this.adminClient) {
       this.logger.warn(

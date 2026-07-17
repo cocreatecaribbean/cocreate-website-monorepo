@@ -22,6 +22,9 @@ packages/api-contracts/src/**/*.js.map
 packages/api-contracts/src/**/*.d.ts
 !packages/api-contracts/src/**/*.ts
 
+# Local source media masters (optimized web exports are committed)
+apps/web/public/videos/prores_master.mov
+
 # Prisma
 packages/database/generated/
 

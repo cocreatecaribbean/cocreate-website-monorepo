@@ -1,7 +1,6 @@
 'use client'
 
 import ControlCenterAttentionLink from '@/components/control-center/control-center-attention-link'
-import { useUnreadApprovalsCountQuery } from '@/lib/api/queries/approvals'
 import { useOrgInboxUnreadCountQuery } from '@/lib/api/queries/inbox'
 import {
   buildControlCenterNavItems,
@@ -80,11 +79,9 @@ export default function ControlCenterSidebar({
   onClose,
 }: ControlCenterSidebarProps) {
   const workspaceLabel = organizationName?.trim() || 'Workspace'
-  const { canAccessTeamHub } = usePortalPermissions()
-  const navItems = buildControlCenterNavItems(canAccessTeamHub)
-  const { data: unreadCount = 0 } = useUnreadApprovalsCountQuery()
+  const { permissions } = usePortalPermissions()
+  const navItems = buildControlCenterNavItems(permissions)
   const { data: inboxUnread = 0 } = useOrgInboxUnreadCountQuery()
-  const approvalsBadge = unreadCount > 0 ? String(unreadCount) : undefined
   const messagesBadge = inboxUnread > 0 ? String(inboxUnread) : undefined
 
   return (
@@ -92,7 +89,7 @@ export default function ControlCenterSidebar({
       className="portal-sl-sidebar flex h-full min-h-0 flex-col"
       aria-label="Control center navigation"
     >
-      <div className="border-b border-white/10 px-4 py-4">
+      <div className="shrink-0 border-b border-white/10 px-4 py-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p
@@ -120,7 +117,7 @@ export default function ControlCenterSidebar({
         <ControlCenterAttentionLink />
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
+      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
         {navItems.map((item) => (
           <NavButton
             key={item.id}
@@ -128,18 +125,12 @@ export default function ControlCenterSidebar({
             active={activeView === item.id}
             onSelect={() => onSelectView(item.id)}
             onNavigate={onNavigate}
-            badge={
-              item.id === 'approvals'
-                ? approvalsBadge
-                : item.id === 'messages'
-                  ? messagesBadge
-                  : undefined
-            }
+            badge={item.id === 'messages' ? messagesBadge : undefined}
           />
         ))}
       </nav>
 
-      <div className="border-t border-white/10 px-2 py-3">
+      <div className="shrink-0 border-t border-white/10 px-2 py-3">
         <NavButton
           item={CONTROL_CENTER_SETTINGS}
           active={activeView === CONTROL_CENTER_SETTINGS.id}

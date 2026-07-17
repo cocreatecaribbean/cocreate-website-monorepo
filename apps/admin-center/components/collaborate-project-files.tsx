@@ -1,15 +1,25 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { FileMediaTile } from '@cocreate/app-ui/file-media-tile'
 import FilePreviewModal from '@/components/file-preview-modal'
+import FileReactionMenu from '@/components/file-reaction-menu'
+import {
+  useProjectFileReactions,
+  useSyncFileReactionCache,
+} from '@/lib/api/queries/file-reactions'
 import {
   fetchAttachmentDownloadUrl,
   fetchProjectFiles,
   uploadProjectFiles,
 } from '@/lib/projects/fetch-project-files'
-import type { ProjectAttachmentWithUsage } from '@/lib/projects/types'
+import type {
+  ProjectAttachmentWithReactions,
+  ProjectAttachmentWithUsage,
+  ProjectFileReactionKind,
+} from '@/lib/projects/types'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
-import { Download, FileText, Loader2, Upload } from 'lucide-react'
+import { Download, Loader2, Upload } from 'lucide-react'
 
 type CollaborateProjectFilesProps = {
   projectId: string
@@ -36,26 +46,26 @@ function formatRelativeTime(iso: string) {
 function FileRow({
   file,
   onPreview,
+  showReaction = false,
+  initialReaction = null,
+  onReactionChange,
 }: {
   file: ProjectAttachmentWithUsage
   onPreview: (file: ProjectAttachmentWithUsage, url: string | null) => void
+  showReaction?: boolean
+  initialReaction?: ProjectFileReactionKind | null
+  onReactionChange?: (result: ProjectAttachmentWithReactions) => void
 }) {
-  const [thumbUrl, setThumbUrl] = useState<string | null>(null)
-  const isImage = file.mimeType.startsWith('image/')
-
-  useEffect(() => {
-    if (!isImage) return
-    void fetchAttachmentDownloadUrl(file.id).then(setThumbUrl)
-  }, [file.id, isImage])
+  const resolveUrl = () => fetchAttachmentDownloadUrl(file.id)
 
   const openPreview = async () => {
-    const url = thumbUrl ?? (await fetchAttachmentDownloadUrl(file.id))
+    const url = await resolveUrl()
     onPreview(file, url)
   }
 
   const onDownload = async (event: React.MouseEvent) => {
     event.stopPropagation()
-    const url = thumbUrl ?? (await fetchAttachmentDownloadUrl(file.id))
+    const url = await resolveUrl()
     if (!url) return
     const anchor = document.createElement('a')
     anchor.href = url
@@ -65,41 +75,51 @@ function FileRow({
   }
 
   return (
-    <li className="flex flex-col gap-3 border-b border-chambray/6 px-4 py-3 last:border-0 lg:grid lg:grid-cols-[1fr_100px_72px] lg:items-center lg:gap-4 lg:px-5 lg:py-4">
-      <button
-        type="button"
-        onClick={() => void openPreview()}
-        className="group flex min-w-0 items-center gap-3 rounded-xl px-1 py-1 text-left transition hover:bg-chambray/6"
-        aria-label={`Preview ${file.fileName}`}
-      >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-sanmarino/10 text-sanmarino">
-          {isImage && thumbUrl ? (
-            <img
-              src={thumbUrl}
-              alt={file.fileName}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <FileText className="h-5 w-5" aria-hidden />
-          )}
-        </div>
-        <p
-          className={`truncate text-sm text-chambray underline-offset-4 transition group-hover:underline ${bricolage_grot600.className}`}
-        >
-          {file.fileName}
-        </p>
-      </button>
-      <p className="text-xs text-app-muted">{formatRelativeTime(file.createdAt)}</p>
-      <div className="flex items-center justify-between gap-2 sm:justify-end">
-        <span className="text-xs text-app-muted">{formatBytes(file.sizeBytes)}</span>
+    <li className="flex flex-col gap-3 border-b border-chambray/6 px-4 py-3 last:border-0 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-x-6 lg:gap-y-2 lg:px-5 lg:py-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <FileMediaTile
+          fileName={file.fileName}
+          mimeType={file.mimeType}
+          size="sm"
+          fetchUrl={resolveUrl}
+          onClick={() => void openPreview()}
+        />
         <button
           type="button"
-          onClick={(event) => void onDownload(event)}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sanmarino transition hover:bg-chambray/8 hover:text-chambray"
-          aria-label={`Download ${file.fileName}`}
+          onClick={() => void openPreview()}
+          className="group min-w-0 text-left"
         >
-          <Download className="h-4 w-4" aria-hidden />
+          <p
+            className={`truncate text-sm text-chambray underline-offset-4 transition group-hover:underline ${bricolage_grot600.className}`}
+          >
+            {file.fileName}
+          </p>
         </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 lg:justify-end">
+        <p className="whitespace-nowrap text-xs text-app-muted">
+          {formatRelativeTime(file.createdAt)}
+        </p>
+        <span className="whitespace-nowrap text-xs text-app-muted">
+          {formatBytes(file.sizeBytes)}
+        </span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {showReaction ? (
+            <FileReactionMenu
+              attachmentId={file.id}
+              initialReaction={initialReaction}
+              onChange={onReactionChange}
+            />
+          ) : null}
+          <button
+            type="button"
+            onClick={(event) => void onDownload(event)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sanmarino transition hover:bg-chambray/8 hover:text-chambray"
+            aria-label={`Download ${file.fileName}`}
+          >
+            <Download className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
       </div>
     </li>
   )
@@ -111,6 +131,9 @@ function FileSection({
   description,
   files,
   readOnly,
+  showReaction = false,
+  reactionsById,
+  onReactionChange,
   onRefresh,
   onPreview,
 }: {
@@ -119,6 +142,9 @@ function FileSection({
   description: string
   files: ProjectAttachmentWithUsage[]
   readOnly?: boolean
+  showReaction?: boolean
+  reactionsById?: Map<string, ProjectAttachmentWithReactions>
+  onReactionChange?: (result: ProjectAttachmentWithReactions) => void
   onRefresh: () => void
   onPreview: (file: ProjectAttachmentWithUsage, url: string | null) => void
 }) {
@@ -177,7 +203,18 @@ function FileSection({
           {readOnly ? 'No client-visible files yet.' : 'No team files yet. Upload one above.'}
         </p>
       ) : (
-        <ul>{files.map((file) => <FileRow key={file.id} file={file} onPreview={onPreview} />)}</ul>
+        <ul>
+          {files.map((file) => (
+            <FileRow
+              key={file.id}
+              file={file}
+              onPreview={onPreview}
+              showReaction={showReaction}
+              initialReaction={reactionsById?.get(file.id)?.myReaction ?? null}
+              onReactionChange={onReactionChange}
+            />
+          ))}
+        </ul>
       )}
     </section>
   )
@@ -187,6 +224,8 @@ export default function CollaborateProjectFiles({
   projectId,
   projectTitle,
 }: CollaborateProjectFilesProps) {
+  const { reactionsById } = useProjectFileReactions(projectId)
+  const syncReactionCache = useSyncFileReactionCache(projectId)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [internalFiles, setInternalFiles] = useState<ProjectAttachmentWithUsage[]>([])
@@ -251,9 +290,12 @@ export default function CollaborateProjectFiles({
       <FileSection
         projectId={projectId}
         title="Client-visible files"
-        description="Read-only context from the client portal. You cannot upload or share these in team review."
+        description="Read-only context from the client portal. React to flag Top Picks."
         files={clientFiles}
         readOnly
+        showReaction
+        reactionsById={reactionsById}
+        onReactionChange={syncReactionCache}
         onRefresh={() => void load()}
         onPreview={(file, url) => setPreview({ file, url })}
       />

@@ -3,12 +3,13 @@
 import { FormEvent, useState } from 'react'
 import ProjectCover from '@/components/project-cover'
 import ProjectTeamAside from '@/components/project-team-aside'
+import PromoteToAdminDialog from '@/components/promote-to-admin-dialog'
 import {
   useInviteTeamMemberMutation,
-  useRequestTeamInviteMutation,
+  useRemoveTeamMemberMutation,
   useUpdateTeamMemberMutation,
 } from '@/lib/api/mutations/team'
-import { useTeamHubQuery } from '@/lib/api/queries/team'
+import { usePortalProfileQuery, useTeamHubQuery } from '@/lib/api/queries/team'
 import {
   type ClientOrgRole,
   type ProjectTeamCard,
@@ -17,26 +18,30 @@ import {
 import { bricolage_grot500, bricolage_grot600 } from '@/styles/fonts'
 
 const roleLabels: Record<ClientOrgRole, string> = {
-  OWNER: 'Owner',
-  PROJECT_MANAGER: 'Project manager',
-  MEMBER: 'Member',
+  ADMIN: 'Admin',
+  CONTRIBUTOR: 'Contributor',
+  VIEWER: 'Viewer',
+  SOCIAL_ANALYST: 'Social analyst',
 }
 
 export default function PortalTeamHub() {
   const { data: hub = null, isLoading: loading, error: queryError } = useTeamHubQuery()
+  const { data: profile } = usePortalProfileQuery()
   const inviteMutation = useInviteTeamMemberMutation()
-  const requestInviteMutation = useRequestTeamInviteMutation()
   const updateMemberMutation = useUpdateTeamMemberMutation()
+  const removeMemberMutation = useRemoveTeamMemberMutation()
   const [error, setError] = useState<string | null>(null)
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<ClientOrgRole>('MEMBER')
+  const [role, setRole] = useState<ClientOrgRole>('CONTRIBUTOR')
   const [socialListening, setSocialListening] = useState(false)
+  const [getHelp, setGetHelp] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [devSignInUrl, setDevSignInUrl] = useState<string | null>(null)
-
+  const [pendingPromote, setPendingPromote] = useState<TeamMember | null>(null)
 
   const permissions = hub?.permissions
+  const currentUserId = profile?.user.id
 
   const onInvite = async (event: FormEvent) => {
     event.preventDefault()
@@ -50,43 +55,29 @@ export default function PortalTeamHub() {
         email: email.trim(),
         clientOrgRole: role,
         canAccessSocialListening: socialListening,
+        canAccessGetHelp: getHelp,
       })
       setEmail('')
-      setMessage(`Invitation sent to ${result.member.email}`)
+      const inviteStatus = result.invitation?.status
+      if (inviteStatus === 'added') {
+        setMessage(
+          `Added ${result.member.email} to the team (they can sign in with their existing account).`,
+        )
+      } else {
+        setMessage(`Invitation sent to ${result.member.email}`)
+      }
       if (result.invitation?.devSignInUrl) {
         setDevSignInUrl(result.invitation.devSignInUrl)
       }
-          } catch (err) {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Invite failed')
     } finally {
       setSubmitting(false)
     }
   }
 
-  const onRequestInvite = async (event: FormEvent) => {
-    event.preventDefault()
-    if (!permissions?.canRequestInvite || !email.trim()) return
-    setSubmitting(true)
-    setMessage(null)
-    setError(null)
-    try {
-      const result = await requestInviteMutation.mutateAsync({
-        email: email.trim(),
-        clientOrgRole: role,
-      })
-      setEmail('')
-      setMessage(
-        `Invite request submitted for ${result.request.email}. CoCreate will review and send the invitation.`,
-      )
-          } catch (err) {
-      setError(err instanceof Error ? err.message : 'Request failed')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   const onToggleSocial = async (member: TeamMember) => {
-    if (!permissions?.canToggleSocialListening || member.clientOrgRole === 'OWNER') return
+    if (!permissions?.canToggleSocialListening || member.clientOrgRole === 'ADMIN') return
     try {
       await updateMemberMutation.mutateAsync({
         userId: member.id,
@@ -99,8 +90,22 @@ export default function PortalTeamHub() {
     }
   }
 
-  const onRoleChange = async (member: TeamMember, clientOrgRole: ClientOrgRole) => {
-    if (!permissions?.canManageOrgRoles || member.clientOrgRole === 'OWNER') return
+  const onToggleGetHelp = async (member: TeamMember) => {
+    if (!permissions?.canToggleGetHelp || member.clientOrgRole !== 'CONTRIBUTOR') return
+    try {
+      await updateMemberMutation.mutateAsync({
+        userId: member.id,
+        body: {
+          canAccessGetHelp: !member.canAccessGetHelp,
+        },
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Update failed')
+    }
+  }
+
+  const applyRoleChange = async (member: TeamMember, clientOrgRole: ClientOrgRole) => {
+    if (!permissions?.canManageOrgRoles || member.clientOrgRole === 'ADMIN') return
     try {
       await updateMemberMutation.mutateAsync({
         userId: member.id,
@@ -108,6 +113,40 @@ export default function PortalTeamHub() {
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed')
+    }
+  }
+
+  const onRoleChange = (member: TeamMember, clientOrgRole: ClientOrgRole) => {
+    if (!permissions?.canManageOrgRoles || member.clientOrgRole === 'ADMIN') return
+    if (clientOrgRole === 'ADMIN') {
+      setPendingPromote(member)
+      return
+    }
+    void applyRoleChange(member, clientOrgRole)
+  }
+
+  const confirmPromote = async () => {
+    if (!pendingPromote) return
+    await applyRoleChange(pendingPromote, 'ADMIN')
+    setPendingPromote(null)
+  }
+
+  const onRemoveMember = async (member: TeamMember) => {
+    if (!permissions?.canInviteImmediately || member.id === currentUserId) return
+    if (
+      !window.confirm(
+        `Remove ${member.email} from this organization? They can be invited again later.`,
+      )
+    ) {
+      return
+    }
+    setError(null)
+    setMessage(null)
+    try {
+      await removeMemberMutation.mutateAsync(member.id)
+      setMessage(`Removed ${member.email} from the team`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not remove member')
     }
   }
 
@@ -123,20 +162,28 @@ export default function PortalTeamHub() {
     )
   }
 
-  const isOwner = hub.viewerRole === 'OWNER'
+  const isAdmin = hub.viewerRole === 'ADMIN'
   const members = hub.members
 
   return (
     <div className="space-y-8">
+      <PromoteToAdminDialog
+        open={Boolean(pendingPromote)}
+        memberEmail={pendingPromote?.email ?? ''}
+        confirming={updateMemberMutation.isPending}
+        onConfirm={() => void confirmPromote()}
+        onCancel={() => setPendingPromote(null)}
+      />
+
       <section className="portal-glass-card portal-animate-in p-6 sm:p-8">
         <p className="portal-eyebrow">Organization</p>
         <h3 className={`mt-1 text-lg text-app-heading ${bricolage_grot600.className}`}>
           Members
         </h3>
         <p className={`mt-2 text-sm text-app-muted ${bricolage_grot500.className}`}>
-          {isOwner
-            ? 'Invite and manage roles for your organization. Changes sync with your CoCreate account team.'
-            : 'View teammates and request new invites for CoCreate to approve. Promote members to project manager when needed.'}
+          {isAdmin
+            ? 'Invite and manage roles for your organization. Admins, Contributors, Viewers, and Social Analysts sync with your CoCreate account team.'
+            : 'View teammates in your organization. Ask an Admin if you need someone invited or assigned to a project.'}
         </p>
 
         {error ? (
@@ -169,8 +216,10 @@ export default function PortalTeamHub() {
                 onChange={(e) => setRole(e.target.value as ClientOrgRole)}
                 className="portal-input text-sm"
               >
-                <option value="PROJECT_MANAGER">Project manager</option>
-                <option value="MEMBER">Member</option>
+                <option value="ADMIN">Admin</option>
+                <option value="CONTRIBUTOR">Contributor</option>
+                <option value="VIEWER">Viewer</option>
+                <option value="SOCIAL_ANALYST">Social analyst</option>
               </select>
               <label className="flex flex-col gap-1 text-sm text-app-muted sm:flex-row sm:items-center sm:gap-2">
                 <span className="inline-flex items-center gap-2">
@@ -185,36 +234,24 @@ export default function PortalTeamHub() {
                   Only applies when your company has an active Social Listening subscription.
                 </span>
               </label>
+              {role === 'CONTRIBUTOR' ? (
+                <label className="flex flex-col gap-1 text-sm text-app-muted sm:flex-row sm:items-center sm:gap-2">
+                  <span className="inline-flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={getHelp}
+                      onChange={(e) => setGetHelp(e.target.checked)}
+                    />
+                    Can use Get Help
+                  </span>
+                  <span className="text-xs">
+                    Lets this contributor message CoCreate from Get Help.
+                  </span>
+                </label>
+              ) : null}
             </div>
             <button type="submit" disabled={submitting} className="portal-btn-primary">
               {submitting ? 'Sending…' : 'Invite teammate'}
-            </button>
-          </form>
-        ) : null}
-
-        {permissions?.canRequestInvite ? (
-          <form onSubmit={onRequestInvite} className="mt-6 space-y-3">
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="colleague@company.com"
-              className="portal-input w-full"
-            />
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as ClientOrgRole)}
-              className="portal-input text-sm"
-            >
-              <option value="PROJECT_MANAGER">Project manager</option>
-              <option value="MEMBER">Member</option>
-            </select>
-            <p className="text-xs text-app-muted">
-              New invites are sent to CoCreate for approval before your teammate receives access.
-            </p>
-            <button type="submit" disabled={submitting} className="portal-btn-primary">
-              {submitting ? 'Submitting…' : 'Request invite'}
             </button>
           </form>
         ) : null}
@@ -229,7 +266,7 @@ export default function PortalTeamHub() {
                 <li key={req.id}>
                   {req.email} as {roleLabels[req.requestedClientOrgRole]} — awaiting CoCreate
                   approval
-                  {!isOwner ? null : (
+                  {!isAdmin ? null : (
                     <span className="text-app-muted"> (requested by {req.requestedByEmail})</span>
                   )}
                 </li>
@@ -240,27 +277,32 @@ export default function PortalTeamHub() {
 
         <MembersTable
           members={members}
+          currentUserId={currentUserId}
           canManageRoles={Boolean(permissions?.canManageOrgRoles)}
+          canRemove={Boolean(permissions?.canInviteImmediately)}
           canToggleSocial={Boolean(permissions?.canToggleSocialListening)}
+          canToggleGetHelp={Boolean(permissions?.canToggleGetHelp)}
           onRoleChange={onRoleChange}
           onToggleSocial={onToggleSocial}
+          onToggleGetHelp={onToggleGetHelp}
+          onRemove={onRemoveMember}
         />
       </section>
 
       <ProjectSection
-        title={isOwner ? 'All projects' : 'Your projects'}
+        title={isAdmin ? 'All projects' : 'Your projects'}
         description={
-          isOwner
+          isAdmin
             ? 'Manage who can access each project in your organization.'
-            : 'Add teammates to projects you created.'
+            : 'Projects you are assigned to.'
         }
         projects={hub.projectsOwned}
       />
 
-      {!isOwner && hub.projectsShared.length > 0 ? (
+      {!isAdmin && hub.projectsShared.length > 0 ? (
         <ProjectSection
           title="Shared with you"
-          description="Projects another project manager created and added you to."
+          description="Projects another Admin created and assigned you to."
           projects={hub.projectsShared}
         />
       ) : null}
@@ -270,16 +312,26 @@ export default function PortalTeamHub() {
 
 function MembersTable({
   members,
+  currentUserId,
   canManageRoles,
+  canRemove,
   canToggleSocial,
+  canToggleGetHelp,
   onRoleChange,
   onToggleSocial,
+  onToggleGetHelp,
+  onRemove,
 }: {
   members: TeamMember[]
+  currentUserId?: string
   canManageRoles: boolean
+  canRemove: boolean
   canToggleSocial: boolean
+  canToggleGetHelp: boolean
   onRoleChange: (member: TeamMember, role: ClientOrgRole) => void
   onToggleSocial: (member: TeamMember) => void
+  onToggleGetHelp: (member: TeamMember) => void
+  onRemove: (member: TeamMember) => void
 }) {
   return (
     <>
@@ -294,17 +346,19 @@ function MembersTable({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <dt className="text-app-muted">Role</dt>
                 <dd>
-                  {canManageRoles && member.clientOrgRole !== 'OWNER' ? (
+                  {canManageRoles && member.clientOrgRole !== 'ADMIN' ? (
                     <select
-                      value={member.clientOrgRole ?? 'MEMBER'}
+                      value={member.clientOrgRole ?? 'CONTRIBUTOR'}
                       onChange={(e) => onRoleChange(member, e.target.value as ClientOrgRole)}
                       className="portal-input rounded-lg py-1 pr-9 pl-2 text-sm"
                     >
-                      <option value="PROJECT_MANAGER">Project manager</option>
-                      <option value="MEMBER">Member</option>
+                      <option value="ADMIN">Admin</option>
+                      <option value="CONTRIBUTOR">Contributor</option>
+                      <option value="VIEWER">Viewer</option>
+                      <option value="SOCIAL_ANALYST">Social analyst</option>
                     </select>
                   ) : (
-                    roleLabels[member.clientOrgRole ?? 'MEMBER']
+                    roleLabels[member.clientOrgRole ?? 'CONTRIBUTOR']
                   )}
                 </dd>
               </div>
@@ -316,7 +370,7 @@ function MembersTable({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <dt className="text-app-muted">Social Listening</dt>
                   <dd>
-                    {member.clientOrgRole === 'OWNER' ? (
+                    {member.clientOrgRole === 'ADMIN' ? (
                       'Included with subscription'
                     ) : (
                       <button
@@ -328,6 +382,37 @@ function MembersTable({
                       </button>
                     )}
                   </dd>
+                </div>
+              ) : null}
+              {canToggleGetHelp ? (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <dt className="text-app-muted">Get Help</dt>
+                  <dd>
+                    {member.clientOrgRole === 'ADMIN' ? (
+                      'Always on'
+                    ) : member.clientOrgRole === 'CONTRIBUTOR' ? (
+                      <button
+                        type="button"
+                        onClick={() => onToggleGetHelp(member)}
+                        className="min-h-10 text-sanmarino underline"
+                      >
+                        {member.canAccessGetHelp ? 'On' : 'Off'}
+                      </button>
+                    ) : (
+                      '—'
+                    )}
+                  </dd>
+                </div>
+              ) : null}
+              {canRemove && member.id !== currentUserId ? (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => onRemove(member)}
+                    className="min-h-10 text-sm text-red-600 underline"
+                  >
+                    Remove
+                  </button>
                 </div>
               ) : null}
             </dl>
@@ -342,8 +427,12 @@ function MembersTable({
             <th className="py-2 pr-4 font-medium">Role</th>
             <th className="py-2 pr-4 font-medium">Status</th>
             {canToggleSocial ? (
-              <th className="py-2 font-medium">Can view Social Listening</th>
+              <th className="py-2 pr-4 font-medium">Can view Social Listening</th>
             ) : null}
+            {canToggleGetHelp ? (
+              <th className="py-2 pr-4 font-medium">Can use Get Help</th>
+            ) : null}
+            {canRemove ? <th className="py-2 font-medium"> </th> : null}
           </tr>
         </thead>
         <tbody>
@@ -351,23 +440,25 @@ function MembersTable({
             <tr key={member.id} className="border-b border-black/5 dark:border-white/5">
               <td className="py-3 pr-4">{member.email}</td>
               <td className="py-3 pr-4">
-                {canManageRoles && member.clientOrgRole !== 'OWNER' ? (
+                {canManageRoles && member.clientOrgRole !== 'ADMIN' ? (
                   <select
-                    value={member.clientOrgRole ?? 'MEMBER'}
+                    value={member.clientOrgRole ?? 'CONTRIBUTOR'}
                     onChange={(e) => onRoleChange(member, e.target.value as ClientOrgRole)}
                     className="portal-input rounded-lg py-1 pr-9 pl-2 text-sm"
                   >
-                    <option value="PROJECT_MANAGER">Project manager</option>
-                    <option value="MEMBER">Member</option>
+                    <option value="ADMIN">Admin</option>
+                    <option value="CONTRIBUTOR">Contributor</option>
+                    <option value="VIEWER">Viewer</option>
+                    <option value="SOCIAL_ANALYST">Social analyst</option>
                   </select>
                 ) : (
-                  roleLabels[member.clientOrgRole ?? 'MEMBER']
+                  roleLabels[member.clientOrgRole ?? 'CONTRIBUTOR']
                 )}
               </td>
               <td className="py-3 pr-4 capitalize">{member.status.toLowerCase()}</td>
               {canToggleSocial ? (
-                <td className="py-3">
-                  {member.clientOrgRole === 'OWNER' ? (
+                <td className="py-3 pr-4">
+                  {member.clientOrgRole === 'ADMIN' ? (
                     'Included with subscription'
                   ) : (
                     <button
@@ -378,6 +469,36 @@ function MembersTable({
                       {member.canAccessSocialListening ? 'On' : 'Off'}
                     </button>
                   )}
+                </td>
+              ) : null}
+              {canToggleGetHelp ? (
+                <td className="py-3 pr-4">
+                  {member.clientOrgRole === 'ADMIN' ? (
+                    'Always on'
+                  ) : member.clientOrgRole === 'CONTRIBUTOR' ? (
+                    <button
+                      type="button"
+                      onClick={() => onToggleGetHelp(member)}
+                      className="text-sanmarino underline"
+                    >
+                      {member.canAccessGetHelp ? 'On' : 'Off'}
+                    </button>
+                  ) : (
+                    '—'
+                  )}
+                </td>
+              ) : null}
+              {canRemove ? (
+                <td className="py-3">
+                  {member.id !== currentUserId ? (
+                    <button
+                      type="button"
+                      onClick={() => onRemove(member)}
+                      className="text-sm text-red-600 underline"
+                    >
+                      Remove
+                    </button>
+                  ) : null}
                 </td>
               ) : null}
             </tr>

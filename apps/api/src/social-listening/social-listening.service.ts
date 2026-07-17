@@ -126,7 +126,11 @@ export class SocialListeningService {
     client: AuthenticatedClient,
     dto: CreateListeningSetupInput,
   ) {
-    this.assertSocialListeningUser(client)
+    if (!this.clientAccess.canManageSocialListeningSetup(client)) {
+      throw new ForbiddenException(
+        'Only organization admins and social analysts can create listening setups',
+      )
+    }
     const organizationId = client.organization?.id
     if (!organizationId) {
       throw new ForbiddenException('No organization linked to this account')

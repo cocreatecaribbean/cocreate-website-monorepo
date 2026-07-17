@@ -1,12 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common'
-import {
-  ClientProjectStatus,
-  PortalNotificationType,
-  ProjectApprovalItemStatus,
-  ProjectRequestType,
-  UserRole,
-  UserStatus,
-} from '@cocreate/database'
+import { ClientProjectStatus, UserRole, UserStatus } from '@cocreate/database'
 import type { AuthenticatedClient } from '../auth/auth.service'
 import { ClientAccessService } from '../auth/client-access.service'
 import type { AdminDashboardStats as AdminDashboardStatsContract } from '@cocreate/api-contracts/v1/admin-portal'
@@ -16,10 +9,6 @@ import { PrismaService } from '../prisma/prisma.service'
 export type ClientDashboardStats = ClientDashboardStatsContract
 
 export type AdminDashboardStats = AdminDashboardStatsContract
-
-const pendingApprovalItemWhere = {
-  status: ProjectApprovalItemStatus.PENDING,
-} as const
 
 @Injectable()
 export class DashboardStatsService {
@@ -35,36 +24,21 @@ export class DashboardStatsService {
   }
 
   async getClientStats(client: AuthenticatedClient): Promise<ClientDashboardStats> {
-    const orgId = this.requireOrgId(client)
+    this.requireOrgId(client)
     const accessibleProjects = this.clientAccess.accessibleProjectsWhere(client)
 
-    const pendingApprovalOnProject = {
-      approvalItems: {
-        some: pendingApprovalItemWhere,
-      },
-    }
-
-    const [
-      activeProjects,
-      activeProjectsAwaitingReview,
-      pendingApprovals,
-      sharedFiles,
-      lastAttachment,
-    ] = await Promise.all([
+    const [activeProjects, topPicksCount, sharedFiles, lastAttachment] = await Promise.all([
       this.prisma.clientProject.count({
         where: { ...accessibleProjects, status: ClientProjectStatus.ACTIVE },
       }),
-      this.prisma.clientProject.count({
+      this.prisma.projectAttachment.count({
         where: {
-          ...accessibleProjects,
-          status: ClientProjectStatus.ACTIVE,
-          ...pendingApprovalOnProject,
-        },
-      }),
-      this.prisma.projectApprovalItem.count({
-        where: {
-          ...pendingApprovalItemWhere,
           project: accessibleProjects,
+          reactions: {
+            some: {
+              kind: { in: ['LOVE_THIS', 'SHIP_IT', 'GREAT_DIRECTION'] },
+            },
+          },
         },
       }),
       this.prisma.projectAttachment.count({
@@ -79,8 +53,8 @@ export class DashboardStatsService {
 
     return {
       activeProjects,
-      activeProjectsAwaitingReview,
-      pendingApprovals,
+      activeProjectsAwaitingReview: 0,
+      topPicksCount,
       sharedFiles,
       lastSharedFileAt: lastAttachment?.createdAt.toISOString() ?? null,
     } satisfies ClientDashboardStats

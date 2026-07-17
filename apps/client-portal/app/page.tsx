@@ -25,7 +25,7 @@ export default async function ClientPortalHomePage() {
           <p className="portal-eyebrow mt-8">CoCreate Caribbean</p>
           <h1 className={`portal-display mt-2 ${alkatra600.className}`}>Client Portal</h1>
           <p className={`mt-4 text-base leading-relaxed text-app-muted ${bricolage_grot500.className}`}>
-            Your project workspace — files, updates, approvals, and brand analytics in one
+            Your project workspace — files, updates, top picks, and brand analytics in one
             place.
           </p>
           <p className="mt-4 text-sm text-app-muted">
@@ -60,6 +60,7 @@ export default async function ClientPortalHomePage() {
 
   const displayEmail = profile.user.email
   const hasSocialListening = resolveCanUseSocialListening(profile)
+  const isSocialAnalyst = Boolean(profile.permissions.isSocialAnalyst)
 
   return (
     <PortalProfileProvider profile={profile}>
@@ -74,7 +75,8 @@ export default async function ClientPortalHomePage() {
           organizationName={profile.organization?.name ?? null}
           organizationLogoUrl={profile.organization?.logoUrl ?? null}
           hasSocialListening={hasSocialListening}
-          isOwner={profile.user.clientOrgRole === 'OWNER'}
+          isOwner={profile.user.clientOrgRole === 'ADMIN'}
+          isSocialAnalyst={isSocialAnalyst}
         />
       </ClientPortalShell>
     </PortalProfileProvider>

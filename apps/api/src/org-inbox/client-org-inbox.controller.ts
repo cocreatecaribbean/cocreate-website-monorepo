@@ -83,7 +83,7 @@ export class ClientOrgInboxController {
     @Req() req: ClientPortalRequest,
     @Param('conversationId') conversationId: string,
   ) {
-    return this.inbox.markRead(req.clientUser!.id, conversationId)
+    return this.inbox.markReadForClient(req.clientUser!, conversationId)
   }
 
 }

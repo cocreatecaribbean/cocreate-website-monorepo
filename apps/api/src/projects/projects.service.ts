@@ -15,7 +15,6 @@ import {
   ProjectAttachmentVisibility,
   ProjectMessageAuthorRole,
   ProjectMessageKind,
-  ProjectApprovalItemStatus,
   ProjectRequestStatus,
   ProjectRequestType,
   PortalNotificationType,
@@ -28,7 +27,6 @@ import type {
   AuthenticatedClient,
 } from '../auth/auth.service'
 import { ThreadSummaryStoreService } from '../messaging-summary/thread-summary-store.service'
-import { createClientApprovalRecord, approvalRecordAttachmentIds } from './client-approval-record.util'
 import { AgencyAccessService } from '../auth/agency-access.service'
 import { isCollaboratorRole } from '../auth/admin-roles'
 import { ClientAccessService } from '../auth/client-access.service'
@@ -36,11 +34,9 @@ import { PrismaService } from '../prisma/prisma.service'
 import { ProjectNotificationMailService } from './project-notification-mail.service'
 import { ProjectNotificationsService } from './project-notifications.service'
 import { MessagingEmitService } from '../messaging/messaging-emit.service'
-import { ProjectApprovalsService } from './project-approvals.service'
 import { ProjectStorageService } from './project-storage.service'
 import type { ClientRecentActivityItem } from '@cocreate/api-contracts/v1/client-portal'
 import type {
-  CreateCheckpointInput,
   CreateCancellationRequestInput,
   CreateChangeRequestInput,
   CreatePhaseApprovalInput,
@@ -50,7 +46,6 @@ import type {
   RegisterAttachmentInput,
   UpdateProjectInput,
   CreateRequestMessageInput,
-  UpdateRequestInput,
   UploadUrlInput,
   RegisterCoverInput,
 } from '@cocreate/api-contracts/v1/requests/projects'
@@ -58,11 +53,9 @@ import { ClientTeamService } from './client-team.service'
 import { SupabaseAuthService } from '../clients/supabase-auth.service'
 import {
   serializeActivity,
-  serializeApprovalRecord,
   serializeAttachment,
   serializeAttachmentWithUsage,
   serializeMessage,
-  serializePendingApprovalFiles,
   serializeProject,
   serializeRequest,
 } from './projects.serializer'
@@ -90,7 +83,6 @@ export class ProjectsService {
     private readonly messaging: MessagingEmitService,
     private readonly clientTeam: ClientTeamService,
     private readonly supabaseAuth: SupabaseAuthService,
-    private readonly approvals: ProjectApprovalsService,
     private readonly threadSummaryStore: ThreadSummaryStoreService,
   ) {}
 
@@ -101,15 +93,11 @@ export class ProjectsService {
 
   private async notifyThreadUpdate(
     requestId: string,
-    reason: 'message' | 'checkpoint' | 'status' | 'attachment',
+    reason: 'message' | 'status' | 'attachment',
     extra?: { messageId?: string; message?: ReturnType<typeof serializeMessage> },
   ): Promise<void> {
     if (reason === 'message' && extra?.message) {
       this.messaging.emitThreadMessage(requestId, extra.message as Record<string, unknown>)
-      return
-    }
-    if (reason === 'checkpoint') {
-      this.messaging.emitThreadCheckpoint(requestId)
       return
     }
     if (reason === 'attachment') {
@@ -229,29 +217,6 @@ export class ProjectsService {
       createdBy: { select: userActorSelect },
       resolvedBy: { select: userActorSelect },
       attachments: true,
-    }
-  }
-
-  private pendingCheckpointRequestInclude() {
-    return {
-      ...this.requestListInclude(),
-      messages: {
-        where: {
-          messageKind: ProjectMessageKind.CHECKPOINT,
-          requiresClientApproval: true,
-          supersededAt: null,
-          clientApprovedAt: null,
-        },
-        orderBy: { createdAt: 'desc' as const },
-        take: 1,
-        include: {
-          author: { select: userActorSelect },
-          attachmentLinks: { include: { attachment: true } },
-        },
-      },
-      project: {
-        include: { organization: { select: { id: true, name: true } } },
-      },
     }
   }
 
@@ -455,23 +420,7 @@ export class ProjectsService {
           status: true,
         },
       },
-      approvalItems: {
-        where: { status: ProjectApprovalItemStatus.PENDING },
-        select: { id: true },
-      },
     }
-  }
-
-  private async supersedePendingCheckpoints(requestId: string) {
-    await this.prisma.projectRequestMessage.updateMany({
-      where: {
-        requestId,
-        requiresClientApproval: true,
-        supersededAt: null,
-        clientApprovedAt: null,
-      },
-      data: { supersededAt: new Date() },
-    })
   }
 
   private async ensureProgressThread(projectId: string, createdByUserId: string) {
@@ -483,7 +432,7 @@ export class ProjectsService {
         projectId,
         type: ProjectRequestType.PROGRESS,
         title: 'Project progress',
-        description: 'Collaboration and progress approvals',
+        description: 'Collaboration and progress updates',
         createdByUserId,
         status: ProjectRequestStatus.OPEN,
       },
@@ -608,21 +557,6 @@ export class ProjectsService {
           updatedAt: true,
           createdBy: { select: userActorSelect },
           resolvedBy: { select: userActorSelect },
-          messages: {
-            where: {
-              messageKind: ProjectMessageKind.CHECKPOINT,
-              requiresClientApproval: true,
-              supersededAt: null,
-              clientApprovedAt: null,
-            },
-            select: {
-              id: true,
-              messageKind: true,
-              requiresClientApproval: true,
-              supersededAt: true,
-              clientApprovedAt: true,
-            },
-          },
         },
       },
       attachments: {
@@ -780,6 +714,7 @@ export class ProjectsService {
         status: ClientProjectStatus.SUBMITTED,
         phase: ClientProjectPhase.DISCOVERY,
         createdByUserId: client.id,
+        ownerUserId: client.id,
       },
       include: {
         organization: { select: { id: true, name: true, slug: true } },
@@ -890,79 +825,6 @@ export class ProjectsService {
     return this.addRequestMessage(client, progress.id, { body })
   }
 
-  async listOpenRequestsForClient(client: AuthenticatedClient) {
-    return this.listPendingApprovalFilesForClient(client)
-  }
-
-  async listPendingApprovalFilesForClient(client: AuthenticatedClient) {
-    return this.approvals.listOpenForClient(client)
-  }
-
-  /** @deprecated Use listPendingApprovalFilesForClient — kept for internal callers during transition */
-  async listPendingCheckpointsForClient(client: AuthenticatedClient) {
-    return this.listPendingApprovalFilesForClient(client)
-  }
-
-  async listApprovalHistoryForClient(client: AuthenticatedClient) {
-    const records = await this.prisma.clientApprovalRecord.findMany({
-      where: { project: this.clientAccess.accessibleProjectsWhere(client) },
-      orderBy: { approvedAt: 'desc' },
-      include: {
-        project: { select: { id: true, title: true } },
-        approvalItem: { include: { attachment: true } },
-        recordAttachments: { include: { attachment: true } },
-        message: {
-          include: {
-            attachmentLinks: { include: { attachment: true } },
-          },
-        },
-      },
-    })
-
-    const snapshotIds = [
-      ...new Set(
-        records.flatMap((record) => [
-          ...approvalRecordAttachmentIds(record),
-          ...(record.approvedAttachmentId ? [record.approvedAttachmentId] : []),
-          ...(record.approvalItem?.attachmentId ? [record.approvalItem.attachmentId] : []),
-          ...(record.message?.attachmentLinks?.map((link) => link.attachment.id) ?? []),
-        ]),
-      ),
-    ]
-    const snapshotAttachments =
-      snapshotIds.length > 0
-        ? await this.prisma.projectAttachment.findMany({
-            where: { id: { in: snapshotIds } },
-          })
-        : []
-    const attachmentsById = new Map(
-      snapshotAttachments.map((attachment) => [attachment.id, attachment]),
-    )
-
-    return records.map((record) => ({
-      ...serializeApprovalRecord(
-        {
-          ...record,
-          approvalItem: record.approvalItem,
-          snapshottedAttachments: [
-            ...new Set([
-              ...approvalRecordAttachmentIds(record),
-              ...(record.approvedAttachmentId ? [record.approvedAttachmentId] : []),
-              ...(record.approvalItem?.attachmentId ? [record.approvalItem.attachmentId] : []),
-              ...(record.message?.attachmentLinks?.map((link) => link.attachment.id) ?? []),
-            ]),
-          ]
-            .map((id) => attachmentsById.get(id))
-            .filter((attachment): attachment is NonNullable<typeof attachment> =>
-              Boolean(attachment),
-            ),
-        },
-        { omitStoragePath: true },
-      ),
-      projectTitle: record.project.title,
-    }))
-  }
-
   async createCancellationRequest(
     client: AuthenticatedClient,
     projectId: string,
@@ -1049,265 +911,6 @@ export class ProjectsService {
     })
 
     return serializeRequest(request)
-  }
-
-  async approveCheckpoint(
-    client: AuthenticatedClient,
-    requestId: string,
-    messageId: string,
-  ) {
-    const request = await this.getRequestForActor(requestId, client)
-    if (request.type !== ProjectRequestType.PROGRESS) {
-      throw new BadRequestException('Only progress checkpoints can be approved')
-    }
-
-    const message = await this.prisma.projectRequestMessage.findFirst({
-      where: {
-        id: messageId,
-        requestId,
-        requiresClientApproval: true,
-        supersededAt: null,
-        clientApprovedAt: null,
-      },
-      include: {
-        attachmentLinks: { select: { attachmentId: true } },
-      },
-    })
-    if (!message) {
-      throw new BadRequestException('No pending approval on this message')
-    }
-
-    if (message.attachmentLinks.length > 0) {
-      throw new BadRequestException(
-        'This checkpoint has files — approve each file individually',
-      )
-    }
-
-    const latestPending = await this.prisma.projectRequestMessage.findFirst({
-      where: {
-        requestId,
-        requiresClientApproval: true,
-        supersededAt: null,
-        clientApprovedAt: null,
-      },
-      orderBy: { createdAt: 'desc' },
-    })
-    if (latestPending?.id !== messageId) {
-      throw new BadRequestException(
-        'A newer review is available — please approve the latest message from CoCreate',
-      )
-    }
-
-    const now = new Date()
-    await this.prisma.$transaction(async (tx) => {
-      await tx.projectRequestMessage.update({
-        where: { id: messageId },
-        data: {
-          clientApprovedAt: now,
-          clientApprovedByUserId: client.id,
-        },
-      })
-
-      await createClientApprovalRecord(
-        tx,
-        {
-          projectId: request.projectId,
-          requestId,
-          messageId,
-          title: request.title,
-          summary: message.body.slice(0, 500),
-          targetPhase: message.checkpointTargetPhase,
-          approvedByUserId: client.id,
-        },
-        [],
-      )
-
-      if (message.checkpointTargetPhase) {
-        await tx.clientProject.update({
-          where: { id: request.projectId },
-          data: { phase: message.checkpointTargetPhase },
-        })
-      }
-    })
-
-    await this.logActivity(request.projectId, client.id, 'checkpoint.approved', {
-      requestId,
-      messageId,
-    })
-
-    const adminLink = `${this.notifications.adminClientWorkspaceLink(request.project.organizationId)}?tab=projects`
-    await this.notifications.notifyAdmins({
-      organizationId: request.project.organizationId,
-      type: PortalNotificationType.CHECKPOINT_APPROVED,
-      title: `Approved: ${request.title}`,
-      body: message.body.slice(0, 200),
-      href: adminLink,
-      projectId: request.projectId,
-      requestId,
-    })
-
-    const approved = serializeMessage(
-      (await this.prisma.projectRequestMessage.findUnique({
-        where: { id: messageId },
-        include: { author: { select: userActorSelect } },
-      }))!,
-    )
-    await this.notifyThreadUpdate(requestId, 'checkpoint', { messageId })
-    return approved
-  }
-
-  async approveCheckpointFile(
-    client: AuthenticatedClient,
-    requestId: string,
-    messageId: string,
-    attachmentId: string,
-  ) {
-    const request = await this.getRequestForActor(requestId, client)
-    if (request.type !== ProjectRequestType.PROGRESS) {
-      throw new BadRequestException('Only progress checkpoints can be approved')
-    }
-
-    const message = await this.prisma.projectRequestMessage.findFirst({
-      where: {
-        id: messageId,
-        requestId,
-        requiresClientApproval: true,
-        supersededAt: null,
-        clientApprovedAt: null,
-      },
-      include: {
-        attachmentLinks: {
-          include: { attachment: true },
-        },
-      },
-    })
-    if (!message) {
-      throw new BadRequestException('No pending approval on this message')
-    }
-
-    const latestPending = await this.prisma.projectRequestMessage.findFirst({
-      where: {
-        requestId,
-        requiresClientApproval: true,
-        supersededAt: null,
-        clientApprovedAt: null,
-      },
-      orderBy: { createdAt: 'desc' },
-    })
-    if (latestPending?.id !== messageId) {
-      throw new BadRequestException(
-        'A newer review is available — please approve the latest message from CoCreate',
-      )
-    }
-
-    const link = message.attachmentLinks.find(
-      (entry) => entry.attachmentId === attachmentId,
-    )
-    if (!link) {
-      throw new BadRequestException('File is not part of this checkpoint')
-    }
-    if (link.clientApprovedAt) {
-      throw new BadRequestException('This file was already approved')
-    }
-
-    const now = new Date()
-    const fileTitle = `${request.title} — ${link.attachment.fileName}`
-    let checkpointCompleted = false
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.projectRequestMessageAttachment.update({
-        where: {
-          messageId_attachmentId: { messageId, attachmentId },
-        },
-        data: {
-          clientApprovedAt: now,
-          clientApprovedByUserId: client.id,
-        },
-      })
-
-      await createClientApprovalRecord(
-        tx,
-        {
-          projectId: request.projectId,
-          requestId,
-          messageId,
-          title: fileTitle,
-          summary: message.body.slice(0, 500),
-          targetPhase: message.checkpointTargetPhase,
-          approvedByUserId: client.id,
-          approvedAttachmentId: attachmentId,
-        },
-        [attachmentId],
-      )
-
-      const remaining = await tx.projectRequestMessageAttachment.count({
-        where: {
-          messageId,
-          clientApprovedAt: null,
-        },
-      })
-
-      if (remaining === 0) {
-        checkpointCompleted = true
-        await tx.projectRequestMessage.update({
-          where: { id: messageId },
-          data: {
-            clientApprovedAt: now,
-            clientApprovedByUserId: client.id,
-          },
-        })
-
-        if (message.checkpointTargetPhase) {
-          await tx.clientProject.update({
-            where: { id: request.projectId },
-            data: { phase: message.checkpointTargetPhase },
-          })
-        }
-      }
-    })
-
-    await this.logActivity(request.projectId, client.id, 'checkpoint.approved', {
-      requestId,
-      messageId,
-      attachmentId,
-      checkpointCompleted,
-    })
-
-    const adminLink = `${this.notifications.adminClientWorkspaceLink(request.project.organizationId)}?tab=projects`
-    if (checkpointCompleted) {
-      await this.notifications.notifyAdmins({
-        organizationId: request.project.organizationId,
-        type: PortalNotificationType.CHECKPOINT_APPROVED,
-        title: `Approved: ${request.title}`,
-        body: `All files approved for ${request.title}.`,
-        href: adminLink,
-        projectId: request.projectId,
-        requestId,
-      })
-    } else {
-      await this.notifications.notifyAdmins({
-        organizationId: request.project.organizationId,
-        type: PortalNotificationType.CHECKPOINT_APPROVED,
-        title: `File approved: ${link.attachment.fileName}`,
-        body: `${link.attachment.fileName} approved for ${request.title}.`,
-        href: adminLink,
-        projectId: request.projectId,
-        requestId,
-      })
-    }
-
-    await this.notifyThreadUpdate(requestId, 'checkpoint', { messageId })
-
-    const remainingFiles = await this.prisma.projectRequestMessageAttachment.count({
-      where: { messageId, clientApprovedAt: null },
-    })
-
-    return {
-      attachmentId,
-      fileName: link.attachment.fileName,
-      checkpointCompleted,
-      remainingFiles,
-    }
   }
 
   // ─── Admin ──────────────────────────────────────────────────────────────────
@@ -1494,7 +1097,7 @@ export class ProjectsService {
       .map((u) => ({ id: u.id, email: u.email }))
 
     const suggestedOwner = clients.find(
-      (u) => u.status === UserStatus.INVITED && u.clientOrgRole === ClientOrgRole.OWNER,
+      (u) => u.status === UserStatus.INVITED && u.clientOrgRole === ClientOrgRole.ADMIN,
     )
     const suggestedContactEmail =
       suggestedOwner?.email ?? invitedUsers[0]?.email ?? null
@@ -1570,6 +1173,10 @@ export class ProjectsService {
     const description = dto.description.trim()
     const now = new Date()
 
+    // Owner must be a client Admin. Prefer the first selected recipient, else
+    // fall back to the creating agency user until an invited client is resolved.
+    const initialOwnerUserId = recipientUsers[0]?.id ?? admin.id
+
     const project = await this.prisma.clientProject.create({
       data: {
         organizationId,
@@ -1578,6 +1185,7 @@ export class ProjectsService {
         status: ClientProjectStatus.ACTIVE,
         phase: ClientProjectPhase.DISCOVERY,
         createdByUserId: admin.id,
+        ownerUserId: initialOwnerUserId,
         approvedAt: now,
         approvedByUserId: admin.id,
       },
@@ -1681,18 +1289,41 @@ export class ProjectsService {
       }
     }
 
+    let firstInvitedUserId: string | null = null
     for (const email of inviteEmails) {
-      await this.clientTeam.inviteToOrganizationAsAdmin(
+      const invited = await this.clientTeam.inviteToOrganizationAsAdmin(
         admin,
         organizationId,
         {
           email,
-          clientOrgRole: ClientOrgRole.OWNER,
+          clientOrgRole: ClientOrgRole.ADMIN,
         },
         projectInviteCopy,
       )
+      firstInvitedUserId ??= invited.member.id
       portalActions.newInvitesSent += 1
       portalActions.invitedEmails.push(email)
+    }
+
+    // Ensure the project owner is a client Admin. If a recipient was chosen,
+    // promote them; otherwise hand ownership to the first invited client Admin.
+    if (recipientUsers[0]) {
+      await this.prisma.clientOrganizationMembership.updateMany({
+        where: {
+          userId: recipientUsers[0].id,
+          organizationId,
+        },
+        data: { clientOrgRole: ClientOrgRole.ADMIN },
+      })
+      await this.prisma.user.update({
+        where: { id: recipientUsers[0].id },
+        data: { clientOrgRole: ClientOrgRole.ADMIN },
+      })
+    } else if (firstInvitedUserId) {
+      await this.prisma.clientProject.update({
+        where: { id: project.id },
+        data: { ownerUserId: firstInvitedUserId },
+      })
     }
 
     const full = await this.prisma.clientProject.findUnique({
@@ -1917,152 +1548,6 @@ export class ProjectsService {
     return this.serializeProjectWithCover(updated)
   }
 
-  async createReviewRequest(
-    admin: AuthenticatedAdmin,
-    projectId: string,
-    dto: CreateCheckpointInput,
-  ) {
-    return this.sendProgressCheckpoint(admin, projectId, dto)
-  }
-
-  async sendProgressCheckpoint(
-    admin: AuthenticatedAgencyUser,
-    projectId: string,
-    dto: CreateCheckpointInput,
-  ) {
-    if (!this.agencyAccess.isCoreTeam(admin)) {
-      throw new ForbiddenException('Only core team can send progress checkpoints')
-    }
-    const project = await this.getProjectById(projectId)
-    if (project.status !== ClientProjectStatus.ACTIVE) {
-      throw new BadRequestException('Checkpoints require an active project')
-    }
-
-    const progress = await this.ensureProgressThread(projectId, admin.id)
-    await this.supersedePendingCheckpoints(progress.id)
-
-    let body = dto.body.trim()
-    const title = dto.title.trim()
-    const reviewUrl = dto.reviewUrl?.trim()
-    if (reviewUrl) {
-      body = `${body}\n\nReview link: ${reviewUrl}`
-    }
-
-    const attachments = dto.attachments ?? []
-    const libraryAttachmentIds = [...new Set(dto.attachmentIds ?? [])]
-    for (const attachment of attachments) {
-      this.storage.assertPathBelongsToProject(
-        attachment.storagePath,
-        project.organizationId,
-        project.id,
-      )
-    }
-
-    const message = await this.prisma.$transaction(async (tx) => {
-      await tx.projectRequest.update({
-        where: { id: progress.id },
-        data: { title, description: body, status: ProjectRequestStatus.IN_PROGRESS },
-      })
-
-      const checkpointMessage = await tx.projectRequestMessage.create({
-        data: {
-          requestId: progress.id,
-          authorUserId: admin.id,
-          authorRole: ProjectMessageAuthorRole.ADMIN,
-          body,
-          messageKind: ProjectMessageKind.CHECKPOINT,
-          checkpointTargetPhase: dto.targetPhase ?? null,
-          requiresClientApproval: true,
-        },
-        include: { author: { select: userActorSelect } },
-      })
-
-      const createdAttachmentIds: string[] = []
-      for (const attachment of attachments) {
-        const created = await tx.projectAttachment.create({
-          data: {
-            projectId: project.id,
-            requestId: progress.id,
-            storagePath: attachment.storagePath,
-            fileName: attachment.fileName,
-            mimeType: attachment.mimeType,
-            sizeBytes: attachment.sizeBytes,
-            uploadedByUserId: admin.id,
-          },
-        })
-        createdAttachmentIds.push(created.id)
-      }
-
-      if (createdAttachmentIds.length > 0) {
-        await tx.projectRequestMessageAttachment.createMany({
-          data: createdAttachmentIds.map((attachmentId) => ({
-            messageId: checkpointMessage.id,
-            attachmentId,
-          })),
-          skipDuplicates: true,
-        })
-      }
-
-      return checkpointMessage
-    })
-
-    if (libraryAttachmentIds.length > 0) {
-      await this.linkAttachmentsToMessage(
-        message.id,
-        project.id,
-        libraryAttachmentIds,
-        ProjectRequestType.PROGRESS,
-      )
-    }
-
-    await this.logActivity(projectId, admin.id, 'checkpoint.sent', {
-      requestId: progress.id,
-      messageId: message.id,
-    })
-
-    if (attachments.length > 0) {
-      await this.logActivity(projectId, admin.id, 'attachment.uploaded', {
-        requestId: progress.id,
-        count: attachments.length,
-      })
-    }
-
-    const notificationSnippet =
-      body.slice(0, 200) ||
-      (attachments.length > 0 || libraryAttachmentIds.length > 0
-        ? 'Sent an attachment'
-        : '')
-
-    const portalLink = `${this.notifications.clientPortalUrl()}/?ccView=approvals&requestId=${progress.id}`
-    await this.notifications.notifyOrgClients({
-      organizationId: project.organizationId,
-      type: PortalNotificationType.CHECKPOINT_PENDING,
-      title: `Approval needed: ${title}`,
-      body: notificationSnippet,
-      href: portalLink,
-      projectId,
-      requestId: progress.id,
-      email: {
-        subject: `Approval needed: ${title}`,
-        html: `<p>CoCreate requested your approval on <strong>${project.title}</strong>:</p><blockquote>${body.slice(0, 400)}</blockquote><p><a href="${portalLink}">Review in portal</a></p>`,
-        text: `Approval needed: ${title}\n${body}\n${portalLink}`,
-        actionLink: portalLink,
-      },
-    })
-
-    const full = await this.prisma.projectRequest.findUnique({
-      where: { id: progress.id },
-      include: {
-        ...this.requestInclude(),
-        project: {
-          include: { organization: { select: { id: true, name: true } } },
-        },
-      },
-    })
-    await this.notifyThreadUpdate(progress.id, 'checkpoint', { messageId: message.id })
-    return serializeRequest(full!)
-  }
-
   async resolveCancellation(
     admin: AuthenticatedAgencyUser,
     requestId: string,
@@ -2166,7 +1651,12 @@ export class ProjectsService {
     }
 
     const isClient = 'organization' in actor && Boolean(actor.organization)
-    if (!isClient) {
+    if (isClient) {
+      await this.clientAccess.assertCanSendProjectMessage(
+        actor as AuthenticatedClient,
+        request.projectId,
+      )
+    } else {
       await this.agencyAccess.assertCanPostToRequest(actor, request.type)
     }
 
@@ -2242,7 +1732,7 @@ export class ProjectsService {
     const clientLink =
       request.type === ProjectRequestType.PROGRESS
         ? `${this.notifications.clientPortalUrl()}/?ccView=projects&projectId=${request.projectId}`
-        : `${this.notifications.clientPortalUrl()}/?ccView=approvals&requestId=${requestId}`
+        : `${this.notifications.clientPortalUrl()}/?ccView=projects&projectId=${request.projectId}&requestId=${requestId}`
     const snippet = body.slice(0, 200) || (attachmentIds.length ? 'Sent an attachment' : '')
 
     if (isClient) {
@@ -2285,84 +1775,6 @@ export class ProjectsService {
     }
 
     return serialized
-  }
-
-  async updateRequest(
-    actor: AuthenticatedAgencyUser | AuthenticatedClient,
-    requestId: string,
-    dto: UpdateRequestInput,
-  ) {
-    const request = await this.getRequestForActor(requestId, actor)
-    if (!('organization' in actor) || !actor.organization) {
-      if (!this.agencyAccess.isCoreTeam(actor)) {
-        throw new ForbiddenException('Only core team can update request status')
-      }
-    }
-
-    const terminal: ProjectRequestStatus[] = [
-      ProjectRequestStatus.RESOLVED,
-      ProjectRequestStatus.REJECTED,
-      ProjectRequestStatus.CANCELLED,
-    ]
-    if (!terminal.includes(dto.status) && terminal.includes(request.status)) {
-      throw new BadRequestException('Request is already closed')
-    }
-
-    const isClosing = terminal.includes(dto.status)
-
-    const updated = await this.prisma.projectRequest.update({
-      where: { id: requestId },
-      data: {
-        status: dto.status,
-        resolvedAt: isClosing ? new Date() : null,
-        resolvedByUserId: isClosing ? actor.id : null,
-      },
-      include: {
-        ...this.requestInclude(),
-        project: {
-          include: { organization: { select: { id: true, name: true } } },
-        },
-      },
-    })
-
-    await this.logActivity(request.projectId, actor.id, 'request.updated', {
-      requestId,
-      status: dto.status,
-    })
-
-    const portalLink = this.notifications.clientProjectLink(request.projectId)
-
-    if ('organization' in actor && actor.organization) {
-      // client resolved — notify admins
-      await this.notifications.notifyAdmins({
-        organizationId: request.project.organizationId,
-        type: PortalNotificationType.REQUEST_RESOLVED,
-        title: `Request updated: ${request.title}`,
-        body: `Client updated request status to ${dto.status}.`,
-        href: `${this.notifications.adminClientWorkspaceLink(request.project.organizationId)}?tab=inbox`,
-        projectId: request.projectId,
-        requestId,
-      })
-    } else {
-      const emailContent = this.mail.buildRequestResolvedEmail({
-        projectTitle: request.project.title,
-        requestTitle: request.title,
-        portalLink,
-      })
-      await this.notifications.notifyOrgClients({
-        organizationId: request.project.organizationId,
-        type: PortalNotificationType.REQUEST_RESOLVED,
-        title: `Request updated: ${request.title}`,
-        body: `Your request status is now ${dto.status}.`,
-        href: portalLink,
-        projectId: request.projectId,
-        requestId,
-        email: emailContent,
-      })
-    }
-
-    await this.notifyThreadUpdate(requestId, 'status')
-    return serializeRequest(updated)
   }
 
   // ─── Attachments ────────────────────────────────────────────────────────────
@@ -2694,18 +2106,6 @@ export class ProjectsService {
 
     await this.assertCanRemoveAttachment(actor, attachment)
 
-    const isClient = 'organization' in actor && Boolean(actor.organization)
-    const approvedItem = await this.prisma.projectApprovalItem.findFirst({
-      where: {
-        attachmentId,
-        status: ProjectApprovalItemStatus.APPROVED,
-      },
-      select: { id: true },
-    })
-    if (approvedItem && isClient) {
-      throw new BadRequestException('Cannot remove a file that has already been approved')
-    }
-
     const affectedRequestIds = [
       ...new Set(attachment.messageLinks.map((link) => link.message.requestId)),
     ]
@@ -2717,32 +2117,11 @@ export class ProjectsService {
         where: { attachmentId },
       })
 
-      if (!approvedItem) {
-        await tx.projectApprovalItem.deleteMany({
-          where: {
-            attachmentId,
-            status: {
-              in: [
-                ProjectApprovalItemStatus.PENDING,
-                ProjectApprovalItemStatus.NEEDS_CHANGES,
-              ],
-            },
-          },
-        })
-      }
+      const remainingLinks = await tx.projectRequestMessageAttachment.count({
+        where: { attachmentId },
+      })
 
-      const [remainingLinks, remainingApprovals, remainingCommentLinks] =
-        await Promise.all([
-          tx.projectRequestMessageAttachment.count({ where: { attachmentId } }),
-          tx.projectApprovalItem.count({ where: { attachmentId } }),
-          tx.projectApprovalCommentAttachment.count({ where: { attachmentId } }),
-        ])
-
-      if (
-        remainingLinks === 0 &&
-        remainingApprovals === 0 &&
-        remainingCommentLinks === 0
-      ) {
+      if (remainingLinks === 0) {
         await tx.projectAttachment.delete({ where: { id: attachmentId } })
         storagePathToDelete = attachment.storagePath
       }
@@ -2799,17 +2178,6 @@ export class ProjectsService {
 
     await this.assertCanRemoveAttachment(actor, attachment)
 
-    const approvedItem = await this.prisma.projectApprovalItem.findFirst({
-      where: {
-        attachmentId,
-        status: ProjectApprovalItemStatus.APPROVED,
-      },
-      select: { id: true },
-    })
-    if (approvedItem && isClient) {
-      throw new BadRequestException('Cannot remove a file that has already been approved')
-    }
-
     let storagePathToDelete: string | null = null
 
     await this.prisma.$transaction(async (tx) => {
@@ -2817,32 +2185,11 @@ export class ProjectsService {
         where: { messageId_attachmentId: { messageId, attachmentId } },
       })
 
-      if (!approvedItem) {
-        await tx.projectApprovalItem.deleteMany({
-          where: {
-            attachmentId,
-            status: {
-              in: [
-                ProjectApprovalItemStatus.PENDING,
-                ProjectApprovalItemStatus.NEEDS_CHANGES,
-              ],
-            },
-          },
-        })
-      }
+      const remainingLinks = await tx.projectRequestMessageAttachment.count({
+        where: { attachmentId },
+      })
 
-      const [remainingLinks, remainingApprovals, remainingCommentLinks] =
-        await Promise.all([
-          tx.projectRequestMessageAttachment.count({ where: { attachmentId } }),
-          tx.projectApprovalItem.count({ where: { attachmentId } }),
-          tx.projectApprovalCommentAttachment.count({ where: { attachmentId } }),
-        ])
-
-      if (
-        remainingLinks === 0 &&
-        remainingApprovals === 0 &&
-        remainingCommentLinks === 0
-      ) {
+      if (remainingLinks === 0) {
         await tx.projectAttachment.delete({ where: { id: attachmentId } })
         storagePathToDelete = attachment.storagePath
       }
@@ -2964,33 +2311,6 @@ export class ProjectsService {
 
   unreadNotificationCount(client: AuthenticatedClient) {
     return this.notifications.unreadCount(client.id)
-  }
-
-  async unreadApprovalsCountForClient(client: AuthenticatedClient) {
-    this.clientAccess.requireOrganizationId(client)
-    const count = await this.notifications.unreadCheckpointApprovalsCountForClient(
-      client.id,
-      this.clientAccess.accessibleProjectsWhere(client),
-    )
-    return { count }
-  }
-
-  async markApprovalsReadForClient(client: AuthenticatedClient, requestId?: string) {
-    this.clientAccess.requireOrganizationId(client)
-    if (requestId) {
-      const request = await this.prisma.projectRequest.findUnique({
-        where: { id: requestId },
-        select: { projectId: true },
-      })
-      if (request) {
-        await this.clientAccess.assertProjectAccess(client, request.projectId, 'VIEW')
-      }
-    }
-    return this.notifications.markCheckpointApprovalsReadForClient(
-      client.id,
-      this.clientAccess.accessibleProjectsWhere(client),
-      requestId,
-    )
   }
 
   async unreadAttentionCountForClient(client: AuthenticatedClient) {

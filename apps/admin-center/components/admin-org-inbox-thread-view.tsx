@@ -6,9 +6,11 @@ import { ArrowLeft } from 'lucide-react'
 
 import { useAdminSession } from '@/components/admin-session-provider'
 import OrgInboxAttachmentComposer from '@/components/org-inbox-attachment-composer'
+import ResizableAdminThreadSurface from '@/components/resizable-admin-thread-surface'
 import { LinkifiedBody, RequestAttachments } from '@/lib/projects/thread-content'
 import { useThreadAutoScroll } from '@/lib/projects/use-thread-auto-scroll'
 import { ThreadScrollEnd } from '@cocreate/app-ui/scroll-to-latest'
+import ResizableMessageTextarea from '@cocreate/app-ui/resizable-message-textarea'
 import { canSendThreadMessage } from '@/lib/messaging/can-send-thread-message'
 import { adminQueryKeys } from '@/lib/api/query-keys'
 import {
@@ -182,100 +184,106 @@ export default function AdminOrgInboxThreadView({
         Back to threads
       </button>
 
-      <section className="admin-glass-card admin-message-thread-shell mx-auto flex h-[min(calc(100dvh-11rem),680px)] min-h-[360px] w-full max-w-2xl flex-col p-4">
-        <div className="flex shrink-0 items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p className={`text-sm ${bricolage_grot600.className}`}>
-              {conversationSubject(conversation)}
-            </p>
-            <p className="mt-1 text-xs text-app-muted">
-              {conversation.createdByEmail
-                ? `Started by ${conversation.createdByEmail}`
-                : 'Started by client'}
-              {' · '}
-              {formatConversationDate(conversation.createdAt)}
-            </p>
+      <ResizableAdminThreadSurface
+        storageKey={`admin-thread-surface:org-inbox:${conversationId}`}
+        className="admin-glass-card mx-auto p-4"
+        unsizedClassName="h-[min(calc(100dvh-11rem),680px)] min-h-[360px] w-full max-w-2xl"
+      >
+        <div className="admin-message-thread-shell flex h-full min-h-0 max-w-none flex-1 flex-col">
+          <div className="flex shrink-0 items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className={`text-sm ${bricolage_grot600.className}`}>
+                {conversationSubject(conversation)}
+              </p>
+              <p className="mt-1 text-xs text-app-muted">
+                {conversation.createdByEmail
+                  ? `Started by ${conversation.createdByEmail}`
+                  : 'Started by client'}
+                {' · '}
+                {formatConversationDate(conversation.createdAt)}
+              </p>
+            </div>
+            <ThreadSummaryExport
+              triggerClassName="admin-btn-ghost shrink-0 px-3 py-1.5 text-xs"
+              panelClassName="admin-glass-card"
+              primaryButtonClassName="admin-btn-primary px-4 py-2 text-sm"
+              ghostButtonClassName="admin-btn-ghost px-4 py-2 text-sm"
+              fetchAttachmentDownloadUrl={fetchOrgInboxAttachmentDownloadUrl}
+              onGenerate={(options) =>
+                generateAdminOrgInboxThreadSummary(conversationId, options)
+              }
+              onExportPdf={(options) =>
+                downloadAdminOrgInboxThreadSummaryPdf(conversationId, options)
+              }
+            />
           </div>
-          <ThreadSummaryExport
-            triggerClassName="admin-btn-ghost shrink-0 px-3 py-1.5 text-xs"
-            panelClassName="admin-glass-card"
-            primaryButtonClassName="admin-btn-primary px-4 py-2 text-sm"
-            ghostButtonClassName="admin-btn-ghost px-4 py-2 text-sm"
-            fetchAttachmentDownloadUrl={fetchOrgInboxAttachmentDownloadUrl}
-            onGenerate={(options) =>
-              generateAdminOrgInboxThreadSummary(conversationId, options)
-            }
-            onExportPdf={(options) =>
-              downloadAdminOrgInboxThreadSummaryPdf(conversationId, options)
-            }
-          />
+          <div ref={panelRef} className="admin-thread-panel mt-4">
+            {messages.length === 0 ? (
+              <p className="text-sm text-app-muted">No messages yet.</p>
+            ) : (
+              messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`mb-3 flex flex-col ${
+                    msg.authorRole === 'ADMIN' ? 'items-end' : 'items-start'
+                  }`}
+                >
+                  <p className="text-xs text-app-muted">
+                    {msg.authorEmail} · {new Date(msg.createdAt).toLocaleString()}
+                  </p>
+                  {msg.body.trim() ? (
+                    <div
+                      className={`mt-1 max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+                        msg.authorRole === 'ADMIN'
+                          ? 'bg-sanmarino/15'
+                          : 'bg-chambray/8'
+                      } ${isPendingInboxMessage(msg.id) ? 'opacity-80' : ''}`}
+                    >
+                      <LinkifiedBody body={msg.body} />
+                    </div>
+                  ) : null}
+                  {msg.attachments?.length ? (
+                    <RequestAttachments
+                      attachments={msg.attachments}
+                      fetchDownloadUrl={fetchDownloadUrl}
+                      variant="admin"
+                      showHeading={false}
+                      className={`mt-2 max-w-[85%] ${
+                        msg.authorRole === 'ADMIN' ? 'self-end' : 'self-start'
+                      }`}
+                    />
+                  ) : null}
+                </div>
+              ))
+            )}
+            <ThreadScrollEnd ref={endRef} />
+          </div>
+          {error ? <p className="mt-2 shrink-0 text-sm text-red-600">{error}</p> : null}
+          <form onSubmit={(e) => void onSubmit(e)} className="mt-4 shrink-0 space-y-2 border-t pt-4">
+            <ResizableMessageTextarea
+              storageKey="admin-org-inbox-composer"
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              className="admin-input w-full text-sm"
+              placeholder="Reply to client…"
+            />
+            <OrgInboxAttachmentComposer
+              disabled={uploading || sendMutation.isPending}
+              pendingFiles={pendingFiles}
+              onPendingFilesChange={setPendingFiles}
+            />
+            <button
+              type="submit"
+              disabled={
+                !canSendThreadMessage(body, [], pendingFiles, uploading || sendMutation.isPending)
+              }
+              className="admin-btn-primary"
+            >
+              {uploading ? 'Uploading…' : 'Send'}
+            </button>
+          </form>
         </div>
-        <div ref={panelRef} className="admin-thread-panel mt-4">
-          {messages.length === 0 ? (
-            <p className="text-sm text-app-muted">No messages yet.</p>
-          ) : (
-            messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`mb-3 flex flex-col ${
-                  msg.authorRole === 'ADMIN' ? 'items-end' : 'items-start'
-                }`}
-              >
-                <p className="text-xs text-app-muted">
-                  {msg.authorEmail} · {new Date(msg.createdAt).toLocaleString()}
-                </p>
-                {msg.body.trim() ? (
-                  <div
-                    className={`mt-1 max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
-                      msg.authorRole === 'ADMIN'
-                        ? 'bg-sanmarino/15'
-                        : 'bg-chambray/8'
-                    } ${isPendingInboxMessage(msg.id) ? 'opacity-80' : ''}`}
-                  >
-                    <LinkifiedBody body={msg.body} />
-                  </div>
-                ) : null}
-                {msg.attachments?.length ? (
-                  <RequestAttachments
-                    attachments={msg.attachments}
-                    fetchDownloadUrl={fetchDownloadUrl}
-                    variant="admin"
-                    showHeading={false}
-                    className={`mt-2 max-w-[85%] ${
-                      msg.authorRole === 'ADMIN' ? 'self-end' : 'self-start'
-                    }`}
-                  />
-                ) : null}
-              </div>
-            ))
-          )}
-          <ThreadScrollEnd ref={endRef} />
-        </div>
-        {error ? <p className="mt-2 shrink-0 text-sm text-red-600">{error}</p> : null}
-        <form onSubmit={(e) => void onSubmit(e)} className="mt-4 shrink-0 space-y-2 border-t pt-4">
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={2}
-            className="admin-input w-full text-sm"
-            placeholder="Reply to client…"
-          />
-          <OrgInboxAttachmentComposer
-            disabled={uploading || sendMutation.isPending}
-            pendingFiles={pendingFiles}
-            onPendingFilesChange={setPendingFiles}
-          />
-          <button
-            type="submit"
-            disabled={
-              !canSendThreadMessage(body, [], pendingFiles, uploading || sendMutation.isPending)
-            }
-            className="admin-btn-primary"
-          >
-            {uploading ? 'Uploading…' : 'Send'}
-          </button>
-        </form>
-      </section>
+      </ResizableAdminThreadSurface>
     </>
   )
 }

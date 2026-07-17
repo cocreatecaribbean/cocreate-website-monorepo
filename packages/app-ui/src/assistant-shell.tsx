@@ -11,7 +11,7 @@ export type AssistantShellProps = {
   title?: string
   greeting?: string
   placeholder?: string
-  /** Extra positioning class, e.g. stack above cookie banner */
+  /** Extra positioning class, e.g. lift above TanStack Query Devtools in dev */
   positionClassName?: string
   /** Panel open/close animation mode */
   animation?: 'css' | 'gsap'
@@ -29,9 +29,9 @@ const panelClassName =
   'flex h-[min(70vh,28rem)] w-[min(calc(100vw-2rem),22rem)] flex-col overflow-hidden rounded-2xl border border-chambray/10 bg-white shadow-[0_12px_40px_rgba(57,65,154,0.18)]'
 
 const fabBaseClassName =
-  'flex h-14 w-14 items-center justify-center rounded-full bg-chambray text-casablanca shadow-[0_8px_24px_rgba(57,65,154,0.35)] transition hover:bg-sanmarino hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-casablanca'
+  'flex h-14 w-14 items-center justify-center rounded-full bg-neutral-950 text-casablanca shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition hover:bg-neutral-900 hover:text-casablanca focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-casablanca'
 
-const fabOpenClassName = 'bg-sanmarino text-white'
+const fabOpenClassName = 'bg-neutral-900 text-casablanca'
 
 function prefersReducedMotion() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches

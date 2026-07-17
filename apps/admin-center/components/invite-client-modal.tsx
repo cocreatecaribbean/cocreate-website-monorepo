@@ -124,11 +124,11 @@ export default function InviteClientModal({
       if (payload.invitation?.devSignInUrl) {
         setDevSignInUrl(payload.invitation.devSignInUrl)
         onInvited?.(
-          'Organization owner invited. Open the dev sign-in link below (no email sent).',
+          'Organization admin invited. Open the dev sign-in link below (no email sent).',
         )
       } else {
         onInvited?.(
-          'Organization owner invited. They will receive a sign-in email shortly.',
+          'Organization admin invited. They will receive a sign-in email shortly.',
         )
         onClose()
       }
@@ -165,7 +165,8 @@ export default function InviteClientModal({
               Invite client organization
             </h2>
             <p className="mt-1 text-sm text-app-muted">
-              The email below becomes the org owner (super user) for this company.
+              The email below becomes an Admin for this company (full portal access and invite
+              rights).
             </p>
           </div>
           <button

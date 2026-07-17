@@ -34,8 +34,8 @@ export class ClientBillingController {
 
   private assertOwner(request: ClientPortalRequest) {
     const client = request.clientUser!
-    if (client.clientOrgRole !== ClientOrgRole.OWNER) {
-      throw new ForbiddenException('Only organization owners can manage billing')
+    if (client.clientOrgRole !== ClientOrgRole.ADMIN) {
+      throw new ForbiddenException('Only organization admins can manage billing')
     }
     return client
   }

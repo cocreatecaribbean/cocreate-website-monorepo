@@ -59,57 +59,6 @@ export function useSendAdminRequestMessageMutation(requestId: string) {
   })
 }
 
-export function useResolveAdminRequestMutation(requestId: string, organizationId?: string) {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      fetchAdminBff(`/api/project-requests/${requestId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.requests.detail(requestId),
-      })
-      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.projects.all })
-      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.inbox.all })
-      if (organizationId) {
-        void queryClient.invalidateQueries({
-          queryKey: adminQueryKeys.clients.activity(organizationId),
-        })
-      }
-    },
-  })
-}
-
-export function useCreateCheckpointMutation(
-  projectId: string,
-  progressRequestId?: string,
-) {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      fetchAdminBff<ProjectRequestItem>(`/api/projects/${projectId}/checkpoints`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.projects.detail(projectId),
-      })
-      if (progressRequestId) {
-        void queryClient.invalidateQueries({
-          queryKey: adminQueryKeys.requests.detail(progressRequestId),
-        })
-      }
-    },
-  })
-}
-
 export function useApproveOnboardingMutation(projectId: string, organizationId?: string) {
   const queryClient = useQueryClient()
 

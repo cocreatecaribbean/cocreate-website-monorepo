@@ -72,7 +72,7 @@ export class SubscriptionService {
           where: {
             organizationId,
             role: UserRole.CLIENT,
-            clientOrgRole: ClientOrgRole.OWNER,
+            clientOrgRole: ClientOrgRole.ADMIN,
             status: { not: UserStatus.SUSPENDED },
             deletedAt: null,
           },
@@ -561,7 +561,7 @@ export class SubscriptionService {
       where: {
         organizationId,
         role: UserRole.CLIENT,
-        clientOrgRole: ClientOrgRole.OWNER,
+        clientOrgRole: ClientOrgRole.ADMIN,
         status: UserStatus.ACTIVE,
       },
       select: { email: true },

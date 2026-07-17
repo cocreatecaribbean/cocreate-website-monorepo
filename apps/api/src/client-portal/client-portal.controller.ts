@@ -37,6 +37,10 @@ import {
   UpdateUserPreferencesSchema,
   type UpdateUserPreferencesInput,
 } from '@cocreate/api-contracts/v1/requests/users'
+import {
+  SetActiveOrganizationSchema,
+  type SetActiveOrganizationInput,
+} from '@cocreate/api-contracts/v1/requests/users'
 import { zodBody } from '../common/zod/zod-validation.pipe'
 import { TenantScopeInterceptor } from '../prisma/tenant-scope.interceptor'
 import { ClientPortalService } from './client-portal.service'
@@ -172,8 +176,8 @@ export class ClientPortalController {
 
   @Get('social-listening/reports/templates')
   @UseGuards(ClientAuthGuard)
-  socialListeningReportTemplates() {
-    return this.socialListeningReports.listTemplates()
+  socialListeningReportTemplates(@Req() request: ClientPortalRequest) {
+    return this.socialListeningReports.listTemplatesForClient(request.clientUser!)
   }
 
   @Post('social-listening/reports/generate')
@@ -240,11 +244,30 @@ export class ClientPortalController {
   }
 
   @Post('session/sync')
-  syncSession(@Body() body: { accessToken?: string }) {
+  syncSession(
+    @Body() body: { accessToken?: string; organizationId?: string },
+  ) {
     const accessToken = body?.accessToken ?? ''
     if (!accessToken.trim()) {
       return { ok: false as const, message: 'Missing access token' }
     }
-    return this.clientPortalService.syncSession(accessToken)
+    return this.clientPortalService.syncSession(
+      accessToken,
+      body?.organizationId ?? null,
+    )
+  }
+
+  @Post('active-organization')
+  @UseGuards(ClientAuthGuard)
+  setActiveOrganization(
+    @Req() request: ClientPortalRequest,
+    @Body(zodBody(SetActiveOrganizationSchema)) body: SetActiveOrganizationInput,
+  ) {
+    const bearer = request.headers.authorization ?? ''
+    const token = bearer.startsWith('Bearer ') ? bearer.slice(7) : ''
+    return this.clientPortalService.setActiveOrganization(
+      token,
+      body.organizationId,
+    )
   }
 }

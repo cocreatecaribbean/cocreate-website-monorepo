@@ -52,6 +52,11 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Landing agency intro — fluid from ~2.3rem (phone) to ~5rem (desktop) */
+.about-text {
+  font-size: clamp(2.3rem, calc(1.6rem + 3vw), 5rem);
+}
+
 #smooth-wrapper {
   z-index: 1;
 }
@@ -102,7 +107,7 @@ body.client-portal-open #smooth-wrapper {
 @keyframes cookie-banner-enter {
   from {
     opacity: 0;
-    transform: translate(12px, 12px);
+    transform: translate(-12px, 12px);
   }
   to {
     opacity: 1;

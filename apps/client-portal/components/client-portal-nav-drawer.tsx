@@ -5,7 +5,6 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { LayoutDashboard, Radio, Sparkles, X, type LucideIcon } from 'lucide-react'
 import NavTooltip from '@cocreate/app-ui/nav-tooltip'
 import ControlCenterAttentionLink from '@/components/control-center/control-center-attention-link'
-import { useUnreadApprovalsCountQuery } from '@/lib/api/queries/approvals'
 import { useOrgInboxUnreadCountQuery } from '@/lib/api/queries/inbox'
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import {
@@ -115,7 +114,19 @@ function ClientPortalNavDrawerInner({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const workspace = parseWorkspace(searchParams.get(TAB_QUERY_KEY))
+  const { permissions, canViewSocialListening, isAdmin } = usePortalPermissions()
+  const { data: profile } = usePortalProfileQuery()
+  // Entitled SL workspace (view analytics). Admins without subscription still
+  // need the nav entry for billing/subscribe UI.
+  const hasSocialListening =
+    canViewSocialListening ||
+    (hasSocialListeningProp ??
+      (profile ? resolveCanUseSocialListening(profile) : false))
+  const showSocialListeningNav =
+    hasSocialListening || isAdmin || permissions.isSocialAnalyst
+  const workspace = permissions.isSocialAnalyst
+    ? 'social-listening'
+    : parseWorkspace(searchParams.get(TAB_QUERY_KEY))
   const ccView = parseControlCenterView(searchParams.get(CONTROL_CENTER_VIEW_QUERY))
   const slView = parseSocialListeningView(searchParams.get(SOCIAL_LISTENING_VIEW_QUERY))
   const settingsOpen = isSettingsView(
@@ -123,13 +134,7 @@ function ClientPortalNavDrawerInner({
     DEFAULT_SETTINGS_NAV.id,
   )
 
-  const { canAccessTeamHub } = usePortalPermissions()
-  const { data: profile } = usePortalProfileQuery()
-  const hasSocialListening =
-    hasSocialListeningProp ??
-    (profile ? resolveCanUseSocialListening(profile) : false)
-  const ccNavItems = buildControlCenterNavItems(canAccessTeamHub)
-  const { data: unreadApprovals = 0 } = useUnreadApprovalsCountQuery()
+  const ccNavItems = buildControlCenterNavItems(permissions)
   const { data: inboxUnread = 0 } = useOrgInboxUnreadCountQuery()
 
   const workspaceLabel = organizationName?.trim() || 'Workspace'
@@ -224,20 +229,24 @@ function ClientPortalNavDrawerInner({
         Workspace
       </p>
       <nav className="mb-4 flex flex-col gap-1 border-b border-white/10 pb-4">
-        <DrawerNavButton
-          label="Control Center"
-          icon={LayoutDashboard}
-          active={workspace === 'control-center'}
-          onSelect={() => selectWorkspace('control-center')}
-          description="Projects, files, messages, and day-to-day client work"
-        />
-        <DrawerNavButton
-          label="Social Listening"
-          icon={Radio}
-          active={workspace === 'social-listening'}
-          onSelect={() => selectWorkspace('social-listening')}
-          description="Brand mentions, analytics, and listening reports"
-        />
+        {permissions.isSocialAnalyst ? null : (
+          <DrawerNavButton
+            label="Control Center"
+            icon={LayoutDashboard}
+            active={workspace === 'control-center'}
+            onSelect={() => selectWorkspace('control-center')}
+            description="Projects, files, messages, and day-to-day client work"
+          />
+        )}
+        {showSocialListeningNav ? (
+          <DrawerNavButton
+            label="Social Listening"
+            icon={Radio}
+            active={workspace === 'social-listening'}
+            onSelect={() => selectWorkspace('social-listening')}
+            description="Brand mentions, analytics, and listening reports"
+          />
+        ) : null}
       </nav>
 
       {workspace === 'control-center' ? (
@@ -253,11 +262,9 @@ function ClientPortalNavDrawerInner({
                 active={!ccSettingsActive && ccView === item.id}
                 onSelect={() => selectCcView(item.id)}
                 badge={
-                  item.id === 'approvals' && unreadApprovals > 0
-                    ? String(unreadApprovals)
-                    : item.id === 'messages' && inboxUnread > 0
-                      ? String(inboxUnread)
-                      : undefined
+                  item.id === 'messages' && inboxUnread > 0
+                    ? String(inboxUnread)
+                    : undefined
                 }
               />
             ))}

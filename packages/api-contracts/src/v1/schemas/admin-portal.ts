@@ -90,8 +90,6 @@ export const ClientProjectSummarySchema = z.object({
   createdAt: isoDateTimeString,
   updatedAt: isoDateTimeString,
   coverImageUrl: z.string().nullable().optional(),
-  pendingCheckpointCount: z.number().optional(),
-  hasPendingCheckpoint: z.boolean().optional(),
   openAdminReviewCount: z.number().optional(),
   hasOpenAdminReview: z.boolean().optional(),
   openCancellationCount: z.number().optional(),
@@ -455,8 +453,13 @@ export {
   ClientProjectStatusSchema,
   ProjectAttachmentSchema,
   ProjectAttachmentWithUsageSchema,
+  ProjectAttachmentWithReactionsSchema,
+  FileReactionsResponseSchema,
+  ProjectFileReactionKindSchema,
+  ProjectFileReactionTagSchema,
   ProjectFilesGroupSchema,
   ProjectRequestStatusSchema,
+  TopPicksResponseSchema,
 } from './shared/projects'
 
 export type {
@@ -465,8 +468,13 @@ export type {
   ClientProjectStatus,
   ProjectAttachment,
   ProjectAttachmentWithUsage,
+  ProjectAttachmentWithReactions,
+  FileReactionsResponse,
+  ProjectFileReactionKind,
+  ProjectFileReactionTag,
   ProjectFilesGroup,
   ProjectRequestStatus,
+  TopPicksResponse,
 } from './shared/projects'
 
 export const AdminAuthMeResponseSchema = z.object({

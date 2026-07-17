@@ -6,7 +6,6 @@ export const CLIENT_JOIN_INBOX = 'joinInbox'
 export const CLIENT_LEAVE_INBOX = 'leaveInbox'
 
 export const SERVER_THREAD_MESSAGE = 'thread:message'
-export const SERVER_THREAD_CHECKPOINT = 'thread:checkpoint'
 export const SERVER_THREAD_ATTACHMENT = 'thread:attachment'
 export const SERVER_THREAD_STATUS = 'thread:status'
 export const SERVER_INBOX_MESSAGE = 'inbox:message'
@@ -18,9 +17,9 @@ export type ThreadMessagePayload = {
   at: string
 }
 
-export type ThreadCheckpointPayload = {
+export type ThreadUpdatePayload = {
   requestId: string
-  reason: 'checkpoint' | 'attachment' | 'status'
+  reason: 'attachment' | 'status'
   at: string
 }
 

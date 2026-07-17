@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { FileMediaTile } from '@cocreate/app-ui/file-media-tile'
 import BrandGuidelinesSection from '@/components/brand-guidelines-section'
 import FilePreviewModal from '@/components/file-preview-modal'
 import type {
@@ -16,7 +17,7 @@ import {
 } from '@/lib/projects/fetch-project-files'
 import { removeLibraryAttachment } from '@/lib/projects/remove-library-attachment'
 import { bricolage_grot600 } from '@/styles/fonts'
-import { Download, FileText, FolderKanban, Loader2, Play, Search, Trash2, Upload } from 'lucide-react'
+import { Download, FolderKanban, Loader2, Search, Trash2, Upload } from 'lucide-react'
 
 type AdminFilesSectionProps = {
   organizationId: string
@@ -55,23 +56,16 @@ function FileRow({
   onDelete?: (file: ProjectAttachmentWithUsage) => Promise<void>
   deleting?: boolean
 }) {
-  const [thumbUrl, setThumbUrl] = useState<string | null>(null)
-  const isImage = file.mimeType.startsWith('image/')
-  const isVideo = file.mimeType.startsWith('video/')
-
-  useEffect(() => {
-    if (!isImage) return
-    void fetchDownloadUrl(file.id).then(setThumbUrl)
-  }, [fetchDownloadUrl, file.id, isImage])
+  const resolveUrl = () => fetchDownloadUrl(file.id)
 
   const openPreview = async () => {
-    const url = thumbUrl ?? (await fetchDownloadUrl(file.id))
+    const url = await resolveUrl()
     onPreview(file, url)
   }
 
   const onDownload = async (event: React.MouseEvent) => {
     event.stopPropagation()
-    const url = thumbUrl ?? (await fetchDownloadUrl(file.id))
+    const url = await resolveUrl()
     if (!url) return
     const anchor = document.createElement('a')
     anchor.href = url
@@ -91,36 +85,35 @@ function FileRow({
   }
 
   return (
-    <li className="flex flex-col gap-3 border-b border-chambray/6 px-5 py-4 last:border-0 lg:grid lg:grid-cols-[1fr_180px_110px_80px] lg:items-center lg:gap-4">
-      <button
-        type="button"
-        onClick={() => void openPreview()}
-        className="group flex min-w-0 items-center gap-3 rounded-xl px-1 py-1 text-left transition hover:bg-chambray/6"
-        aria-label={`Preview ${file.fileName}`}
-      >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-sanmarino/10 text-sanmarino">
-          {isImage && thumbUrl ? (
-            <img
-              src={thumbUrl}
-              alt={file.fileName}
-              className="h-full w-full object-cover"
-            />
-          ) : isVideo ? (
-            <Play className="h-5 w-5" aria-hidden />
-          ) : (
-            <FileText className="h-5 w-5" aria-hidden />
-          )}
-        </div>
-        <p
-          className={`truncate text-sm text-chambray underline-offset-4 transition group-hover:underline ${bricolage_grot600.className}`}
+    <li className="flex flex-col gap-3 border-b border-chambray/6 px-5 py-4 last:border-0 lg:grid lg:grid-cols-[minmax(0,1fr)_180px_auto] lg:items-center lg:gap-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <FileMediaTile
+          fileName={file.fileName}
+          mimeType={file.mimeType}
+          size="sm"
+          fetchUrl={resolveUrl}
+          onClick={() => void openPreview()}
+        />
+        <button
+          type="button"
+          onClick={() => void openPreview()}
+          className="group min-w-0 text-left"
         >
-          {file.fileName}
-        </p>
-      </button>
+          <p
+            className={`truncate text-sm text-chambray underline-offset-4 transition group-hover:underline ${bricolage_grot600.className}`}
+          >
+            {file.fileName}
+          </p>
+        </button>
+      </div>
       <p className="truncate text-xs text-app-muted">{projectTitle ?? '—'}</p>
-      <p className="text-xs text-app-muted">{formatRelativeTime(file.createdAt)}</p>
-      <div className="flex items-center justify-between gap-2 lg:justify-end">
-        <span className="text-xs text-app-muted">{formatBytes(file.sizeBytes)}</span>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 lg:justify-end">
+        <p className="whitespace-nowrap text-xs text-app-muted">
+          {formatRelativeTime(file.createdAt)}
+        </p>
+        <span className="whitespace-nowrap text-xs text-app-muted">
+          {formatBytes(file.sizeBytes)}
+        </span>
         <div className="flex items-center gap-1">
           <button
             type="button"

@@ -26,10 +26,14 @@ function ControlCenterLayoutInner({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const activeView = parseControlCenterView(searchParams.get(CONTROL_CENTER_VIEW_QUERY))
   const [projectsListKey, setProjectsListKey] = useState(0)
-  const { canAccessTeamHub } = usePortalPermissions()
-  const navItems = buildControlCenterNavItems(canAccessTeamHub)
+  const { permissions } = usePortalPermissions()
+  const navItems = buildControlCenterNavItems(permissions)
+  const requestedView = parseControlCenterView(searchParams.get(CONTROL_CENTER_VIEW_QUERY))
+  const activeView =
+    requestedView === 'settings' || navItems.some((item) => item.id === requestedView)
+      ? requestedView
+      : (navItems[0]?.id ?? 'settings')
 
   const setActiveView = useCallback(
     (view: ControlCenterViewId) => {
@@ -50,7 +54,7 @@ function ControlCenterLayoutInner({
 
   return (
     <div className="portal-sl-shell flex min-h-0 flex-1 flex-col lg:flex-row lg:gap-0">
-      <div className="hidden w-[220px] shrink-0 lg:block xl:w-[240px]">
+      <div className="hidden h-full min-h-0 w-[220px] shrink-0 lg:block xl:w-[240px]">
         <ControlCenterSidebar
           activeView={activeView}
           onSelectView={setActiveView}
@@ -58,7 +62,7 @@ function ControlCenterLayoutInner({
         />
       </div>
 
-      <div className="portal-sl-main flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="portal-sl-main flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
         <header className="mb-4 shrink-0 px-1 lg:px-2">
           <p className="portal-eyebrow">{activeMeta.label}</p>
           <p className="mt-1 text-sm text-app-muted">{activeMeta.description}</p>

@@ -1,12 +1,17 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import {
+  AttachmentPreviewChip,
+  FileMediaTile,
+} from '@cocreate/app-ui/file-media-tile'
 import type { ClientFilesLibrary, ProjectAttachment } from '@/lib/projects/api-types'
 import {
+  fetchAttachmentDownloadUrl,
   fetchProjectFiles,
   uploadProjectFiles,
 } from '@/lib/projects/fetch-projects-client'
-import { FileText, Paperclip, X } from 'lucide-react'
+import { Paperclip, X } from 'lucide-react'
 import { useDismissOnOutsideClickAndEscape } from '@/lib/use-dismiss-on-outside-click'
 
 type MessageAttachmentComposerProps = {
@@ -63,45 +68,44 @@ export default function MessageAttachmentComposer({
     }
   }
 
-  const chips: Array<{ key: string; label: string; onRemove: () => void }> = [
-    ...selectedIds.map((id) => {
-      const file =
-        libraryFiles.find((item) => item.id === id) ??
-        ({ fileName: 'Attached file' } as ProjectAttachment)
-      return {
-        key: id,
-        label: file.fileName,
-        onRemove: () => onSelectedIdsChange(selectedIds.filter((value) => value !== id)),
-      }
-    }),
-    ...pendingFiles.map((file, index) => ({
-      key: `pending-${file.name}-${index}`,
-      label: file.name,
-      onRemove: () =>
-        onPendingFilesChange(pendingFiles.filter((_, fileIndex) => fileIndex !== index)),
-    })),
-  ]
-
   const chipList =
-    chips.length > 0 ? (
-      <ul
-        className={`flex flex-wrap gap-2 ${toolbar ? 'w-full basis-full' : ''}`}
-      >
-        {chips.map((chip) => (
-          <li
-            key={chip.key}
-            className="inline-flex max-w-full items-center gap-1 rounded-full border border-chambray/10 bg-chambray/[0.03] px-2 py-1 text-xs text-chambray"
-          >
-            <span className="truncate">{chip.label}</span>
-            <button
-              type="button"
-              onClick={chip.onRemove}
-              className="rounded-full p-0.5 hover:bg-chambray/10"
-              aria-label={`Remove ${chip.label}`}
-            >
-              <X className="h-3 w-3" aria-hidden />
-            </button>
-          </li>
+    selectedIds.length > 0 || pendingFiles.length > 0 ? (
+      <ul className={`flex flex-wrap gap-2 ${toolbar ? 'w-full basis-full' : ''}`}>
+        {selectedIds.map((id) => {
+          const file =
+            libraryFiles.find((item) => item.id === id) ??
+            ({
+              id,
+              fileName: 'Attached file',
+              mimeType: 'application/octet-stream',
+            } as ProjectAttachment)
+          return (
+            <AttachmentPreviewChip
+              key={id}
+              fileName={file.fileName}
+              mimeType={file.mimeType}
+              fetchUrl={async () => {
+                const result = await fetchAttachmentDownloadUrl(id)
+                return result.url
+              }}
+              onRemove={() =>
+                onSelectedIdsChange(selectedIds.filter((value) => value !== id))
+              }
+            />
+          )
+        })}
+        {pendingFiles.map((file, index) => (
+          <AttachmentPreviewChip
+            key={`pending-${file.name}-${index}`}
+            fileName={file.name}
+            mimeType={file.type || 'application/octet-stream'}
+            localFile={file}
+            onRemove={() =>
+              onPendingFilesChange(
+                pendingFiles.filter((_, fileIndex) => fileIndex !== index),
+              )
+            }
+          />
         ))}
       </ul>
     ) : null
@@ -171,7 +175,16 @@ export default function MessageAttachmentComposer({
                       onChange={() => toggleId(file.id)}
                       className="rounded border-chambray/20"
                     />
-                    <FileText className="h-4 w-4 shrink-0 text-sanmarino" aria-hidden />
+                    <FileMediaTile
+                      fileName={file.fileName}
+                      mimeType={file.mimeType}
+                      size="sm"
+                      className="h-8 w-8"
+                      fetchUrl={async () => {
+                        const result = await fetchAttachmentDownloadUrl(file.id)
+                        return result.url
+                      }}
+                    />
                     <span className="min-w-0 truncate">{file.fileName}</span>
                   </label>
                 </li>

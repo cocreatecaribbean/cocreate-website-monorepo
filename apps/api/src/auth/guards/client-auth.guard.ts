@@ -11,6 +11,8 @@ export type ClientPortalRequest = Request & {
   clientUser?: Awaited<ReturnType<AuthService['requireClient']>>
 }
 
+const ORG_HEADER = 'x-organization-id'
+
 @Injectable()
 export class ClientAuthGuard implements CanActivate {
   constructor(private readonly authService: AuthService) {}
@@ -23,7 +25,18 @@ export class ClientAuthGuard implements CanActivate {
       throw new UnauthorizedException('Client authentication required')
     }
 
-    request.clientUser = await this.authService.requireClient(bearer.slice(7))
+    const rawOrg = request.headers[ORG_HEADER]
+    const organizationId =
+      typeof rawOrg === 'string'
+        ? rawOrg
+        : Array.isArray(rawOrg)
+          ? rawOrg[0]
+          : null
+
+    request.clientUser = await this.authService.requireClientWithFreshCapabilities(
+      bearer.slice(7),
+      { organizationId },
+    )
     return true
   }
 }

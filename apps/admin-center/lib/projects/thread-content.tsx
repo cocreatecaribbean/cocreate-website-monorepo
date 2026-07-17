@@ -1,6 +1,10 @@
 'use client'
 
-import { AttachmentPreviews } from '@cocreate/app-ui/attachment-previews'
+import type { ReactNode } from 'react'
+import {
+  AttachmentPreviews,
+  type PreviewAttachment,
+} from '@cocreate/app-ui/attachment-previews'
 import { indexAttachmentsByMessage as indexAttachmentsByMessageBase } from '@cocreate/app-ui/thread-message-merge'
 
 const URL_PATTERN = /https?:\/\/[^\s<>"']+/gi
@@ -124,6 +128,8 @@ type RequestAttachmentsProps = {
   onDeleteAttachment?: (attachmentId: string) => void | Promise<void>
   canDeleteAttachment?: (attachmentId: string) => boolean
   deletingAttachmentId?: string | null
+  renderAttachmentAction?: (attachment: PreviewAttachment) => ReactNode
+  renderAttachmentBadge?: (attachment: PreviewAttachment) => ReactNode
 }
 
 type MessageWithAttachments = {
@@ -149,6 +155,8 @@ export function RequestAttachments({
   onDeleteAttachment,
   canDeleteAttachment,
   deletingAttachmentId = null,
+  renderAttachmentAction,
+  renderAttachmentBadge,
 }: RequestAttachmentsProps) {
   return (
     <AttachmentPreviews
@@ -161,6 +169,8 @@ export function RequestAttachments({
       onDeleteAttachment={onDeleteAttachment}
       canDeleteAttachment={canDeleteAttachment}
       deletingAttachmentId={deletingAttachmentId}
+      renderAttachmentAction={renderAttachmentAction}
+      renderAttachmentBadge={renderAttachmentBadge}
     />
   )
 }

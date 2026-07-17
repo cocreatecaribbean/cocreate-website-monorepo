@@ -11,6 +11,7 @@ import * as fonts from "@/styles/fonts";
 import BackgroundVideo from "@/components/background_video";
 import MuxBackgroundVideo from "@/components/media/mux-background-video";
 import WhatWeDoAccordions from "@/components/what-we-do-accordions";
+import PhilosophyTitleLoop from "@/components/philosophy-title-loop";
 import EmblaCarousel from "@/components/emblaCarousel";
 import { philosophies } from "@/site-info/home-page-data";
 import { EmblaOptionsType } from "embla-carousel";
@@ -25,18 +26,48 @@ import {
 gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText);
 
 const OPTIONS: EmblaOptionsType = { loop: true, align: "start" };
-const FRAME_COUNT = 185;
-const IMG_WIDTH = 1920;
-const IMG_HEIGHT = 1080;
-const FILE_PATH = (index: number) =>
-  `/cocreate-graphic-anim/cocreate-home-graphic_${index}.webp`
 
-const FRAME_ASPECT = IMG_WIDTH / IMG_HEIGHT
+type SequenceKey = "landscape" | "portrait"
+
+const SEQUENCES = {
+  landscape: {
+    frameCount: 230,
+    width: 1920,
+    height: 1080,
+    path: (i: number) =>
+      `/cocreate-logo-shapes-web-anim/cocreate-logo-shape-web-anim_${i}.webp`,
+  },
+  portrait: {
+    frameCount: 175,
+    width: 1080,
+    height: 1920,
+    path: (i: number) =>
+      `/cocreate-logo-shapes-web-mobile-anim/cocreate-logo-shapes-anim-web-mobile_${i}.webp`,
+  },
+} as const
+
+/** Tailwind `xl` — full-frame cover for landscape sequence at this width and up */
+const BRAND_COVER_MIN_WIDTH = 1280
+/**
+ * Centered fraction of each 16:9 landscape frame that holds the mark (padding outside).
+ * Used below xl on landscape viewports — cover-like size, no shape crop.
+ */
+const BRAND_CONTENT_W = 0.5
+const BRAND_CONTENT_H = 0.78
 
 const INITIAL_PRELOAD_FRAMES = 28
 const INITIAL_PRELOAD_FRAMES_NATIVE = 56
 const IDLE_BATCH_SIZE = 16
 const MOBILE_BREAKPOINT = 768
+
+function getSequenceKey(): SequenceKey {
+  if (typeof window === "undefined") return "landscape"
+  return window.innerHeight > window.innerWidth ? "portrait" : "landscape"
+}
+
+function usesBrandCoverFit() {
+  return typeof window !== "undefined" && window.innerWidth >= BRAND_COVER_MIN_WIDTH
+}
 
 function scheduleIdle(cb: () => void) {
   if (typeof window === "undefined") return
@@ -72,25 +103,27 @@ function isDeepReloadRestore(): boolean {
   return y > Math.min(window.innerHeight * 0.35, 280);
 }
 
-/** px — must match Tailwind translate-y on brand_elem; mobile uses a higher (smaller y) start */
+/** Intro Y offset (px) — fluid with viewport height; short/landscape uses a lower band */
 function getBrandStartY(): number {
   if (typeof window === "undefined") return 160;
-  if (window.matchMedia("(max-width: 767px) and (orientation: landscape)").matches) {
-    return 40;
+  const vh = window.innerHeight;
+  const vw = window.innerWidth;
+  const landscape = window.matchMedia("(orientation: landscape)").matches;
+
+  if (landscape && vw < 1024) {
+    return Math.min(72, Math.max(32, vh * 0.08));
   }
-  if (window.matchMedia("(max-width: 767px)").matches) {
-    return 64;
-  }
-  if (window.matchMedia("(min-width: 1536px)").matches) {
-    return 288;
-  }
-  return 160;
+
+  const min = vw < 768 ? 48 : 88;
+  const max = vw < 768 ? 88 : 160;
+  const ratio = vw < 768 ? 0.1 : 0.12;
+  return Math.min(max, Math.max(min, vh * ratio));
 }
 
-function progressToFrameIndex(progress: number) {
+function progressToFrameIndex(progress: number, frameCount: number) {
   const frame = progress * 1.75;
-  const val = Math.round(frame * (FRAME_COUNT - 1)) + 1;
-  return Math.min(Math.max(val, 1), FRAME_COUNT);
+  const val = Math.round(frame * (frameCount - 1)) + 1;
+  return Math.min(Math.max(val, 1), frameCount);
 }
 
 export default function HomeHeroSection({
@@ -108,72 +141,82 @@ export default function HomeHeroSection({
   const hero_text = useRef<HTMLDivElement>(null);
   const vid_container = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imagesRef = useRef<HTMLImageElement[]>([]);
+  const imagesRef = useRef<Record<SequenceKey, HTMLImageElement[]>>({
+    landscape: [],
+    portrait: [],
+  });
+  const sequenceKeyRef = useRef<SequenceKey>(getSequenceKey());
   const lastRenderedFrameRef = useRef(0);
+  const lastRenderedSequenceRef = useRef<SequenceKey | null>(null);
   const canvasCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const lastPrefetchCenterRef = useRef(0);
   const heroScrollingRef = useRef(false);
   const idlePumpRef = useRef<(() => void) | null>(null);
+  const preloadCancelledRef = useRef(false);
+  const preloadNextRef = useRef<Record<SequenceKey, number>>({
+    landscape: 1,
+    portrait: 1,
+  });
 
   const [emblaApi, setEmblaApi] = useState<EmblaCarouselType | null>(null)
 
-  /** Size backing store like object-cover — 16:9, never stretch to viewport aspect */
+  /** Match canvas backing store to the CSS box (drawImage handles fit). */
   const fitCanvasForDisplay = (canvas: HTMLCanvasElement) => {
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
-    if (!w || !h) return;
+    if (!w || !h) return false;
 
     const cap = prefersNativeScroll() ? 1.25 : 2;
     const dpr = Math.min(window.devicePixelRatio || 1, cap);
-    const containerAspect = w / h;
-
-    let bw: number;
-    let bh: number;
-    if (containerAspect > FRAME_ASPECT) {
-      bw = Math.round(w * dpr);
-      bh = Math.round((w / FRAME_ASPECT) * dpr);
-    } else {
-      bh = Math.round(h * dpr);
-      bw = Math.round(h * FRAME_ASPECT * dpr);
-    }
+    const bw = Math.round(w * dpr);
+    const bh = Math.round(h * dpr);
 
     if (canvas.width !== bw || canvas.height !== bh) {
       canvas.width = bw;
       canvas.height = bh;
       canvasCtxRef.current = null;
+      return true;
     }
+    return false;
   };
 
-  const ensureImage = (index: number) => {
-    if (index < 1 || index > FRAME_COUNT) return;
-    if (imagesRef.current[index]) return;
+  const ensureImage = (index: number, key: SequenceKey = sequenceKeyRef.current) => {
+    const sequence = SEQUENCES[key];
+    if (index < 1 || index > sequence.frameCount) return;
+    if (imagesRef.current[key][index]) return;
     const img = new window.Image();
-    img.src = FILE_PATH(index);
-    imagesRef.current[index] = img;
+    img.src = sequence.path(index);
+    imagesRef.current[key][index] = img;
   };
 
   const prefetchAroundFrame = (center: number) => {
     if (center === lastPrefetchCenterRef.current) return;
     lastPrefetchCenterRef.current = center;
+    const frameCount = SEQUENCES[sequenceKeyRef.current].frameCount;
     for (let i = center - 2; i <= center + 8; i++) {
-      if (i >= 1 && i <= FRAME_COUNT) ensureImage(i);
+      if (i >= 1 && i <= frameCount) ensureImage(i);
     }
   };
 
   const renderFrame = (index: number) => {
-    if (index === lastRenderedFrameRef.current) return;
-
+    const key = sequenceKeyRef.current;
+    const sequence = SEQUENCES[key];
     const canvas = canvasRef.current;
-    const img = imagesRef.current[index];
+    const img = imagesRef.current[key][index];
     if (!canvas || !img) return;
 
     if (!img.complete) {
-      ensureImage(index);
+      ensureImage(index, key);
       img.addEventListener("load", () => renderFrame(index), { once: true });
       return;
     }
 
-    fitCanvasForDisplay(canvas);
+    const resized = fitCanvasForDisplay(canvas);
+    const sameFrame =
+      !resized &&
+      index === lastRenderedFrameRef.current &&
+      lastRenderedSequenceRef.current === key;
+    if (sameFrame) return;
 
     if (!canvasCtxRef.current) {
       canvasCtxRef.current = canvas.getContext("2d", {
@@ -184,52 +227,117 @@ export default function HomeHeroSection({
     const ctx = canvasCtxRef.current;
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const cw = canvas.width;
+    const ch = canvas.height;
+    const { width: imgW, height: imgH } = sequence;
+    ctx.clearRect(0, 0, cw, ch);
+
+    if (key === "portrait" || usesBrandCoverFit()) {
+      // Portrait 9:16 frames are authored for tall screens; landscape xl+ uses cover.
+      const scale = Math.max(cw / imgW, ch / imgH);
+      const dw = imgW * scale;
+      const dh = imgH * scale;
+      ctx.drawImage(
+        img,
+        0,
+        0,
+        imgW,
+        imgH,
+        (cw - dw) / 2,
+        (ch - dh) / 2,
+        dw,
+        dh,
+      );
+    } else {
+      // Landscape below xl: zoom to the mark (skip empty padding), contain so shapes aren’t clipped
+      const sw = imgW * BRAND_CONTENT_W;
+      const sh = imgH * BRAND_CONTENT_H;
+      const sx = (imgW - sw) / 2;
+      const sy = (imgH - sh) / 2;
+      const scale = Math.min(cw / sw, ch / sh);
+      const dw = sw * scale;
+      const dh = sh * scale;
+      ctx.drawImage(
+        img,
+        sx,
+        sy,
+        sw,
+        sh,
+        (cw - dw) / 2,
+        (ch - dh) / 2,
+        dw,
+        dh,
+      );
+    }
+
     lastRenderedFrameRef.current = index;
+    lastRenderedSequenceRef.current = key;
   };
 
-  // Batched preload — avoids 185 simultaneous decodes on cold load
-  useEffect(() => {
-    ScrollTrigger.config({ ignoreMobileResize: true });
-    let cancelled = false;
+  const startPreloadForSequence = (
+    key: SequenceKey,
+    cancelled: () => boolean,
+    { autoRenderFirst = false }: { autoRenderFirst?: boolean } = {},
+  ) => {
+    const frameCount = SEQUENCES[key].frameCount;
+    const initialCount = Math.min(
+      prefersNativeScroll() ? INITIAL_PRELOAD_FRAMES_NATIVE : INITIAL_PRELOAD_FRAMES,
+      frameCount,
+    );
 
-    const initialCount = prefersNativeScroll()
-      ? INITIAL_PRELOAD_FRAMES_NATIVE
-      : INITIAL_PRELOAD_FRAMES;
-
-    ensureImage(1);
-    const first = imagesRef.current[1];
-    if (first) {
-      first.onload = () => {
-        if (cancelled || getReloadScrollY() != null) return;
+    ensureImage(1, key);
+    const first = imagesRef.current[key][1];
+    if (autoRenderFirst && first && key === sequenceKeyRef.current) {
+      const onFirstLoad = () => {
+        if (cancelled() || getReloadScrollY() != null) return;
+        if (sequenceKeyRef.current !== key) return;
         renderFrame(1);
       };
+      if (first.complete) onFirstLoad();
+      else first.addEventListener("load", onFirstLoad, { once: true });
     }
 
     for (let i = 2; i <= initialCount; i++) {
-      ensureImage(i);
+      ensureImage(i, key);
     }
 
-    let next = initialCount + 1;
+    preloadNextRef.current[key] = Math.max(preloadNextRef.current[key], initialCount + 1);
+
     const pump = () => {
-      if (cancelled || next > FRAME_COUNT) return;
+      if (cancelled()) return;
+      const activeKey = sequenceKeyRef.current;
+      const activeCount = SEQUENCES[activeKey].frameCount;
+      let next = preloadNextRef.current[activeKey];
+      if (next > activeCount) return;
       if (heroScrollingRef.current) {
         scheduleIdle(pump);
         return;
       }
-      const end = Math.min(next + IDLE_BATCH_SIZE - 1, FRAME_COUNT);
+      const end = Math.min(next + IDLE_BATCH_SIZE - 1, activeCount);
       for (let i = next; i <= end; i++) {
-        ensureImage(i);
+        ensureImage(i, activeKey);
       }
       next = end + 1;
-      if (next <= FRAME_COUNT) scheduleIdle(pump);
+      preloadNextRef.current[activeKey] = next;
+      if (next <= activeCount) scheduleIdle(pump);
     };
     idlePumpRef.current = pump;
     scheduleIdle(pump);
+  };
+
+  // Batched preload — avoids many simultaneous decodes on cold load
+  useEffect(() => {
+    ScrollTrigger.config({ ignoreMobileResize: true });
+    preloadCancelledRef.current = false;
+    sequenceKeyRef.current = getSequenceKey();
+    startPreloadForSequence(
+      sequenceKeyRef.current,
+      () => preloadCancelledRef.current,
+      { autoRenderFirst: true },
+    );
 
     return () => {
-      cancelled = true;
+      preloadCancelledRef.current = true;
       idlePumpRef.current = null;
     };
   }, []);
@@ -243,6 +351,10 @@ export default function HomeHeroSection({
       let h1_text_split: SplitText | null = null;
       let about_text_split: SplitText | null = null;
       let headlineTween: gsap.core.Tween | null = null;
+      let headlineFitTimer: ReturnType<typeof setTimeout> | undefined;
+      let onHeadlineResize: (() => void) | undefined;
+      let brandYResizeTimer: ReturnType<typeof setTimeout> | undefined;
+      let onBrandYResize: (() => void) | undefined;
 
       const ctx = gsap.context(() => {
       if (prefersReducedMotion()) {
@@ -259,7 +371,9 @@ export default function HomeHeroSection({
         gsap.set(".what-we-do", { scale: 1 });
         gsap.set(".accordion-item", { opacity: 1, xPercent: 0 });
 
-        const first = imagesRef.current[1];
+        const key = sequenceKeyRef.current;
+        ensureImage(1, key);
+        const first = imagesRef.current[key][1];
         if (first?.complete) renderFrame(1);
         else if (first) first.onload = () => renderFrame(1);
 
@@ -270,19 +384,14 @@ export default function HomeHeroSection({
       const breakpoint = MOBILE_BREAKPOINT;
       const nativeScroll = prefersNativeScroll();
 
-      /** Float animation fights pin scrub on native touch scroll — desktop only */
+      /** Float only when idle near pin start — pause while scrubbing (incl. native touch) */
       const setBrandFloatActive = (active: boolean) => {
-        if (nativeScroll) return;
         const canvas = canvasRef.current;
         if (!canvas) return;
         canvas.classList.toggle("animate-float", active);
       };
 
-      if (!nativeScroll) {
-        setBrandFloatActive(true);
-      } else {
-        canvasRef.current?.classList.remove("animate-float");
-      }
+      setBrandFloatActive(true);
 
       let heroScrollEndTimer: ReturnType<typeof setTimeout> | undefined;
       const markHeroScrolling = () => {
@@ -328,6 +437,36 @@ export default function HomeHeroSection({
 
       splitTextGradient(h1_text_split);
 
+      const fitHeroHeadline = () => {
+        const box = hero_text.current?.parentElement
+        const words = h1_text_split?.words
+        if (!box || !words?.length) return
+
+        // Prefer the authored clamp — only shrink when a word overflows the box.
+        box.style.fontSize = ""
+        const available = box.clientWidth
+        if (available <= 0) return
+
+        let widest = 0
+        for (const word of words) {
+          widest = Math.max(widest, (word as HTMLElement).getBoundingClientRect().width)
+        }
+        if (widest <= available + 0.5) return
+
+        const current = parseFloat(getComputedStyle(box).fontSize)
+        if (!Number.isFinite(current) || current <= 0) return
+        box.style.fontSize = `${(current * available) / widest}px`
+      }
+
+      fitHeroHeadline()
+      void document.fonts?.ready.then(fitHeroHeadline)
+
+      onHeadlineResize = () => {
+        if (headlineFitTimer) clearTimeout(headlineFitTimer)
+        headlineFitTimer = setTimeout(fitHeroHeadline, 100)
+      }
+      window.addEventListener("resize", onHeadlineResize)
+
       // ─── Intro Animation ────────────────────────────────────────────────────
 
       headlineTween = gsap.from(h1_text_split.words, {
@@ -360,12 +499,55 @@ export default function HomeHeroSection({
       mainTimeline
         .fromTo(
           brand_elem.current,
-          { y: getBrandStartY() },
+          { y: () => getBrandStartY() },
           { y: 0, duration: 3 },
         )
         .to(hero_text.current, { opacity: 0, duration: 1 }, "-=0.5")
         .to(vid_container.current, { scale: 1, duration: 1 })
         .to({}, { duration: 1 });
+
+      const syncBrandStartY = () => {
+        const st = ScrollTrigger.getById("home-hero-pin");
+        if (!st || st.progress >= 0.02) return;
+        mainTimeline.invalidate();
+        gsap.set(brand_elem.current, { y: getBrandStartY() });
+        mainTimeline.progress(st.progress);
+      };
+
+      onBrandYResize = () => {
+        if (brandYResizeTimer) clearTimeout(brandYResizeTimer);
+        brandYResizeTimer = setTimeout(() => {
+          syncBrandStartY();
+          const nextKey = getSequenceKey();
+          const st = ScrollTrigger.getById("home-hero-pin");
+
+          if (nextKey !== sequenceKeyRef.current) {
+            sequenceKeyRef.current = nextKey;
+            lastPrefetchCenterRef.current = 0;
+            lastRenderedFrameRef.current = 0;
+            lastRenderedSequenceRef.current = null;
+            startPreloadForSequence(nextKey, () => preloadCancelledRef.current);
+
+            const frame = st
+              ? progressToFrameIndex(st.progress, SEQUENCES[nextKey].frameCount)
+              : 1;
+            ensureImage(frame, nextKey);
+            prefetchAroundFrame(frame);
+            renderFrame(frame);
+            return;
+          }
+
+          const frameCount = SEQUENCES[sequenceKeyRef.current].frameCount;
+          const frame = st
+            ? progressToFrameIndex(st.progress, frameCount)
+            : Math.min(Math.max(lastRenderedFrameRef.current || 1, 1), frameCount);
+          lastRenderedFrameRef.current = 0;
+          lastRenderedSequenceRef.current = null;
+          renderFrame(frame);
+        }, 100);
+      };
+      window.addEventListener("resize", onBrandYResize);
+      window.addEventListener("orientationchange", onBrandYResize);
 
       const whatWeDoTimeline = gsap.timeline();
       whatWeDoTimeline
@@ -393,7 +575,8 @@ export default function HomeHeroSection({
       };
 
       const scheduleFrameFromProgress = (progress: number, coalesce: boolean) => {
-        const safeIndex = progressToFrameIndex(progress);
+        const frameCount = SEQUENCES[sequenceKeyRef.current].frameCount;
+        const safeIndex = progressToFrameIndex(progress, frameCount);
         if (!coalesce || safeIndex !== lastRenderedFrameRef.current) {
           prefetchAroundFrame(safeIndex);
         }
@@ -444,7 +627,7 @@ export default function HomeHeroSection({
             pinType: isMobile && nativeScroll ? "fixed" : "transform",
             anticipatePin: isMobile && nativeScroll ? 0 : 1,
             fastScrollEnd: !(isMobile && nativeScroll),
-            invalidateOnRefresh: isMobile && nativeScroll,
+            invalidateOnRefresh: true,
             onLeaveBack: () => setBrandFloatActive(true),
             onUpdate: (self) => {
               if (isMobile && nativeScroll) markHeroScrolling();
@@ -467,8 +650,8 @@ export default function HomeHeroSection({
             id: "home-what-we-do",
             animation: whatWeDoTimeline,
             trigger: ".what-we-do",
-            start: isMobile ? "top 170%" : "top 150%",
-            end: isMobile ? "top 70%" : "top 40%",
+            start: isMobile ? "top 195%" : "top 175%",
+            end: isMobile ? "top 95%" : "top 65%",
             scrub: true,
           });
 
@@ -480,7 +663,10 @@ export default function HomeHeroSection({
             pendingFrame = null;
             rafScheduled = false;
             lastRenderedFrameRef.current = 0;
+            lastRenderedSequenceRef.current = null;
             lastPrefetchCenterRef.current = 0;
+            sequenceKeyRef.current = getSequenceKey();
+            ensureImage(1);
 
             const st = ScrollTrigger.getById("home-hero-pin");
             if (st) {
@@ -531,6 +717,15 @@ export default function HomeHeroSection({
       }, mainRef);
 
       return () => {
+        if (headlineFitTimer) clearTimeout(headlineFitTimer);
+        if (onHeadlineResize) {
+          window.removeEventListener("resize", onHeadlineResize);
+        }
+        if (brandYResizeTimer) clearTimeout(brandYResizeTimer);
+        if (onBrandYResize) {
+          window.removeEventListener("resize", onBrandYResize);
+          window.removeEventListener("orientationchange", onBrandYResize);
+        }
         headlineTween?.kill();
         headlineTween = null;
         if (h1_text_split) gsap.killTweensOf(h1_text_split.words);
@@ -594,31 +789,31 @@ export default function HomeHeroSection({
     <div ref={mainRef} className="opacity-0">
       <section
         ref={container}
-        className="grid grid-cols-1 grid-rows-1 w-svw h-svh justify-start content-start items-start overflow-hidden"
+        className="grid grid-cols-1 grid-rows-1 w-svw h-svh justify-start content-start items-start"
       >
         <h1
           className={`
             text-[clamp(3rem,5vw,7rem)] md:text-[clamp(4rem,5vw,7rem)]
-            leading-none uppercase w-[90%] sm:w-[65%] md:w-[70%] lg:w-[70%] 2xl:w-[65%] 3xl:w-[60%]
-            mx-auto pt-60 landscape:pt-20 landscape:lg:pt-48 landscape:xl:pt-72 landscape:2xl:pt-90 overflow-hidden
-            col-span-1 col-start-1 row-span-1 row-start-1 text-center
+            leading-none uppercase w-[calc(100svw-1.5rem)] sm:w-[65%] md:w-[70%] lg:w-[70%] 2xl:w-[65%] 3xl:w-[60%]
+            mx-auto pt-60 landscape:pt-20 landscape:lg:pt-48 landscape:xl:pt-72 landscape:2xl:pt-90
+            col-span-1 col-start-1 row-span-1 row-start-1 text-center overflow-visible
             ${fonts.bricolage_grot800.className}
           `}
         >
-          <div ref={hero_text} className="headline-text">
+          <span ref={hero_text} className="headline-text block">
             Transforming Caribbean <span className={`${fonts.alkatra600.className}`}>Creativity</span> into Global Impact.
-          </div>
+          </span>
         </h1>
 
         <div
           ref={brand_elem}
-          className="w-screen h-screen mx-auto z-10 col-span-1 col-start-1 row-span-1 row-start-1"
+          className="w-screen h-screen mx-auto z-10 col-span-1 col-start-1 row-span-1 row-start-1 overflow-hidden"
         >
           <canvas
             ref={canvasRef}
-            width={IMG_WIDTH}
-            height={IMG_HEIGHT}
-            className="w-full h-full object-cover md:will-change-transform md:animate-float"
+            width={SEQUENCES.landscape.width}
+            height={SEQUENCES.landscape.height}
+            className="w-full h-full will-change-transform"
           />
         </div>
 
@@ -639,9 +834,6 @@ export default function HomeHeroSection({
           <p
             key={agencyIntro}
             className={`about-text
-              text-[clamp(2.3rem,4vw,4rem)]
-              xl:text-[clamp(2rem,4vw,6rem)]
-              3xl:text-[clamp(2rem,5vw,6rem)]
               leading-normal
               pl-4 pr-6 pt-20 pb-32
               md:pl-20 md:pr-48
@@ -666,11 +858,9 @@ export default function HomeHeroSection({
       </section>
 
       <section className="@container mb-20 flex w-svw flex-col gap-20 md:mb-20 lg:flex-row lg:mb-28 xl:mb-36">
-        <div className={`@container tracking-normal w-[60%] lg:w-[45%] mx-auto flex-1 2xl:translate-y-20 3xl:translate-y-40 ${fonts.bricolage_grot500.className}`}>
-          <div className="flex flex-col gap-y-10 w-[80cqw] lg:w-[75cqw] xl:w-[70cqw] 3xl:w-[55cqw] mx-auto">
-            <h2 className="philosophy-header h-fit leading-none text-center lg:text-left text-[clamp(2rem,3vw,4rem)] ">
-              Our<br />Philosophy
-            </h2>
+        <div className={`@container tracking-normal w-full max-w-[min(100%,24rem)] px-4 sm:max-w-none sm:w-[60%] sm:px-0 lg:w-[45%] mx-auto flex-1 2xl:translate-y-20 3xl:translate-y-40 ${fonts.bricolage_grot500.className}`}>
+          <div className="flex flex-col gap-y-10 w-full lg:w-[75cqw] xl:w-[70cqw] 3xl:w-[55cqw] mx-auto min-w-0">
+            <PhilosophyTitleLoop />
             <p className="philosophy-text text-center lg:text-left text-[clamp(1rem,1vw,1.5rem)] ">
             We focus on four(4) key pillars to consistently deliver superior results for our clients. Having a proven framework gives us the freedom to inject new creative breadth with fresh perspectives into every project.
             </p>

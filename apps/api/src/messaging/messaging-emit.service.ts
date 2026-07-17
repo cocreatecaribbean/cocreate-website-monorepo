@@ -3,7 +3,6 @@ import type { Server } from 'socket.io'
 import {
   SERVER_INBOX_MESSAGE,
   SERVER_THREAD_ATTACHMENT,
-  SERVER_THREAD_CHECKPOINT,
   SERVER_THREAD_MESSAGE,
   SERVER_THREAD_STATUS,
   inboxRoom,
@@ -32,15 +31,6 @@ export class MessagingEmitService {
       at: new Date().toISOString(),
     })
     this.logger.debug(`thread:message ${requestId}`)
-  }
-
-  emitThreadCheckpoint(requestId: string): void {
-    if (!this.server) return
-    this.server.to(threadRoom(requestId)).emit(SERVER_THREAD_CHECKPOINT, {
-      requestId,
-      reason: 'checkpoint',
-      at: new Date().toISOString(),
-    })
   }
 
   emitThreadAttachment(requestId: string): void {

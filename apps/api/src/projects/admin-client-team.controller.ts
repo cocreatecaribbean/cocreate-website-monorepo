@@ -12,10 +12,14 @@ import {
 } from '@nestjs/common'
 import { ClientTeamInviteRequestStatus } from '@cocreate/database'
 import {
+  AddProjectMemberSchema,
+  type AddProjectMemberInput,
   InviteTeamMemberSchema,
   type InviteTeamMemberInput,
   RejectTeamInviteSchema,
   type RejectTeamInviteInput,
+  TransferProjectOwnershipSchema,
+  type TransferProjectOwnershipInput,
   UpdateTeamMemberSchema,
   type UpdateTeamMemberInput,
 } from '@cocreate/api-contracts/v1/requests/projects'
@@ -112,5 +116,35 @@ export class AdminClientTeamController {
       requestId,
       body,
     )
+  }
+
+  @Get('projects/:projectId/members')
+  listProjectMembers(@Param('projectId') projectId: string) {
+    return this.team.listProjectMembersForAdmin(projectId)
+  }
+
+  @Post('projects/:projectId/members')
+  addProjectMember(
+    @Param('projectId') projectId: string,
+    @Body(zodBody(AddProjectMemberSchema)) body: AddProjectMemberInput,
+  ) {
+    return this.team.addProjectMemberAsAdmin(projectId, body)
+  }
+
+  @Delete('projects/:projectId/members/:userId')
+  removeProjectMember(
+    @Param('projectId') projectId: string,
+    @Param('userId') userId: string,
+  ) {
+    return this.team.removeProjectMemberAsAdmin(projectId, userId)
+  }
+
+  @Patch('projects/:projectId/owner')
+  transferProjectOwnership(
+    @Param('projectId') projectId: string,
+    @Body(zodBody(TransferProjectOwnershipSchema))
+    body: TransferProjectOwnershipInput,
+  ) {
+    return this.team.transferProjectOwnershipAsAdmin(projectId, body)
   }
 }

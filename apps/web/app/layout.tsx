@@ -36,6 +36,9 @@ export const metadata: Metadata = {
     shortcut: "/favicon.ico",
     apple: "/favicon.ico",
   },
+  other: {
+    "format-detection": "telephone=no, date=no, email=no, address=no",
+  },
 };
 
 export default async function RootLayout({

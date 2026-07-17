@@ -36,6 +36,11 @@ export const UpdateClientProfileSchema = z.object({
 })
 export type UpdateClientProfileInput = z.infer<typeof UpdateClientProfileSchema>
 
+export const SetActiveOrganizationSchema = z.object({
+  organizationId: z.string().min(1),
+})
+export type SetActiveOrganizationInput = z.infer<typeof SetActiveOrganizationSchema>
+
 export const CreateProfileOptionSchema = z.object({
   label: z.string().max(120),
   sortOrder: z.number().int().min(0).optional(),

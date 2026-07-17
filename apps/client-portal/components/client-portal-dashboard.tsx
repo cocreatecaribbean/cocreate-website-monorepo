@@ -14,6 +14,7 @@ import { SOCIAL_LISTENING_PLANS } from '@cocreate/social-listening-plans'
 import { subscribeToPlan } from '@/lib/social-listening/fetch-billing-client'
 import { CheckCircle2, Radio } from 'lucide-react'
 import NavTooltip from '@cocreate/app-ui/nav-tooltip'
+import { usePortalPermissions } from '@/lib/team/use-portal-permissions'
 
 type TabId = 'control-center' | 'social-listening'
 
@@ -33,11 +34,21 @@ const tabs: { id: TabId; label: string; shortLabel?: string; description: string
 
 const TAB_QUERY_KEY = 'tab'
 
-function parseTabFromSearch(value: string | null, ccView: string | null): TabId {
-  if (value === 'social-listening' || value === 'control-center') {
-    return value
+function parseTabFromSearch(
+  value: string | null,
+  ccView: string | null,
+  options: { isSocialAnalyst: boolean; hasSocialListening: boolean },
+): TabId {
+  if (options.isSocialAnalyst) {
+    return 'social-listening'
   }
-  if (ccView === 'social-listening') {
+  if (value === 'social-listening') {
+    return options.hasSocialListening ? 'social-listening' : 'control-center'
+  }
+  if (value === 'control-center') {
+    return 'control-center'
+  }
+  if (ccView === 'social-listening' && options.hasSocialListening) {
     return 'social-listening'
   }
   return 'control-center'
@@ -49,6 +60,7 @@ type ClientPortalDashboardProps = {
   organizationLogoUrl?: string | null
   hasSocialListening: boolean
   isOwner: boolean
+  isSocialAnalyst?: boolean
 }
 
 export default function ClientPortalDashboard(props: ClientPortalDashboardProps) {
@@ -69,20 +81,79 @@ function ClientPortalDashboardContent({
   userEmail,
   organizationName,
   organizationLogoUrl,
-  hasSocialListening,
+  hasSocialListening: hasSocialListeningProp,
   isOwner,
+  isSocialAnalyst = false,
 }: ClientPortalDashboardProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const {
+    canViewSocialListening,
+    canManageSocialListeningSetup,
+    isSocialAnalyst: liveSocialAnalyst,
+    loaded: permissionsLoaded,
+  } = usePortalPermissions()
+  const isSocialAnalystLive = permissionsLoaded
+    ? Boolean(liveSocialAnalyst)
+    : isSocialAnalyst
+  // Prefer live permissions so Team toggles update without a full page reload.
+  const hasSocialListening = permissionsLoaded
+    ? canViewSocialListening
+    : hasSocialListeningProp
   const activeTab = parseTabFromSearch(
     searchParams.get(TAB_QUERY_KEY),
     searchParams.get('ccView'),
+    {
+      isSocialAnalyst: isSocialAnalystLive,
+      hasSocialListening: hasSocialListening || isOwner,
+    },
   )
+  const visibleTabs = tabs.filter((tab) => {
+    if (tab.id === 'control-center') return !isSocialAnalystLive
+    if (tab.id === 'social-listening') {
+      // Viewers never see this tab (hasSocialListening is false for them).
+      // Admins can open it to subscribe; Contributors only when entitled.
+      if (isSocialAnalystLive) return true
+      return hasSocialListening || isOwner
+    }
+    return true
+  })
+  const showTabList = visibleTabs.length > 1
   const [billingNotice, setBillingNotice] = useState<string | null>(null)
   const [socialListeningAnalytics, setSocialListeningAnalytics] =
     useState<SocialListeningAnalyticsPayload | null>(null)
   const [socialListeningLoading, setSocialListeningLoading] = useState(false)
+
+  useEffect(() => {
+    if (!isSocialAnalystLive) return
+    const current = searchParams.get(TAB_QUERY_KEY)
+    if (current === 'social-listening') return
+    const params = new URLSearchParams(searchParams.toString())
+    params.set(TAB_QUERY_KEY, 'social-listening')
+    params.delete('ccView')
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }, [isSocialAnalystLive, pathname, router, searchParams])
+
+  // Kick Contributors off Social Listening when their toggle is turned off.
+  useEffect(() => {
+    if (!permissionsLoaded || isOwner || isSocialAnalystLive) return
+    if (hasSocialListening) return
+    if (searchParams.get(TAB_QUERY_KEY) !== 'social-listening') return
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete(TAB_QUERY_KEY)
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }, [
+    hasSocialListening,
+    isOwner,
+    isSocialAnalystLive,
+    pathname,
+    permissionsLoaded,
+    router,
+    searchParams,
+  ])
 
   useEffect(() => {
     if (activeTab !== 'social-listening' || !hasSocialListening || socialListeningAnalytics) {
@@ -180,22 +251,23 @@ function ClientPortalDashboardContent({
           ) : null}
         </p>
 
-        <div
-          className="portal-surface mt-8 hidden w-full max-w-full flex-col gap-0.5 p-1 lg:inline-flex lg:w-auto lg:flex-row"
-          role="tablist"
-          aria-label="Portal sections"
-        >
-          {tabs.map((tab) => {
-            const selected = activeTab === tab.id
-            return (
-              <NavTooltip key={tab.id} description={tab.description} side="top">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={selected}
-                  onClick={() => setActiveTab(tab.id)}
-                  id={`portal-tab-${tab.id}`}
-                  className={`
+        {showTabList ? (
+          <div
+            className="portal-surface mt-8 hidden w-full max-w-full flex-col gap-0.5 p-1 lg:inline-flex lg:w-auto lg:flex-row"
+            role="tablist"
+            aria-label="Portal sections"
+          >
+            {visibleTabs.map((tab) => {
+              const selected = activeTab === tab.id
+              return (
+                <NavTooltip key={tab.id} description={tab.description} side="top">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setActiveTab(tab.id)}
+                    id={`portal-tab-${tab.id}`}
+                    className={`
                   portal-sl-nav-item rounded-[1.25rem] px-4 py-2.5 text-sm transition sm:px-6
                   ${bricolage_grot600.className}
                   ${
@@ -204,14 +276,15 @@ function ClientPortalDashboardContent({
                       : 'text-app-muted hover:text-chambray dark:hover:text-white'
                   }
                 `}
-                >
-                  <span className="sm:hidden">{tab.shortLabel ?? tab.label}</span>
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </button>
-              </NavTooltip>
-            )
-          })}
-        </div>
+                  >
+                    <span className="sm:hidden">{tab.shortLabel ?? tab.label}</span>
+                    <span className="hidden sm:inline">{tab.label}</span>
+                  </button>
+                </NavTooltip>
+              )
+            })}
+          </div>
+        ) : null}
 
         <div className="mt-6" role="tabpanel">
           {activeTab === 'control-center' ? (
@@ -228,6 +301,7 @@ function ClientPortalDashboardContent({
                 initialAnalytics={socialListeningAnalytics}
                 organizationName={organizationName}
                 organizationLogoUrl={organizationLogoUrl}
+                showSetup={canManageSocialListeningSetup}
                 renderSettingsPanel={() => <PortalSettingsPanel />}
               />
             </>
@@ -261,7 +335,7 @@ function SocialListeningSubscribePanel({
 
   const onRequestPlan = async (planId: string) => {
     if (!isOwner) {
-      setMessage('Only your organization owner can subscribe.')
+      setMessage('Only your organization admin can subscribe.')
       return
     }
     setSubmittingPlan(planId)

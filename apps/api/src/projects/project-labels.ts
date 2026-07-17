@@ -57,10 +57,6 @@ export function getActivitySummary(
       return `${who} updated a request (${String(metadata?.status ?? 'updated')})`
     case 'attachment.uploaded':
       return `${who} uploaded a file`
-    case 'checkpoint.sent':
-      return `${who} sent a checkpoint for client review`
-    case 'checkpoint.approved':
-      return `${who} approved a checkpoint`
     case 'request.cancellation_requested':
       return 'Client requested project cancellation'
     case 'cover.updated':
@@ -76,8 +72,6 @@ export const RECENT_ACTIVITY_ACTIONS = [
   'project.approved',
   'project.completed',
   'project.updated',
-  'checkpoint.sent',
-  'checkpoint.approved',
   'request.cancellation_requested',
   'request.updated',
   'attachment.uploaded',
@@ -99,8 +93,6 @@ export function getActivityHref(
   }
 
   const threadActions = new Set([
-    'checkpoint.sent',
-    'checkpoint.approved',
     'request.cancellation_requested',
     'request.updated',
     'attachment.uploaded',
@@ -118,8 +110,6 @@ export const CLIENT_RECENT_ACTIVITY_ACTIONS = [
   'project.approved',
   'project.completed',
   'project.submitted',
-  'checkpoint.sent',
-  'checkpoint.approved',
   'attachment.uploaded',
 ] as const
 
@@ -139,12 +129,6 @@ export function getClientActivitySummary(
       return 'Your project was onboarded and is active'
     case 'project.completed':
       return `${team} marked this project complete`
-    case 'checkpoint.sent':
-      return 'Progress check ready for your review'
-    case 'checkpoint.approved':
-      return metadata?.approvedByClient
-        ? 'You approved a progress check'
-        : `${who} approved a progress check`
     case 'attachment.uploaded':
       return `${who} shared a file on this project`
     default:
@@ -157,15 +141,5 @@ export function getClientActivityHref(
   projectId: string,
   metadata?: Record<string, unknown> | null,
 ): string {
-  const requestId =
-    typeof metadata?.requestId === 'string' && metadata.requestId.length > 0
-      ? metadata.requestId
-      : null
-
-  const checkpointActions = new Set(['checkpoint.sent', 'checkpoint.approved'])
-  if (requestId && checkpointActions.has(action)) {
-    return `/?ccView=approvals&requestId=${encodeURIComponent(requestId)}`
-  }
-
   return `/?ccView=projects&projectId=${encodeURIComponent(projectId)}`
 }

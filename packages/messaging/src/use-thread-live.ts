@@ -2,15 +2,17 @@
 
 import { useEffect, useRef } from 'react'
 import { useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
-import { mergeThreadMessagesListWithCache } from '@cocreate/app-ui/thread-messages-list-cache'
-import { appendThreadMessageToListCache, invalidateThreadMessagesList } from '@cocreate/app-ui/thread-messages-list-cache'
+import {
+  appendThreadMessageToListCache,
+  mergeThreadMessagesListWithCache,
+  type MatchPendingThreadMessage,
+} from '@cocreate/app-ui/thread-messages-list-cache'
 import { threadQueryOptions } from '@cocreate/app-ui/thread-live-query'
 import {
   SERVER_THREAD_ATTACHMENT,
-  SERVER_THREAD_CHECKPOINT,
   SERVER_THREAD_MESSAGE,
   SERVER_THREAD_STATUS,
-  type ThreadCheckpointPayload,
+  type ThreadUpdatePayload,
   type ThreadMessagePayload,
 } from './events'
 import { useMessagingContext } from './messaging-provider'
@@ -36,12 +38,20 @@ export function useThreadLive<T extends { id: string; createdAt?: string }>(
     fetchMessages: (requestId: string) => Promise<T[]>
     invalidateQueryKeys?: QueryKey[]
     onThreadUpdate?: () => void
+    /** Fired when a thread attachment event arrives (reactions, file changes). */
+    onAttachmentUpdate?: () => void
+    /** Replace a matching optimistic pending message instead of appending a duplicate. */
+    matchPendingMessage?: MatchPendingThreadMessage<T>
   },
 ) {
   const queryClient = useQueryClient()
   const { config, connected, joinThread, leaveThread, subscribe } = useMessagingContext()
   const onUpdateRef = useRef(options.onThreadUpdate)
   onUpdateRef.current = options.onThreadUpdate
+  const onAttachmentUpdateRef = useRef(options.onAttachmentUpdate)
+  onAttachmentUpdateRef.current = options.onAttachmentUpdate
+  const matchPendingRef = useRef(options.matchPendingMessage)
+  matchPendingRef.current = options.matchPendingMessage
   const keysRef = useRef(options.invalidateQueryKeys)
   keysRef.current = options.invalidateQueryKeys
   const fetchMessagesRef = useRef(options.fetchMessages)
@@ -117,7 +127,12 @@ export function useThreadLive<T extends { id: string; createdAt?: string }>(
       if (payload.requestId !== requestId || !payload.message) return
 
       const key = configRef.current.threadMessagesQueryKey(requestId)
-      appendThreadMessageToListCache(queryClient, key, payload.message as T)
+      appendThreadMessageToListCache(
+        queryClient,
+        key,
+        payload.message as T,
+        matchPendingRef.current,
+      )
 
       if (process.env.NODE_ENV === 'development') {
         const count = queryClient.getQueryData<T[]>(key)?.length ?? 0
@@ -129,21 +144,15 @@ export function useThreadLive<T extends { id: string; createdAt?: string }>(
       }
     })
 
-    const unsubCheckpoint = subscribe(SERVER_THREAD_CHECKPOINT, (raw) => {
-      const payload = raw as ThreadCheckpointPayload
-      if (payload.requestId !== requestId) return
-      invalidateThreadMessagesList(queryClient, configRef.current.threadMessagesQueryKey(requestId))
-      invalidateNonMessageKeys()
-    })
-
     const unsubAttachment = subscribe(SERVER_THREAD_ATTACHMENT, (raw) => {
-      const payload = raw as ThreadCheckpointPayload
+      const payload = raw as ThreadUpdatePayload
       if (payload.requestId !== requestId) return
       invalidateNonMessageKeys()
+      onAttachmentUpdateRef.current?.()
     })
 
     const unsubStatus = subscribe(SERVER_THREAD_STATUS, (raw) => {
-      const payload = raw as ThreadCheckpointPayload
+      const payload = raw as ThreadUpdatePayload
       if (payload.requestId !== requestId) return
       scheduleInvalidate()
     })
@@ -151,7 +160,6 @@ export function useThreadLive<T extends { id: string; createdAt?: string }>(
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer)
       unsubMessage()
-      unsubCheckpoint()
       unsubAttachment()
       unsubStatus()
       leaveThread(requestId)

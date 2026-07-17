@@ -3,9 +3,7 @@ import { emailString, isoDateString, uuidString } from '../../zod/common'
 import {
   CancellationOutcomeSchema,
   ClientOrgRoleSchema,
-  ClientProjectAccessLevelSchema,
   ProjectAttachmentVisibilitySchema,
-  ProjectRequestStatusSchema,
 } from '../../zod/enums'
 import {
   ClientProjectPhaseSchema,
@@ -29,9 +27,6 @@ export const CreateChangeRequestSchema = z.object({
   description: z.string().min(1).max(10000),
 })
 export type CreateChangeRequestInput = z.infer<typeof CreateChangeRequestSchema>
-
-export const CreateReviewRequestSchema = CreateChangeRequestSchema
-export type CreateReviewRequestInput = CreateChangeRequestInput
 
 export const CreateCancellationRequestSchema = z.object({
   reason: z.string().max(8000).optional(),
@@ -57,11 +52,6 @@ export const CreateRequestMessageSchema = z
   )
 export type CreateRequestMessageInput = z.infer<typeof CreateRequestMessageSchema>
 
-export const UpdateRequestSchema = z.object({
-  status: ProjectRequestStatusSchema,
-})
-export type UpdateRequestInput = z.infer<typeof UpdateRequestSchema>
-
 export const ResolveCancellationSchema = z.object({
   outcome: CancellationOutcomeSchema,
   feeAmount: z.number().min(0).optional(),
@@ -77,36 +67,10 @@ export const UploadUrlSchema = z.object({
 })
 export type UploadUrlInput = z.infer<typeof UploadUrlSchema>
 
-export const StagedCheckpointAttachmentSchema = UploadUrlSchema.extend({
+export const StagedAttachmentSchema = UploadUrlSchema.extend({
   storagePath: z.string().min(1).max(512),
 })
-export type StagedCheckpointAttachmentInput = z.infer<
-  typeof StagedCheckpointAttachmentSchema
->
-
-export const CreateCheckpointSchema = z
-  .object({
-    title: z.string().max(200),
-    body: z.string().max(8000),
-    reviewUrl: z.string().url().max(2048).optional(),
-    targetPhase: ClientProjectPhaseSchema.optional(),
-    attachments: z.array(StagedCheckpointAttachmentSchema).optional(),
-    attachmentIds: z.array(z.string()).optional(),
-  })
-  .refine((data) => data.title.trim().length > 0, {
-    message: 'Title is required',
-  })
-  .refine(
-    (data) =>
-      data.body.trim().length > 0 ||
-      (data.attachments?.length ?? 0) > 0 ||
-      (data.attachmentIds?.length ?? 0) > 0,
-    {
-      message:
-        'Checkpoint must include a message, staged attachments, or attachment IDs',
-    },
-  )
-export type CreateCheckpointInput = z.infer<typeof CreateCheckpointSchema>
+export type StagedAttachmentInput = z.infer<typeof StagedAttachmentSchema>
 
 export const RegisterAttachmentSchema = UploadUrlSchema.extend({
   storagePath: z.string().min(1).max(512),
@@ -114,6 +78,29 @@ export const RegisterAttachmentSchema = UploadUrlSchema.extend({
   visibility: ProjectAttachmentVisibilitySchema.optional(),
 })
 export type RegisterAttachmentInput = z.infer<typeof RegisterAttachmentSchema>
+
+export const SetFileReactionSchema = z.object({
+  kind: z.enum([
+    'LOVE_THIS',
+    'SHIP_IT',
+    'GREAT_DIRECTION',
+    'ANOTHER_VERSION',
+    'NEEDS_A_TWEAK',
+  ]),
+})
+export type SetFileReactionInput = z.infer<typeof SetFileReactionSchema>
+
+export const TopPicksQuerySchema = z.object({
+  tags: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .transform((value) => {
+      if (!value) return [] as string[]
+      const raw = Array.isArray(value) ? value : value.split(',')
+      return raw.map((tag) => tag.trim()).filter(Boolean)
+    }),
+})
+export type TopPicksQuery = z.infer<typeof TopPicksQuerySchema>
 
 export const RegisterCoverSchema = z.object({
   storagePath: z.string().max(500),
@@ -129,6 +116,7 @@ export const InviteTeamMemberSchema = z.object({
   email: emailString,
   clientOrgRole: ClientOrgRoleSchema,
   canAccessSocialListening: z.boolean().optional(),
+  canAccessGetHelp: z.boolean().optional(),
 })
 export type InviteTeamMemberInput = z.infer<typeof InviteTeamMemberSchema>
 
@@ -146,14 +134,21 @@ export type RejectTeamInviteInput = z.infer<typeof RejectTeamInviteSchema>
 export const UpdateTeamMemberSchema = z.object({
   clientOrgRole: ClientOrgRoleSchema.optional(),
   canAccessSocialListening: z.boolean().optional(),
+  canAccessGetHelp: z.boolean().optional(),
 })
 export type UpdateTeamMemberInput = z.infer<typeof UpdateTeamMemberSchema>
 
 export const AddProjectMemberSchema = z.object({
   email: emailString,
-  access: ClientProjectAccessLevelSchema,
 })
 export type AddProjectMemberInput = z.infer<typeof AddProjectMemberSchema>
+
+export const TransferProjectOwnershipSchema = z.object({
+  newOwnerUserId: uuidString,
+})
+export type TransferProjectOwnershipInput = z.infer<
+  typeof TransferProjectOwnershipSchema
+>
 
 export const InviteAgencyCollaboratorSchema = z.object({
   email: z.string().email().max(320).optional(),
@@ -197,41 +192,6 @@ export const UpdateCollaboratorProjectsSchema = z.object({
 export type UpdateCollaboratorProjectsInput = z.infer<
   typeof UpdateCollaboratorProjectsSchema
 >
-
-export const SendApprovalFilesSchema = z
-  .object({
-    title: z.string().max(200),
-    note: z.string().max(8000).optional(),
-    attachments: z.array(StagedCheckpointAttachmentSchema).optional(),
-    attachmentIds: z.array(z.string()).optional(),
-  })
-  .refine((data) => data.title.trim().length > 0, {
-    message: 'Title is required',
-  })
-  .refine(
-    (data) =>
-      (data.attachments?.length ?? 0) > 0 || (data.attachmentIds?.length ?? 0) > 0,
-    { message: 'At least one file is required for approval' },
-  )
-export type SendApprovalFilesInput = z.infer<typeof SendApprovalFilesSchema>
-
-export const RequestApprovalNeedsChangesSchema = z.object({
-  body: z.string().max(8000).optional(),
-})
-export type RequestApprovalNeedsChangesInput = z.infer<
-  typeof RequestApprovalNeedsChangesSchema
->
-
-export const AddApprovalCommentSchema = z.object({
-  body: z.string().min(1).max(8000),
-})
-export type AddApprovalCommentInput = z.infer<typeof AddApprovalCommentSchema>
-
-export const SubmitApprovalRevisionSchema = z.object({
-  attachment: StagedCheckpointAttachmentSchema,
-  note: z.string().max(8000).optional(),
-})
-export type SubmitApprovalRevisionInput = z.infer<typeof SubmitApprovalRevisionSchema>
 
 export const RemoveThreadAttachmentQuerySchema = z.object({
   messageId: z.string().min(1),

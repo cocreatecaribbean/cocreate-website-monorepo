@@ -1,12 +1,5 @@
 import { fetchAdminBff } from '@/lib/admin-api-fetch'
 
-export async function fetchInboxUnreadCount(organizationId: string): Promise<number> {
-  const data = await fetchAdminBff<{ count: number }>(
-    `/api/clients/${organizationId}/inbox/unread-count`,
-  )
-  return data.count ?? 0
-}
-
 export async function markInboxRead(
   organizationId: string,
   requestId?: string,

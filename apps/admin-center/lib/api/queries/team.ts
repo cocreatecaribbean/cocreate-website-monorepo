@@ -9,6 +9,7 @@ import {
   AdminOrgTeamListResponseSchema,
   AdminTeamInviteRequestsResponseSchema,
 } from '@cocreate/api-contracts/v1/admin-portal'
+import { ProjectMembersResponseSchema } from '@cocreate/api-contracts/v1/client-portal'
 import type {
   TeamInviteRequestSummary,
   TeamMemberSummary,
@@ -35,5 +36,21 @@ export function useClientTeamQuery(organizationId: string) {
       }
     },
     enabled: Boolean(organizationId),
+  })
+}
+
+export function useProjectClientMembersQuery(
+  organizationId: string,
+  projectId: string,
+) {
+  return useQuery({
+    queryKey: adminQueryKeys.team.projectMembers(organizationId, projectId),
+    queryFn: async () => {
+      const res = await fetchAdminBff<unknown>(
+        `/api/clients/${organizationId}/projects/${projectId}/members`,
+      )
+      return parseApiResponseSafe(ProjectMembersResponseSchema, res)
+    },
+    enabled: Boolean(organizationId && projectId),
   })
 }

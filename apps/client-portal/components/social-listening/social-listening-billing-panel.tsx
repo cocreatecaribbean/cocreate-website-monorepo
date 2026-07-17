@@ -146,7 +146,7 @@ export default function SocialListeningBillingPanel({
         </div>
       ) : (
         <p className="mt-4 text-sm text-app-muted">
-          Billing is managed by your organization owner.
+          Billing is managed by your organization admin.
         </p>
       )}
     </section>

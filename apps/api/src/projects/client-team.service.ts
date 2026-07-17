@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common'
 import {
   ClientOrgRole,
-  ClientProjectAccessLevel,
   ClientTeamInviteRequestStatus,
   PortalNotificationType,
   UserRole,
@@ -23,6 +22,7 @@ import type {
   AddProjectMemberInput,
   RequestTeamInviteInput,
   RejectTeamInviteInput,
+  TransferProjectOwnershipInput,
 } from '@cocreate/api-contracts/v1/requests/projects'
 import type {
   AssignableProjectMember,
@@ -67,34 +67,83 @@ export class ClientTeamService {
     return `${portalBase}/auth/callback`
   }
 
-  private mapTeamMember(user: {
+  private mapTeamMember(row: {
     id: string
     email: string
     status: UserStatus
     clientOrgRole: ClientOrgRole | null
     canAccessSocialListening: boolean
+    canAccessGetHelp: boolean
     createdAt: Date
     updatedAt: Date
   }): ClientTeamMember {
     return {
-      id: user.id,
-      email: user.email,
-      status: user.status,
-      clientOrgRole: user.clientOrgRole,
-      canAccessSocialListening: user.canAccessSocialListening,
-      createdAt: user.createdAt.toISOString(),
-      updatedAt: user.updatedAt.toISOString(),
+      id: row.id,
+      email: row.email,
+      status: row.status,
+      clientOrgRole: row.clientOrgRole,
+      canAccessSocialListening: row.canAccessSocialListening,
+      canAccessGetHelp: row.canAccessGetHelp,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     }
   }
 
+  private mapMembershipToTeamMember(membership: {
+    status: UserStatus
+    clientOrgRole: ClientOrgRole
+    canAccessSocialListening: boolean
+    canAccessGetHelp: boolean
+    createdAt: Date
+    updatedAt: Date
+    user: { id: string; email: string }
+  }): ClientTeamMember {
+    return this.mapTeamMember({
+      id: membership.user.id,
+      email: membership.user.email,
+      status: membership.status,
+      clientOrgRole: membership.clientOrgRole,
+      canAccessSocialListening: membership.canAccessSocialListening,
+      canAccessGetHelp: membership.canAccessGetHelp,
+      createdAt: membership.createdAt,
+      updatedAt: membership.updatedAt,
+    })
+  }
+
   private async getOrgTeam(organizationId: string) {
-    return this.prisma.user.findMany({
-      where: {
-        organizationId,
-        role: UserRole.CLIENT,
+    return this.prisma.clientOrganizationMembership.findMany({
+      where: { organizationId },
+      include: {
+        user: { select: { id: true, email: true, deletedAt: true } },
       },
       orderBy: [{ clientOrgRole: 'asc' }, { createdAt: 'asc' }],
     })
+  }
+
+  private async getOrgMembershipOrThrow(organizationId: string, userId: string) {
+    const membership = await this.prisma.clientOrganizationMembership.findUnique({
+      where: {
+        userId_organizationId: { userId, organizationId },
+      },
+      include: {
+        user: { select: { id: true, email: true, role: true, deletedAt: true } },
+      },
+    })
+    if (!membership || membership.user.deletedAt) {
+      throw new NotFoundException('Team member not found')
+    }
+    return membership
+  }
+
+  private async resolveOrgRole(
+    organizationId: string,
+    userId: string,
+  ): Promise<ClientOrgRole | null> {
+    const membership = await this.prisma.clientOrganizationMembership.findUnique({
+      where: { userId_organizationId: { userId, organizationId } },
+      select: { clientOrgRole: true },
+    })
+    return membership?.clientOrgRole ?? null
   }
 
   private teamHubPermissions(client: AuthenticatedClient): TeamHubPermissions {
@@ -104,6 +153,7 @@ export class ClientTeamService {
       canRequestInvite: this.clientAccess.canRequestOrgInvite(client),
       canToggleSocialListening:
         this.clientAccess.canToggleSocialListeningForTeam(client),
+      canToggleGetHelp: this.clientAccess.canToggleGetHelpForTeam(client),
     }
   }
 
@@ -113,7 +163,7 @@ export class ClientTeamService {
     const filtered = this.clientAccess.filterOrgTeamForViewer(client, members)
     return {
       ok: true as const,
-      members: filtered.map((user) => this.mapTeamMember(user)),
+      members: filtered.map((m) => this.mapMembershipToTeamMember(m)),
       canManage: this.clientAccess.canManageOrgTeam(client),
       permissions: this.teamHubPermissions(client),
     }
@@ -121,7 +171,7 @@ export class ClientTeamService {
 
   async getTeamHubForClient(client: AuthenticatedClient) {
     if (!this.clientAccess.canAccessTeamHub(client)) {
-      throw new ForbiddenException('Team access requires owner or project manager role')
+      throw new ForbiddenException('Team access requires admin role')
     }
 
     const organizationId = this.clientAccess.requireOrganizationId(client)
@@ -137,24 +187,38 @@ export class ClientTeamService {
         phase: true,
         coverStoragePath: true,
         createdByUserId: true,
+        ownerUserId: true,
         createdBy: { select: { email: true } },
+        owner: { select: { email: true } },
       },
       orderBy: { updatedAt: 'desc' },
     })
 
     const projectIds = projects.map((p) => p.id)
+    const ownerByProject = new Map(
+      projects.map((p) => [p.id, p.ownerUserId]),
+    )
     const explicitMembers =
       projectIds.length > 0
         ? await this.prisma.clientProjectMember.findMany({
             where: { projectId: { in: projectIds } },
             include: {
               user: {
-                select: { id: true, email: true, clientOrgRole: true },
+                select: { id: true, email: true },
               },
             },
             orderBy: { createdAt: 'asc' },
           })
         : []
+
+    const orgRoles = await this.prisma.clientOrganizationMembership.findMany({
+      where: {
+        organizationId,
+        userId: { in: explicitMembers.map((r) => r.userId) },
+      },
+      select: { userId: true, clientOrgRole: true },
+    })
+    const roleByUser = new Map(orgRoles.map((r) => [r.userId, r.clientOrgRole]))
 
     const membersByProject = new Map<string, ProjectMember[]>()
     for (const row of explicitMembers) {
@@ -163,8 +227,8 @@ export class ClientTeamService {
         id: row.id,
         userId: row.userId,
         email: row.user.email,
-        clientOrgRole: row.user.clientOrgRole,
-        access: row.access,
+        clientOrgRole: roleByUser.get(row.userId) ?? null,
+        isOwner: ownerByProject.get(row.projectId) === row.userId,
         grantedByUserId: row.grantedByUserId,
         createdAt: row.createdAt.toISOString(),
       })
@@ -178,31 +242,24 @@ export class ClientTeamService {
       phase: project.phase,
       creatorUserId: project.createdByUserId,
       creatorEmail: project.createdBy.email,
+      ownerUserId: project.ownerUserId,
+      ownerEmail: project.owner?.email ?? null,
       coverImageUrl: await this.resolveCoverImageUrl(project.coverStoragePath),
       canManage: await this.clientAccess.canManageProjectMembership(client, project.id),
+      viewerIsOwner: project.ownerUserId === client.id,
       members: membersByProject.get(project.id) ?? [],
     })
 
     const allCards = await Promise.all(projects.map(toCard))
 
-    let projectsOwned: ProjectTeamCard[]
-    let projectsShared: ProjectTeamCard[]
-
-    if (this.clientAccess.isOwner(client)) {
-      projectsOwned = allCards
-      projectsShared = []
-    } else {
-      projectsOwned = allCards.filter((p) => p.creatorUserId === client.id)
-      projectsShared = allCards.filter(
-        (p) => p.creatorUserId !== client.id,
-      )
-    }
+    const projectsOwned = allCards.filter((p) => p.ownerUserId === client.id)
+    const projectsShared = allCards.filter((p) => p.ownerUserId !== client.id)
 
     return {
       ok: true as const,
       viewerRole: client.clientOrgRole,
       permissions: this.teamHubPermissions(client),
-      members: filtered.map((user) => this.mapTeamMember(user)),
+      members: filtered.map((m) => this.mapMembershipToTeamMember(m)),
       projectsOwned,
       projectsShared,
       pendingInviteRequests: await this.listPendingInviteRequestsForHub(client),
@@ -236,7 +293,7 @@ export class ClientTeamService {
     const where = {
       organizationId,
       status: ClientTeamInviteRequestStatus.PENDING,
-      ...(this.clientAccess.isOwner(client)
+      ...(this.clientAccess.isAdmin(client)
         ? {}
         : { requestedByUserId: client.id }),
     }
@@ -253,7 +310,7 @@ export class ClientTeamService {
     const members = await this.getOrgTeam(organizationId)
     return {
       ok: true as const,
-      members: members.map((user) => this.mapTeamMember(user)),
+      members: members.map((m) => this.mapMembershipToTeamMember(m)),
     }
   }
 
@@ -263,28 +320,7 @@ export class ClientTeamService {
     invitedByUserId: string,
     projectInvite?: { projectTitle: string; organizationName: string },
   ) {
-    if (dto.clientOrgRole === ClientOrgRole.OWNER) {
-      const existingOwners = await this.prisma.user.count({
-        where: {
-          organizationId,
-          role: UserRole.CLIENT,
-          clientOrgRole: ClientOrgRole.OWNER,
-          status: { not: UserStatus.SUSPENDED },
-        },
-      })
-      if (existingOwners > 0) {
-        throw new BadRequestException(
-          'This organization already has an owner. Transfer ownership instead.',
-        )
-      }
-    }
-
     const email = this.normalizeEmail(dto.email)
-    const existingUser = await this.prisma.user.findUnique({ where: { email } })
-    if (existingUser) {
-      throw new ConflictException(`A user with email ${email} already exists`)
-    }
-
     const organization = await this.prisma.organization.findUnique({
       where: { id: organizationId },
     })
@@ -294,17 +330,178 @@ export class ClientTeamService {
 
     const canAccessSocialListening =
       dto.canAccessSocialListening ??
-      (dto.clientOrgRole === ClientOrgRole.OWNER &&
+      ((dto.clientOrgRole === ClientOrgRole.ADMIN ||
+        dto.clientOrgRole === ClientOrgRole.SOCIAL_ANALYST) &&
         organization.isSocialListeningSubscriber)
 
+    const canAccessGetHelp =
+      dto.canAccessGetHelp ??
+      (dto.clientOrgRole === ClientOrgRole.ADMIN ||
+        dto.clientOrgRole === ClientOrgRole.CONTRIBUTOR)
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+      include: {
+        organizationMemberships: {
+          where: { organizationId },
+          take: 1,
+        },
+      },
+    })
+
+    if (existingUser) {
+      if (existingUser.role !== UserRole.CLIENT) {
+        throw new ConflictException(
+          'This email is an agency account and can’t join a client org',
+        )
+      }
+
+      if (existingUser.organizationMemberships.length > 0) {
+        throw new ConflictException('Already on this team')
+      }
+
+      // Soft-deleted leftover: revive identity into this org
+      if (existingUser.deletedAt) {
+        await this.prisma.user.update({
+          where: { id: existingUser.id },
+          data: { deletedAt: null },
+        })
+      }
+
+      const hasActiveElsewhere = await this.prisma.clientOrganizationMembership.findFirst({
+        where: {
+          userId: existingUser.id,
+          status: UserStatus.ACTIVE,
+          organizationId: { not: organizationId },
+        },
+      })
+
+      const membershipStatus = hasActiveElsewhere
+        ? UserStatus.ACTIVE
+        : existingUser.supabaseAuthId
+          ? UserStatus.ACTIVE
+          : UserStatus.INVITED
+
+      const membership = await this.prisma.clientOrganizationMembership.create({
+        data: {
+          userId: existingUser.id,
+          organizationId,
+          clientOrgRole: dto.clientOrgRole,
+          status: membershipStatus,
+          canAccessSocialListening,
+          canAccessGetHelp,
+        },
+        include: {
+          user: { select: { id: true, email: true } },
+        },
+      })
+
+      // Keep legacy User fields loosely in sync for dual-read cutover
+      await this.prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          organizationId:
+            existingUser.organizationId ?? organizationId,
+          lastActiveOrganizationId:
+            existingUser.lastActiveOrganizationId ?? organizationId,
+          clientOrgRole: dto.clientOrgRole,
+          canAccessSocialListening,
+          status:
+            membershipStatus === UserStatus.ACTIVE
+              ? UserStatus.ACTIVE
+              : existingUser.status,
+        },
+      })
+
+      if (hasActiveElsewhere || existingUser.supabaseAuthId) {
+        await this.notifications.notifyClientUsers({
+          organizationId,
+          userIds: [existingUser.id],
+          type: PortalNotificationType.ORGANIZATION_MEMBERSHIP_ADDED,
+          title: `Added to ${organization.name}`,
+          body: `You’ve been added to ${organization.name} as ${dto.clientOrgRole.toLowerCase().replace(/_/g, ' ')}.`,
+          href: '/',
+        })
+        const portalBase =
+          process.env.CLIENT_PORTAL_URL ?? 'http://localhost:3003'
+        await this.supabaseAuth.notifyExistingClientAddedToOrg({
+          email,
+          organizationName: organization.name,
+          roleLabel: dto.clientOrgRole.toLowerCase().replace(/_/g, ' '),
+          portalUrl: portalBase,
+        })
+      } else {
+        // Still needs Auth invite
+        const invitation = await this.supabaseAuth.inviteUserByEmail({
+          email,
+          organizationId: organization.id,
+          organizationSlug: organization.slug,
+          redirectTo: this.portalCallbackUrlWithOrg(organization.id),
+          ...(projectInvite
+            ? {
+                projectTitle: projectInvite.projectTitle,
+                organizationName: projectInvite.organizationName,
+                inviteContext: 'new_project' as const,
+              }
+            : {}),
+        })
+        if (invitation.status === 'sent' && invitation.invitationId) {
+          await this.prisma.user.update({
+            where: { id: existingUser.id },
+            data: { supabaseAuthId: invitation.invitationId },
+          })
+        }
+        return {
+          ok: true as const,
+          member: this.mapMembershipToTeamMember(membership),
+          invitedByUserId,
+          invitation: {
+            provider: 'supabase-auth' as const,
+            status: invitation.status,
+            invitationId: invitation.invitationId,
+            ...(invitation.devSignInUrl
+              ? { devSignInUrl: invitation.devSignInUrl }
+              : {}),
+          },
+        }
+      }
+
+      return {
+        ok: true as const,
+        member: this.mapMembershipToTeamMember(membership),
+        invitedByUserId,
+        invitation: {
+          provider: 'supabase-auth' as const,
+          status: 'added' as const,
+        },
+      }
+    }
+
+    // Brand-new identity
     const user = await this.prisma.user.create({
       data: {
         email,
         organizationId,
+        lastActiveOrganizationId: organizationId,
         role: UserRole.CLIENT,
         status: UserStatus.INVITED,
         clientOrgRole: dto.clientOrgRole,
         canAccessSocialListening,
+        organizationMemberships: {
+          create: {
+            organizationId,
+            clientOrgRole: dto.clientOrgRole,
+            status: UserStatus.INVITED,
+            canAccessSocialListening,
+            canAccessGetHelp,
+          },
+        },
+      },
+      include: {
+        organizationMemberships: {
+          where: { organizationId },
+          include: { user: { select: { id: true, email: true } } },
+        },
       },
     })
 
@@ -314,7 +511,7 @@ export class ClientTeamService {
         email,
         organizationId: organization.id,
         organizationSlug: organization.slug,
-        redirectTo: this.portalCallbackUrl(),
+        redirectTo: this.portalCallbackUrlWithOrg(organization.id),
         ...(projectInvite
           ? {
               projectTitle: projectInvite.projectTitle,
@@ -324,6 +521,9 @@ export class ClientTeamService {
           : {}),
       })
     } catch (err) {
+      await this.prisma.clientOrganizationMembership.deleteMany({
+        where: { userId: user.id, organizationId },
+      })
       await this.prisma.user.update({
         where: { id: user.id },
         data: { deletedAt: new Date() },
@@ -338,13 +538,13 @@ export class ClientTeamService {
       })
     }
 
-    const refreshed = await this.prisma.user.findUniqueOrThrow({
-      where: { id: user.id },
-    })
-
+    const membership = user.organizationMemberships[0]!
     return {
       ok: true as const,
-      member: this.mapTeamMember(refreshed),
+      member: this.mapMembershipToTeamMember({
+        ...membership,
+        user: { id: user.id, email: user.email },
+      }),
       invitedByUserId,
       invitation: {
         provider: 'supabase-auth' as const,
@@ -357,15 +557,18 @@ export class ClientTeamService {
     }
   }
 
+  private portalCallbackUrlWithOrg(organizationId: string) {
+    const base = this.portalCallbackUrl()
+    const sep = base.includes('?') ? '&' : '?'
+    return `${base}${sep}organizationId=${encodeURIComponent(organizationId)}`
+  }
+
   async inviteToOrganizationAsClient(
     client: AuthenticatedClient,
     dto: InviteTeamMemberInput,
   ) {
     if (!this.clientAccess.canManageOrgTeam(client)) {
-      throw new ForbiddenException('Organization owner access required')
-    }
-    if (dto.clientOrgRole === ClientOrgRole.OWNER) {
-      throw new ForbiddenException('Cannot invite another owner from the client portal')
+      throw new ForbiddenException('Organization admin access required')
     }
     const organizationId = this.clientAccess.requireOrganizationId(client)
     return this.inviteToOrganization(organizationId, dto, client.id)
@@ -395,24 +598,13 @@ export class ClientTeamService {
     }
 
     const organizationId = this.clientAccess.requireOrganizationId(client)
-    const member = await this.prisma.user.findFirst({
-      where: {
-        id: memberUserId,
-        organizationId,
-        role: UserRole.CLIENT,
-      },
-    })
-    if (!member) {
-      throw new NotFoundException('Team member not found')
-    }
+    const membership = await this.getOrgMembershipOrThrow(organizationId, memberUserId)
 
-    this.clientAccess.assertPmCanUpdateTeamMember(client, member, dto)
-
-    if (!this.clientAccess.isOwner(client)) {
-      if (dto.clientOrgRole === undefined) {
-        throw new BadRequestException('clientOrgRole is required')
-      }
-    }
+    this.clientAccess.assertCanUpdateTeamMember(
+      client,
+      { clientOrgRole: membership.clientOrgRole, id: membership.userId },
+      dto,
+    )
 
     return this.updateTeamMember(organizationId, memberUserId, dto, client.id)
   }
@@ -431,48 +623,14 @@ export class ClientTeamService {
     dto: UpdateTeamMemberInput,
     actorUserId?: string,
   ) {
-    const member = await this.prisma.user.findFirst({
-      where: {
-        id: memberUserId,
-        organizationId,
-        role: UserRole.CLIENT,
-      },
-    })
-    if (!member) {
-      throw new NotFoundException('Team member not found')
-    }
-
-    if (dto.clientOrgRole === ClientOrgRole.OWNER && member.clientOrgRole !== ClientOrgRole.OWNER) {
-      const owners = await this.prisma.user.count({
-        where: {
-          organizationId,
-          role: UserRole.CLIENT,
-          clientOrgRole: ClientOrgRole.OWNER,
-          status: { not: UserStatus.SUSPENDED },
-          id: { not: memberUserId },
-        },
-      })
-      if (owners > 0) {
-        throw new BadRequestException('Organization already has an owner')
-      }
-    }
+    const membership = await this.getOrgMembershipOrThrow(organizationId, memberUserId)
 
     if (
-      member.clientOrgRole === ClientOrgRole.OWNER &&
+      membership.clientOrgRole === ClientOrgRole.ADMIN &&
       dto.clientOrgRole &&
-      dto.clientOrgRole !== ClientOrgRole.OWNER
+      dto.clientOrgRole !== ClientOrgRole.ADMIN
     ) {
-      const ownerCount = await this.prisma.user.count({
-        where: {
-          organizationId,
-          role: UserRole.CLIENT,
-          clientOrgRole: ClientOrgRole.OWNER,
-          status: { not: UserStatus.SUSPENDED },
-        },
-      })
-      if (ownerCount <= 1) {
-        throw new BadRequestException('Cannot demote the last organization owner')
-      }
+      await this.clientAccess.assertAdminCanBeDemoted(organizationId, memberUserId)
     }
 
     const organization = await this.prisma.organization.findUniqueOrThrow({
@@ -482,12 +640,39 @@ export class ClientTeamService {
     let canAccessSocialListening = dto.canAccessSocialListening
     if (
       canAccessSocialListening === undefined &&
-      dto.clientOrgRole === ClientOrgRole.OWNER
+      (dto.clientOrgRole === ClientOrgRole.ADMIN ||
+        dto.clientOrgRole === ClientOrgRole.SOCIAL_ANALYST)
     ) {
       canAccessSocialListening = organization.isSocialListeningSubscriber
     }
 
-    const updated = await this.prisma.user.update({
+    let canAccessGetHelp = dto.canAccessGetHelp
+    if (
+      canAccessGetHelp === undefined &&
+      (dto.clientOrgRole === ClientOrgRole.ADMIN ||
+        dto.clientOrgRole === ClientOrgRole.CONTRIBUTOR)
+    ) {
+      canAccessGetHelp = true
+    }
+
+    const updated = await this.prisma.clientOrganizationMembership.update({
+      where: { id: membership.id },
+      data: {
+        ...(dto.clientOrgRole !== undefined
+          ? { clientOrgRole: dto.clientOrgRole }
+          : {}),
+        ...(canAccessSocialListening !== undefined
+          ? { canAccessSocialListening }
+          : {}),
+        ...(canAccessGetHelp !== undefined ? { canAccessGetHelp } : {}),
+      },
+      include: {
+        user: { select: { id: true, email: true } },
+      },
+    })
+
+    // Dual-write legacy User fields when this is their lastActive / only org
+    await this.prisma.user.update({
       where: { id: memberUserId },
       data: {
         ...(dto.clientOrgRole !== undefined
@@ -501,41 +686,99 @@ export class ClientTeamService {
 
     return {
       ok: true as const,
-      member: this.mapTeamMember(updated),
+      member: this.mapMembershipToTeamMember(updated),
       updatedByUserId: actorUserId ?? null,
     }
   }
 
   async suspendTeamMember(organizationId: string, memberUserId: string) {
-    const member = await this.prisma.user.findFirst({
-      where: {
-        id: memberUserId,
-        organizationId,
-        role: UserRole.CLIENT,
-      },
-    })
-    if (!member) {
-      throw new NotFoundException('Team member not found')
-    }
-    if (member.clientOrgRole === ClientOrgRole.OWNER) {
-      const ownerCount = await this.prisma.user.count({
-        where: {
-          organizationId,
-          role: UserRole.CLIENT,
-          clientOrgRole: ClientOrgRole.OWNER,
-          status: { not: UserStatus.SUSPENDED },
-        },
-      })
-      if (ownerCount <= 1) {
-        throw new BadRequestException('Cannot suspend the last organization owner')
-      }
+    const membership = await this.getOrgMembershipOrThrow(organizationId, memberUserId)
+    if (membership.clientOrgRole === ClientOrgRole.ADMIN) {
+      await this.clientAccess.assertAdminCanBeDemoted(organizationId, memberUserId)
     }
 
-    const updated = await this.prisma.user.update({
-      where: { id: memberUserId },
+    const updated = await this.prisma.clientOrganizationMembership.update({
+      where: { id: membership.id },
       data: { status: UserStatus.SUSPENDED },
+      include: {
+        user: { select: { id: true, email: true } },
+      },
     })
-    return { ok: true as const, member: this.mapTeamMember(updated) }
+    return { ok: true as const, member: this.mapMembershipToTeamMember(updated) }
+  }
+
+  /**
+   * Hard-remove org membership so the email can be re-invited.
+   * Also clears project assignments in this org.
+   */
+  async removeOrgMembership(
+    organizationId: string,
+    memberUserId: string,
+    actorUserId: string,
+  ) {
+    if (memberUserId === actorUserId) {
+      throw new BadRequestException('You cannot remove yourself from the team')
+    }
+
+    const membership = await this.getOrgMembershipOrThrow(organizationId, memberUserId)
+
+    if (membership.clientOrgRole === ClientOrgRole.ADMIN) {
+      await this.clientAccess.assertAdminCanBeDemoted(organizationId, memberUserId)
+    }
+
+    const ownedProjects = await this.prisma.clientProject.count({
+      where: { organizationId, ownerUserId: memberUserId },
+    })
+    if (ownedProjects > 0) {
+      throw new BadRequestException(
+        'Cannot remove a project owner — transfer ownership of their projects first',
+      )
+    }
+
+    await this.prisma.clientProjectMember.deleteMany({
+      where: {
+        userId: memberUserId,
+        project: { organizationId },
+      },
+    })
+
+    await this.prisma.clientOrganizationMembership.delete({
+      where: { id: membership.id },
+    })
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: memberUserId },
+      select: {
+        organizationId: true,
+        lastActiveOrganizationId: true,
+      },
+    })
+    if (user) {
+      await this.prisma.user.update({
+        where: { id: memberUserId },
+        data: {
+          ...(user.organizationId === organizationId
+            ? { organizationId: null }
+            : {}),
+          ...(user.lastActiveOrganizationId === organizationId
+            ? { lastActiveOrganizationId: null }
+            : {}),
+        },
+      })
+    }
+
+    return { ok: true as const }
+  }
+
+  async removeOrgMembershipAsClient(
+    client: AuthenticatedClient,
+    memberUserId: string,
+  ) {
+    if (!this.clientAccess.canManageOrgTeam(client)) {
+      throw new ForbiddenException('Organization admin access required')
+    }
+    const organizationId = this.clientAccess.requireOrganizationId(client)
+    return this.removeOrgMembership(organizationId, memberUserId, client.id)
   }
 
   async listProjectMembers(client: AuthenticatedClient, projectId: string) {
@@ -546,7 +789,15 @@ export class ClientTeamService {
         id: true,
         organizationId: true,
         createdByUserId: true,
+        ownerUserId: true,
         createdBy: {
+          select: {
+            id: true,
+            email: true,
+            clientOrgRole: true,
+          },
+        },
+        owner: {
           select: {
             id: true,
             email: true,
@@ -575,7 +826,7 @@ export class ClientTeamService {
       userId: row.userId,
       email: row.user.email,
       clientOrgRole: row.user.clientOrgRole,
-      access: row.access,
+      isOwner: row.userId === project.ownerUserId,
       grantedByUserId: row.grantedByUserId,
       createdAt: row.createdAt.toISOString(),
     }))
@@ -584,32 +835,31 @@ export class ClientTeamService {
     let assignableMembers: AssignableProjectMember[] | undefined
 
     if (canManage) {
-      const orgUsers = await this.prisma.user.findMany({
+      const orgMemberships = await this.prisma.clientOrganizationMembership.findMany({
         where: {
           organizationId: project.organizationId,
-          role: UserRole.CLIENT,
           status: { not: UserStatus.SUSPENDED },
+          clientOrgRole: {
+            in: [ClientOrgRole.CONTRIBUTOR, ClientOrgRole.VIEWER],
+          },
         },
-        select: {
-          id: true,
-          email: true,
-          clientOrgRole: true,
+        include: {
+          user: { select: { id: true, email: true } },
         },
-        orderBy: [{ clientOrgRole: 'asc' }, { email: 'asc' }],
+        orderBy: [{ clientOrgRole: 'asc' }, { createdAt: 'asc' }],
       })
       const assignedUserIds = new Set([
         project.createdByUserId,
+        project.ownerUserId,
         ...members.map((member) => member.userId),
       ])
-      assignableMembers = orgUsers
-        .filter(
-          (user) =>
-            user.clientOrgRole !== ClientOrgRole.OWNER && !assignedUserIds.has(user.id),
-        )
-        .map((user) => ({
-          userId: user.id,
-          email: user.email,
-          clientOrgRole: user.clientOrgRole,
+      // Admins already have access to every project; Social Analysts never do.
+      assignableMembers = orgMemberships
+        .filter((m) => !assignedUserIds.has(m.userId))
+        .map((m) => ({
+          userId: m.userId,
+          email: m.user.email,
+          clientOrgRole: m.clientOrgRole,
         }))
     }
 
@@ -621,10 +871,172 @@ export class ClientTeamService {
         email: project.createdBy.email,
         implicitAccess: 'MANAGE' as const,
       },
+      ownerUserId: project.ownerUserId,
+      ownerEmail: project.owner?.email ?? null,
+      viewerIsOwner: project.ownerUserId === client.id,
+      canTransferOwnership: project.ownerUserId === client.id,
       members,
       canManage,
       assignableMembers,
     }
+  }
+
+  /** Admin Center view of a project's team — full manage capability. */
+  async listProjectMembersForAdmin(projectId: string) {
+    const project = await this.prisma.clientProject.findUnique({
+      where: { id: projectId },
+      select: {
+        id: true,
+        organizationId: true,
+        createdByUserId: true,
+        ownerUserId: true,
+        createdBy: { select: { id: true, email: true, clientOrgRole: true } },
+        owner: { select: { id: true, email: true, clientOrgRole: true } },
+      },
+    })
+    if (!project) throw new NotFoundException('Project not found')
+
+    const explicit = await this.prisma.clientProjectMember.findMany({
+      where: { projectId },
+      include: {
+        user: { select: { id: true, email: true, clientOrgRole: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    const members: ProjectMember[] = explicit.map((row) => ({
+      id: row.id,
+      userId: row.userId,
+      email: row.user.email,
+      clientOrgRole: row.user.clientOrgRole,
+      isOwner: row.userId === project.ownerUserId,
+      grantedByUserId: row.grantedByUserId,
+      createdAt: row.createdAt.toISOString(),
+    }))
+
+    const orgMemberships = await this.prisma.clientOrganizationMembership.findMany({
+      where: {
+        organizationId: project.organizationId,
+        status: { not: UserStatus.SUSPENDED },
+        clientOrgRole: {
+          in: [ClientOrgRole.CONTRIBUTOR, ClientOrgRole.VIEWER],
+        },
+      },
+      include: {
+        user: { select: { id: true, email: true } },
+      },
+      orderBy: [{ clientOrgRole: 'asc' }, { createdAt: 'asc' }],
+    })
+    const assignedUserIds = new Set([
+      project.createdByUserId,
+      project.ownerUserId,
+      ...members.map((member) => member.userId),
+    ])
+    const assignableMembers: AssignableProjectMember[] = orgMemberships
+      .filter((m) => !assignedUserIds.has(m.userId))
+      .map((m) => ({
+        userId: m.userId,
+        email: m.user.email,
+        clientOrgRole: m.clientOrgRole,
+      }))
+
+    return {
+      ok: true as const,
+      projectId,
+      creator: {
+        userId: project.createdByUserId,
+        email: project.createdBy?.email ?? '',
+        implicitAccess: 'MANAGE' as const,
+      },
+      ownerUserId: project.ownerUserId,
+      ownerEmail: project.owner?.email ?? null,
+      viewerIsOwner: false,
+      canTransferOwnership: true,
+      members,
+      canManage: true,
+      assignableMembers,
+    }
+  }
+
+  async addProjectMemberAsAdmin(projectId: string, dto: AddProjectMemberInput) {
+    const project = await this.prisma.clientProject.findUnique({
+      where: { id: projectId },
+      select: { organizationId: true, createdByUserId: true, ownerUserId: true },
+    })
+    if (!project) throw new NotFoundException('Project not found')
+
+    const email = this.normalizeEmail(dto.email)
+    const membership = await this.prisma.clientOrganizationMembership.findFirst({
+      where: {
+        organizationId: project.organizationId,
+        status: { not: UserStatus.SUSPENDED },
+        user: { email, role: UserRole.CLIENT, deletedAt: null },
+      },
+      include: { user: { select: { id: true, email: true } } },
+    })
+    if (!membership) {
+      throw new NotFoundException(
+        'No active team member found with that email in this organization',
+      )
+    }
+    if (
+      membership.userId === project.createdByUserId ||
+      membership.userId === project.ownerUserId
+    ) {
+      throw new BadRequestException('This person already has access')
+    }
+    if (membership.clientOrgRole === ClientOrgRole.ADMIN) {
+      throw new BadRequestException('Admins already have access to all projects')
+    }
+    if (membership.clientOrgRole === ClientOrgRole.SOCIAL_ANALYST) {
+      throw new BadRequestException('Social analysts cannot be assigned to projects')
+    }
+
+    const row = await this.prisma.clientProjectMember.upsert({
+      where: { projectId_userId: { projectId, userId: membership.userId } },
+      create: {
+        projectId,
+        userId: membership.userId,
+        grantedByUserId: membership.userId,
+      },
+      update: {},
+      include: {
+        user: { select: { id: true, email: true } },
+      },
+    })
+
+    return {
+      ok: true as const,
+      member: {
+        id: row.id,
+        userId: row.userId,
+        email: row.user.email,
+        clientOrgRole: membership.clientOrgRole,
+        isOwner: false,
+        grantedByUserId: row.grantedByUserId,
+        createdAt: row.createdAt.toISOString(),
+      },
+    }
+  }
+
+  async removeProjectMemberAsAdmin(projectId: string, memberUserId: string) {
+    const project = await this.prisma.clientProject.findUnique({
+      where: { id: projectId },
+      select: { createdByUserId: true, ownerUserId: true },
+    })
+    if (!project) throw new NotFoundException('Project not found')
+    if (memberUserId === project.ownerUserId) {
+      throw new BadRequestException(
+        'Cannot remove the project owner — transfer ownership first',
+      )
+    }
+    if (memberUserId === project.createdByUserId) {
+      throw new BadRequestException('Cannot remove the project creator')
+    }
+    await this.prisma.clientProjectMember.deleteMany({
+      where: { projectId, userId: memberUserId },
+    })
+    return { ok: true as const }
   }
 
   async addProjectMember(
@@ -632,20 +1044,20 @@ export class ClientTeamService {
     projectId: string,
     dto: AddProjectMemberInput,
   ) {
-    await this.clientAccess.assertCanManageProjectMembership(client, projectId)
+    await this.clientAccess.assertCanAssignToProject(client, projectId)
 
     const email = this.normalizeEmail(dto.email)
     const organizationId = this.clientAccess.requireOrganizationId(client)
 
-    const targetUser = await this.prisma.user.findFirst({
+    const membership = await this.prisma.clientOrganizationMembership.findFirst({
       where: {
-        email,
         organizationId,
-        role: UserRole.CLIENT,
         status: { not: UserStatus.SUSPENDED },
+        user: { email, role: UserRole.CLIENT, deletedAt: null },
       },
+      include: { user: { select: { id: true, email: true } } },
     })
-    if (!targetUser) {
+    if (!membership) {
       throw new NotFoundException(
         'No active team member found with that email in your organization',
       )
@@ -653,36 +1065,43 @@ export class ClientTeamService {
 
     const project = await this.prisma.clientProject.findUniqueOrThrow({
       where: { id: projectId },
-      select: { createdByUserId: true },
+      select: { createdByUserId: true, ownerUserId: true },
     })
 
-    if (targetUser.id === project.createdByUserId) {
-      throw new BadRequestException('Project creator already has access')
+    if (
+      membership.userId === project.createdByUserId ||
+      membership.userId === project.ownerUserId
+    ) {
+      throw new BadRequestException('This person already has access')
     }
 
-    if (targetUser.clientOrgRole === ClientOrgRole.OWNER) {
+    if (membership.clientOrgRole === ClientOrgRole.ADMIN) {
       throw new BadRequestException(
-        'Organization owners already have access to all projects',
+        'Admins already have access to all projects',
+      )
+    }
+
+    if (membership.clientOrgRole === ClientOrgRole.SOCIAL_ANALYST) {
+      throw new BadRequestException(
+        'Social analysts cannot be assigned to projects',
       )
     }
 
     const row = await this.prisma.clientProjectMember.upsert({
       where: {
-        projectId_userId: { projectId, userId: targetUser.id },
+        projectId_userId: { projectId, userId: membership.userId },
       },
       create: {
         projectId,
-        userId: targetUser.id,
-        access: dto.access,
+        userId: membership.userId,
         grantedByUserId: client.id,
       },
       update: {
-        access: dto.access,
         grantedByUserId: client.id,
       },
       include: {
         user: {
-          select: { id: true, email: true, clientOrgRole: true },
+          select: { id: true, email: true },
         },
       },
     })
@@ -693,12 +1112,89 @@ export class ClientTeamService {
         id: row.id,
         userId: row.userId,
         email: row.user.email,
-        clientOrgRole: row.user.clientOrgRole,
-        access: row.access,
+        clientOrgRole: membership.clientOrgRole,
+        isOwner: false,
         grantedByUserId: row.grantedByUserId,
         createdAt: row.createdAt.toISOString(),
       },
     }
+  }
+
+  async transferProjectOwnership(
+    client: AuthenticatedClient,
+    projectId: string,
+    dto: TransferProjectOwnershipInput,
+  ) {
+    await this.clientAccess.assertCanTransferOwnership(client, projectId)
+    const organizationId = this.clientAccess.requireOrganizationId(client)
+
+    const newOwnerMembership = await this.prisma.clientOrganizationMembership.findFirst({
+      where: {
+        userId: dto.newOwnerUserId,
+        organizationId,
+        status: { not: UserStatus.SUSPENDED },
+        clientOrgRole: ClientOrgRole.ADMIN,
+      },
+    })
+    if (!newOwnerMembership) {
+      throw new NotFoundException('New owner must be an Admin in your organization')
+    }
+
+    await this.prisma.clientProject.update({
+      where: { id: projectId },
+      data: { ownerUserId: dto.newOwnerUserId },
+    })
+    // Ensure the new owner (if assigned as an explicit member) stays clean.
+    await this.prisma.clientProjectMember.deleteMany({
+      where: { projectId, userId: dto.newOwnerUserId },
+    })
+
+    return { ok: true as const, ownerUserId: dto.newOwnerUserId }
+  }
+
+  async transferProjectOwnershipAsAdmin(
+    projectId: string,
+    dto: TransferProjectOwnershipInput,
+  ) {
+    const project = await this.prisma.clientProject.findUnique({
+      where: { id: projectId },
+      select: { id: true, organizationId: true },
+    })
+    if (!project) {
+      throw new NotFoundException('Project not found')
+    }
+
+    const newOwnerMembership = await this.prisma.clientOrganizationMembership.findFirst({
+      where: {
+        userId: dto.newOwnerUserId,
+        organizationId: project.organizationId,
+        status: { not: UserStatus.SUSPENDED },
+      },
+    })
+    if (!newOwnerMembership) {
+      throw new NotFoundException('New owner not found in this organization')
+    }
+    if (newOwnerMembership.clientOrgRole !== ClientOrgRole.ADMIN) {
+      // Agency can promote the target to Admin so they can own the project.
+      await this.prisma.clientOrganizationMembership.update({
+        where: { id: newOwnerMembership.id },
+        data: { clientOrgRole: ClientOrgRole.ADMIN },
+      })
+      await this.prisma.user.update({
+        where: { id: dto.newOwnerUserId },
+        data: { clientOrgRole: ClientOrgRole.ADMIN },
+      })
+    }
+
+    await this.prisma.clientProject.update({
+      where: { id: projectId },
+      data: { ownerUserId: dto.newOwnerUserId },
+    })
+    await this.prisma.clientProjectMember.deleteMany({
+      where: { projectId, userId: dto.newOwnerUserId },
+    })
+
+    return { ok: true as const, ownerUserId: dto.newOwnerUserId }
   }
 
   async removeProjectMember(
@@ -706,12 +1202,17 @@ export class ClientTeamService {
     projectId: string,
     memberUserId: string,
   ) {
-    await this.clientAccess.assertCanManageProjectMembership(client, projectId)
+    await this.clientAccess.assertCanAssignToProject(client, projectId)
 
     const project = await this.prisma.clientProject.findUniqueOrThrow({
       where: { id: projectId },
-      select: { createdByUserId: true },
+      select: { createdByUserId: true, ownerUserId: true },
     })
+    if (memberUserId === project.ownerUserId) {
+      throw new BadRequestException(
+        'Cannot remove the project owner — transfer ownership first',
+      )
+    }
     if (memberUserId === project.createdByUserId) {
       throw new BadRequestException('Cannot remove the project creator')
     }
@@ -728,11 +1229,9 @@ export class ClientTeamService {
     dto: RequestTeamInviteInput,
   ) {
     if (!this.clientAccess.canRequestOrgInvite(client)) {
-      throw new ForbiddenException('Only project managers can request new invites')
-    }
-
-    if (dto.clientOrgRole === ClientOrgRole.OWNER) {
-      throw new BadRequestException('Cannot request organization owner invite')
+      throw new ForbiddenException(
+        'Invite requests are no longer supported — ask an Admin to invite people directly',
+      )
     }
 
     const organizationId = this.clientAccess.requireOrganizationId(client)
@@ -773,10 +1272,7 @@ export class ClientTeamService {
     })
 
     const adminLink = `${this.notifications.adminClientWorkspaceLink(organizationId)}?tab=team&inviteRequestId=${row.id}`
-    const roleLabel =
-      dto.clientOrgRole === ClientOrgRole.PROJECT_MANAGER
-        ? 'project manager'
-        : 'member'
+    const roleLabel = dto.clientOrgRole.toLowerCase()
 
     await this.notifications.notifyAdmins({
       organizationId,

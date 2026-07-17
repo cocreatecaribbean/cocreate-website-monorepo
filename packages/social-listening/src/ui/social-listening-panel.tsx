@@ -263,7 +263,7 @@ function SocialListeningPanelInner({
         {error ? <div className="portal-alert-error">{error}</div> : null}
 
         {!loading && !notFound && !error ? (
-          <section className="portal-sl-frame portal-animate-in portal-animate-in-delay-1 overflow-hidden">
+          <section className="portal-sl-frame portal-animate-in portal-animate-in-delay-1 overflow-hidden lg:sticky lg:top-24 lg:z-10">
             <SocialListeningLayout
               organizationName={organizationName}
               organizationLogoUrl={variant === 'client' ? organizationLogoUrl : undefined}

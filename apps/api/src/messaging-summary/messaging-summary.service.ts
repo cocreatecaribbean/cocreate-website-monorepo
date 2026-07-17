@@ -86,10 +86,6 @@ export class MessagingSummaryService {
         body: message.body,
         createdAt: message.createdAt,
         messageKind: message.messageKind,
-        checkpointTargetPhase: message.checkpointTargetPhase,
-        requiresClientApproval: message.requiresClientApproval,
-        clientApprovedAt: message.clientApprovedAt,
-        supersededAt: message.supersededAt,
         attachments: message.attachments?.map((attachment) => ({
           id: attachment.id,
           fileName: attachment.fileName,

@@ -118,4 +118,52 @@ export class ResendAuthMailService implements OnModuleInit {
       `[invite] Sent ${params.kind} email via Resend from ${from} to ${params.to}`,
     )
   }
+
+  /**
+   * Transactional notice when an existing client is attached to another org.
+   * Not an Auth invite — they already have an account.
+   */
+  async sendMembershipAddedEmail(params: {
+    to: string
+    organizationName: string
+    roleLabel: string
+    portalUrl: string
+  }): Promise<'sent' | 'skipped'> {
+    const key = this.getApiKey()
+    if (!key || !this.getFromEmail()) {
+      this.logger.warn(
+        `[membership-added] skipped (set RESEND_API_KEY + AUTH_EMAIL_FROM): ${params.to}`,
+      )
+      return 'skipped'
+    }
+    if (!this.client) {
+      this.client = new Resend(key)
+    }
+
+    const from = this.getFromAddress()
+    const subject = `You’ve been added to ${params.organizationName}`
+    const intro = `You’ve been added to ${params.organizationName} on the CoCreate client portal as ${params.roleLabel}. Sign in with your existing account to open this workspace.`
+
+    const { error } = await this.client.emails.send({
+      from,
+      to: [params.to],
+      subject,
+      html: `
+        <p>${intro}</p>
+        <p><a href="${params.portalUrl}">Open CoCreate portal</a></p>
+        <p style="color:#64748b;font-size:12px;">If you didn’t expect this, you can ignore this email or contact your CoCreate admin.</p>
+      `.trim(),
+      text: `${intro}\n\nOpen portal: ${params.portalUrl}\n`,
+    })
+
+    if (error) {
+      this.logger.error(`Resend membership-added send failed: ${error.message}`)
+      return 'skipped'
+    }
+
+    this.logger.log(
+      `[membership-added] Sent email via Resend from ${from} to ${params.to}`,
+    )
+    return 'sent'
+  }
 }
