@@ -36,8 +36,6 @@ const nextConfig: NextConfig = {
     }
   },
 
-  serverExternalPackages: ['@mastra/pg', 'pg'],
-
   turbopack: {
     root: path.resolve(__dirname, '../../'),  // ← now absolute
   },

@@ -85,6 +85,20 @@ function clearStoredMessages(context: AssistantContext) {
   }
 }
 
+function formatChatErrorMessage(message: string): string {
+  const trimmed = message.trim()
+  if (
+    !trimmed ||
+    trimmed.startsWith('<!DOCTYPE') ||
+    trimmed.startsWith('<html') ||
+    trimmed.includes('__next_error__') ||
+    /<title>\s*500:/i.test(trimmed)
+  ) {
+    return 'Something went wrong. Please try again.'
+  }
+  return trimmed
+}
+
 export default function AssistantChat({
   context,
   api,
@@ -282,7 +296,7 @@ export default function AssistantChat({
 
         {error ? (
           <p className="mt-3 text-sm text-red-600" role="alert">
-            {error.message}
+            {formatChatErrorMessage(error.message)}
           </p>
         ) : null}
 
