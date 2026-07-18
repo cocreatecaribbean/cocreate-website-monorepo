@@ -39,11 +39,11 @@ const SEQUENCES = {
       `/cocreate-logo-shapes-anim-web-desktop/cocreate-logo-shapes-anim-web-desktop_${i}.webp`,
   },
   portrait: {
-    frameCount: 175,
+    frameCount: 200,
     width: 1080,
     height: 1920,
     path: (i: number) =>
-      `/cocreate-logo-shapes-web-mobile-anim/cocreate-logo-shapes-anim-web-mobile_${i}.webp`,
+      `/cocreate-logo-shapes-anim-web-mobile/cocreate-logo-shapes-anim-web-mobile_${i}.webp`,
   },
 } as const
 
