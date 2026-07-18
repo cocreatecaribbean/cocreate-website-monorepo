@@ -27,6 +27,7 @@ import {
   replacePendingInboxMessage,
 } from '@/lib/inbox/optimistic-inbox-message'
 import { useClientInboxLive } from '@/lib/messaging/use-client-inbox-live'
+import { useMarkReadWhileViewing } from '@/lib/messaging/use-mark-read-while-viewing'
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import { CONTROL_CENTER_VIEW_QUERY } from '@/lib/control-center/nav'
 import { bricolage_grot600 } from '@/styles/fonts'
@@ -80,14 +81,42 @@ export default function OrgInboxMessagesView() {
     ],
   })
 
-  useEffect(() => {
-    if (!conversationId) return
-    void markOrgInboxRead(conversationId).then(() => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.inbox.unreadCount() })
-    })
-  }, [queryClient, conversationId])
-
   const messages = inboxLive.messages ?? []
+  const latestMessageId = messages.length > 0 ? messages[messages.length - 1]!.id : null
+
+  const markConversationRead = useCallback(async () => {
+    if (!conversationId) return
+    const previous = queryClient.getQueryData<OrgInboxConversation[]>(
+      queryKeys.inbox.conversations(),
+    )
+    const cleared = previous?.find((c) => c.id === conversationId)?.unreadCount ?? 0
+    queryClient.setQueryData<OrgInboxConversation[]>(
+      queryKeys.inbox.conversations(),
+      (current) =>
+        current?.map((conversation) =>
+          conversation.id === conversationId
+            ? { ...conversation, unreadCount: 0 }
+            : conversation,
+        ),
+    )
+    if (cleared > 0) {
+      queryClient.setQueryData<number>(queryKeys.inbox.unreadCount(), (count) =>
+        Math.max(0, (count ?? 0) - cleared),
+      )
+    }
+    await markOrgInboxRead(conversationId)
+    void queryClient.invalidateQueries({ queryKey: queryKeys.inbox.unreadCount() })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.inbox.conversations() })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
+  }, [conversationId, queryClient])
+
+  useMarkReadWhileViewing({
+    enabled: Boolean(conversationId),
+    viewId: conversationId,
+    latestMessageId,
+    mark: markConversationRead,
+  })
+
   const { panelRef, endRef, notifyUserSent } = useThreadAutoScroll(messages, conversationId ?? '')
   const fetchDownloadUrl = useCallback(async (attachmentId: string) => {
     const url = await fetchOrgInboxAttachmentDownloadUrl(attachmentId)
@@ -187,7 +216,6 @@ export default function OrgInboxMessagesView() {
     const created = await createOrgInboxConversation({
       visibility: 'RESTRICTED',
       subject,
-      participantUserIds: [],
     })
     if (created) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all })

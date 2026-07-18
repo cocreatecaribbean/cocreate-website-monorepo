@@ -269,8 +269,15 @@ const NavMobile: React.FC = () => {
                 if (isOpen) setIsOpen(false)
                 closeSearch()
               }}
+              className="inline-block cursor-pointer select-none"
             >
-              <Image src={logo} alt="CoCreate Caribbean logo" priority />
+              <Image
+                src={logo}
+                alt="CoCreate Caribbean logo"
+                priority
+                draggable={false}
+                className="pointer-events-none"
+              />
             </Link>
           </div>
           <div className="flex shrink-0 items-center gap-2">

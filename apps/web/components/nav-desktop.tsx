@@ -22,11 +22,16 @@ const NavDesktop: React.FC = () => {
       className="pointer-events-auto fixed inset-x-0 top-10 z-[250] mx-auto flex h-fit w-fit max-w-[calc(100vw-2.5rem)] flex-row flex-nowrap items-center justify-center gap-[clamp(1.25rem,3vw,2.5rem)] rounded-full border border-white/20 bg-white/70 px-[clamp(1.25rem,3.5vw,2.5rem)] py-[clamp(0.875rem,1.5vw,1.25rem)] backdrop-blur-lg"
     >
       <div className="shrink-0">
-        <Link href={"/"} onClick={closeSearch}>
+        <Link
+          href={"/"}
+          onClick={closeSearch}
+          className="inline-block cursor-pointer select-none"
+        >
           <Image
-            className="h-auto w-[clamp(5rem,12vw,7.5rem)] shrink-0"
+            className="pointer-events-none h-auto w-[clamp(5rem,12vw,7.5rem)] shrink-0"
             src={logo}
             alt="logo"
+            draggable={false}
           />
         </Link>
       </div>

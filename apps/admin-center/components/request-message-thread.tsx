@@ -55,6 +55,8 @@ type RequestMessageThreadProps = {
     attachmentIds?: string[],
   ) => Promise<{ ok: boolean; message?: string; data?: ProjectRequestMessage }>
   onThreadUpdate?: () => void
+  /** Notify parent of the latest message id (for mark-read-while-viewing). */
+  onLatestMessageIdChange?: (messageId: string | null) => void
   invalidateQueryKeys?: import('@tanstack/react-query').QueryKey[]
 }
 
@@ -113,6 +115,7 @@ export default function RequestMessageThread({
   onSendMessage,
   readOnly = false,
   onThreadUpdate,
+  onLatestMessageIdChange,
   invalidateQueryKeys,
 }: RequestMessageThreadProps) {
   const queryClient = useQueryClient()
@@ -180,6 +183,11 @@ export default function RequestMessageThread({
         : []
 
   const messages = [...olderMessages, ...baseMessages]
+  const latestMessageId = messages.length > 0 ? messages[messages.length - 1]!.id : null
+
+  useEffect(() => {
+    onLatestMessageIdChange?.(latestMessageId)
+  }, [latestMessageId, onLatestMessageIdChange])
 
   const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(request.status)
   const canCompose = !readOnly && !isClosed

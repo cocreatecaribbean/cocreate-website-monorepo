@@ -704,6 +704,16 @@ export class OrgInboxService {
       create: { conversationId, userId, lastReadAt: new Date() },
       update: { lastReadAt: new Date() },
     })
+    // PortalNotification rows have no conversation FK — match by href query param.
+    await this.prisma.portalNotification.updateMany({
+      where: {
+        userId,
+        readAt: null,
+        type: PortalNotificationType.ORG_INBOX_MESSAGE,
+        href: { contains: `conversationId=${encodeURIComponent(conversationId)}` },
+      },
+      data: { readAt: new Date() },
+    })
     return { ok: true as const }
   }
 

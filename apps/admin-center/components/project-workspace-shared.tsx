@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAdminSession } from '@/components/admin-session-provider'
 import RequestMessageThread from '@/components/request-message-thread'
 import ResizableAdminThreadSurface from '@/components/resizable-admin-thread-surface'
@@ -75,6 +75,13 @@ export function ProjectThreadPanel({
 }) {
   const { session } = useAdminSession()
   const currentUserId = session?.mode === 'user' ? session.userId : null
+  const [threadLatestMessageId, setThreadLatestMessageId] = useState<string | null>(null)
+  const latestMessageId = useMemo(() => {
+    if (liveMessages?.length) {
+      return liveMessages[liveMessages.length - 1]!.id
+    }
+    return threadLatestMessageId
+  }, [liveMessages, threadLatestMessageId])
 
   return (
     <ResizableAdminThreadSurface
@@ -110,6 +117,7 @@ export function ProjectThreadPanel({
               organizationId={organizationId}
               requestId={request.id}
               enabled
+              latestMessageId={latestMessageId}
               onMarked={onInboxMarked}
             />
           ) : null}
@@ -125,6 +133,9 @@ export function ProjectThreadPanel({
             readOnly={readOnly}
             onSendMessage={onSendMessage}
             onThreadUpdate={onThreadUpdate}
+            onLatestMessageIdChange={
+              markReadEnabled ? setThreadLatestMessageId : undefined
+            }
             invalidateQueryKeys={[adminQueryKeys.requests.messages(request.id)]}
           />
           {cancellationResolve &&

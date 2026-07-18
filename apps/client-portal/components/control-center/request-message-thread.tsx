@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useCallback, useRef, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { AttachmentReactionCluster } from '@cocreate/app-ui/attachment-previews'
 import EmojiPickerButton from '@/components/emoji-picker-button'
@@ -18,12 +18,13 @@ import { insertAtTextareaCursor } from '@/lib/insert-at-textarea-cursor'
 import { useThreadAutoScroll } from '@/lib/projects/use-thread-auto-scroll'
 import { ThreadScrollEnd } from '@cocreate/app-ui/scroll-to-latest'
 import type { ProjectRequestItem, ProjectRequestMessage } from '@/lib/projects/api-types'
-import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-projects-client'
+import { fetchAttachmentDownloadUrl, markAttentionRead } from '@/lib/projects/fetch-projects-client'
 import { formatActorWithTitle } from '@/lib/projects/project-display'
 import { LinkifiedBody, indexAttachmentsByMessage, RequestAttachments } from '@/lib/projects/thread-content'
 import type { ThreadAttachment } from '@/lib/projects/thread-content'
 import { removeThreadAttachment } from '@/lib/projects/remove-thread-attachment'
 import { useClientThreadLive } from '@/lib/messaging/use-client-thread-live'
+import { useMarkReadWhileViewing } from '@/lib/messaging/use-mark-read-while-viewing'
 import { queryKeys } from '@/lib/api/query-keys'
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import { usePortalPermissions } from '@/lib/team/use-portal-permissions'
@@ -137,6 +138,20 @@ export default function RequestMessageThread({
         : []
 
   const messages = baseMessages
+  const latestMessageId = messages.length > 0 ? messages[messages.length - 1]!.id : null
+
+  const markRequestAttentionRead = useCallback(async () => {
+    await markAttentionRead({ requestId: request.id })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.attention.all })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all })
+  }, [queryClient, request.id])
+
+  useMarkReadWhileViewing({
+    enabled: loadMessages || parentOwnsMessages,
+    viewId: request.id,
+    latestMessageId,
+    mark: markRequestAttentionRead,
+  })
 
   const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(request.status)
   const canCompose = !readOnly && !isClosed

@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 
@@ -20,6 +20,7 @@ import {
   sendAdminOrgInboxMessage,
   uploadOrgInboxFiles,
   type OrgInboxMessage,
+  type OrgInboxConversation,
 } from '@/lib/inbox/fetch-org-inbox-admin'
 import {
   createOptimisticInboxMessage,
@@ -27,6 +28,7 @@ import {
   replacePendingInboxMessage,
 } from '@/lib/inbox/optimistic-inbox-message'
 import { useAdminInboxLive } from '@/lib/messaging/use-admin-inbox-live'
+import { useMarkReadWhileViewing } from '@/lib/messaging/use-mark-read-while-viewing'
 import {
   conversationSubject,
   formatConversationDate,
@@ -76,15 +78,41 @@ export default function AdminOrgInboxThreadView({
   })
 
   const messages = inboxLive.messages ?? []
+  const latestMessageId = messages.length > 0 ? messages[messages.length - 1]!.id : null
 
-  useEffect(() => {
-    void markAdminOrgInboxRead(conversationId).then(() => {
-      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.orgInbox.unreadCount() })
-      void queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.orgInbox.orgConversations(organizationId),
-      })
+  const markConversationRead = useCallback(async () => {
+    const previous = queryClient.getQueryData<OrgInboxConversation[]>(
+      adminQueryKeys.orgInbox.orgConversations(organizationId),
+    )
+    const cleared = previous?.find((c) => c.id === conversationId)?.unreadCount ?? 0
+    queryClient.setQueryData<OrgInboxConversation[]>(
+      adminQueryKeys.orgInbox.orgConversations(organizationId),
+      (current) =>
+        current?.map((conversation) =>
+          conversation.id === conversationId
+            ? { ...conversation, unreadCount: 0 }
+            : conversation,
+        ),
+    )
+    if (cleared > 0) {
+      queryClient.setQueryData<number>(adminQueryKeys.orgInbox.unreadCount(), (count) =>
+        Math.max(0, (count ?? 0) - cleared),
+      )
+    }
+    await markAdminOrgInboxRead(conversationId)
+    void queryClient.invalidateQueries({ queryKey: adminQueryKeys.orgInbox.unreadCount() })
+    void queryClient.invalidateQueries({
+      queryKey: adminQueryKeys.orgInbox.orgConversations(organizationId),
     })
+    void queryClient.invalidateQueries({ queryKey: adminQueryKeys.orgInbox.conversations() })
   }, [conversationId, organizationId, queryClient])
+
+  useMarkReadWhileViewing({
+    enabled: true,
+    viewId: conversationId,
+    latestMessageId,
+    mark: markConversationRead,
+  })
 
   const { panelRef, endRef, notifyUserSent } = useThreadAutoScroll(messages, conversationId)
   const fetchDownloadUrl = useCallback(

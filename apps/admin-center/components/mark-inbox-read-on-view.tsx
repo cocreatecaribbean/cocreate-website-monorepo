@@ -1,12 +1,15 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useCallback } from 'react'
 import { markInboxRead } from '@/lib/projects/inbox-unread'
+import { useMarkReadWhileViewing } from '@/lib/messaging/use-mark-read-while-viewing'
 
 type MarkInboxReadOnViewProps = {
   organizationId: string
   requestId: string
   enabled: boolean
+  /** Re-mark when new messages arrive while the thread is open. */
+  latestMessageId?: string | null
   onMarked?: () => void
 }
 
@@ -15,26 +18,20 @@ export default function MarkInboxReadOnView({
   organizationId,
   requestId,
   enabled,
+  latestMessageId = null,
   onMarked,
 }: MarkInboxReadOnViewProps) {
-  const onMarkedRef = useRef(onMarked)
-  onMarkedRef.current = onMarked
+  const mark = useCallback(async () => {
+    await markInboxRead(organizationId, requestId)
+    onMarked?.()
+  }, [organizationId, requestId, onMarked])
 
-  useEffect(() => {
-    if (!enabled || !requestId) return
-    let cancelled = false
-    void (async () => {
-      try {
-        await markInboxRead(organizationId, requestId)
-        if (!cancelled) onMarkedRef.current?.()
-      } catch {
-        /* non-blocking */
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [organizationId, requestId, enabled])
+  useMarkReadWhileViewing({
+    enabled: enabled && Boolean(requestId),
+    viewId: requestId,
+    latestMessageId,
+    mark,
+  })
 
   return null
 }

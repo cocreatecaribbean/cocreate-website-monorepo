@@ -1,30 +1,33 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MapPin } from 'lucide-react'
 import * as fonts from '@/styles/fonts'
 import { contactPageHero, contactPageTitle } from '@/site-info/contact-page-data'
 import { useContactHeadlineWave } from '@/hooks/use-contact-headline-wave'
 import ContactLocationNameLoop from '@/components/contact/contact-location-name-loop'
+import {
+  APPLE_GLOBE_MP4_SRC,
+  GLOBE_WEBM_SRC,
+  prefersAppleGlobeMp4,
+} from '@/lib/media/prefers-apple-globe-mp4'
 
 export default function ContactPageHeader() {
   const sectionRef = useRef<HTMLElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  // null until client detect — avoids Safari negotiating WebM, and avoids
+  // mutating React-owned <source> nodes (removeChild NotFoundError).
+  const [useAppleMp4, setUseAppleMp4] = useState<boolean | null>(null)
   useContactHeadlineWave({ scope: sectionRef })
 
+  useLayoutEffect(() => {
+    setUseAppleMp4(prefersAppleGlobeMp4())
+  }, [])
+
   useEffect(() => {
+    if (useAppleMp4 === null) return
     const video = videoRef.current
     if (!video) return
-
-    // iOS decodes the VP9 webm but ignores its alpha channel, turning the
-    // transparent canvas black — force the white-composited mp4 there.
-    const isIos =
-      /iPhone|iPad|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-    if (isIos && !video.currentSrc.endsWith('.mp4')) {
-      video.src = '/videos/cocreate-globe-loop_seamless-h264-white.mp4'
-      video.load()
-    }
 
     const media = window.matchMedia('(prefers-reduced-motion: reduce)')
     const syncPlayback = () => {
@@ -34,8 +37,8 @@ export default function ContactPageHeader() {
         return
       }
       void video.play().catch(() => {
-        // iOS can tear down the decoder while backgrounded, making play()
-        // reject until the element is reloaded.
+        // Apple WebKit can tear down the decoder while backgrounded, making
+        // play() reject until the element is reloaded.
         video.load()
         void video.play().catch(() => {
           /* autoplay blocked — nothing more we can do */
@@ -43,14 +46,10 @@ export default function ContactPageHeader() {
       })
     }
 
-    // iOS suspends the video when the page is backgrounded or restored from
-    // the back/forward cache and won't resume it on its own.
     const resumeIfVisible = () => {
       if (document.visibilityState === 'visible') syncPlayback()
     }
 
-    // iOS also fires a plain `pause` on the element when the app is
-    // minimized; if we're (back to) visible, immediately resume.
     const onPause = () => {
       if (document.visibilityState === 'visible' && !media.matches) {
         void video.play().catch(() => {})
@@ -70,7 +69,7 @@ export default function ContactPageHeader() {
       window.removeEventListener('focus', resumeIfVisible)
       video.removeEventListener('pause', onPause)
     }
-  }, [])
+  }, [useAppleMp4])
 
   return (
     <section
@@ -96,33 +95,35 @@ export default function ContactPageHeader() {
       >
         <div
           className="
-            relative aspect-square w-full overflow-hidden rounded-full
+            relative aspect-square w-full overflow-hidden rounded-full bg-white
             min-[1024px]:[mask-image:radial-gradient(circle,black_62%,transparent_78%)]
             min-[1024px]:[-webkit-mask-image:radial-gradient(circle,black_62%,transparent_78%)]
           "
         >
-          <video
-            ref={videoRef}
-            className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
-            disablePictureInPicture
-            aria-hidden
-          >
-            {/* Transparent-alpha webm for browsers that render VP9 alpha;
-                iOS is switched to the white-composited mp4 in the effect above. */}
-            <source
-              src="/videos/cocreate-globe-loop_seamless.webm"
-              type="video/webm"
-            />
-            <source
-              src="/videos/cocreate-globe-loop_seamless-h264-white.mp4"
-              type="video/mp4"
-            />
-          </video>
+          {useAppleMp4 !== null ? (
+            <video
+              key={useAppleMp4 ? 'apple-mp4' : 'webm'}
+              ref={videoRef}
+              className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="auto"
+              disablePictureInPicture
+              aria-hidden
+            >
+              {useAppleMp4 ? (
+                <source src={APPLE_GLOBE_MP4_SRC} type="video/mp4" />
+              ) : (
+                <>
+                  {/* Transparent-alpha webm where VP9 alpha works; Apple uses soft-edged MP4. */}
+                  <source src={GLOBE_WEBM_SRC} type="video/webm" />
+                  <source src={APPLE_GLOBE_MP4_SRC} type="video/mp4" />
+                </>
+              )}
+            </video>
+          ) : null}
         </div>
       </div>
 
