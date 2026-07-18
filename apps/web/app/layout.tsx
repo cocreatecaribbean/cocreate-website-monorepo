@@ -64,10 +64,11 @@ export default async function RootLayout({
         <MarketingAssistant />
         <LandscapeWarning/>
         <ScrollSmoothWrapper>
+          {/* Before page content so SPA scroll reset runs before page ScrollTriggers */}
+          <ScrollToTop />
           <PageTransition>
             {children}
           </PageTransition>
-          <ScrollToTop/>
           <Footer/>
         </ScrollSmoothWrapper>
         <nav className="pointer-events-none relative z-[250] hidden h-0 w-full lg:block">

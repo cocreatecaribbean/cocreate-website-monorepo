@@ -5,13 +5,11 @@ import { useLayoutEffect, useRef } from 'react'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { ScrollSmoother } from 'gsap/ScrollSmoother'
 import { markSpaNavigation } from '@/lib/scroll/navigation'
-import { scrollToDocumentTop } from '@/lib/scroll/scroll-to-document-top'
-
-const SMOOTH_DURATION = 0.85
+import { resetRouteScrollToTop } from '@/lib/scroll/reset-route-scroll'
 
 /**
- * SPA route changes: scroll to top and refresh ScrollTrigger once.
- * Does not run on first paint (reload uses ScrollSmootherWrapper restore).
+ * SPA route changes: scroll to top synchronously, then refresh ScrollTrigger.
+ * Mounted before page content so layout effects run before page animations.
  */
 export default function ScrollToTop() {
   const pathname = usePathname()
@@ -29,34 +27,16 @@ export default function ScrollToTop() {
     sessionStorage.removeItem('lastScrollY')
     sessionStorage.removeItem('lastPath')
 
-    const resetNativeScroll = () => {
-      scrollToDocumentTop()
-    }
-
-    const syncScroll = () => {
-      const smoother = ScrollSmoother.get()
-      if (smoother) {
-        smoother.paused(false)
-        const prev = smoother.smooth()
-        smoother.smooth(0)
-        smoother.scrollTop(0)
-        smoother.smooth(prev > 0 ? prev : SMOOTH_DURATION)
-        smoother.scrollTrigger?.refresh()
-      } else {
-        resetNativeScroll()
-      }
-      ScrollTrigger.refresh()
-    }
-
-    if (!ScrollSmoother.get()) {
-      resetNativeScroll()
-    }
+    // Synchronous — deferred rAF left home hero ScrollTriggers scrubbed to the
+    // previous page's scroll (e.g. contact → home looked mid-animation).
+    resetRouteScrollToTop()
+    ScrollTrigger.refresh()
 
     requestAnimationFrame(() => {
-      syncScroll()
-      if (!ScrollSmoother.get()) {
-        requestAnimationFrame(resetNativeScroll)
-      }
+      resetRouteScrollToTop()
+      const smoother = ScrollSmoother.get()
+      smoother?.scrollTrigger?.refresh()
+      ScrollTrigger.refresh()
     })
   }, [pathname])
 

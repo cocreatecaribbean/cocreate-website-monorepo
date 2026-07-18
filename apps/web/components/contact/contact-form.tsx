@@ -43,7 +43,7 @@ export default function ContactForm() {
     setError(null)
 
     if (!turnstileToken) {
-      setError('Please complete the security check.')
+      setError('Security check is still loading. Please try again in a moment.')
       setSubmitting(false)
       return
     }
@@ -219,31 +219,29 @@ export default function ContactForm() {
             />
           </div>
 
-          {turnstileReady ? (
-            siteKey ? (
-              <div className="min-h-[65px] pt-1">
-                <Turnstile
-                  ref={turnstileRef}
-                  siteKey={siteKey}
-                  options={{
-                    action: 'contact',
-                    theme: 'light',
-                    size: 'flexible',
-                  }}
-                  onSuccess={(token) => setTurnstileToken(token)}
-                  onExpire={() => setTurnstileToken(null)}
-                  onError={() => setTurnstileToken(null)}
-                />
-              </div>
-            ) : (
-              <p className="text-sm text-amber-700" role="status">
-                Security check is not configured. Set NEXT_PUBLIC_TURNSTILE_SITE_KEY in
-                Doppler.
-              </p>
-            )
-          ) : (
-            <div className="min-h-[65px] pt-1" aria-hidden />
-          )}
+          {turnstileReady && siteKey ? (
+            <div className="contents">
+              <Turnstile
+                ref={turnstileRef}
+                siteKey={siteKey}
+                options={{
+                  action: 'contact',
+                  theme: 'light',
+                  size: 'invisible',
+                  appearance: 'interaction-only',
+                }}
+                onSuccess={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken(null)}
+                onError={() => setTurnstileToken(null)}
+              />
+            </div>
+          ) : null}
+          {turnstileReady && !siteKey ? (
+            <p className="text-sm text-amber-700" role="status">
+              Security check is not configured. Set NEXT_PUBLIC_TURNSTILE_SITE_KEY in
+              Doppler.
+            </p>
+          ) : null}
 
           <ButtonWithRef
             type="submit"

@@ -18,6 +18,7 @@ import { EmblaOptionsType } from "embla-carousel";
 import { splitTextGradient } from "@/utils/util-funcs";
 import { consumeSpaNavigation } from "@/lib/scroll/navigation";
 import { prefersNativeScroll } from "@/lib/scroll/native-scroll";
+import { resetRouteScrollToTop } from "@/lib/scroll/reset-route-scroll";
 import {
   DEFAULT_AGENCY_INTRO,
   DEFAULT_HERO_REEL_FALLBACK_SRC,
@@ -356,12 +357,30 @@ export default function HomeHeroSection({
       let brandYResizeTimer: ReturnType<typeof setTimeout> | undefined;
       let onBrandYResize: (() => void) | undefined;
 
+      const revealMain = () => {
+        const el = mainRef.current;
+        if (!el) return;
+        // Do NOT use gsap.set here — useGSAP/context.revert() restores autoAlpha:0 and
+        // leaves the home hero blank after SPA remounts (contact → home).
+        el.classList.remove("opacity-0");
+        el.style.opacity = "1";
+        el.style.visibility = "visible";
+      };
+
+      // Reveal ASAP so a later setup failure / deep-restore wait can't leave a blank home.
+      revealMain();
+
+      // Kill inherited scroll from the previous route before any home ScrollTriggers.
+      if (enteredViaSpa) {
+        resetRouteScrollToTop();
+      }
+
       const ctx = gsap.context(() => {
       if (prefersReducedMotion()) {
         const canvas = canvasRef.current;
         if (canvas) canvas.classList.remove("animate-float");
 
-        gsap.set(mainRef.current, { autoAlpha: 1 });
+        revealMain();
         gsap.set(container.current, { visibility: "visible" });
         gsap.set(brand_elem.current, { translateY: 0 });
         gsap.set(hero_text.current, { opacity: 1 });
@@ -405,12 +424,18 @@ export default function HomeHeroSection({
 
       const waitForSmoothContentReady = () =>
         new Promise<void>((resolve) => {
+          const started = performance.now();
           const check = () => {
             const content = document.getElementById("smooth-content");
             const opacity = content
-              ? (gsap.getProperty(content, "opacity") as number)
+              ? Number(gsap.getProperty(content, "opacity"))
               : 1;
-            if (opacity >= 0.99) {
+            // Never hang forever — SPA / smoother races can leave opacity mid-fade.
+            if (
+              !Number.isFinite(opacity) ||
+              opacity >= 0.99 ||
+              performance.now() - started > 2000
+            ) {
               resolve();
               return;
             }
@@ -469,13 +494,19 @@ export default function HomeHeroSection({
 
       // ─── Intro Animation ────────────────────────────────────────────────────
 
-      headlineTween = gsap.from(h1_text_split.words, {
-        y: -100,
-        opacity: 0,
-        duration: 1.5,
-        ease: "back.out",
-        stagger: 0.07,
-      });
+      // SPA remounts (e.g. contact → home): skip the from() entrance — ScrollTrigger
+      // refresh can leave SplitText words stuck at opacity 0 mid-tween.
+      if (enteredViaSpa) {
+        gsap.set(h1_text_split.words, { opacity: 1, y: 0 });
+      } else {
+        headlineTween = gsap.from(h1_text_split.words, {
+          y: -100,
+          opacity: 0,
+          duration: 1.5,
+          ease: "back.out",
+          stagger: 0.07,
+        });
+      }
 
       // ─── Timelines ──────────────────────────────────────────────────────────
 
@@ -658,6 +689,7 @@ export default function HomeHeroSection({
           });
 
           const resetHeroToScrollStart = () => {
+            resetRouteScrollToTop();
             gsap.set(vid_container.current, { scale: 0 });
             gsap.set(hero_text.current, { opacity: 1 });
             gsap.set(brand_elem.current, { y: getBrandStartY() });
@@ -683,6 +715,7 @@ export default function HomeHeroSection({
           if (enteredViaSpa) {
             resetHeroToScrollStart();
             requestAnimationFrame(() => {
+              resetRouteScrollToTop();
               ScrollTrigger.refresh();
               resetHeroToScrollStart();
             });
@@ -700,11 +733,9 @@ export default function HomeHeroSection({
         },
       );
 
-      const revealMain = () => {
-        gsap.to(mainRef.current, { autoAlpha: 1, duration: 0.2 });
-      };
-
-      if (isDeepReloadRestore()) {
+      // Stale lastScrollY + SPA (e.g. contact → home) must not use the deep-reload
+      // hide/wait path — that left the hero blank until smoother opacity settled.
+      if (isDeepReloadRestore() && !enteredViaSpa) {
         gsap.set(container.current, { visibility: "hidden" });
         void runAfterLayoutReady(() => {
           ScrollTrigger.refresh(true);
