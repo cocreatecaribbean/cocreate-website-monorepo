@@ -57,6 +57,54 @@ Create a **public** bucket named `client-logos` for organization logos. Paths: `
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/cocreate?schema=public"
 ```
 
+### pgvector (marketing assistant RAG)
+
+Mastra stores marketing embeddings in Postgres via the **`vector`** extension (pgvector). Enable it on each Supabase project you use (Doppler `dev` and production):
+
+1. Dashboard → **Database** → **Extensions** → enable **`vector`**, or
+2. SQL editor:
+
+```sql
+create extension if not exists vector;
+```
+
+**Connection strings for RAG**
+
+| Variable | Use |
+|----------|-----|
+| `DIRECT_URL` | Mastra **ingest** (create index / upsert) and Prisma migrations — direct port **5432** |
+| `DATABASE_URL` | App runtime (pooled). Chat retrieval may use `DIRECT_URL` if set, else `DATABASE_URL` |
+
+Ingest script (from repo root):
+
+```bash
+pnpm rag:ingest-about
+# or: pnpm rag:ingest-site
+```
+
+Both commands run the same combined ingest under `doppler run` (prefers `DIRECT_URL`) and rebuild the `marketing_about` index from:
+
+- `packages/ai-core/rag-sources/About-COCREATE-RAG-Optimized.pdf` (source: `about-cocreate-rag-optimized`)
+- `packages/ai-core/rag-sources/site-pages.md` (source: `site-pages`) — curated Contact / About / Services / nav facts
+
+Stable contact phone/email also live in the chat system prompt (`apps/web/lib/assistant/prompts.ts`) so get-in-touch answers work even if RAG is down.
+
+### Portal help assistants (Admin Center + Client Portal)
+
+Separate from marketing. Curated how-to guides live in:
+
+- `packages/ai-core/rag-sources/portal/client-portal-help.md`
+- `packages/ai-core/rag-sources/portal/admin-center-help.md`
+
+Ingest into the `portal_help` pgvector index:
+
+```bash
+pnpm rag:ingest-portal
+doppler run -- pnpm --filter @cocreate/ai-core rag:verify-portal
+```
+
+Each portal app mounts `AssistantShell` with its own `/api/chat` BFF (signed-in only) and always-on PRODUCT FACTS in prompts. Marketing `/api/chat` continues to 501 portal contexts.
+
 ---
 
 ## Workflow

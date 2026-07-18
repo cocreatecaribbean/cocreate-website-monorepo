@@ -91,7 +91,7 @@ const ScrollSmoothWrapper: React.FC<ScrollSmoothProps> = ({ children }) => {
         smooth: reducedMotion ? 0 : 0.85,
         effects: false,
         smoothTouch: 0,
-        normalizeScroll: true,
+        normalizeScroll: { allowNestedScroll: true },
         ignoreMobileResize: true,
       })
 

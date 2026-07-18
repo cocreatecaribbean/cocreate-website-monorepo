@@ -71,7 +71,8 @@ body {
   #smooth-wrapper {
     position: static;
     min-height: 100svh;
-    overflow: visible;
+    overflow-x: clip;
+    overflow-y: visible;
   }
 }
 

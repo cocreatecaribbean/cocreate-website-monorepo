@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useEffect, useId, useRef } from 'react'
 import logo from '@/public/co_create_logo_hor_wht.svg'
 import { useCookieConsent } from '@/components/cookie-consent/cookie-consent-context'
+import ButtonWithRef from '@/components/button'
 import * as fonts from '@/styles/fonts'
 
 export default function CookieConsentBanner() {
@@ -66,18 +67,19 @@ export default function CookieConsentBanner() {
         </div>
 
         <div className="flex flex-col gap-2">
-          <button
+          <ButtonWithRef
             type="button"
+            variant="casablanca"
             onClick={() => dismiss('accept')}
-            className={`inline-flex min-h-11 w-full items-center justify-center rounded-full bg-casablanca px-5 py-2.5 text-sm text-chambray transition hover:bg-amber-200 hover:text-blue-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-casablanca ${fonts.bricolage_grot600.className}`}
+            className="min-h-11 w-full px-5 py-2.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-casablanca"
           >
             Accept
-          </button>
+          </ButtonWithRef>
           <button
             ref={rejectRef}
             type="button"
             onClick={() => dismiss('reject')}
-            className={`inline-flex min-h-11 w-full items-center justify-center rounded-full border border-white/25 px-5 py-2.5 text-sm text-white transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${fonts.bricolage_grot600.className}`}
+            className={`inline-flex min-h-11 w-full items-center justify-center rounded-full border border-white/25 px-5 py-2.5 text-sm text-white transition-all duration-300 hover:-translate-y-1 hover:cursor-pointer hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${fonts.bricolage_grot600.className}`}
           >
             Reject non-essential
           </button>

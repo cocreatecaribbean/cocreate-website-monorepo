@@ -1,4 +1,5 @@
-import { generateStructured, getSummaryChatModel, resolveSummaryChatModelName } from '@cocreate/ai-core'
+import { getSummaryChatModel, resolveSummaryChatModelName } from '@cocreate/ai-core/models'
+import { generateStructured } from '@cocreate/ai-core/generate-structured'
 import { z } from 'zod'
 import {
   capMessages,

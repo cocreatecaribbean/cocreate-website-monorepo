@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
-import { resolveOpenAiApiKey } from '@cocreate/ai-core'
+import { resolveOpenAiApiKey } from '@cocreate/ai-core/models'
 
 @Injectable()
 export class AiConfigService implements OnModuleInit {

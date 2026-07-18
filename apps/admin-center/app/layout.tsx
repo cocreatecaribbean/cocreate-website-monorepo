@@ -29,9 +29,9 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={fontVariables} suppressHydrationWarning>
+    <html lang="en" className={`${fontVariables} max-w-full overflow-x-clip`} suppressHydrationWarning>
       <body
-        className={`${bricolage_grot400.className} antialiased`}
+        className={`${bricolage_grot400.className} max-w-full overflow-x-clip antialiased`}
         suppressHydrationWarning
       >
         <QueryProvider>

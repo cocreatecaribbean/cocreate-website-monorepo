@@ -8,6 +8,7 @@ import { Menu } from 'lucide-react'
 import PortalDrawerShell from '@cocreate/app-ui/portal-drawer-shell'
 import AdminSidebar from '@/components/admin-sidebar'
 import CollaborateShell from '@/components/collaborate-shell'
+import AdminCenterAssistant from '@/components/assistant/admin-center-assistant'
 import {
   AdminAccessBanner,
   AdminSessionProvider,
@@ -109,6 +110,9 @@ function AdminShellChrome({ children }: { children: React.ReactNode }) {
     >
       <AdminAccessBanner />
       {children}
+      <Suspense fallback={null}>
+        <AdminCenterAssistant />
+      </Suspense>
     </PortalDrawerShell>
   )
 }

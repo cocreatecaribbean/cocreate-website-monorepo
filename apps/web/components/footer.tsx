@@ -114,9 +114,9 @@ const Footer:React.FC = ()=>{
                             />
                             <ButtonWithRef
                                 type="submit"
-                                variant='primary'
+                                variant="casablanca"
                                 disabled={submitting}
-                                className='bg-casablanca text-chambray py-3 px-8 hover:bg-amber-200 hover:text-blue-900 disabled:opacity-60'
+                                className="py-3 px-8 text-[1.2rem]"
                             >
                                 {submitting ? 'Sending…' : 'Subscribe'}
                             </ButtonWithRef>

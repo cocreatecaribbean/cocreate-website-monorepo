@@ -23,7 +23,7 @@ const BackgroundVideo = ({src=''}:{src:string})=>{
         playsInline
         preload="auto"
         disablePictureInPicture
-            className="w-dvw h-dvh opacity-100 object-cover pointer-events-none select-none "
+            className="h-full w-full max-w-full opacity-100 object-cover pointer-events-none select-none "
         >
             <source type="video/mp4" src={src} />
         </video>

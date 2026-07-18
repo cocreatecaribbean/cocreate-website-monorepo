@@ -16,7 +16,7 @@ import {
   type ThreadSummaryPayload,
   type ThreadSummarySourceType,
 } from '@cocreate/message-summary'
-import { resolveOpenAiApiKey } from '@cocreate/ai-core'
+import { resolveOpenAiApiKey } from '@cocreate/ai-core/models'
 import type { AuthenticatedAdmin, AuthenticatedAgencyUser, AuthenticatedClient } from '../auth/auth.service'
 import { OrgInboxService } from '../org-inbox/org-inbox.service'
 import { ProjectsService } from '../projects/projects.service'

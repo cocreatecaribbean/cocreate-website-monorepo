@@ -13,9 +13,13 @@
   "dependencies": {
     "@cocreate/api-client": "workspace:*",
     "@cocreate/api-contracts": "workspace:*",
+    "@cocreate/ai-core": "workspace:*",
     "@cocreate/app-ui": "workspace:*",
     "@cocreate/messaging": "workspace:*",
     "@cocreate/social-listening": "workspace:*",
+    "@ai-sdk/openai": "catalog:ai",
+    "@ai-sdk/react": "catalog:ai",
+    "ai": "catalog:ai",
     "@nivo/core": "^0.88.0",
     "@nivo/heatmap": "^0.88.0",
     "@nivo/stream": "^0.88.0",

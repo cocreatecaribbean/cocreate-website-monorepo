@@ -7,11 +7,17 @@
     "dev:webpack": "concurrently \"next dev --webpack\" \"next-video sync -w\"",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "jest",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@marsidev/react-turnstile": "^1.5.3",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
     "@base-ui/react": "catalog:web",
     "@cocreate/api-client": "workspace:*",
+    "@cocreate/ai-core": "workspace:*",
     "@cocreate/app-ui": "workspace:*",
     "@cocreate/types": "workspace:*",
     "@cosmicjs/sdk": "catalog:web",
@@ -60,9 +66,11 @@
     "concurrently": "catalog:web",
     "eslint": "catalog:tooling",
     "eslint-config-next": "catalog:web",
+    "@types/jest": "^29.5.14",
     "jest": "catalog:tooling",
     "react-email": "catalog:web",
     "tailwindcss": "catalog:web",
+    "ts-jest": "^29.3.4",
     "typescript": "catalog:tooling"
   },
   "overrides": {

@@ -52,10 +52,8 @@ export default async function RootLayout({
   const { isEnabled: isDraftMode } = await draftMode()
 
   return (
-    <html lang="en" className={`${font.bricolage_grot400.className} antialiased max-w-full overflow-x-hidden`}>
-      <body
-        
-      >
+    <html lang="en" className={`${font.bricolage_grot400.className} antialiased max-w-full overflow-x-clip`}>
+      <body className="max-w-full overflow-x-clip">
         <script dangerouslySetInnerHTML={{
     __html: `history.scrollRestoration = "manual";`
   }} />

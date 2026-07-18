@@ -1,89 +1,120 @@
-"use client";
-import React from "react";
-import { cn } from "@/utils/tailwind-helpers";
-import Image from "next/image";
-import Link from "next/link";
-import * as fonts from "@/styles/fonts";
+'use client'
 
-type Variants = "primary" | "secondary" | "tertiary";
+import React from 'react'
+import Image from 'next/image'
+import Link from 'next/link'
+import { cn } from '@/utils/tailwind-helpers'
+import * as fonts from '@/styles/fonts'
+
+type Variants = 'primary' | 'secondary' | 'tertiary' | 'casablanca'
 
 type CommonProps = {
-  children?: React.ReactNode;
-  className?: string;
-  variant: Variants;
-  asChild?: boolean;
-  hasIcon?: boolean;
-  iconSrc?: string;
-  iconSize?: number;
-  isNav?: boolean;
-  href?: string;
-  downloadName?: string;
-};
+  children?: React.ReactNode
+  className?: string
+  variant?: Variants
+  asChild?: boolean
+  hasIcon?: boolean
+  iconSrc?: string
+  iconSize?: number
+  isNav?: boolean
+  href?: string
+  downloadName?: string
+}
 
 type ButtonProps =
   | ({ isNav?: false } & CommonProps & React.ButtonHTMLAttributes<HTMLButtonElement>)
-  | ({ isNav: true; href: string } & CommonProps & React.AnchorHTMLAttributes<HTMLAnchorElement>);
+  | ({ isNav: true; href: string } & CommonProps &
+      React.AnchorHTMLAttributes<HTMLAnchorElement>)
 
-function Button(props: ButtonProps, ref: React.Ref<HTMLButtonElement | HTMLAnchorElement>) {
-  const children = props.children;
-  const variant = props.variant || "primary";
-  const isNav = props.isNav !== undefined ? props.isNav : true;
-  const hasIcon = props.hasIcon || false;
-  const iconSrc = props.iconSrc || "";
-  const iconSize = props.iconSize || 32;
-  const className = props.className;
+/** Shared hover language for casablanca CTAs (Subscribe, Send, etc.) */
+export const casablancaCtaClassName = cn(
+  'inline-flex items-center justify-center gap-3 rounded-full',
+  'bg-casablanca text-chambray',
+  'hover:-translate-y-1 hover:cursor-pointer hover:bg-amber-200 hover:text-blue-900',
+  'focus:outline-none transition-all duration-300',
+  'disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0',
+  fonts.bricolage_grot600.className,
+)
 
-  const base_style = "inline-flex items-center " + fonts.bricolage_grot600.className + " text-[1.2rem] justify-center gap-3 rounded-full text-background px-6 py-5 focus:outline-none hover:-translate-y-1 hover:cursor-pointer transition-all duration-300 ";
+const baseStyle = cn(
+  'inline-flex items-center justify-center gap-3 rounded-full px-6 py-5',
+  'text-[1.2rem] text-background',
+  'focus:outline-none hover:-translate-y-1 hover:cursor-pointer',
+  'transition-all duration-300',
+  'disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0',
+  fonts.bricolage_grot600.className,
+)
 
-  const variantStyles = {
-    primary: " bg-joh-blue hover:bg-blue-950 ",
-    secondary: " bg-joh-blue-secondary ",
-    tertiary: " bg-background text-joh-blue",
-  };
-
-  const variantClass = variantStyles[variant];
-
-  if (isNav && "href" in props) {
-    const href = props.href || "";
-    const downloadName = props.downloadName;
-
-    if (downloadName) {
-      return React.createElement(
-        "a",
-        {
-          className: cn(base_style, variantClass, className),
-          download: downloadName,
-          ref: ref as React.Ref<HTMLAnchorElement>,
-          href: href,
-        },
-        children,
-        hasIcon && React.createElement(Image, { src: iconSrc, width: iconSize, height: iconSize, alt: "button icon" })
-      );
-    }
-
-    return React.createElement(
-      Link,
-      {
-        className: cn(base_style, variantClass, className),
-        ref: ref as React.Ref<HTMLAnchorElement>,
-        href: href,
-      },
-      children,
-      hasIcon && React.createElement(Image, { src: iconSrc, width: iconSize, height: iconSize, alt: "button icon" })
-    );
-  }
-
-  return React.createElement(
-    "button",
-    {
-      className: cn(base_style, variantClass, className),
-      ref: ref as React.Ref<HTMLButtonElement>,
-    },
-    children,
-    hasIcon && React.createElement(Image, { src: iconSrc, width: iconSize, height: iconSize, alt: "button icon" })
-  );
+const variantStyles: Record<Variants, string> = {
+  primary: 'bg-joh-blue hover:bg-blue-950',
+  secondary: 'bg-joh-blue-secondary',
+  tertiary: 'bg-background text-joh-blue',
+  casablanca:
+    'bg-casablanca text-chambray hover:bg-amber-200 hover:text-blue-900',
 }
 
-const ButtonWithRef = React.forwardRef(Button);
-ButtonWithRef.displayName = "Button Component";
-export default ButtonWithRef;
+function Button(props: ButtonProps, ref: React.Ref<HTMLButtonElement | HTMLAnchorElement>) {
+  const {
+    children,
+    className,
+    variant = 'primary',
+    hasIcon = false,
+    iconSrc = '',
+    iconSize = 32,
+    isNav,
+    href,
+    downloadName,
+    ...rest
+  } = props
+
+  const classes = cn(baseStyle, variantStyles[variant], className)
+  const icon = hasIcon ? (
+    <Image src={iconSrc} width={iconSize} height={iconSize} alt="button icon" />
+  ) : null
+
+  const asLink = Boolean(href) || isNav === true
+
+  if (asLink && href) {
+    if (downloadName) {
+      return (
+        <a
+          {...(rest as React.AnchorHTMLAttributes<HTMLAnchorElement>)}
+          className={classes}
+          download={downloadName}
+          href={href}
+          ref={ref as React.Ref<HTMLAnchorElement>}
+        >
+          {children}
+          {icon}
+        </a>
+      )
+    }
+
+    return (
+      <Link
+        {...(rest as React.AnchorHTMLAttributes<HTMLAnchorElement>)}
+        className={classes}
+        href={href}
+        ref={ref as React.Ref<HTMLAnchorElement>}
+      >
+        {children}
+        {icon}
+      </Link>
+    )
+  }
+
+  return (
+    <button
+      {...(rest as React.ButtonHTMLAttributes<HTMLButtonElement>)}
+      className={classes}
+      ref={ref as React.Ref<HTMLButtonElement>}
+    >
+      {children}
+      {icon}
+    </button>
+  )
+}
+
+const ButtonWithRef = React.forwardRef(Button)
+ButtonWithRef.displayName = 'Button Component'
+export default ButtonWithRef

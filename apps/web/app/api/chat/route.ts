@@ -1,7 +1,13 @@
+import {
+  formatRetrievedContext,
+  MARKETING_RETRIEVE_TOP_K,
+  retrieveMarketingContext,
+} from '@cocreate/ai-core'
 import { openai } from '@ai-sdk/openai'
 import { convertToModelMessages, streamText, type UIMessage } from 'ai'
 import {
   getAssistantSystemPrompt,
+  getLatestUserText,
   isPortalAssistantContext,
 } from '@/lib/assistant/prompts'
 
@@ -32,22 +38,32 @@ export async function POST(req: Request) {
   }
 
   const url = new URL(req.url)
-  const contextParam = body.context ?? url.searchParams.get('context') ?? 'marketing'
+  const contextParam =
+    body.context ?? url.searchParams.get('context') ?? 'marketing'
 
   if (isPortalAssistantContext(contextParam)) {
     return Response.json(
-      { error: 'This assistant context is not available on the marketing site yet.' },
+      {
+        error:
+          'This assistant context is not available on the marketing site yet.',
+      },
       { status: 501 },
     )
   }
 
-  const context = contextParam === 'marketing' ? 'marketing' : 'marketing'
-  const system = getAssistantSystemPrompt(context)
+  const messages = body.messages ?? []
+  const latestUserText = getLatestUserText(messages)
+  const chunks = latestUserText
+    ? await retrieveMarketingContext(latestUserText, MARKETING_RETRIEVE_TOP_K)
+    : []
+  const retrievedContext = formatRetrievedContext(chunks)
+
+  const system = getAssistantSystemPrompt('marketing', retrievedContext)
 
   const result = streamText({
     model: openai(process.env.OPENAI_MODEL ?? 'gpt-4o-mini'),
     system,
-    messages: await convertToModelMessages(body.messages ?? []),
+    messages: await convertToModelMessages(messages),
   })
 
   return result.toUIMessageStreamResponse()

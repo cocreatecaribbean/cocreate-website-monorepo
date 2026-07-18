@@ -5,6 +5,7 @@ import { MapPin } from 'lucide-react'
 import * as fonts from '@/styles/fonts'
 import { contactPageHero, contactPageTitle } from '@/site-info/contact-page-data'
 import { useContactHeadlineWave } from '@/hooks/use-contact-headline-wave'
+import ContactLocationNameLoop from '@/components/contact/contact-location-name-loop'
 
 export default function ContactPageHeader() {
   const sectionRef = useRef<HTMLElement>(null)
@@ -75,19 +76,21 @@ export default function ContactPageHeader() {
     <section
       ref={sectionRef}
       className="
-        contact-page-header mx-auto mb-16 flex w-[88svw] max-w-[1160px]
-        flex-col items-center gap-4 text-black
+        contact-page-header mx-auto mb-16 grid w-[88svw] max-w-[1320px]
+        grid-cols-1 items-center gap-4 text-black
         pt-[calc(5svh+3.5rem)] sm:pt-[calc(5svh+4rem)]
-        min-[1024px]:mb-20 min-[1024px]:flex-row min-[1024px]:items-center
-        min-[1024px]:gap-2 min-[1024px]:pt-[calc(8svh+5rem)]
-        min-[1500px]:mb-24 min-[1500px]:gap-4 min-[1500px]:pt-52
+        min-[1024px]:mb-20 min-[1024px]:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]
+        min-[1024px]:items-center min-[1024px]:gap-16
+        min-[1024px]:pt-[calc(8svh+5rem)]
+        min-[1500px]:mb-24 min-[1500px]:pt-52
+        xl:gap-24
         landscape:pt-20 landscape:lg:pt-44 landscape:xl:pt-64
       "
     >
       <div
         className="
-          relative mx-auto -mb-14 w-[min(78vw,360px)] shrink-0
-          min-[1024px]:mx-0 min-[1024px]:mb-0 min-[1024px]:-mr-12 min-[1024px]:w-[44%] min-[1024px]:max-w-[520px]
+          relative mx-auto -mb-14 w-[min(78vw,360px)]
+          min-[1024px]:mx-0 min-[1024px]:mb-0 min-[1024px]:w-full min-[1024px]:max-w-[520px]
           min-[1500px]:max-w-[580px]
         "
       >
@@ -123,7 +126,7 @@ export default function ContactPageHeader() {
         </div>
       </div>
 
-      <div className="flex w-full min-w-0 flex-col items-center text-center min-[1024px]:flex-1">
+      <div className="flex w-full min-w-0 -translate-x-3 flex-col items-center text-center min-[1024px]:-translate-x-5">
         <h1
           className="
             contact-page-title w-fit overflow-visible text-center leading-none
@@ -142,7 +145,7 @@ export default function ContactPageHeader() {
             {'\u00A0'}
           </span>
           <span
-            className={`text-[clamp(2.75rem,8vw,5rem)] min-[1500px]:text-[clamp(4rem,5vw,7rem)] ${fonts.bricolage_grot800.className}`}
+            className={`whitespace-nowrap text-[clamp(2.75rem,8vw,5rem)] min-[1500px]:text-[clamp(4rem,5vw,7rem)] ${fonts.bricolage_grot800.className}`}
           >
             {contactPageTitle.lineTwo}
           </span>
@@ -150,9 +153,9 @@ export default function ContactPageHeader() {
 
         <p
           className={`
-            mt-4 max-w-[28ch] text-[clamp(0.95rem,2.1vw,1.35rem)] font-medium
+            mt-4 max-w-[28ch] translate-x-3 text-[clamp(0.95rem,2.1vw,1.35rem)] font-medium
             uppercase tracking-[0.04em] text-chambray
-            min-[1024px]:max-w-none
+            min-[1024px]:max-w-none min-[1024px]:translate-x-5
             ${fonts.bricolage_grot500.className}
           `}
         >
@@ -162,10 +165,12 @@ export default function ContactPageHeader() {
         <div
           role="note"
           className={`
-            mt-6 inline-flex max-w-full flex-wrap items-center justify-center gap-x-1.5 gap-y-1
-            rounded-full bg-chambray px-4 py-2.5 text-[clamp(0.68rem,1.5vw,0.82rem)]
-            font-medium uppercase tracking-[0.05em] text-white
+            mt-6 inline-flex max-w-none flex-nowrap items-center justify-center gap-x-1.5
+            whitespace-nowrap rounded-full bg-chambray px-4 py-2.5
+            text-[clamp(0.62rem,1.35vw,0.82rem)] font-medium uppercase tracking-[0.05em]
+            text-white translate-x-3
             sm:gap-x-2 sm:px-6 sm:py-3
+            min-[1024px]:translate-x-5
             ${fonts.bricolage_grot500.className}
           `}
         >
@@ -175,9 +180,7 @@ export default function ContactPageHeader() {
             aria-hidden
             strokeWidth={2.5}
           />
-          <span className={`text-casablanca ${fonts.bricolage_grot700.className}`}>
-            {contactPageHero.locationName}
-          </span>
+          <ContactLocationNameLoop />
           <span>{contactPageHero.locationAsk}</span>
         </div>
       </div>

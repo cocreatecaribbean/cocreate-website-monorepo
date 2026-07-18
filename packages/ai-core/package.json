@@ -4,17 +4,49 @@
   "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./models": {
+      "types": "./dist/models.d.ts",
+      "require": "./dist/models.js",
+      "default": "./dist/models.js"
+    },
+    "./generate-structured": {
+      "types": "./dist/generate-structured.d.ts",
+      "require": "./dist/generate-structured.js",
+      "default": "./dist/generate-structured.js"
+    },
+    "./rag": {
+      "types": "./dist/rag/index.d.ts",
+      "require": "./dist/rag/index.js",
+      "default": "./dist/rag/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "rag:ingest-about": "tsx scripts/ingest-about.mts",
+    "rag:ingest-site": "tsx scripts/ingest-about.mts",
+    "rag:ingest-portal": "tsx scripts/ingest-portal.mts",
+    "rag:verify": "tsx scripts/verify-retrieve.mts",
+    "rag:verify-portal": "tsx scripts/verify-portal-retrieve.mts"
   },
   "dependencies": {
     "@ai-sdk/openai": "catalog:ai",
+    "@mastra/core": "^1.51.0",
+    "@mastra/pg": "^1.16.0",
+    "@mastra/rag": "^2.4.1",
     "ai": "catalog:ai",
+    "pdf-parse": "^2.4.5",
     "zod": "catalog:web"
   },
   "devDependencies": {
     "@types/node": "catalog:tooling",
+    "tsx": "^4.23.1",
     "typescript": "catalog:tooling"
   }
 }

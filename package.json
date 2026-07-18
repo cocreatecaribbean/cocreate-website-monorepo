@@ -17,6 +17,9 @@
     "db:push": "doppler run -- pnpm --filter @cocreate/database db:push",
     "db:migrate": "doppler run -- pnpm --filter @cocreate/database exec prisma migrate deploy",
     "db:seed:admin": "doppler run -- pnpm --filter @cocreate/database seed:admin",
+    "rag:ingest-about": "doppler run -- pnpm --filter @cocreate/ai-core rag:ingest-about",
+    "rag:ingest-site": "doppler run -- pnpm --filter @cocreate/ai-core rag:ingest-site",
+    "rag:ingest-portal": "doppler run -- pnpm --filter @cocreate/ai-core rag:ingest-portal",
     "sync:turbo-env": "node scripts/sync-turbo-api-env.mts"
   },
   "devDependencies": {

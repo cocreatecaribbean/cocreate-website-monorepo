@@ -36,11 +36,13 @@ const nextConfig: NextConfig = {
     }
   },
 
+  serverExternalPackages: ['@mastra/pg', 'pg'],
+
   turbopack: {
     root: path.resolve(__dirname, '../../'),  // ← now absolute
   },
 
-  transpilePackages: ['three'],
+  transpilePackages: ['three', '@cocreate/ai-core'],
 };
 
 export default withNextVideo(nextConfig);

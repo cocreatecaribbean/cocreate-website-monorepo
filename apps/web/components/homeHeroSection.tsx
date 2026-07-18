@@ -31,11 +31,11 @@ type SequenceKey = "landscape" | "portrait"
 
 const SEQUENCES = {
   landscape: {
-    frameCount: 230,
-    width: 1920,
-    height: 1080,
+    frameCount: 240,
+    width: 1920*2,
+    height: 1080*2,
     path: (i: number) =>
-      `/cocreate-logo-shapes-web-anim/cocreate-logo-shape-web-anim_${i}.webp`,
+      `/cocreate-logo-shapes-anim-web-desktop/cocreate-logo-shapes-anim-web-desktop_${i}.webp`,
   },
   portrait: {
     frameCount: 175,
@@ -115,7 +115,7 @@ function getBrandStartY(): number {
   }
 
   const min = vw < 768 ? 48 : 88;
-  const max = vw < 768 ? 88 : 160;
+  const max = vw < 768 ? 88 : 80;
   const ratio = vw < 768 ? 0.1 : 0.12;
   return Math.min(max, Math.max(min, vh * ratio));
 }
@@ -477,22 +477,6 @@ export default function HomeHeroSection({
         stagger: 0.07,
       });
 
-      // ─── About Text Scrub ───────────────────────────────────────────────────
-
-      gsap.from(about_text_split.words, {
-        y: 40,
-        opacity: 0,
-        duration: 1,
-        stagger: 0.2,
-        ease: "power2.out",
-        scrollTrigger: {
-          trigger: ".about-text",
-          start: "top 85%",
-          end: "top 10%",
-          scrub: 1,
-        },
-      });
-
       // ─── Timelines ──────────────────────────────────────────────────────────
 
       const mainTimeline = gsap.timeline();
@@ -646,12 +630,30 @@ export default function HomeHeroSection({
             window.visualViewport?.addEventListener("resize", onViewportResize);
           }
 
+          // About / What We Do: mobile scrub windows tuned for on-screen play without lagging entry.
+          if (about_text_split?.words?.length) {
+            gsap.from(about_text_split.words, {
+              y: 40,
+              opacity: 0,
+              duration: 1,
+              stagger: isMobile ? 0.08 : 0.2,
+              ease: "power2.out",
+              scrollTrigger: {
+                id: "home-about-text",
+                trigger: ".about-text",
+                start: isMobile ? "top 92%" : "top 85%",
+                end: isMobile ? "top 35%" : "top 10%",
+                scrub: isMobile ? 1.25 : 1,
+              },
+            });
+          }
+
           ScrollTrigger.create({
             id: "home-what-we-do",
             animation: whatWeDoTimeline,
             trigger: ".what-we-do",
-            start: isMobile ? "top 195%" : "top 175%",
-            end: isMobile ? "top 95%" : "top 65%",
+            start: isMobile ? "top 140%" : "top 175%",
+            end: isMobile ? "top 78%" : "top 65%",
             scrub: true,
           });
 
@@ -789,12 +791,12 @@ export default function HomeHeroSection({
     <div ref={mainRef} className="opacity-0">
       <section
         ref={container}
-        className="grid grid-cols-1 grid-rows-1 w-svw h-svh justify-start content-start items-start"
+        className="grid grid-cols-1 grid-rows-1 h-svh w-full max-w-full justify-start content-start items-start"
       >
         <h1
           className={`
             text-[clamp(3rem,5vw,7rem)] md:text-[clamp(4rem,5vw,7rem)]
-            leading-none uppercase w-[calc(100svw-1.5rem)] sm:w-[65%] md:w-[70%] lg:w-[70%] 2xl:w-[65%] 3xl:w-[60%]
+            leading-none uppercase w-[calc(100%-1.5rem)] sm:w-[65%] md:w-[70%] lg:w-[70%] 2xl:w-[65%] 3xl:w-[60%]
             mx-auto pt-60 landscape:pt-20 landscape:lg:pt-48 landscape:xl:pt-72 landscape:2xl:pt-90
             col-span-1 col-start-1 row-span-1 row-start-1 text-center overflow-visible
             ${fonts.bricolage_grot800.className}
@@ -807,7 +809,7 @@ export default function HomeHeroSection({
 
         <div
           ref={brand_elem}
-          className="w-screen h-screen mx-auto z-10 col-span-1 col-start-1 row-span-1 row-start-1 overflow-hidden"
+          className="z-10 col-span-1 col-start-1 row-span-1 row-start-1 mx-auto h-screen w-full max-w-full overflow-hidden"
         >
           <canvas
             ref={canvasRef}
@@ -819,7 +821,7 @@ export default function HomeHeroSection({
 
         <div
           ref={vid_container}
-          className="w-screen h-full col-span-1 col-start-1 row-span-1 row-start-1 self-start scale-0 overflow-hidden will-change-transform"
+          className="col-span-1 col-start-1 row-span-1 row-start-1 h-full w-full max-w-full scale-0 self-start overflow-hidden will-change-transform"
         >
           {heroReelPlaybackId ? (
             <MuxBackgroundVideo playbackId={heroReelPlaybackId} />
@@ -830,7 +832,7 @@ export default function HomeHeroSection({
       </section>
 
       <section className="bg-white">
-        <div className="w-screen">
+        <div className="w-full max-w-full">
           <p
             key={agencyIntro}
             className={`about-text
@@ -857,7 +859,7 @@ export default function HomeHeroSection({
         </div>
       </section>
 
-      <section className="@container mb-20 flex w-svw flex-col gap-20 md:mb-20 lg:flex-row lg:mb-28 xl:mb-36">
+      <section className="@container mb-20 flex w-full max-w-full flex-col gap-20 md:mb-20 lg:flex-row lg:mb-28 xl:mb-36">
         <div className={`@container tracking-normal w-full max-w-[min(100%,24rem)] px-4 sm:max-w-none sm:w-[60%] sm:px-0 lg:w-[45%] mx-auto flex-1 2xl:translate-y-20 3xl:translate-y-40 ${fonts.bricolage_grot500.className}`}>
           <div className="flex flex-col gap-y-10 w-full lg:w-[75cqw] xl:w-[70cqw] 3xl:w-[55cqw] mx-auto min-w-0">
             <PhilosophyTitleLoop />

@@ -47,7 +47,7 @@ type SocialLinksProps = {
     orientation?:'horizontal'|'vertical'
     color:Color
     icon_width?:number
-    
+    align?: 'start' | 'center'
 }
 
 
@@ -81,10 +81,10 @@ const socialLinks:SocialPack = COLORS.reduce((color_acc, color)=>{
 //console.log(socialLinks)
 
 
-const SocialLinks = ({orientation='horizontal', color='white', icon_width=50}:SocialLinksProps) => {
+const SocialLinks = ({orientation='horizontal', color='white', icon_width=50, align='center'}:SocialLinksProps) => {
 
     return ( 
-        <div className= {` flex ${orientation==='horizontal'?'flex-row':'flex-col'} justify-center gap-4 list-none `}>
+        <div className= {` flex ${orientation==='horizontal'?'flex-row':'flex-col'} ${align === 'start' ? 'justify-start' : 'justify-center'} gap-4 list-none `}>
             {
                 
                 

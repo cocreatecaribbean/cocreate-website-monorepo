@@ -1,10 +1,11 @@
-import Link from 'next/link'
+import ButtonWithRef from '@/components/button'
 import * as fonts from '@/styles/fonts'
 
 const messages: Record<string, string> = {
   missing: 'This confirmation link is incomplete.',
   invalid: 'This confirmation link is invalid or has already been used.',
-  expired: 'This confirmation link has expired. Please subscribe again from our site footer.',
+  expired:
+    'This confirmation link has expired. Please subscribe again from our site footer.',
   sync: 'We confirmed your interest, but syncing to our mailing list failed. Please try again later or contact us.',
 }
 
@@ -26,12 +27,14 @@ export default async function NewsletterConfirmErrorPage({ searchParams }: PageP
           Could not confirm
         </h1>
         <p className="mt-4 text-lg text-white/85">{message}</p>
-        <Link
+        <ButtonWithRef
           href="/"
-          className="mt-8 inline-flex rounded-full bg-casablanca px-8 py-3 text-base font-semibold text-chambray transition hover:bg-amber-200"
+          isNav
+          variant="casablanca"
+          className="mt-8 px-8 py-3 text-base"
         >
           Back to home
-        </Link>
+        </ButtonWithRef>
       </div>
     </main>
   )

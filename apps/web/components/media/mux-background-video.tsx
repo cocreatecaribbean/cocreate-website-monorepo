@@ -17,7 +17,7 @@ export default function MuxBackgroundVideo({ playbackId, poster }: MuxBackground
       loop
       playsInline
       streamType="on-demand"
-      className="pointer-events-none h-dvh w-dvw select-none object-cover opacity-100 [--controls:none]"
+      className="pointer-events-none h-full w-full max-w-full select-none object-cover opacity-100 [--controls:none]"
     />
   )
 }

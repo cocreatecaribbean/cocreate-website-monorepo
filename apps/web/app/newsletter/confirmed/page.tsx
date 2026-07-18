@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import ButtonWithRef from '@/components/button'
 import * as fonts from '@/styles/fonts'
 
 export default function NewsletterConfirmedPage() {
@@ -15,12 +15,14 @@ export default function NewsletterConfirmedPage() {
           Thanks for confirming. You&apos;ll hear from CoCreate Caribbean with inspiration,
           updates, and news.
         </p>
-        <Link
+        <ButtonWithRef
           href="/"
-          className="mt-8 inline-flex rounded-full bg-casablanca px-8 py-3 text-base font-semibold text-chambray transition hover:bg-amber-200"
+          isNav
+          variant="casablanca"
+          className="mt-8 px-8 py-3 text-base"
         >
           Back to home
-        </Link>
+        </ButtonWithRef>
       </div>
     </main>
   )

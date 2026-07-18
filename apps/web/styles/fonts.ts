@@ -1,13 +1,13 @@
 // styles/fonts.ts
+import localFont from 'next/font/local'
 import {
   Alkatra,
-  BioRhyme_Expanded,
   Bricolage_Grotesque,
+  Dela_Gothic_One,
   Krona_One,
   Michroma,
   Oi,
   Press_Start_2P,
-  Stalinist_One,
   Syne,
 } from 'next/font/google'
 
@@ -91,16 +91,19 @@ const michroma = Michroma({
   variable: '--font-michroma',
 })
 
-const bioRhymeExpanded = BioRhyme_Expanded({
+const delaGothicOne = Dela_Gothic_One({
   subsets: ['latin'],
   weight: '400',
-  variable: '--font-biorhyme-expanded',
+  variable: '--font-dela-gothic-one',
 })
 
-const stalinistOne = Stalinist_One({
-  subsets: ['latin'],
+/** OFL display face — https://github.com/koci-design/AlienBlock */
+const alienBlock = localFont({
+  src: './fonts/AlienBlock-Regular.ttf',
   weight: '400',
-  variable: '--font-stalinist-one',
+  style: 'normal',
+  variable: '--font-alien-block',
+  display: 'swap',
 })
 
 export {
@@ -117,6 +120,6 @@ export {
   oi,
   pressStart2P,
   michroma,
-  bioRhymeExpanded,
-  stalinistOne,
+  delaGothicOne,
+  alienBlock,
 }

@@ -8,6 +8,7 @@ import ClientPortalNavDrawer from '@/components/client-portal-nav-drawer'
 import PortalBrandHeader from '@/components/portal-brand-header'
 import PortalUserAvatar from '@/components/portal-user-avatar'
 import OrganizationSwitcher from '@/components/organization-switcher'
+import ClientPortalAssistant from '@/components/assistant/client-portal-assistant'
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import { setActiveOrganizationId } from '@/lib/api/active-organization'
 import { resolveCanUseSocialListening } from '@/lib/portal-profile-types'
@@ -148,6 +149,7 @@ function ClientPortalShellInner({
       <div className="flex-1">{children}</div>
 
       <PortalFooter userEmail={userEmail} />
+      <ClientPortalAssistant />
     </PortalDrawerShell>
   )
 }
