@@ -39,6 +39,7 @@ export const presentationLocations = {
       ],
     }),
   }),
+  // Static /work only — do not select projects[] (heavy nested projection stalls "Resolving locations…").
   workPage: defineLocations({
     select: {},
     resolve: () => ({

@@ -6,10 +6,12 @@ import {
 import { openai } from '@ai-sdk/openai'
 import { convertToModelMessages, streamText, type UIMessage } from 'ai'
 import {
+  firstNameFromDisplayName,
   getClientPortalSystemPrompt,
   getLatestUserText,
   type PortalRouteContext,
 } from '@/lib/assistant/prompts'
+import { fetchClientPortalProfile } from '@/lib/client-session'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export const maxDuration = 30
@@ -71,7 +73,12 @@ export async function POST(req: Request) {
     ccView: body.ccView ?? null,
   }
 
-  const system = getClientPortalSystemPrompt(retrievedContext, route)
+  const profile = await fetchClientPortalProfile()
+  const firstName = firstNameFromDisplayName(profile?.user.displayName)
+
+  const system = getClientPortalSystemPrompt(retrievedContext, route, {
+    firstName,
+  })
 
   const result = streamText({
     model: openai(process.env.OPENAI_MODEL ?? 'gpt-4o-mini'),

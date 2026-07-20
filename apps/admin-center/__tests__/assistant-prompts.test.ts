@@ -2,15 +2,16 @@ import { getAdminCenterSystemPrompt } from '@/lib/assistant/prompts'
 import { formatAdminCenterProductFacts } from '@/lib/assistant/product-facts'
 
 describe('Admin Center assistant prompts', () => {
-  it('includes PRODUCT FACTS with Get Help and Project Center', () => {
+  it('includes PRODUCT FACTS with Get Help, Project Center, and sidebar navigation', () => {
     const facts = formatAdminCenterProductFacts()
     expect(facts).toContain('Get Help')
-    expect(facts).toContain('/messages')
     expect(facts).toContain('Project Center')
-    expect(facts).toContain('/project-center')
+    expect(facts).toContain('sidebar on the left')
+    expect(facts).not.toMatch(/\( \/messages\)/)
+    expect(facts).not.toMatch(/Get Help \(\/messages\)/)
   })
 
-  it('embeds PRODUCT FACTS and optional CURRENT LOCATION', () => {
+  it('embeds PRODUCT FACTS, UI nav rules, and optional CURRENT LOCATION', () => {
     const prompt = getAdminCenterSystemPrompt(undefined, {
       pathname: '/messages',
       search: '?organizationId=abc',
@@ -19,6 +20,11 @@ describe('Admin Center assistant prompts', () => {
     expect(prompt).toContain('Get Help')
     expect(prompt).toContain('CURRENT LOCATION')
     expect(prompt).toContain('/messages')
+    expect(prompt).toContain('numbered list')
+    expect(prompt).toContain('**Label**')
+    expect(prompt).toContain('Never show query strings')
+    expect(prompt).toContain('sidebar on the left')
+    expect(prompt).not.toMatch(/suggest Get Help \(\/messages\)/)
   })
 
   it('includes retrieved context when provided', () => {

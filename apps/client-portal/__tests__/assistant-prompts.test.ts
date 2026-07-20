@@ -1,15 +1,19 @@
-import { getClientPortalSystemPrompt } from '@/lib/assistant/prompts'
+import {
+  firstNameFromDisplayName,
+  getClientPortalSystemPrompt,
+} from '@/lib/assistant/prompts'
 import { formatClientPortalProductFacts } from '@/lib/assistant/product-facts'
 
 describe('Client Portal assistant prompts', () => {
-  it('includes PRODUCT FACTS with Get Help', () => {
+  it('includes PRODUCT FACTS with Get Help and left-menu navigation', () => {
     const facts = formatClientPortalProductFacts()
     expect(facts).toContain('Get Help')
-    expect(facts).toContain('/?ccView=messages')
     expect(facts).toContain('Control Center')
+    expect(facts).toContain('menu on the left')
+    expect(facts).not.toMatch(/\/\?ccView=/)
   })
 
-  it('embeds PRODUCT FACTS and CURRENT LOCATION', () => {
+  it('embeds PRODUCT FACTS, UI nav rules, and CURRENT LOCATION', () => {
     const prompt = getClientPortalSystemPrompt(undefined, {
       pathname: '/',
       ccView: 'projects',
@@ -19,5 +23,26 @@ describe('Client Portal assistant prompts', () => {
     expect(prompt).toContain('Get Help')
     expect(prompt).toContain('CURRENT LOCATION')
     expect(prompt).toContain('projects')
+    expect(prompt).toContain('numbered list')
+    expect(prompt).toContain('**Label**')
+    expect(prompt).toContain('Never show query strings')
+    expect(prompt).toContain('menu on the left')
+    expect(prompt).not.toMatch(/suggest Get Help \(\/\?ccView=/)
+  })
+
+  it('embeds signed-in first name when provided', () => {
+    const prompt = getClientPortalSystemPrompt(
+      undefined,
+      { pathname: '/' },
+      { firstName: 'Jordan' },
+    )
+    expect(prompt).toContain('SIGNED-IN USER: firstName=Jordan')
+  })
+
+  it('derives first name from display name', () => {
+    expect(firstNameFromDisplayName('Jordan Lee')).toBe('Jordan')
+    expect(firstNameFromDisplayName('  Ana  ')).toBe('Ana')
+    expect(firstNameFromDisplayName(null)).toBeNull()
+    expect(firstNameFromDisplayName('')).toBeNull()
   })
 })

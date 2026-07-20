@@ -7,6 +7,7 @@ import {
   createProject,
   registerProjectCover,
   removeProjectCover,
+  renameProject,
   requestProjectCoverUploadUrl,
   uploadProjectFiles,
 } from '@/lib/projects/fetch-projects-client'
@@ -18,6 +19,23 @@ export function useCreateProjectMutation() {
     mutationFn: (payload: { title: string; description: string }) => createProject(payload),
     onSuccess: (result) => {
       if (!result.ok) return
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all })
+    },
+  })
+}
+
+export function useRenameProjectMutation(projectId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (title: string) => {
+      const result = await renameProject(projectId, title)
+      if (!result.ok) throw new Error(result.message ?? 'Could not rename project')
+      return result.project
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(projectId) })
       void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all })
       void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all })
     },

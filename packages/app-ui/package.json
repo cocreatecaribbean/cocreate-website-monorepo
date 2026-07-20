@@ -25,6 +25,7 @@
     "./use-chart-theme": "./src/use-chart-theme.ts",
     "./assistant-shell": "./src/assistant-shell.tsx",
     "./assistant-chat": "./src/assistant-chat.tsx",
+    "./assistant-message-content": "./src/assistant-message-content.tsx",
     "./thread-summary-export": "./src/thread-summary-export.tsx"
   },
   "peerDependencies": {

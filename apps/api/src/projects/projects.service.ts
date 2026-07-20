@@ -44,6 +44,7 @@ import type {
   CreateProjectForAdminInput,
   ResolveCancellationInput,
   RegisterAttachmentInput,
+  RenameProjectInput,
   UpdateProjectInput,
   CreateRequestMessageInput,
   UploadUrlInput,
@@ -210,6 +211,49 @@ export class ProjectsService {
     })
     if (!project) throw new NotFoundException('Project not found')
     return project
+  }
+
+  /**
+   * Updates ClientProject.title and keeps the ONBOARDING thread title in sync.
+   * Progress / internal thread titles are intentionally left alone.
+   */
+  private async renameProjectTitle(
+    projectId: string,
+    title: string,
+    actorUserId: string,
+  ): Promise<{ title: string; changed: boolean; previousTitle: string }> {
+    const newTitle = title.trim()
+    const existing = await this.prisma.clientProject.findUnique({
+      where: { id: projectId },
+      select: { title: true },
+    })
+    if (!existing) throw new NotFoundException('Project not found')
+    if (existing.title === newTitle) {
+      return { title: newTitle, changed: false, previousTitle: existing.title }
+    }
+
+    await this.prisma.clientProject.update({
+      where: { id: projectId },
+      data: { title: newTitle },
+    })
+    await this.prisma.projectRequest.updateMany({
+      where: { projectId, type: ProjectRequestType.ONBOARDING },
+      data: { title: newTitle },
+    })
+    await this.logActivity(projectId, actorUserId, 'project.renamed', {
+      previousTitle: existing.title,
+      title: newTitle,
+    })
+    return { title: newTitle, changed: true, previousTitle: existing.title }
+  }
+
+  private projectDetailInclude() {
+    return {
+      organization: { select: { id: true, name: true, slug: true } },
+      createdBy: { select: userActorSelect },
+      approvedBy: { select: userActorSelect },
+      completedBy: { select: userActorSelect },
+    } as const
   }
 
   private requestListInclude() {
@@ -436,7 +480,10 @@ export class ProjectsService {
         createdByUserId,
         status: ProjectRequestStatus.OPEN,
       },
-      update: {},
+      update: {
+        title: 'Project progress',
+        description: 'Collaboration and progress updates',
+      },
     })
   }
 
@@ -453,7 +500,10 @@ export class ProjectsService {
         createdByUserId,
         status: ProjectRequestStatus.OPEN,
       },
-      update: {},
+      update: {
+        title: 'Team review',
+        description: 'Internal CoCreate discussion — not visible to the client.',
+      },
     })
   }
 
@@ -1493,6 +1543,13 @@ export class ProjectsService {
     }
     await this.getProjectById(projectId)
 
+    if (dto.title !== undefined) {
+      await this.renameProjectTitle(projectId, dto.title, admin.id)
+    }
+
+    const hasStatusOrPhase =
+      dto.status !== undefined || dto.phase !== undefined
+
     const data: Prisma.ClientProjectUpdateInput = {
       ...(dto.phase !== undefined ? { phase: dto.phase } : {}),
     }
@@ -1505,27 +1562,29 @@ export class ProjectsService {
       }
     }
 
-    const updated = await this.prisma.clientProject.update({
-      where: { id: projectId },
-      data,
-      include: {
-        organization: { select: { id: true, name: true, slug: true } },
-        createdBy: { select: userActorSelect },
-        approvedBy: { select: userActorSelect },
-        completedBy: { select: userActorSelect },
-      },
-    })
+    const updated = hasStatusOrPhase
+      ? await this.prisma.clientProject.update({
+          where: { id: projectId },
+          data,
+          include: this.projectDetailInclude(),
+        })
+      : await this.prisma.clientProject.findUniqueOrThrow({
+          where: { id: projectId },
+          include: this.projectDetailInclude(),
+        })
 
-    const action =
-      dto.status === ClientProjectStatus.COMPLETED
-        ? 'project.completed'
-        : 'project.updated'
+    if (hasStatusOrPhase) {
+      const action =
+        dto.status === ClientProjectStatus.COMPLETED
+          ? 'project.completed'
+          : 'project.updated'
 
-    await this.logActivity(projectId, admin.id, action, {
-      status: dto.status,
-      phase: dto.phase,
-      adminEmail: admin.email,
-    })
+      await this.logActivity(projectId, admin.id, action, {
+        status: dto.status,
+        phase: dto.phase,
+        adminEmail: admin.email,
+      })
+    }
 
     if (dto.status === ClientProjectStatus.COMPLETED) {
       const portalLink = this.notifications.clientProjectLink(projectId)
@@ -1545,6 +1604,22 @@ export class ProjectsService {
       })
     }
 
+    return this.serializeProjectWithCover(updated)
+  }
+
+  async renameForClient(
+    client: AuthenticatedClient,
+    projectId: string,
+    dto: RenameProjectInput,
+  ) {
+    await this.clientAccess.assertCanCreateProject(client)
+    await this.getProjectForClient(client, projectId, 'VIEW')
+    await this.renameProjectTitle(projectId, dto.title, client.id)
+
+    const updated = await this.prisma.clientProject.findUniqueOrThrow({
+      where: { id: projectId },
+      include: this.projectDetailInclude(),
+    })
     return this.serializeProjectWithCover(updated)
   }
 
@@ -1734,20 +1809,21 @@ export class ProjectsService {
         ? `${this.notifications.clientPortalUrl()}/?ccView=projects&projectId=${request.projectId}`
         : `${this.notifications.clientPortalUrl()}/?ccView=projects&projectId=${request.projectId}&requestId=${requestId}`
     const snippet = body.slice(0, 200) || (attachmentIds.length ? 'Sent an attachment' : '')
+    const projectTitle = request.project.title
 
     if (isClient) {
       void this.notifications.notifyAdmins({
         organizationId: request.project.organizationId,
         type: PortalNotificationType.REQUEST_MESSAGE,
-        title: `Client replied: ${request.title}`,
+        title: `Client replied: ${projectTitle}`,
         body: snippet,
         href: adminLink,
         projectId: request.projectId,
         requestId,
         email: {
-          subject: `Client reply on ${request.project.title}`,
-          html: `<p>${request.project.organization?.name ?? 'Client'} replied on <strong>${request.title}</strong>:</p><blockquote>${snippet}</blockquote><p><a href="${adminLink}">View conversation</a></p>`,
-          text: `Client replied: ${snippet}\n\nView: ${adminLink}`,
+          subject: `Client reply on ${projectTitle}`,
+          html: `<p>${request.project.organization?.name ?? 'Client'} replied on <strong>${projectTitle}</strong>:</p><blockquote>${snippet}</blockquote><p><a href="${adminLink}">View conversation</a></p>`,
+          text: `Client replied on ${projectTitle}: ${snippet}\n\nView: ${adminLink}`,
           actionLink: adminLink,
         },
       })
@@ -1755,15 +1831,15 @@ export class ProjectsService {
       void this.notifications.notifyOrgClients({
         organizationId: request.project.organizationId,
         type: PortalNotificationType.REQUEST_MESSAGE,
-        title: `CoCreate replied: ${request.title}`,
+        title: `CoCreate replied: ${projectTitle}`,
         body: snippet,
         href: clientLink,
         projectId: request.projectId,
         requestId,
         email: {
-          subject: `New message on ${request.project.title}`,
-          html: `<p>CoCreate sent a follow-up on <strong>${request.title}</strong>:</p><blockquote>${snippet}</blockquote><p><a href="${clientLink}">Reply in portal</a></p>`,
-          text: `CoCreate: ${snippet}\n\nReply: ${clientLink}`,
+          subject: `New message on ${projectTitle}`,
+          html: `<p>CoCreate sent a follow-up on <strong>${projectTitle}</strong>:</p><blockquote>${snippet}</blockquote><p><a href="${clientLink}">Reply in portal</a></p>`,
+          text: `CoCreate replied on ${projectTitle}: ${snippet}\n\nReply: ${clientLink}`,
           actionLink: clientLink,
         },
       })

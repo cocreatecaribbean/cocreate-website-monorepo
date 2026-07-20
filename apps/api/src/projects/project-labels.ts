@@ -45,6 +45,23 @@ export function getActivitySummary(
       return `${who} marked this project complete`
     case 'project.updated':
       return `${who} updated the project`
+    case 'project.renamed': {
+      const previous =
+        typeof metadata?.previousTitle === 'string' && metadata.previousTitle.trim()
+          ? metadata.previousTitle.trim()
+          : null
+      const next =
+        typeof metadata?.title === 'string' && metadata.title.trim()
+          ? metadata.title.trim()
+          : null
+      if (previous && next) {
+        return `${who} renamed “${previous}” to “${next}”`
+      }
+      if (next) {
+        return `${who} renamed this project to “${next}”`
+      }
+      return `${who} renamed this project`
+    }
     case 'request.admin_review':
       return `${who} requested client review`
     case 'request.change_created':
@@ -72,6 +89,7 @@ export const RECENT_ACTIVITY_ACTIONS = [
   'project.approved',
   'project.completed',
   'project.updated',
+  'project.renamed',
   'request.cancellation_requested',
   'request.updated',
   'attachment.uploaded',
@@ -88,7 +106,11 @@ export function getActivityHref(
       ? metadata.requestId
       : null
 
-  if (action === 'project.submitted' || action === 'project.created_by_admin') {
+  if (
+    action === 'project.submitted' ||
+    action === 'project.created_by_admin' ||
+    action === 'project.renamed'
+  ) {
     return `${base}?tab=projects`
   }
 
@@ -110,6 +132,7 @@ export const CLIENT_RECENT_ACTIVITY_ACTIONS = [
   'project.approved',
   'project.completed',
   'project.submitted',
+  'project.renamed',
   'attachment.uploaded',
 ] as const
 
@@ -129,6 +152,23 @@ export function getClientActivitySummary(
       return 'Your project was onboarded and is active'
     case 'project.completed':
       return `${team} marked this project complete`
+    case 'project.renamed': {
+      const previous =
+        typeof metadata?.previousTitle === 'string' && metadata.previousTitle.trim()
+          ? metadata.previousTitle.trim()
+          : null
+      const next =
+        typeof metadata?.title === 'string' && metadata.title.trim()
+          ? metadata.title.trim()
+          : null
+      if (previous && next) {
+        return `${who} renamed “${previous}” to “${next}”`
+      }
+      if (next) {
+        return `${who} renamed this project to “${next}”`
+      }
+      return `${who} renamed this project`
+    }
     case 'attachment.uploaded':
       return `${who} shared a file on this project`
     default:

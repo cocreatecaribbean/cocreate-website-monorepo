@@ -27,3 +27,15 @@ export function urlForAboutHeroImage(source: SanityImageSource): string | null {
     urlForImage(source)?.width(1600).fit('max').auto('format').url() ?? null
   )
 }
+
+/** Work index / tile covers — crop to fill masonry tiles; keep payload small for next/image. */
+export function urlForWorkCover(source: SanityImageSource): string | null {
+  return (
+    urlForImage(source)
+      ?.width(900)
+      .height(1200)
+      .fit('crop')
+      .auto('format')
+      .url() ?? null
+  )
+}

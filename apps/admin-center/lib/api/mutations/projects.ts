@@ -43,6 +43,9 @@ export function useUpdateAdminProjectMutation(projectId: string, organizationId?
         void queryClient.invalidateQueries({
           queryKey: adminQueryKeys.projects.byOrganization(organizationId),
         })
+        void queryClient.invalidateQueries({
+          queryKey: adminQueryKeys.projects.workspace(organizationId, projectId),
+        })
       }
     },
   })

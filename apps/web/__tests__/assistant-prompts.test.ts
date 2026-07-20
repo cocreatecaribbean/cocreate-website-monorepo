@@ -18,6 +18,17 @@ describe('getAssistantSystemPrompt (marketing)', () => {
     expect(prompt).toContain('October 2020')
   })
 
+  it('includes format rules and main-nav coaching', () => {
+    const prompt = getAssistantSystemPrompt('marketing')
+    expect(prompt).toContain('numbered list')
+    expect(prompt).toContain('**Label**')
+    expect(prompt).toContain('No code fences')
+    expect(prompt).toContain('main nav')
+    expect(prompt).toContain('Never show backtick')
+    expect(prompt).toContain('main nav → **Contact**')
+    expect(prompt).not.toMatch(/Contact page: \/contact/)
+  })
+
   it('keeps contact and team facts when retrieved context is present', () => {
     const prompt = getAssistantSystemPrompt(
       'marketing',
@@ -29,5 +40,6 @@ describe('getAssistantSystemPrompt (marketing)', () => {
     expect(prompt).toContain('RETRIEVED CONTEXT:')
     expect(prompt).toMatch(/use SITE FACTS above first/i)
     expect(prompt).toMatch(/Named team list in SITE FACTS first/i)
+    expect(prompt).toContain('opening **Contact** from the main nav')
   })
 })

@@ -16,7 +16,7 @@ import {
   fetchAdminBff,
 } from '@/lib/admin-api-fetch'
 import CollaborateProjectFiles from '@/components/collaborate-project-files'
-import { useApproveClientProjectMutation } from '@/lib/api/mutations/projects'
+import { useApproveClientProjectMutation, useUpdateAdminProjectMutation } from '@/lib/api/mutations/projects'
 import { adminQueryKeys } from '@/lib/api/query-keys'
 import type { ProjectRequestMessage } from '@/lib/projects/types'
 import { useAdminProjectWorkspaceQuery } from '@/lib/api/queries/projects'
@@ -43,6 +43,7 @@ import {
 } from 'lucide-react'
 import AdminTopPicksPanel from '@/components/admin-top-picks-panel'
 import ClientProjectTeamPanel from '@/components/client-project-team-panel'
+import ProjectTitleRename from '@/components/project-title-rename'
 
 import {
   parseProjectWorkspaceTab,
@@ -74,6 +75,7 @@ export default function AdminProjectWorkspace({
 
   const workspaceQuery = useAdminProjectWorkspaceQuery(organizationId, projectId)
   const approveProjectMutation = useApproveClientProjectMutation(organizationId)
+  const updateProjectMutation = useUpdateAdminProjectMutation(projectId, organizationId)
 
   const project = workspaceQuery.data?.project ?? null
   const loading = workspaceQuery.isLoading
@@ -336,11 +338,39 @@ export default function AdminProjectWorkspace({
                 <FolderKanban className="h-6 w-6" strokeWidth={1.75} aria-hidden />
               </div>
               <div className="min-w-0 flex-1">
-                <h1
-                  className={`text-xl text-chambray sm:text-2xl ${bricolage_grot700.className}`}
-                >
-                  {project.title}
-                </h1>
+                {isCoreTeam ? (
+                  <ProjectTitleRename
+                    title={project.title}
+                    headingClassName={`text-xl text-chambray sm:text-2xl ${bricolage_grot700.className}`}
+                    inputClassName="admin-input"
+                    onSave={async (title) => {
+                      try {
+                        await updateProjectMutation.mutateAsync({ title })
+                        setSuccess('Project renamed.')
+                        void queryClient.invalidateQueries({
+                          queryKey: adminQueryKeys.projects.workspace(
+                            organizationId,
+                            projectId,
+                          ),
+                        })
+                      } catch (err) {
+                        const message =
+                          err instanceof AdminApiFetchError
+                            ? `${err.message} — ${adminFetchErrorHint(err.code)}`
+                            : err instanceof Error
+                              ? err.message
+                              : 'Could not rename project'
+                        throw new Error(message)
+                      }
+                    }}
+                  />
+                ) : (
+                  <h1
+                    className={`text-xl text-chambray sm:text-2xl ${bricolage_grot700.className}`}
+                  >
+                    {project.title}
+                  </h1>
+                )}
                 <p className="mt-1 text-sm text-app-muted">{clientName}</p>
                 {project.description ? (
                   <p className="mt-1 line-clamp-3 text-sm text-app-muted">

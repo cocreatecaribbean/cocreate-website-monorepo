@@ -4,6 +4,7 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage } from 'ai'
 import { ArrowRight, X } from 'lucide-react'
 import { FormEvent, useEffect, useId, useMemo, useRef, useState } from 'react'
+import AssistantMessageContent from './assistant-message-content'
 
 export type AssistantContext = 'marketing' | 'client-portal' | 'admin-center'
 
@@ -284,7 +285,16 @@ export default function AssistantChat({
                 >
                   {message.parts.map((part, index) =>
                     part.type === 'text' ? (
-                      <span key={`${message.id}-${index}`}>{part.text}</span>
+                      message.role === 'assistant' ? (
+                        <AssistantMessageContent
+                          key={`${message.id}-${index}`}
+                          text={part.text}
+                        />
+                      ) : (
+                        <span key={`${message.id}-${index}`} className="whitespace-pre-wrap">
+                          {part.text}
+                        </span>
+                      )
                     ) : null,
                   )}
                 </div>

@@ -32,7 +32,7 @@ export const workPage = defineType({
       name: 'projects',
       title: 'Projects',
       description:
-        'Each project is a section on this page. Use Add item at the bottom (same as joh FX currencies). Array order = Work grid order.',
+        'Each project is a section on this page. Use Add item at the bottom. Array order = Work grid order.',
       type: 'array',
       of: [
         {

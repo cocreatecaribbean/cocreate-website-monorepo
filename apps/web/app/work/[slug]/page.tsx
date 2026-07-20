@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import WorkProjectPage from '@/components/work/work-project-page'
+import { WorkProjectCmsProvider } from '@/components/work/work-project-cms-provider'
+import WorkProjectPageLive from '@/components/work/work-project-page-live'
 import { fetchWorkProjectBySlug, fetchWorkProjectSlugs } from '@/lib/cms/work-projects'
 import { getSanityPreviewContext } from '@/lib/preview-context'
 
@@ -39,5 +40,9 @@ export default async function WorkProjectRoute({ params }: WorkProjectRouteProps
   const project = await fetchWorkProjectBySlug(slug, preview)
   if (!project) notFound()
 
-  return <WorkProjectPage project={project} />
+  return (
+    <WorkProjectCmsProvider initial={project} slug={slug}>
+      <WorkProjectPageLive />
+    </WorkProjectCmsProvider>
+  )
 }

@@ -146,6 +146,21 @@ export async function createProject(payload: {
   return { ok: true, project: result.data }
 }
 
+export async function renameProject(
+  projectId: string,
+  title: string,
+): Promise<{ ok: boolean; project?: ClientProjectDetail; message?: string }> {
+  const result = await portalFetch<ClientProjectDetail>(
+    `/client-portal/projects/${encodeURIComponent(projectId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ title }),
+    },
+  )
+  if (!result.ok) return { ok: false, message: result.message }
+  return { ok: true, project: result.data }
+}
+
 export async function fetchProjectTopPicks(
   projectId: string,
   tags?: string[],

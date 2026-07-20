@@ -20,9 +20,11 @@ import ThreadSummaryExport from '@cocreate/app-ui/thread-summary-export'
 import ProjectCoverEditor from '@/components/project-cover-editor'
 import ProjectStatusAttribution, { ProjectTimeline } from '@/components/project-status-attribution'
 import ProjectTeamAside from '@/components/project-team-aside'
+import ProjectTitleRename from '@/components/project-title-rename'
 import type { PortalProjectTabId } from '@/lib/control-center/project-workspace'
 import type { ClientProjectDetail, ProjectRequestItem } from '@/lib/projects/api-types'
 import { queryKeys } from '@/lib/api/query-keys'
+import { useRenameProjectMutation } from '@/lib/api/mutations/projects'
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import { prefetchRequestThread } from '@/lib/api/queries/projects'
 import {
@@ -114,6 +116,8 @@ export default function PortalProjectWorkspace({
   const currentUserId = profile?.user.id ?? null
   const isViewer = Boolean(profile?.permissions.isViewer)
   const canSendMessages = profile?.permissions.canSendMessages !== false && !isViewer
+  const canRenameProject = Boolean(profile?.permissions.canCreateProject)
+  const renameProjectMutation = useRenameProjectMutation(project.id)
   const [tab, setTab] = useState<PortalProjectTabId>(initialTab)
   const [message, setMessage] = useState<string | null>(null)
   const [cancelReason, setCancelReason] = useState('')
@@ -273,11 +277,24 @@ export default function PortalProjectWorkspace({
             <FolderKanban className="h-6 w-6" strokeWidth={1.75} aria-hidden />
           </div>
           <div className="min-w-0 flex-1">
-            <h1
-              className={`text-xl text-chambray sm:text-2xl ${bricolage_grot700.className}`}
-            >
-              {project.title}
-            </h1>
+            {canRenameProject ? (
+              <ProjectTitleRename
+                title={project.title}
+                headingClassName={`text-xl text-chambray sm:text-2xl ${bricolage_grot700.className}`}
+                inputClassName="portal-input"
+                onSave={async (title) => {
+                  await renameProjectMutation.mutateAsync(title)
+                  setMessage('Project renamed.')
+                  await onRefresh()
+                }}
+              />
+            ) : (
+              <h1
+                className={`text-xl text-chambray sm:text-2xl ${bricolage_grot700.className}`}
+              >
+                {project.title}
+              </h1>
+            )}
             {project.description ? (
               <p className="mt-1 line-clamp-3 text-sm text-app-muted">{project.description}</p>
             ) : null}

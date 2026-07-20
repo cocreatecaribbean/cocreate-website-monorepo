@@ -10,6 +10,13 @@ type ClientPortalRecentUpdatesProps = {
   compact?: boolean
 }
 
+function formatActivityDateTime(iso: string) {
+  return new Date(iso).toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
 export default function ClientPortalRecentUpdates({
   items,
   compact = false,
@@ -21,6 +28,11 @@ export default function ClientPortalRecentUpdates({
   const list = (
     <ul className="divide-y divide-chambray/6">
       {items.map((item) => {
+        const actor =
+          item.actorLabel?.trim() ||
+          item.actorName?.trim() ||
+          item.actorEmail?.trim() ||
+          null
         const content = (
           <>
             <p className={`text-app-primary ${bricolage_grot600.className}`}>
@@ -28,7 +40,10 @@ export default function ClientPortalRecentUpdates({
             </p>
             <p className="mt-1 text-sm text-sanmarino">{item.projectTitle}</p>
             <p className="mt-2 text-xs font-medium tracking-wide text-app-muted">
-              {formatRelativeTime(item.createdAt)}
+              {actor ? <span className="text-sanmarino">{actor}</span> : null}
+              {actor ? ' · ' : ''}
+              {formatActivityDateTime(item.createdAt)}
+              <span> · {formatRelativeTime(item.createdAt)}</span>
             </p>
           </>
         )

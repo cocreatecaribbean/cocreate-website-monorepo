@@ -7,6 +7,13 @@ type AdminRecentUpdatesProps = {
   items: AdminRecentActivityItem[]
 }
 
+function formatActivityDateTime(iso: string) {
+  return new Date(iso).toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
 export default function AdminRecentUpdates({ items }: AdminRecentUpdatesProps) {
   if (items.length === 0) {
     return <p className="mt-5 text-sm text-app-muted">No recent workspace activity yet.</p>
@@ -17,6 +24,11 @@ export default function AdminRecentUpdates({ items }: AdminRecentUpdatesProps) {
       <ul className="divide-y divide-chambray/6">
       {items.map((item) => {
         const detail = [item.organizationName, item.projectTitle].filter(Boolean).join(' · ')
+        const actor =
+          item.actorLabel?.trim() ||
+          item.actorName?.trim() ||
+          item.actorEmail?.trim() ||
+          null
         const content = (
           <>
             <p className={`text-app-primary ${bricolage_grot600.className}`}>
@@ -24,7 +36,9 @@ export default function AdminRecentUpdates({ items }: AdminRecentUpdatesProps) {
             </p>
             <p className="mt-1 text-sm wrap-break-word text-app-muted">{detail}</p>
             <p className="mt-2 text-xs font-medium tracking-wide text-sanmarino">
-              {formatRelativeTime(item.createdAt)}
+              {actor ? `${actor} · ` : ''}
+              {formatActivityDateTime(item.createdAt)}
+              <span className="text-app-muted"> · {formatRelativeTime(item.createdAt)}</span>
             </p>
           </>
         )

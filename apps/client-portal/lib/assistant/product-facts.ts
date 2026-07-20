@@ -16,41 +16,51 @@ export const CLIENT_PORTAL_PRODUCT_FACTS = {
       description: 'Brand mentions and analytics when your org is subscribed',
     },
   ],
+  /**
+   * Paths are internal-only for CURRENT LOCATION matching.
+   * Never echo these in user-facing replies — use howToNavigate instead.
+   */
   controlCenterViews: [
     {
       id: 'overview',
       label: 'Overview',
       path: '/?ccView=overview',
+      howToNavigate: 'In the menu on the left, choose **Overview**',
       description: 'Snapshot of projects, files, and actions',
     },
     {
       id: 'projects',
       label: 'Projects',
       path: '/?ccView=projects',
+      howToNavigate: 'In the menu on the left, choose **Projects**',
       description: 'Active workstreams with your CoCreate team',
     },
     {
       id: 'activity',
       label: 'Activity',
       path: '/?ccView=activity',
+      howToNavigate: 'In the menu on the left, choose **Activity**',
       description: 'Recent updates across your workspace',
     },
     {
       id: 'messages',
       label: 'Get Help',
       path: '/?ccView=messages',
+      howToNavigate: 'In the menu on the left, choose **Get Help**',
       description: 'Message CoCreate about billing, timelines, or general questions',
     },
     {
       id: 'team',
       label: 'Team',
       path: '/?ccView=team',
+      howToNavigate: 'In the menu on the left, choose **Team**',
       description: 'Organization members and project access (org admins)',
     },
     {
       id: 'settings',
       label: 'Settings',
       path: '/?ccView=settings',
+      howToNavigate: 'In the menu on the left, choose **Settings**',
       description: 'Appearance and portal preferences',
     },
   ],
@@ -78,27 +88,37 @@ export const CLIENT_PORTAL_PRODUCT_FACTS = {
   ],
   messaging: {
     getHelp:
-      'Control Center → Get Help (/?ccView=messages) for general messages with CoCreate (org inbox).',
+      'Open **Control Center**, then use the menu on the left to open **Get Help** for general messages with CoCreate.',
     projectThreads:
-      'Open Projects → a project → use the project request thread for deliverable-specific chat.',
+      'From the left menu open **Projects**, open a project, then use that project’s conversation thread for deliverable-specific chat.',
   },
   whenStuck:
-    'Use Get Help if you have access, or contact your org admin / CoCreate team.',
+    'Use **Get Help** from the left menu if you have access, or contact your org admin / CoCreate team.',
 } as const
 
 export function formatClientPortalProductFacts(): string {
   const f = CLIENT_PORTAL_PRODUCT_FACTS
   const views = f.controlCenterViews
-    .map((v) => `- ${v.label} (${v.path}): ${v.description}`)
+    .map(
+      (v) =>
+        `- **${v.label}**: ${v.howToNavigate} — ${v.description}`,
+    )
     .join('\n')
   const roles = f.roles.map((r) => `- ${r.label}: ${r.blurb}`).join('\n')
+  const locationHints = f.controlCenterViews
+    .map((v) => `${v.id}=${v.label}`)
+    .join(', ')
+
   return `PRODUCT FACTS (Client Portal — always use these for how-to-navigate questions):
 - Product: ${f.productName}
 - Purpose: ${f.purpose}
+- Layout: **Control Center** has a main menu on the left. Tell people to use that left menu (and bold item labels). Never show URLs, query strings, or ccView=… in replies.
 - Top areas: ${f.topTabs.map((t) => t.label).join('; ')}
 
-Control Center views:
+Control Center views (how to say it to users):
 ${views}
+
+Internal location ids (for matching CURRENT LOCATION only — never quote these or paths in replies): ${locationHints}
 
 Roles:
 ${roles}

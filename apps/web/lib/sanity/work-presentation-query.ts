@@ -17,11 +17,15 @@ export const WORK_PRESENTATION_QUERY = `{
     tags,
     publishedAt,
     featured,
-    "coverImageUrl": coverImage.asset->url,
+    coverImage {
+      crop,
+      hotspot,
+      asset,
+      "assetUrl": asset->url
+    },
     "clientName": coalesce(client->name, clientName),
     "clientSlug": coalesce(client->slug.current, clientSlug),
-    category,
-    "heroReelPlaybackId": projectVideos[role == "hero_reel"][0].video.asset->playbackId
+    category
   }
 }`
 
@@ -38,11 +42,15 @@ export type WorkPresentationProjectRow = {
   tags?: string[] | null
   publishedAt?: string | null
   featured?: boolean | null
-  coverImageUrl?: string | null
+  coverImage?: {
+    crop?: unknown
+    hotspot?: unknown
+    asset?: unknown
+    assetUrl?: string | null
+  } | null
   clientName?: string | null
   clientSlug?: string | null
   category?: string | null
-  heroReelPlaybackId?: string | null
 }
 
 export type WorkPresentationResult = {
@@ -82,13 +90,12 @@ export function mapPresentationProjects(
           summary: row.summary,
           tags: row.tags,
           featured: row.featured,
-          coverImageUrl: row.coverImageUrl,
+          coverImage: row.coverImage,
           clientName: row.clientName != null ? stegaClean(row.clientName) : row.clientName,
           clientSlug: row.clientSlug != null ? stegaClean(row.clientSlug) : row.clientSlug,
           category: row.category as Parameters<
             typeof mapSanityWorkProjectToPreview
           >[0]['category'],
-          heroReelPlaybackId: row.heroReelPlaybackId,
         })
       }),
   )

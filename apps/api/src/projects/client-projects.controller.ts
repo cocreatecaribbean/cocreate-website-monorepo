@@ -31,6 +31,8 @@ import {
   type RegisterAttachmentInput,
   RegisterCoverSchema,
   type RegisterCoverInput,
+  RenameProjectSchema,
+  type RenameProjectInput,
   SetFileReactionSchema,
   type SetFileReactionInput,
   TopPicksQuerySchema,
@@ -144,6 +146,15 @@ export class ClientProjectsController {
   ) {
     const detailView = view === 'full' ? 'full' : 'overview'
     return this.projects.getForClient(req.clientUser!, id, detailView)
+  }
+
+  @Patch('projects/:id')
+  renameProject(
+    @Req() req: ClientPortalRequest,
+    @Param('id') id: string,
+    @Body(zodBody(RenameProjectSchema)) body: RenameProjectInput,
+  ) {
+    return this.projects.renameForClient(req.clientUser!, id, body)
   }
 
   @Post('projects/:id/change-requests')

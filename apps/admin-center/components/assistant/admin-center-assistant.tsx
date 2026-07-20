@@ -28,7 +28,7 @@ export default function AdminCenterAssistant() {
       context="admin-center"
       api="/api/chat"
       title="Admin help"
-      greeting="Hi! Ask how to use the Admin Center."
+      greeting="Hey! Ask me anything about the Admin Center."
       placeholder="e.g. Where do I reply to a client?"
       positionClassName={queryDevtoolsLift}
       requestExtras={requestExtras}

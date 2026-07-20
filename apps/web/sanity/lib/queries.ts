@@ -14,22 +14,30 @@ const publishedProjectFilter = `defined(publishedAt) && publishedAt <= now()`
 const clientNameProj = `"clientName": coalesce(client->name, clientName)`
 const clientSlugProj = `"clientSlug": coalesce(client->slug.current, clientSlug)`
 
-const projectVideoProjection = `
-  role,
-  title,
+export const projectMediaProjection = `
+  mediaType,
+  alt,
+  image {
+    crop,
+    hotspot,
+    asset,
+    "assetUrl": asset->url
+  },
+  cover {
+    crop,
+    hotspot,
+    asset,
+    "assetUrl": asset->url
+  },
+  loopPoster {
+    crop,
+    hotspot,
+    asset,
+    "assetUrl": asset->url
+  },
   "playbackId": video.asset->playbackId,
-  "status": video.asset->status,
-  "duration": video.asset->data.duration,
-  "aspectRatio": video.asset->data.aspect_ratio,
-  "posterUrl": "https://image.mux.com/" + video.asset->playbackId + "/thumbnail.jpg"
-`
-
-const galleryProjection = `
-  gallery[] {
-    "src": image.asset->url,
-    alt,
-    caption
-  }
+  "loopVideoSrc": loopVideo.asset->url,
+  "loopVideoMime": loopVideo.asset->mimeType
 `
 
 /** Array order = grid order. _key becomes id for previews. */
@@ -41,11 +49,15 @@ const workIndexProjection = `
   tags,
   publishedAt,
   featured,
-  "coverImageUrl": coverImage.asset->url,
+  coverImage {
+    crop,
+    hotspot,
+    asset,
+    "assetUrl": asset->url
+  },
   ${clientNameProj},
   ${clientSlugProj},
-  category,
-  "heroReelPlaybackId": projectVideos[role == "hero_reel"][0].video.asset->playbackId
+  category
 `
 
 const workDetailProjection = `
@@ -56,34 +68,59 @@ const workDetailProjection = `
   tags,
   publishedAt,
   featured,
-  "coverImageUrl": coverImage.asset->url,
+  coverImage {
+    crop,
+    hotspot,
+    asset,
+    "assetUrl": asset->url
+  },
   ${clientNameProj},
   ${clientSlugProj},
   category,
-  projectVideos[] { ${projectVideoProjection} },
-  caseStudy[] {
-    ...,
-    _type == "image" => {
-      ...,
-      "asset": asset->
+  hero {
+    ${projectMediaProjection}
+  },
+  sections[] {
+    _key,
+    _type,
+    _type == "projectOverview" => {
+      categories,
+      industries,
+      body
+    },
+    _type == "mediaPair" => {
+      left { ${projectMediaProjection} },
+      right { ${projectMediaProjection} }
+    },
+    _type == "impactCallout" => {
+      headline,
+      subheadline
+    },
+    _type == "textAndMedia" => {
+      body,
+      mediaPosition,
+      media { ${projectMediaProjection} }
+    },
+    _type == "mediaBanner" => {
+      media { ${projectMediaProjection} }
+    },
+    _type == "shareBar" => {
+      heading
     }
   },
-  ${galleryProjection},
   seo
 `
 
 /** All published work projects (from workPage.projects) */
 export const WORK_PROJECTS_QUERY = defineQuery(`
   ${workPageDoc}.projects[${publishedProjectFilter}] {
-    ${workIndexProjection},
-    projectVideos[] { ${projectVideoProjection} }
+    ${workIndexProjection}
   }
 `)
 
 export const WORK_PROJECTS_PREVIEW_QUERY = defineQuery(`
   ${workPageDoc}.projects[] {
-    ${workIndexProjection},
-    projectVideos[] { ${projectVideoProjection} }
+    ${workIndexProjection}
   }
 `)
 

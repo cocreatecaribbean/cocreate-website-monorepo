@@ -47,7 +47,7 @@ function WorkMasonryTile({
             alt=""
             fill
             sizes="(max-width: 767px) 88vw, (max-width: 1023px) 44vw, 440px"
-            className="object-cover"
+            className="object-cover object-center"
           />
         ) : (
           <div

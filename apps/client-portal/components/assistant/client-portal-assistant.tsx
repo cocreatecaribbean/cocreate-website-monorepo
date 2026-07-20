@@ -3,7 +3,9 @@
 import AssistantShell from '@cocreate/app-ui/assistant-shell'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useMemo } from 'react'
+import { firstNameFromDisplayName } from '@/lib/assistant/prompts'
 import { CONTROL_CENTER_VIEW_QUERY } from '@/lib/control-center/nav'
+import { usePortalProfileQuery } from '@/lib/api/queries/team'
 
 const queryDevtoolsLift =
   process.env.NODE_ENV === 'development'
@@ -16,6 +18,12 @@ export default function ClientPortalAssistant() {
   const tab = searchParams.get('tab')
   const ccView = searchParams.get(CONTROL_CENTER_VIEW_QUERY)
   const search = searchParams.toString()
+  const { data: profile } = usePortalProfileQuery()
+
+  const firstName = firstNameFromDisplayName(profile?.user.displayName)
+  const greeting = firstName
+    ? `Hey ${firstName} — ask me anything about the portal.`
+    : 'Hey! Ask me anything about the portal.'
 
   const requestExtras = useMemo(
     () => ({
@@ -33,7 +41,7 @@ export default function ClientPortalAssistant() {
       context="client-portal"
       api="/api/chat"
       title="Portal help"
-      greeting="Hi! Ask how to use the Client Portal."
+      greeting={greeting}
       placeholder="e.g. Where do I message CoCreate?"
       positionClassName={queryDevtoolsLift}
       requestExtras={requestExtras}

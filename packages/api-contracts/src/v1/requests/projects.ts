@@ -17,10 +17,16 @@ export const CreateProjectSchema = z.object({
 export type CreateProjectInput = z.infer<typeof CreateProjectSchema>
 
 export const UpdateProjectSchema = z.object({
+  title: z.string().min(2).max(200).optional(),
   status: ClientProjectStatusSchema.optional(),
   phase: ClientProjectPhaseSchema.optional(),
 })
 export type UpdateProjectInput = z.infer<typeof UpdateProjectSchema>
+
+export const RenameProjectSchema = z.object({
+  title: z.string().min(2).max(200),
+})
+export type RenameProjectInput = z.infer<typeof RenameProjectSchema>
 
 export const CreateChangeRequestSchema = z.object({
   title: z.string().min(2).max(200),
