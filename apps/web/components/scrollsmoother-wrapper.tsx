@@ -13,6 +13,17 @@ interface ScrollSmoothProps {
   children: React.ReactNode
 }
 
+/**
+ * Native document scroll for phones (touch-primary) and reduced motion.
+ * Do NOT use Boolean(ScrollTrigger.isTouch) — Windows Precision Touchpads
+ * often set isTouch === 2 via maxTouchPoints > 0 while pointer is still fine.
+ * That used to skip ScrollSmoother while keeping a fixed overflow-hidden shell
+ * (dead scroll on many Windows laptops).
+ */
+function shouldUseNativeScroll() {
+  return prefersNativeScroll() || ScrollTrigger.isTouch === 1
+}
+
 /** Refresh after layout/fonts so ScrollSmoother scroll distance isn’t stuck at 0. */
 function refreshSmootherMetrics(smoother: ScrollSmoother) {
   ScrollTrigger.refresh(true)
@@ -24,7 +35,7 @@ const ScrollSmoothWrapper: React.FC<ScrollSmoothProps> = ({ children }) => {
   const [nativeScroll, setNativeScroll] = useState(false)
 
   useLayoutEffect(() => {
-    setNativeScroll(prefersNativeScroll())
+    setNativeScroll(shouldUseNativeScroll())
   }, [])
 
   useGSAP(
@@ -37,11 +48,8 @@ const ScrollSmoothWrapper: React.FC<ScrollSmoothProps> = ({ children }) => {
       const reducedMotion = window.matchMedia(
         '(prefers-reduced-motion: reduce)',
       ).matches
-      const useNative =
-        nativeScroll ||
-        prefersNativeScroll() ||
-        Boolean(ScrollTrigger.isTouch) ||
-        reducedMotion
+      // Same predicate as wrapper CSS (via nativeScroll state from useLayoutEffect).
+      const useNative = shouldUseNativeScroll()
 
       const revealContent = () => {
         gsap.set('#smooth-content', { visibility: 'visible', opacity: 1 })
@@ -83,15 +91,21 @@ const ScrollSmoothWrapper: React.FC<ScrollSmoothProps> = ({ children }) => {
         }
       }
 
-      // normalizeScroll: makes wheel / Precision-trackpad input consistent across
-      // browsers (notably Windows + Chrome/Edge) while keeping ScrollSmoother.
+      const coarsePointer = window.matchMedia('(pointer: coarse)').matches
+      // Only normalize on real touch/coarse — hybrids (isTouch === 2) keep smoother
+      // without Observer owning every wheel event on Windows Chrome/Edge.
+      const normalizeScroll =
+        ScrollTrigger.isTouch === 1 || coarsePointer
+          ? { allowNestedScroll: true }
+          : false
+
       const smoother = ScrollSmoother.create({
         wrapper: '#smooth-wrapper',
         content: '#smooth-content',
         smooth: reducedMotion ? 0 : 0.85,
         effects: false,
         smoothTouch: 0,
-        normalizeScroll: { allowNestedScroll: true },
+        normalizeScroll,
         ignoreMobileResize: true,
       })
 
