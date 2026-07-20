@@ -247,15 +247,6 @@ export class ProjectsService {
     return { title: newTitle, changed: true, previousTitle: existing.title }
   }
 
-  private projectDetailInclude() {
-    return {
-      organization: { select: { id: true, name: true, slug: true } },
-      createdBy: { select: userActorSelect },
-      approvedBy: { select: userActorSelect },
-      completedBy: { select: userActorSelect },
-    } as const
-  }
-
   private requestListInclude() {
     return {
       createdBy: { select: userActorSelect },
