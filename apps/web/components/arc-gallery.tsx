@@ -131,7 +131,7 @@ export default function ArcGallery({ items = [] }: ArcGalleryProps) {
           </div>
         </div>
 
-        <div className="embla__controls relative z-20 -mt-6 flex flex-col items-center gap-y-6 max-md:-mt-4 md:-mt-24 lg:-mt-28 xl:-mt-32">
+        <div className="embla__controls relative z-20 flex flex-col items-center gap-y-6 max-md:mt-6 md:-mt-24 lg:-mt-28 xl:-mt-32">
           <div className="flex flex-row gap-x-8">
             <PrevButton aria-label="Previous project" onClick={() => step(-1)} />
             <NextButton aria-label="Next project" onClick={() => step(1)} />
