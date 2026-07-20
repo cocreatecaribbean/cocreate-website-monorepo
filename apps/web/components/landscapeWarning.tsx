@@ -2,15 +2,22 @@
 
 import { useEffect, useState } from 'react'
 
+/**
+ * Full-screen “rotate your phone” for landscape phones only.
+ * Do NOT key off screen short-edge size — Windows laptops with high display
+ * scaling can report min(screen) < 600 CSS px and falsely block the site.
+ * Do NOT use maxTouchPoints / Boolean(ScrollTrigger.isTouch) either.
+ */
 export default function LandscapeWarning() {
   const [show, setShow] = useState(false)
 
   useEffect(() => {
     const check = () => {
       const isLandscape = window.matchMedia('(orientation: landscape)').matches
-      const shortEdge = Math.min(window.screen.width, window.screen.height)
-      const isPhone = shortEdge < 600 // phones top out ~430px, tablets start at 768px
-      setShow(isLandscape && isPhone)
+      const isTouchPhone =
+        window.matchMedia('(pointer: coarse)').matches &&
+        window.matchMedia('(hover: none)').matches
+      setShow(isLandscape && isTouchPhone)
     }
 
     check()
