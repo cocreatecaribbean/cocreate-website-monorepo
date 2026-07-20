@@ -55,7 +55,7 @@ function formatPhaseLabel(phase: string | null | undefined): string {
 const TABS: Array<{ id: PortalProjectTabId; label: string; description: string; icon: LucideIcon }> = [
   { id: 'overview', label: 'Overview', description: 'Project snapshot, status, and key details', icon: LayoutGrid },
   { id: 'onboarding', label: 'Onboarding', description: 'Initial setup, requirements, and kickoff with your team', icon: Sparkles },
-  { id: 'progress', label: 'Progress', description: 'Day-to-day messages, deliverables, and updates', icon: Bell },
+  { id: 'progress', label: 'Project updates', description: 'Day-to-day messages, deliverables, and updates', icon: Bell },
   { id: 'files', label: 'Files', description: 'Shared deliverables and project assets', icon: FileText },
   { id: 'top-picks', label: 'Top Picks', description: 'Files your team loved on this project', icon: Star },
   { id: 'team', label: 'Team', description: 'People on this project and their roles', icon: Users },
@@ -471,7 +471,7 @@ export default function PortalProjectWorkspace({
                 <div className="portal-thread-surface-header">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className={`text-chambray ${bricolage_grot600.className}`}>Project progress</p>
+                      <p className={`text-chambray ${bricolage_grot600.className}`}>Project updates</p>
                       <p className="mt-1 text-xs text-app-muted">
                         Updates, deliverables, and replies with CoCreate.
                       </p>

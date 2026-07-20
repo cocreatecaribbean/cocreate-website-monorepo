@@ -466,13 +466,13 @@ export class ProjectsService {
       create: {
         projectId,
         type: ProjectRequestType.PROGRESS,
-        title: 'Project progress',
+        title: 'Project updates',
         description: 'Collaboration and progress updates',
         createdByUserId,
         status: ProjectRequestStatus.OPEN,
       },
       update: {
-        title: 'Project progress',
+        title: 'Project updates',
         description: 'Collaboration and progress updates',
       },
     })

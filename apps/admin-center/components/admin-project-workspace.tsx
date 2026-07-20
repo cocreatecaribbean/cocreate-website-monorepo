@@ -303,7 +303,7 @@ export default function AdminProjectWorkspace({
         { id: 'onboarding' as const, label: 'Onboarding', description: 'Client intake, requirements, and kickoff progress', icon: Sparkles },
         ...(isOnboarded
           ? [
-              { id: 'progress' as const, label: 'Progress', description: 'Day-to-day messages and deliverables with your client', icon: Bell },
+              { id: 'progress' as const, label: 'Project updates', description: 'Day-to-day messages and deliverables with your client', icon: Bell },
               { id: 'files' as const, label: 'Files', description: 'Project uploads and attachments from message threads', icon: FileText },
               { id: 'top-picks' as const, label: 'Top Picks', description: 'Files the client reacted to, grouped by reaction', icon: Star },
             ]
@@ -496,7 +496,7 @@ export default function AdminProjectWorkspace({
           showProgressThread && progress ? (
             <ProjectThreadPanel
               key={progress.id}
-              title="Project progress"
+              title="Project updates"
               subtitle="Updates and replies with the client."
               request={progress}
               organizationId={organizationId}
