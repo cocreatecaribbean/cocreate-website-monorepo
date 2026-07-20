@@ -1,8 +1,8 @@
 'use client'
 
 import AssistantShell from '@cocreate/app-ui/assistant-shell'
-import { usePathname, useSearchParams } from 'next/navigation'
-import { useMemo } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useCallback, useMemo } from 'react'
 import { firstNameFromDisplayName } from '@/lib/assistant/prompts'
 import { CONTROL_CENTER_VIEW_QUERY } from '@/lib/control-center/nav'
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
@@ -13,6 +13,7 @@ const queryDevtoolsLift =
     : undefined
 
 export default function ClientPortalAssistant() {
+  const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const tab = searchParams.get('tab')
@@ -35,6 +36,13 @@ export default function ClientPortalAssistant() {
     [pathname, search, tab, ccView],
   )
 
+  const onNavigate = useCallback(
+    (href: string) => {
+      router.push(href)
+    },
+    [router],
+  )
+
   return (
     <AssistantShell
       animation="css"
@@ -45,6 +53,7 @@ export default function ClientPortalAssistant() {
       placeholder="e.g. Where do I message CoCreate?"
       positionClassName={queryDevtoolsLift}
       requestExtras={requestExtras}
+      onNavigate={onNavigate}
     />
   )
 }

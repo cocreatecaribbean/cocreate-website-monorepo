@@ -1,6 +1,8 @@
 'use client'
 
 import AssistantShell from '@cocreate/app-ui/assistant-shell'
+import { useRouter } from 'next/navigation'
+import { useCallback } from 'react'
 
 /** Clearance above TanStack Query Devtools (dev-only, bottom-right). */
 const queryDevtoolsLift =
@@ -9,6 +11,14 @@ const queryDevtoolsLift =
     : undefined
 
 export default function MarketingAssistant() {
+  const router = useRouter()
+  const onNavigate = useCallback(
+    (href: string) => {
+      router.push(href)
+    },
+    [router],
+  )
+
   return (
     <AssistantShell
       animation="gsap"
@@ -18,6 +28,7 @@ export default function MarketingAssistant() {
       greeting="Hi CoCreator!"
       placeholder="Ask about our services, work, or how to get in touch..."
       positionClassName={queryDevtoolsLift}
+      onNavigate={onNavigate}
     />
   )
 }

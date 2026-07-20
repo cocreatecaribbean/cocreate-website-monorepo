@@ -5,57 +5,59 @@ export const ADMIN_CENTER_PRODUCT_FACTS = {
   purpose:
     'Internal agency workspace for clients, projects, messaging, Social Listening grants, and the agency team.',
   /**
-   * Paths are internal-only for CURRENT LOCATION matching.
-   * Never echo these in user-facing replies — use howToNavigate instead.
+   * Paths are for markdown hrefs only (invisible to users).
+   * Replies must show only the label word as a clickable link.
    */
   nav: [
     {
       id: 'dashboard',
       label: 'Dashboard',
       path: '/',
-      howToNavigate: 'In the sidebar on the left, choose **Dashboard**',
+      howToNavigate: 'In the sidebar on the left, choose [Dashboard](/)',
       description: 'Agency overview, activity, and quick actions',
     },
     {
       id: 'project-center',
       label: 'Project Center',
       path: '/project-center',
-      howToNavigate: 'In the sidebar on the left, choose **Project Center**',
+      howToNavigate:
+        'In the sidebar on the left, choose [Project Center](/project-center)',
       description: 'Active projects, pipelines, and delivery status',
     },
     {
       id: 'clients',
       label: 'Clients',
       path: '/clients',
-      howToNavigate: 'In the sidebar on the left, choose **Clients**',
+      howToNavigate: 'In the sidebar on the left, choose [Clients](/clients)',
       description: 'Client organizations, portal access, and brand assets',
     },
     {
       id: 'messages',
       label: 'Get Help',
       path: '/messages',
-      howToNavigate: 'In the sidebar on the left, choose **Get Help**',
+      howToNavigate: 'In the sidebar on the left, choose [Get Help](/messages)',
       description: 'Conversations with client organizations (org inbox)',
     },
     {
       id: 'social-listening',
       label: 'Social Listening',
       path: '/social-listening',
-      howToNavigate: 'In the sidebar on the left, choose **Social Listening**',
+      howToNavigate:
+        'In the sidebar on the left, choose [Social Listening](/social-listening)',
       description: 'Brand mentions, analytics, and listening setups',
     },
     {
       id: 'team',
       label: 'Team',
       path: '/team',
-      howToNavigate: 'In the sidebar on the left, choose **Team**',
+      howToNavigate: 'In the sidebar on the left, choose [Team](/team)',
       description: 'Agency members, roles, and permissions',
     },
     {
       id: 'profile',
       label: 'Profile',
       path: '/profile',
-      howToNavigate: 'In the sidebar on the left, choose **Profile**',
+      howToNavigate: 'In the sidebar on the left, choose [Profile](/profile)',
       description: 'Your account details and preferences',
     },
     {
@@ -63,7 +65,7 @@ export const ADMIN_CENTER_PRODUCT_FACTS = {
       label: 'Profile options',
       path: '/settings/agency-profile',
       howToNavigate:
-        'In the sidebar on the left, open settings / **Profile options** (super admins)',
+        'In the sidebar on the left, open settings / [Profile options](/settings/agency-profile) (super admins)',
       description: 'Agency branding and configuration (super admins)',
     },
   ],
@@ -81,12 +83,12 @@ export const ADMIN_CENTER_PRODUCT_FACTS = {
   ],
   messaging: {
     getHelp:
-      'Use the sidebar on the left to open **Get Help**, pick an organization, then the conversation.',
+      'Use the sidebar on the left to open [Get Help](/messages), pick an organization, then the conversation.',
     projectThreads:
-      'Open a project from **Project Center** or **Clients** (left sidebar), then use the project conversation / Progress area.',
+      'Open a project from [Project Center](/project-center) or [Clients](/clients) (left sidebar), then use the project conversation / Project updates area.',
   },
   whenStuck:
-    'Check **Team** or **Clients** in the left sidebar for access, or escalate to a Super admin.',
+    'Check [Team](/team) or [Clients](/clients) in the left sidebar for access, or escalate to a Super admin.',
 } as const
 
 export function formatAdminCenterProductFacts(): string {
@@ -98,15 +100,26 @@ export function formatAdminCenterProductFacts(): string {
     )
     .join('\n')
   const roles = f.roles.map((r) => `- ${r.label}: ${r.blurb}`).join('\n')
+  const pageLinks = f.nav
+    .map(
+      (item) =>
+        `- Copy exactly: [${item.label}](${item.path}) → user sees only clickable “${item.label}”`,
+    )
+    .join('\n')
   const locationHints = f.nav.map((item) => `${item.path}=${item.label}`).join(', ')
 
   return `PRODUCT FACTS (Admin Center — always use these for how-to-navigate questions):
 - Product: ${f.productName}
 - Purpose: ${f.purpose}
-- Layout: Main navigation is the **sidebar on the left**. Tell people to use that sidebar and bold item labels. Never show URLs or path segments like /messages in replies.
+- Layout: Main navigation is the **sidebar on the left**. Point people there with clickable label links only (see PAGE LINKS).
 
-Main navigation (how to say it to users):
+Main navigation (how to say it to users — copy the markdown; never echo the path):
 ${nav}
+
+PAGE LINKS (markdown only — the path inside () is invisible; users must NEVER see /paths or backticks):
+${pageLinks}
+Wrong: Team (\`/team\`) or Team (/team) or “go to /team”
+Right: In the sidebar on the left, choose [Team](/team)
 
 Internal paths (for matching CURRENT LOCATION only — never quote these in replies): ${locationHints}
 

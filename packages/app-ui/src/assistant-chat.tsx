@@ -22,6 +22,8 @@ export type AssistantChatProps = {
    * Read from a ref on send so route changes do not recreate the transport.
    */
   requestExtras?: Record<string, unknown>
+  /** Soft-navigate relative `/…` links in assistant replies. */
+  onNavigate?: (href: string) => void
 }
 
 function messagesStorageKey(context: AssistantContext) {
@@ -109,6 +111,7 @@ export default function AssistantChat({
   open = true,
   onClose,
   requestExtras,
+  onNavigate,
 }: AssistantChatProps) {
   const inputId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -289,6 +292,7 @@ export default function AssistantChat({
                         <AssistantMessageContent
                           key={`${message.id}-${index}`}
                           text={part.text}
+                          onNavigate={onNavigate}
                         />
                       ) : (
                         <span key={`${message.id}-${index}`} className="whitespace-pre-wrap">

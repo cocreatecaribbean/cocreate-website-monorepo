@@ -27,6 +27,8 @@ export type AssistantShellProps = {
   animation?: 'css' | 'gsap'
   /** Merged into each chat API request body (e.g. current path / tab). */
   requestExtras?: Record<string, unknown>
+  /** Soft-navigate relative `/…` links in assistant replies (e.g. router.push). */
+  onNavigate?: (href: string) => void
 }
 
 const PANEL_OPEN_DURATION = 0.5
@@ -62,6 +64,30 @@ function prefersReducedMotion() {
 
 function sizeStorageKey(context: AssistantContext) {
   return `cocreate.assistant.size.${context}`
+}
+
+function openStorageKey(context: AssistantContext) {
+  return `cocreate.assistant.open.${context}`
+}
+
+function readOpenState(context: AssistantContext): boolean {
+  try {
+    return sessionStorage.getItem(openStorageKey(context)) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function writeOpenState(context: AssistantContext, nextOpen: boolean) {
+  try {
+    if (nextOpen) {
+      sessionStorage.setItem(openStorageKey(context), 'true')
+    } else {
+      sessionStorage.removeItem(openStorageKey(context))
+    }
+  } catch {
+    // ignore
+  }
 }
 
 function clampPanelSize(width: number, height: number): PanelSize {
@@ -119,6 +145,7 @@ export default function AssistantShell({
   positionClassName,
   animation = 'css',
   requestExtras,
+  onNavigate,
 }: AssistantShellProps) {
   const panelId = useId()
   const fabRef = useRef<HTMLButtonElement>(null)
@@ -141,6 +168,13 @@ export default function AssistantShell({
 
   useEffect(() => {
     setPanelSize(readPanelSize(context))
+  }, [context])
+
+  // Restore open panel after hard nav / remount (messages already use sessionStorage).
+  useEffect(() => {
+    if (!readOpenState(context)) return
+    setPanelMounted(true)
+    setOpen(true)
   }, [context])
 
   useEffect(() => {
@@ -166,7 +200,8 @@ export default function AssistantShell({
     if (!open) return
     if (isAnimatingRef.current) return
     setOpen(false)
-  }, [open])
+    writeOpenState(context, false)
+  }, [context, open])
 
   const toggle = useCallback(() => {
     if (isAnimatingRef.current) return
@@ -176,7 +211,8 @@ export default function AssistantShell({
     }
     setPanelMounted(true)
     setOpen(true)
-  }, [close, open])
+    writeOpenState(context, true)
+  }, [close, context, open])
 
   useLayoutEffect(() => {
     const panel = panelRef.current
@@ -271,20 +307,6 @@ export default function AssistantShell({
     [animation, finishClose, open, panelMounted],
   )
 
-  useEffect(() => {
-    if (!open) return
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        close()
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [close, open])
-
   // On touch devices, lock page scroll while the panel is open.
   // Desktop keeps background scroll; the chat panel contains its own wheel/touch.
   useEffect(() => {
@@ -305,23 +327,6 @@ export default function AssistantShell({
       ScrollSmoother.get()?.paused(false)
     }
   }, [open])
-
-  useEffect(() => {
-    if (!open) return
-
-    const onPointerDown = (event: MouseEvent | TouchEvent) => {
-      const target = event.target as Node
-      if (panelRef.current?.contains(target) || fabRef.current?.contains(target)) return
-      close()
-    }
-
-    document.addEventListener('mousedown', onPointerDown)
-    document.addEventListener('touchstart', onPointerDown)
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('touchstart', onPointerDown)
-    }
-  }, [close, open])
 
   const onResizePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -423,6 +428,7 @@ export default function AssistantShell({
             open={open}
             onClose={close}
             requestExtras={requestExtras}
+            onNavigate={onNavigate}
           />
           <button
             type="button"

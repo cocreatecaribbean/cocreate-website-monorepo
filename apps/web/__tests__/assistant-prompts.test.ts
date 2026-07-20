@@ -18,14 +18,19 @@ describe('getAssistantSystemPrompt (marketing)', () => {
     expect(prompt).toContain('October 2020')
   })
 
-  it('includes format rules and main-nav coaching', () => {
+  it('includes format rules, PAGE LINKS, and label-only link coaching', () => {
     const prompt = getAssistantSystemPrompt('marketing')
     expect(prompt).toContain('numbered list')
-    expect(prompt).toContain('**Label**')
     expect(prompt).toContain('No code fences')
     expect(prompt).toContain('main nav')
-    expect(prompt).toContain('Never show backtick')
-    expect(prompt).toContain('main nav → **Contact**')
+    expect(prompt).toContain('PAGE LINKS')
+    expect(prompt).toContain('[Contact](/contact)')
+    expect(prompt).toContain('[About](/about)')
+    expect(prompt).toContain('[Work](/work)')
+    expect(prompt).toContain('[Home](/)')
+    expect(prompt).toContain('users must NEVER see')
+    expect(prompt).toContain('only see the highlighted clickable label')
+    expect(prompt).toContain('main nav → [Contact](/contact)')
     expect(prompt).not.toMatch(/Contact page: \/contact/)
   })
 
@@ -40,6 +45,6 @@ describe('getAssistantSystemPrompt (marketing)', () => {
     expect(prompt).toContain('RETRIEVED CONTEXT:')
     expect(prompt).toMatch(/use SITE FACTS above first/i)
     expect(prompt).toMatch(/Named team list in SITE FACTS first/i)
-    expect(prompt).toContain('opening **Contact** from the main nav')
+    expect(prompt).toContain('opening [Contact](/contact) from the main nav')
   })
 })

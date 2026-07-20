@@ -5,12 +5,16 @@ import {
 import { formatClientPortalProductFacts } from '@/lib/assistant/product-facts'
 
 describe('Client Portal assistant prompts', () => {
-  it('includes PRODUCT FACTS with Get Help and left-menu navigation', () => {
+  it('includes PRODUCT FACTS with Get Help, left-menu navigation, and PAGE LINKS', () => {
     const facts = formatClientPortalProductFacts()
     expect(facts).toContain('Get Help')
     expect(facts).toContain('Control Center')
     expect(facts).toContain('menu on the left')
-    expect(facts).not.toMatch(/\/\?ccView=/)
+    expect(facts).toContain('PAGE LINKS')
+    expect(facts).toContain('[Team](/?ccView=team)')
+    expect(facts).toContain('[Get Help](/?ccView=messages)')
+    expect(facts).toContain('users must NEVER see')
+    expect(facts).toMatch(/Wrong:.*ccView/)
   })
 
   it('embeds PRODUCT FACTS, UI nav rules, and CURRENT LOCATION', () => {
@@ -24,9 +28,10 @@ describe('Client Portal assistant prompts', () => {
     expect(prompt).toContain('CURRENT LOCATION')
     expect(prompt).toContain('projects')
     expect(prompt).toContain('numbered list')
-    expect(prompt).toContain('**Label**')
-    expect(prompt).toContain('Never show query strings')
+    expect(prompt).toContain('only see the highlighted clickable label')
+    expect(prompt).toContain('Never show paths, query strings')
     expect(prompt).toContain('menu on the left')
+    expect(prompt).toContain('[Team](/?ccView=team)')
     expect(prompt).not.toMatch(/suggest Get Help \(\/\?ccView=/)
   })
 

@@ -454,6 +454,26 @@
     --chart-text: #f8fafc;
   }
 
+  /*
+   * Assistant panel is always light (white / slate-100). Portal dark mode remaps
+   * .text-chambray → near-white; pin brand colors so bold/title stay readable.
+   */
+  .assistant-chat .text-chambray {
+    color: #39419a !important;
+  }
+  .assistant-chat .text-chambray\/70 {
+    color: rgb(57 65 154 / 0.7) !important;
+  }
+  .assistant-chat .text-chambray\/40 {
+    color: rgb(57 65 154 / 0.4) !important;
+  }
+  .assistant-chat a {
+    color: #406eb5;
+  }
+  .assistant-chat a:hover {
+    color: #39419a;
+  }
+
   .assistant-shell {
     @apply pointer-events-none fixed inset-x-4 z-[235] flex flex-col items-end gap-3 sm:inset-x-6;
     bottom: max(1.25rem, env(safe-area-inset-bottom));

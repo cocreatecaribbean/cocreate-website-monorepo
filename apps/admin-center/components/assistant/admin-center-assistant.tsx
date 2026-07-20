@@ -1,8 +1,8 @@
 'use client'
 
 import AssistantShell from '@cocreate/app-ui/assistant-shell'
-import { usePathname, useSearchParams } from 'next/navigation'
-import { useMemo } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useCallback, useMemo } from 'react'
 
 const queryDevtoolsLift =
   process.env.NODE_ENV === 'development'
@@ -10,6 +10,7 @@ const queryDevtoolsLift =
     : undefined
 
 export default function AdminCenterAssistant() {
+  const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const search = searchParams.toString()
@@ -22,6 +23,13 @@ export default function AdminCenterAssistant() {
     [pathname, search],
   )
 
+  const onNavigate = useCallback(
+    (href: string) => {
+      router.push(href)
+    },
+    [router],
+  )
+
   return (
     <AssistantShell
       animation="css"
@@ -32,6 +40,7 @@ export default function AdminCenterAssistant() {
       placeholder="e.g. Where do I reply to a client?"
       positionClassName={queryDevtoolsLift}
       requestExtras={requestExtras}
+      onNavigate={onNavigate}
     />
   )
 }
