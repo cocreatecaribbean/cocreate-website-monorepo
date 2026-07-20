@@ -16,6 +16,12 @@ type ProjectMediaFrameProps = {
   showPlayOverlay?: boolean
 }
 
+function blurPlaceholderProps(blurDataURL?: string) {
+  const data = blurDataURL?.trim()
+  if (!data) return {}
+  return { placeholder: 'blur' as const, blurDataURL: data }
+}
+
 export default function ProjectMediaFrame({
   media,
   className = 'relative aspect-[16/10] w-full overflow-hidden rounded-4xl',
@@ -28,7 +34,7 @@ export default function ProjectMediaFrame({
   if (media.mediaType === 'loopVideo' && media.loopVideoSrc) {
     const poster = media.posterUrl?.trim() || undefined
     return (
-      <div className={`ring-1 ring-chambray/10 ${className}`}>
+      <div className={`bg-chambray ring-1 ring-chambray/10 ${className}`}>
         <video
           autoPlay
           muted
@@ -54,7 +60,7 @@ export default function ProjectMediaFrame({
         <button
           type="button"
           onClick={() => setPlaying(true)}
-          className={`group relative block cursor-pointer ring-1 ring-chambray/10 ${className}`}
+          className={`group relative block cursor-pointer bg-chambray ring-1 ring-chambray/10 ${className}`}
           aria-label={media.alt ? `Play video: ${media.alt}` : 'Play video'}
         >
           {poster ? (
@@ -65,6 +71,7 @@ export default function ProjectMediaFrame({
               priority={priority}
               sizes={sizes}
               className="object-cover"
+              {...blurPlaceholderProps(media.blurDataURL)}
             />
           ) : (
             <div className="absolute inset-0 bg-chambray" aria-hidden />
@@ -81,7 +88,7 @@ export default function ProjectMediaFrame({
     }
 
     return (
-      <div className={`ring-1 ring-chambray/10 ${className}`}>
+      <div className={`bg-chambray ring-1 ring-chambray/10 ${className}`}>
         <MuxVideoPlayer
           playbackId={media.playbackId}
           title={media.alt}
@@ -95,7 +102,7 @@ export default function ProjectMediaFrame({
 
   if (media.mediaType === 'image' && media.imageSrc) {
     return (
-      <div className={`ring-1 ring-chambray/10 ${className}`}>
+      <div className={`bg-chambray ring-1 ring-chambray/10 ${className}`}>
         <Image
           src={media.imageSrc}
           alt={media.alt ?? ''}
@@ -103,6 +110,7 @@ export default function ProjectMediaFrame({
           priority={priority}
           sizes={sizes}
           className="object-cover"
+          {...blurPlaceholderProps(media.blurDataURL)}
         />
       </div>
     )

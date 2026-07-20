@@ -26,6 +26,8 @@ export type ProjectMedia = {
   loopVideoSrc?: string
   /** Mux thumbnail, loop poster, or custom poster */
   posterUrl?: string
+  /** Sanity LQIP (or equivalent) for next/image blur placeholder */
+  blurDataURL?: string
 }
 
 export type ProjectOverviewSection = {
@@ -95,10 +97,16 @@ export type ProjectPreview = {
   summary?: string
   /** Public URL or site-relative path for the cover image */
   coverImageSrc: string
+  /** Sanity LQIP for next/image blur placeholder on covers */
+  coverImageBlurDataURL?: string
   href?: string
   featured?: boolean
   /** Sanity tags for search and project detail chips */
   tags?: string[]
+  /** Overview section CATEGORY pills (searchable like tags) */
+  overviewCategories?: string[]
+  /** Overview section INDUSTRY pills (searchable like tags) */
+  overviewIndustries?: string[]
 }
 
 export type WorkProjectDetail = ProjectPreview & {

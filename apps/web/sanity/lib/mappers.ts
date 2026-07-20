@@ -16,6 +16,7 @@ type SanityImageRow = {
   hotspot?: unknown
   asset?: unknown
   assetUrl?: string | null
+  lqip?: string | null
 } | null
 
 type SanityMediaRow = {
@@ -46,6 +47,21 @@ function resolvePosterUrl(
   return row.posterUrl?.trim() || undefined
 }
 
+function resolveLqip(image: SanityImageRow | undefined): string | undefined {
+  const lqip = image?.lqip?.trim()
+  return lqip || undefined
+}
+
+/** Prefer image LQIP; for video posters use cover then loopPoster. */
+function resolveMediaBlurDataURL(
+  row: SanityMediaRow | undefined,
+  mediaType: ProjectMediaType,
+): string | undefined {
+  if (!row) return undefined
+  if (mediaType === 'image') return resolveLqip(row.image)
+  return resolveLqip(row.cover) ?? resolveLqip(row.loopPoster)
+}
+
 function normalizeMediaType(
   raw: string | null | undefined,
 ): ProjectMediaType | null {
@@ -69,6 +85,8 @@ type SanityWorkProjectRow = {
   category?: WorkProjectCategory | null
   featured?: boolean | null
   tags?: string[] | null
+  overviewCategories?: string[] | null
+  overviewIndustries?: string[] | null
   hero?: SanityMediaRow
   sections?: SanitySectionRow[] | null
   seo?: { metaTitle?: string; metaDescription?: string } | null
@@ -120,6 +138,7 @@ export function mapSanityProjectMedia(
   if (!mediaType || !row) return null
   const alt = row.alt?.trim() || undefined
   const posterUrl = resolvePosterUrl(row)
+  const blurDataURL = resolveMediaBlurDataURL(row, mediaType)
 
   if (mediaType === 'muxVideo') {
     const playbackId = row.playbackId?.trim()
@@ -129,6 +148,7 @@ export function mapSanityProjectMedia(
       alt,
       playbackId,
       posterUrl,
+      blurDataURL,
     }
   }
 
@@ -140,6 +160,7 @@ export function mapSanityProjectMedia(
       alt,
       loopVideoSrc,
       posterUrl,
+      blurDataURL,
     }
   }
 
@@ -149,6 +170,7 @@ export function mapSanityProjectMedia(
     mediaType: 'image',
     alt,
     imageSrc,
+    blurDataURL,
   }
 }
 
@@ -257,9 +279,37 @@ function resolveWorkCoverSrc(
   return fallbackUrl?.trim() ?? ''
 }
 
+function cleanStringList(values: string[] | null | undefined): string[] | undefined {
+  const cleaned = values?.map((v) => v.trim()).filter(Boolean) ?? []
+  return cleaned.length ? cleaned : undefined
+}
+
+/** Prefer projected index fields; fall back to first projectOverview section. */
+function resolveOverviewChips(row: SanityWorkProjectRow): {
+  overviewCategories?: string[]
+  overviewIndustries?: string[]
+} {
+  const fromProjectedCategories = cleanStringList(row.overviewCategories)
+  const fromProjectedIndustries = cleanStringList(row.overviewIndustries)
+  if (fromProjectedCategories || fromProjectedIndustries) {
+    return {
+      overviewCategories: fromProjectedCategories,
+      overviewIndustries: fromProjectedIndustries,
+    }
+  }
+
+  const overview = row.sections?.find((section) => section._type === 'projectOverview')
+  return {
+    overviewCategories: cleanStringList(overview?.categories),
+    overviewIndustries: cleanStringList(overview?.industries),
+  }
+}
+
 export function mapSanityWorkProjectToPreview(row: SanityWorkProjectRow): ProjectPreview {
   const slug = row.slug
   const coverImageSrc = resolveWorkCoverSrc(row.coverImage, row.coverImageUrl)
+  const coverImageBlurDataURL = resolveLqip(row.coverImage)
+  const { overviewCategories, overviewIndustries } = resolveOverviewChips(row)
 
   return {
     id: row._id,
@@ -270,9 +320,12 @@ export function mapSanityWorkProjectToPreview(row: SanityWorkProjectRow): Projec
     category: row.category ?? undefined,
     summary: row.summary ?? undefined,
     coverImageSrc,
+    coverImageBlurDataURL,
     href: workProjectPath(slug),
     featured: row.featured ?? false,
-    tags: row.tags?.filter(Boolean) ?? undefined,
+    tags: cleanStringList(row.tags),
+    overviewCategories,
+    overviewIndustries,
   }
 }
 

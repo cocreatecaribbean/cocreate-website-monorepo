@@ -63,12 +63,25 @@ function buildClientResults(
   return results.sort((a, b) => a.title.localeCompare(b.title))
 }
 
+/** Tags plus overview Category/Industry chips — used for search facets and tag filters. */
+export function projectSearchFacetLabels(project: ProjectPreview): string[] {
+  const labels: string[] = []
+  for (const value of [
+    ...(project.tags ?? []),
+    ...(project.overviewCategories ?? []),
+    ...(project.overviewIndustries ?? []),
+  ]) {
+    const trimmed = value.trim()
+    if (trimmed) labels.push(trimmed)
+  }
+  return labels
+}
+
 export function collectUniqueTags(projects: ProjectPreview[]): string[] {
   const tags = new Set<string>()
   for (const project of projects) {
-    for (const tag of project.tags ?? []) {
-      const trimmed = tag.trim()
-      if (trimmed) tags.add(trimmed)
+    for (const tag of projectSearchFacetLabels(project)) {
+      tags.add(tag)
     }
   }
   return [...tags].sort((a, b) => a.localeCompare(b))
@@ -77,7 +90,7 @@ export function collectUniqueTags(projects: ProjectPreview[]): string[] {
 function countProjectsForTag(projects: ProjectPreview[], tag: string): number {
   const slug = toTagSlug(tag)
   return projects.filter((project) =>
-    (project.tags ?? []).some((item) => toTagSlug(item) === slug),
+    projectSearchFacetLabels(project).some((item) => toTagSlug(item) === slug),
   ).length
 }
 
@@ -317,7 +330,7 @@ export function getWorkProjectsForTagFromData(
 ): ProjectPreview[] {
   const slug = tagSlug.trim().toLowerCase()
   return projects.filter((project) =>
-    (project.tags ?? []).some((tag) => toTagSlug(tag) === slug),
+    projectSearchFacetLabels(project).some((tag) => toTagSlug(tag) === slug),
   )
 }
 
@@ -327,7 +340,7 @@ export function getTagDisplayNameFromData(
 ): string | null {
   const slug = tagSlug.trim().toLowerCase()
   for (const project of projects) {
-    for (const tag of project.tags ?? []) {
+    for (const tag of projectSearchFacetLabels(project)) {
       if (toTagSlug(tag) === slug) return tag
     }
   }

@@ -26,6 +26,7 @@ export default function WorkProjectPage({ project }: WorkProjectPageProps) {
           clientHref={clientHref}
           hero={project.hero}
           coverFallbackSrc={project.coverImageSrc}
+          coverFallbackBlurDataURL={project.coverImageBlurDataURL}
         />
 
         <ProjectSections

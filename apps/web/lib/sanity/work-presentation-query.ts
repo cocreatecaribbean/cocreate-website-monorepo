@@ -25,7 +25,9 @@ export const WORK_PRESENTATION_QUERY = `{
     },
     "clientName": coalesce(client->name, clientName),
     "clientSlug": coalesce(client->slug.current, clientSlug),
-    category
+    category,
+    "overviewCategories": sections[_type == "projectOverview"][0].categories,
+    "overviewIndustries": sections[_type == "projectOverview"][0].industries
   }
 }`
 
@@ -40,6 +42,8 @@ export type WorkPresentationProjectRow = {
   slug?: string | null
   summary?: string | null
   tags?: string[] | null
+  overviewCategories?: string[] | null
+  overviewIndustries?: string[] | null
   publishedAt?: string | null
   featured?: boolean | null
   coverImage?: {
@@ -89,6 +93,8 @@ export function mapPresentationProjects(
           slug,
           summary: row.summary,
           tags: row.tags,
+          overviewCategories: row.overviewCategories,
+          overviewIndustries: row.overviewIndustries,
           featured: row.featured,
           coverImage: row.coverImage,
           clientName: row.clientName != null ? stegaClean(row.clientName) : row.clientName,

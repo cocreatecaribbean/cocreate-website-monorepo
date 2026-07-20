@@ -37,10 +37,11 @@ function WorkMasonryTile({
 }) {
   const coverSrc = item.coverImageSrc?.trim() || null
   const hasCover = Boolean(coverSrc)
+  const blurDataURL = item.coverImageBlurDataURL?.trim() || undefined
 
   const media = (
     <div className={`work-tile-card__frame relative w-full ${heightClass}`}>
-      <div className="work-tile-card__clip absolute inset-0 overflow-hidden">
+      <div className="work-tile-card__clip absolute inset-0 overflow-hidden bg-chambray">
         {hasCover && coverSrc ? (
           <Image
             src={coverSrc}
@@ -48,6 +49,9 @@ function WorkMasonryTile({
             fill
             sizes="(max-width: 767px) 88vw, (max-width: 1023px) 44vw, 440px"
             className="object-cover object-center"
+            {...(blurDataURL
+              ? { placeholder: 'blur' as const, blurDataURL }
+              : {})}
           />
         ) : (
           <div

@@ -8,6 +8,7 @@ type ProjectHeaderProps = {
   clientHref: string
   hero?: ProjectMedia | null
   coverFallbackSrc?: string
+  coverFallbackBlurDataURL?: string
 }
 
 export default function ProjectHeader({
@@ -16,6 +17,7 @@ export default function ProjectHeader({
   clientHref,
   hero,
   coverFallbackSrc,
+  coverFallbackBlurDataURL,
 }: ProjectHeaderProps) {
   const media: ProjectMedia | null =
     hero ??
@@ -24,6 +26,7 @@ export default function ProjectHeader({
           mediaType: 'image',
           imageSrc: coverFallbackSrc.trim(),
           alt: projectName,
+          blurDataURL: coverFallbackBlurDataURL?.trim() || undefined,
         }
       : null)
 

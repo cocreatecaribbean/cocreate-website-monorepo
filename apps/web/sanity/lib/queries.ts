@@ -21,19 +21,22 @@ export const projectMediaProjection = `
     crop,
     hotspot,
     asset,
-    "assetUrl": asset->url
+    "assetUrl": asset->url,
+    "lqip": asset->metadata.lqip
   },
   cover {
     crop,
     hotspot,
     asset,
-    "assetUrl": asset->url
+    "assetUrl": asset->url,
+    "lqip": asset->metadata.lqip
   },
   loopPoster {
     crop,
     hotspot,
     asset,
-    "assetUrl": asset->url
+    "assetUrl": asset->url,
+    "lqip": asset->metadata.lqip
   },
   "playbackId": video.asset->playbackId,
   "loopVideoSrc": loopVideo.asset->url,
@@ -53,11 +56,14 @@ const workIndexProjection = `
     crop,
     hotspot,
     asset,
-    "assetUrl": asset->url
+    "assetUrl": asset->url,
+    "lqip": asset->metadata.lqip
   },
   ${clientNameProj},
   ${clientSlugProj},
-  category
+  category,
+  "overviewCategories": sections[_type == "projectOverview"][0].categories,
+  "overviewIndustries": sections[_type == "projectOverview"][0].industries
 `
 
 const workDetailProjection = `
@@ -72,7 +78,8 @@ const workDetailProjection = `
     crop,
     hotspot,
     asset,
-    "assetUrl": asset->url
+    "assetUrl": asset->url,
+    "lqip": asset->metadata.lqip
   },
   ${clientNameProj},
   ${clientSlugProj},

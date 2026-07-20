@@ -23,29 +23,14 @@ import {
   DEFAULT_AGENCY_INTRO,
   DEFAULT_HERO_REEL_FALLBACK_SRC,
 } from "@/site-info/landing-page-defaults";
+import {
+  HERO_SEQUENCES as SEQUENCES,
+  type HeroSequenceKey as SequenceKey,
+} from "@/lib/home-hero-sequence";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText);
 
 const OPTIONS: EmblaOptionsType = { loop: true, align: "start" };
-
-type SequenceKey = "landscape" | "portrait"
-
-const SEQUENCES = {
-  landscape: {
-    frameCount: 240,
-    width: 1920*2,
-    height: 1080*2,
-    path: (i: number) =>
-      `/cocreate-logo-shapes-anim-web-desktop/cocreate-logo-shapes-anim-web-desktop_${i}.webp`,
-  },
-  portrait: {
-    frameCount: 200,
-    width: 1080,
-    height: 1920,
-    path: (i: number) =>
-      `/cocreate-logo-shapes-anim-web-mobile/cocreate-logo-shapes-anim-web-mobile_${i}.webp`,
-  },
-} as const
 
 /** Tailwind `xl` — full-frame cover for landscape sequence at this width and up */
 const BRAND_COVER_MIN_WIDTH = 1280
@@ -154,12 +139,57 @@ export default function HomeHeroSection({
   const heroScrollingRef = useRef(false);
   const idlePumpRef = useRef<(() => void) | null>(null);
   const preloadCancelledRef = useRef(false);
+  const brandCanvasRevealedRef = useRef(false);
   const preloadNextRef = useRef<Record<SequenceKey, number>>({
     landscape: 1,
     portrait: 1,
   });
 
   const [emblaApi, setEmblaApi] = useState<EmblaCarouselType | null>(null)
+  const [brandCanvasVisible, setBrandCanvasVisible] = useState(false)
+
+  const isHeroSurfaceVisible = () => {
+    const main = mainRef.current
+    if (!main) return false
+    if (parseFloat(getComputedStyle(main).opacity) < 0.99) return false
+    // Desktop ScrollSmoother starts #smooth-content hidden — fading while it's
+    // still at 0 means the transition finishes before anything is on screen.
+    const smooth = document.getElementById("smooth-content")
+    if (smooth) {
+      const smoothOpacity = parseFloat(getComputedStyle(smooth).opacity)
+      if (Number.isFinite(smoothOpacity) && smoothOpacity < 0.5) return false
+    }
+    return true
+  }
+
+  const revealBrandCanvas = () => {
+    if (brandCanvasRevealedRef.current) return
+    brandCanvasRevealedRef.current = true
+
+    if (prefersReducedMotion()) {
+      setBrandCanvasVisible(true)
+      return
+    }
+
+    const startFade = () => {
+      // Paint one frame at opacity 0 after the surface is visible, then fade.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setBrandCanvasVisible(true)
+        })
+      })
+    }
+
+    const startedAt = performance.now()
+    const waitForSurface = () => {
+      if (isHeroSurfaceVisible() || performance.now() - startedAt > 1200) {
+        startFade()
+        return
+      }
+      requestAnimationFrame(waitForSurface)
+    }
+    waitForSurface()
+  }
 
   /** Match canvas backing store to the CSS box (drawImage handles fit). */
   const fitCanvasForDisplay = (canvas: HTMLCanvasElement) => {
@@ -273,6 +303,7 @@ export default function HomeHeroSection({
 
     lastRenderedFrameRef.current = index;
     lastRenderedSequenceRef.current = key;
+    revealBrandCanvas();
   };
 
   const startPreloadForSequence = (
@@ -286,44 +317,68 @@ export default function HomeHeroSection({
       frameCount,
     );
 
+    const startBurstAndIdlePump = () => {
+      if (cancelled()) return;
+
+      for (let i = 2; i <= initialCount; i++) {
+        ensureImage(i, key);
+      }
+
+      preloadNextRef.current[key] = Math.max(
+        preloadNextRef.current[key],
+        initialCount + 1,
+      );
+
+      const pump = () => {
+        if (cancelled()) return;
+        const activeKey = sequenceKeyRef.current;
+        const activeCount = SEQUENCES[activeKey].frameCount;
+        let next = preloadNextRef.current[activeKey];
+        if (next > activeCount) return;
+        if (heroScrollingRef.current) {
+          scheduleIdle(pump);
+          return;
+        }
+        const end = Math.min(next + IDLE_BATCH_SIZE - 1, activeCount);
+        for (let i = next; i <= end; i++) {
+          ensureImage(i, activeKey);
+        }
+        next = end + 1;
+        preloadNextRef.current[activeKey] = next;
+        if (next <= activeCount) scheduleIdle(pump);
+      };
+      idlePumpRef.current = pump;
+      scheduleIdle(pump);
+    };
+
+    // Load frame 1 alone first so the burst cannot contend for bandwidth.
     ensureImage(1, key);
     const first = imagesRef.current[key][1];
-    if (autoRenderFirst && first && key === sequenceKeyRef.current) {
-      const onFirstLoad = () => {
-        if (cancelled() || getReloadScrollY() != null) return;
-        if (sequenceKeyRef.current !== key) return;
-        renderFrame(1);
-      };
-      if (first.complete) onFirstLoad();
-      else first.addEventListener("load", onFirstLoad, { once: true });
-    }
 
-    for (let i = 2; i <= initialCount; i++) {
-      ensureImage(i, key);
-    }
-
-    preloadNextRef.current[key] = Math.max(preloadNextRef.current[key], initialCount + 1);
-
-    const pump = () => {
+    const onFirstReady = () => {
       if (cancelled()) return;
-      const activeKey = sequenceKeyRef.current;
-      const activeCount = SEQUENCES[activeKey].frameCount;
-      let next = preloadNextRef.current[activeKey];
-      if (next > activeCount) return;
-      if (heroScrollingRef.current) {
-        scheduleIdle(pump);
-        return;
+      if (
+        autoRenderFirst &&
+        first &&
+        key === sequenceKeyRef.current &&
+        getReloadScrollY() == null
+      ) {
+        renderFrame(1);
       }
-      const end = Math.min(next + IDLE_BATCH_SIZE - 1, activeCount);
-      for (let i = next; i <= end; i++) {
-        ensureImage(i, activeKey);
-      }
-      next = end + 1;
-      preloadNextRef.current[activeKey] = next;
-      if (next <= activeCount) scheduleIdle(pump);
+      startBurstAndIdlePump();
     };
-    idlePumpRef.current = pump;
-    scheduleIdle(pump);
+
+    if (!first) {
+      startBurstAndIdlePump();
+      return;
+    }
+
+    if (first.complete) {
+      onFirstReady();
+    } else {
+      first.addEventListener("load", onFirstReady, { once: true });
+      first.addEventListener("error", startBurstAndIdlePump, { once: true });
+    }
   };
 
   // Batched preload — avoids many simultaneous decodes on cold load
@@ -846,7 +901,9 @@ export default function HomeHeroSection({
             ref={canvasRef}
             width={SEQUENCES.landscape.width}
             height={SEQUENCES.landscape.height}
-            className="w-full h-full will-change-transform"
+            className={`h-full w-full will-change-transform transition-opacity duration-700 ease-out motion-reduce:transition-none ${
+              brandCanvasVisible ? "opacity-100" : "opacity-0"
+            }`}
           />
         </div>
 

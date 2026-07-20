@@ -83,6 +83,8 @@ export function projectSearchableText(project: ProjectPreview): string {
     category,
     project.summary ?? '',
     project.tags?.join(' ') ?? '',
+    project.overviewCategories?.join(' ') ?? '',
+    project.overviewIndustries?.join(' ') ?? '',
   ].join(' ')
 }
 
