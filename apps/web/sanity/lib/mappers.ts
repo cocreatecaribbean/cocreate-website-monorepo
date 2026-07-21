@@ -9,7 +9,11 @@ import type {
 } from '@cocreate/types'
 import type { SanityImageSource } from '@sanity/image-url'
 import { workProjectPath } from '@/lib/work-project-path'
-import { urlForImage, urlForWorkCover } from '@/sanity/lib/image'
+import {
+  urlForHomeGalleryCover,
+  urlForImage,
+  urlForWorkCover,
+} from '@/sanity/lib/image'
 
 type SanityImageRow = {
   crop?: unknown
@@ -266,12 +270,18 @@ function mapSections(
   return sections
 }
 
+type CoverCrop = 'work' | 'homeGallery'
+
 function resolveWorkCoverSrc(
   coverImage: SanityImageRow | undefined,
   fallbackUrl?: string | null,
+  crop: CoverCrop = 'work',
 ): string {
   if (coverImage?.asset) {
-    const built = urlForWorkCover(coverImage as SanityImageSource)
+    const built =
+      crop === 'homeGallery'
+        ? urlForHomeGalleryCover(coverImage as SanityImageSource)
+        : urlForWorkCover(coverImage as SanityImageSource)
     if (built) return built
   }
   const fromAsset = coverImage?.assetUrl?.trim()
@@ -305,9 +315,16 @@ function resolveOverviewChips(row: SanityWorkProjectRow): {
   }
 }
 
-export function mapSanityWorkProjectToPreview(row: SanityWorkProjectRow): ProjectPreview {
+export function mapSanityWorkProjectToPreview(
+  row: SanityWorkProjectRow,
+  options?: { coverCrop?: CoverCrop },
+): ProjectPreview {
   const slug = row.slug
-  const coverImageSrc = resolveWorkCoverSrc(row.coverImage, row.coverImageUrl)
+  const coverImageSrc = resolveWorkCoverSrc(
+    row.coverImage,
+    row.coverImageUrl,
+    options?.coverCrop ?? 'work',
+  )
   const coverImageBlurDataURL = resolveLqip(row.coverImage)
   const { overviewCategories, overviewIndustries } = resolveOverviewChips(row)
 
@@ -327,6 +344,13 @@ export function mapSanityWorkProjectToPreview(row: SanityWorkProjectRow): Projec
     overviewCategories,
     overviewIndustries,
   }
+}
+
+/** Home arc gallery — landscape CDN crop so letterboxed covers fill the card. */
+export function mapSanityWorkProjectToHomePreview(
+  row: SanityWorkProjectRow,
+): ProjectPreview {
+  return mapSanityWorkProjectToPreview(row, { coverCrop: 'homeGallery' })
 }
 
 export function mapSanityWorkProjectToDetail(row: SanityWorkProjectRow): WorkProjectDetail {

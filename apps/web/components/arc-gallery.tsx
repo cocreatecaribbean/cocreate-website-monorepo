@@ -206,9 +206,14 @@ function ArcTile({
 
   const transition = getArcTileTransition(isDragging, isMobile)
 
+  // Explicit height — absolute + aspect-ratio alone can fail on mobile Safari,
+  // leaving the media box short and flashing dark gutters around the cover.
+  const tileHeight = Math.round(
+    layout.tileWidth * (isMobile ? 5 / 4 : 1),
+  )
+
   const shellClass = `
     arc-tile-card group pointer-events-auto absolute left-1/2 cursor-pointer select-none overflow-hidden
-    aspect-4/5 md:aspect-square
     rounded-4xl
     ring-1 ring-chambray/10
     top-1/2 max-md:top-1/2
@@ -218,6 +223,7 @@ function ArcTile({
 
   const shellStyle = {
     width: layout.tileWidth,
+    height: tileHeight,
     transform: style.transform,
     opacity: style.opacity,
     zIndex: style.zIndex,
@@ -236,20 +242,20 @@ function ArcTile({
   const coverSrc = item.coverImageSrc?.trim() || null
 
   const content = (
-    <div className="arc-tile-card__inner relative h-full w-full">
-      <div className="arc-tile-card__media relative h-full w-full overflow-hidden">
+    <div className="arc-tile-card__inner relative h-full w-full overflow-hidden">
+      <div className="arc-tile-card__media absolute inset-0 overflow-hidden bg-chambray">
         {coverSrc ? (
-          <Image
-            src={coverSrc}
-            alt=""
-            fill
-            sizes={`(max-width: 639px) ${Math.round(layout.tileWidth)}px, (max-width: 1023px) 240px, 300px`}
-            className="object-cover"
-            draggable={false}
-          />
-        ) : (
-          <div aria-hidden className="absolute inset-0 bg-chambray" />
-        )}
+          <div className="arc-tile-card__zoom">
+            <Image
+              src={coverSrc}
+              alt=""
+              fill
+              sizes={`${Math.max(320, Math.round(layout.tileWidth * 2))}px`}
+              className="object-cover object-center"
+              draggable={false}
+            />
+          </div>
+        ) : null}
       </div>
       <div
         className="arc-tile-card__shade pointer-events-none absolute inset-0 bg-linear-to-t from-chambray/90 via-chambray/30 to-transparent"

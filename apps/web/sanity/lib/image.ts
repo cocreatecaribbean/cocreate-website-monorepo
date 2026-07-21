@@ -39,3 +39,18 @@ export function urlForWorkCover(source: SanityImageSource): string | null {
       .url() ?? null
   )
 }
+
+/**
+ * Home “Projects at a Glance” covers.
+ * Wide center crop (~2.1:1) strips cinematic letterboxing that 16:9 often keeps.
+ */
+export function urlForHomeGalleryCover(source: SanityImageSource): string | null {
+  return (
+    urlForImage(source)
+      ?.width(1470)
+      .height(700)
+      .fit('crop')
+      .auto('format')
+      .url() ?? null
+  )
+}

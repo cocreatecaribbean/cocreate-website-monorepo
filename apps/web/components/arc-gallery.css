@@ -53,14 +53,37 @@
   -webkit-user-select: none;
   user-select: none;
   cursor: pointer;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  isolation: isolate;
   transition:
     box-shadow 0.55s var(--ease-premium),
     filter 0.55s var(--ease-premium);
 }
 
-.arc-tile-card__media img {
+.arc-tile-card__inner,
+.arc-tile-card__media {
+  border-radius: inherit;
+}
+
+/* Zoom trims any remaining letterbox after the wide CDN crop */
+.arc-tile-card__zoom {
+  position: absolute;
+  inset: 0;
+  transform: scale(1.18);
+  transform-origin: center center;
   transition: transform 0.85s var(--ease-premium);
-  transform: scale(1);
+}
+
+@media (max-width: 767px) {
+  .arc-tile-card__zoom {
+    transform: scale(1.28);
+  }
+}
+
+.arc-tile-card__media img {
+  object-fit: cover !important;
+  object-position: center center !important;
 }
 
 .arc-tile-card__veil {
@@ -79,9 +102,9 @@
     box-shadow: 0 22px 48px rgba(57, 65, 154, 0.24);
   }
 
-  .arc-tile-card:hover .arc-tile-card__media img,
-  .arc-tile-card:focus-visible .arc-tile-card__media img {
-    transform: scale(1.04);
+  .arc-tile-card:hover .arc-tile-card__zoom,
+  .arc-tile-card:focus-visible .arc-tile-card__zoom {
+    transform: scale(1.26);
   }
 
   .arc-tile-card:hover .arc-tile-card__veil,
@@ -97,9 +120,19 @@
 
 @media (prefers-reduced-motion: reduce) {
   .arc-tile-card,
-  .arc-tile-card__media img,
+  .arc-tile-card__zoom,
   .arc-tile-card__veil,
   .arc-tile-card__caption {
     transition: none !important;
+  }
+
+  .arc-tile-card__zoom {
+    transform: scale(1.18);
+  }
+
+  @media (max-width: 767px) {
+    .arc-tile-card__zoom {
+      transform: scale(1.28);
+    }
   }
 }

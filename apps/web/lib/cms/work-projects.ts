@@ -12,6 +12,7 @@ import {
 } from '@/sanity/lib/queries'
 import {
   mapSanityWorkProjectToDetail,
+  mapSanityWorkProjectToHomePreview,
   mapSanityWorkProjectToPreview,
 } from '@/sanity/lib/mappers'
 import { enrichProjectPreviews } from '@/lib/project-preview'
@@ -33,7 +34,10 @@ function mockWorkBySlug(slug: string): WorkProjectDetail | null {
   return toWorkProjectDetail(fallback)
 }
 
-async function fetchSanityWorkPreviews(preview: boolean): Promise<ProjectPreview[] | null> {
+async function fetchSanityWorkPreviews(
+  preview: boolean,
+  coverCrop: 'work' | 'homeGallery' = 'work',
+): Promise<ProjectPreview[] | null> {
   if (!isSanityConfigured()) {
     return null
   }
@@ -60,9 +64,14 @@ async function fetchSanityWorkPreviews(preview: boolean): Promise<ProjectPreview
       return null
     }
 
+    const mapRow =
+      coverCrop === 'homeGallery'
+        ? mapSanityWorkProjectToHomePreview
+        : mapSanityWorkProjectToPreview
+
     return enrichProjectPreviews(
       visibleRows.map((row: Record<string, unknown>) =>
-        mapSanityWorkProjectToPreview(row as Parameters<typeof mapSanityWorkProjectToPreview>[0]),
+        mapRow(row as Parameters<typeof mapSanityWorkProjectToPreview>[0]),
       ),
     )
   } catch (error) {
@@ -131,8 +140,11 @@ export const fetchWorkProjectSlugs = cache(async (): Promise<string[]> => {
 
 export const fetchHomeGalleryPreviews = cache(
   async (preview = false): Promise<ProjectPreview[]> => {
-    const projects = await fetchWorkProjectPreviews(preview)
-    // Presentation/home: skip drafts with no cover so we never paint empty Image src
+    // Use landscape CDN crop so letterboxed creatives don’t paint black bars in the card.
+    const fromSanity = await fetchSanityWorkPreviews(preview, 'homeGallery')
+    const projects =
+      fromSanity ??
+      (isSanityConfigured() || preview ? [] : mockWorkPreviews())
     const withCovers = projects.filter((project) => Boolean(project.coverImageSrc?.trim()))
     const source = preview ? withCovers : withCovers.length > 0 ? withCovers : projects
     return source.slice(0, HOME_GALLERY_PREVIEW_COUNT)
