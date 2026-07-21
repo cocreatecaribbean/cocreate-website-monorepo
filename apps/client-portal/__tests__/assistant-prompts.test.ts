@@ -35,6 +35,14 @@ describe('Client Portal assistant prompts', () => {
     expect(prompt).not.toMatch(/suggest Get Help \(\/\?ccView=/)
   })
 
+  it('includes CURRENT CONTEXT with date/time and general-knowledge rules', () => {
+    const prompt = getClientPortalSystemPrompt()
+    expect(prompt).toContain('CURRENT CONTEXT')
+    expect(prompt).toContain('America/Jamaica')
+    expect(prompt).toContain(String(new Date().getFullYear()))
+    expect(prompt).toContain('ordinary general knowledge')
+  })
+
   it('embeds signed-in first name when provided', () => {
     const prompt = getClientPortalSystemPrompt(
       undefined,

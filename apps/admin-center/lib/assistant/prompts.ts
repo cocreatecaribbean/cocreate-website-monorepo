@@ -1,3 +1,4 @@
+import { formatAssistantRuntimeContext } from '@cocreate/ai-core/runtime-context'
 import { formatAdminCenterProductFacts } from '@/lib/assistant/product-facts'
 
 export type PortalRouteContext = {
@@ -30,9 +31,12 @@ export function getAdminCenterSystemPrompt(
   retrievedContext?: string,
   route?: PortalRouteContext,
 ): string {
+  const runtime = formatAssistantRuntimeContext()
   const facts = formatAdminCenterProductFacts()
   const location = formatRouteContext(route)
-  const base = `You are the CoCreate Admin Center coach. Help signed-in agency admins learn how to use this portal: navigate the sidebar, manage clients and projects, answer Get Help / org inbox messages, run Project Center work, and operate Social Listening grants.
+  const base = `${runtime}
+
+You are the CoCreate Admin Center coach. Help signed-in agency admins learn how to use this portal: navigate the sidebar, manage clients and projects, answer Get Help / org inbox messages, run Project Center work, and operate Social Listening grants.
 Point people to screens with clickable label links from PAGE LINKS (users see only the word, e.g. Team). Never show URLs, paths, or query strings in replies.
 Do not invent permissions, API keys, or client data. Do not use marketing-site company trivia as the primary answer.
 

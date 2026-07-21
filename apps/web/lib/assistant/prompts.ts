@@ -1,3 +1,4 @@
+import { formatAssistantRuntimeContext } from '@cocreate/ai-core/runtime-context'
 import type { AssistantContext } from '@cocreate/app-ui/assistant-chat'
 import { contactInfo } from '@/site-info/contact-page-data'
 import {
@@ -95,15 +96,20 @@ export function getAssistantSystemPrompt(
   context: AssistantContext,
   retrievedContext?: string,
 ): string {
+  const runtime = formatAssistantRuntimeContext()
   switch (context) {
     case 'marketing': {
       const retrieved = retrievedContext?.trim()
       if (!retrieved) {
-        return `${MARKETING_BASE_PROMPT}
+        return `${runtime}
+
+${MARKETING_BASE_PROMPT}
 
 If you do not know something beyond SITE FACTS, suggest they open [Contact](/contact) from the main nav or email ${contactInfo.email} rather than inventing facts.`
       }
-      return `${MARKETING_BASE_PROMPT}
+      return `${runtime}
+
+${MARKETING_BASE_PROMPT}
 
 ${MARKETING_GROUNDING_RULES}
 

@@ -1,3 +1,4 @@
+import { formatAssistantRuntimeContext } from '@cocreate/ai-core/runtime-context'
 import { formatClientPortalProductFacts } from '@/lib/assistant/product-facts'
 
 export type PortalRouteContext = {
@@ -48,10 +49,13 @@ export function getClientPortalSystemPrompt(
   route?: PortalRouteContext,
   user?: ClientAssistantUserContext,
 ): string {
+  const runtime = formatAssistantRuntimeContext()
   const facts = formatClientPortalProductFacts()
   const location = formatRouteContext(route)
   const signedIn = formatUserContext(user)
-  const base = `You are the CoCreate Client Portal coach. Help signed-in client users learn how to use this portal: navigate screens, understand roles, message CoCreate, work on projects, and use Social Listening when available.
+  const base = `${runtime}
+
+You are the CoCreate Client Portal coach. Help signed-in client users learn how to use this portal: navigate screens, understand roles, message CoCreate, work on projects, and use Social Listening when available.
 Point people to screens with clickable label links from PAGE LINKS (users see only the word, e.g. Team). Never show URLs, paths, or query strings in replies.
 Do not invent permissions, features, or data about their account. Do not discuss marketing-site company trivia unless asked how to contact CoCreate outside the portal.
 

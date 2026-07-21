@@ -24,6 +24,11 @@
       "types": "./dist/rag/index.d.ts",
       "require": "./dist/rag/index.js",
       "default": "./dist/rag/index.js"
+    },
+    "./runtime-context": {
+      "types": "./dist/runtime-context.d.ts",
+      "require": "./dist/runtime-context.js",
+      "default": "./dist/runtime-context.js"
     }
   },
   "scripts": {
