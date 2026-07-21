@@ -128,4 +128,4 @@ If scroll dies again on Windows laptops:
 
 [`LandscapeWarning`](../apps/web/components/landscapeWarning.tsx) used to treat `min(screen.width, screen.height) < 600` as “phone.” On Windows, `screen` sizes are CSS pixels **after display scaling**, so a small/high-DPI laptop in landscape (always landscape) could get the full-screen rotate blocker.
 
-It now requires `(pointer: coarse)` **and** `(hover: none)` plus landscape — real touch phones only, not scaled laptops. Same lesson: don’t trust screen size or `maxTouchPoints` alone for device class.
+It now requires landscape **and** `(pointer: coarse)` + `(hover: none)` **and** `min(innerWidth, innerHeight) < 530`. That keeps real phones (short edge ~430–440 max), excludes iPads/tablets, and still avoids `screen.*` / `maxTouchPoints` for device class.
