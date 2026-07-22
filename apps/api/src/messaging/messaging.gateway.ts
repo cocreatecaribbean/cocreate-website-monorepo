@@ -2,6 +2,8 @@ import { Logger } from '@nestjs/common'
 import {
   ConnectedSocket,
   MessageBody,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
   OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
@@ -13,6 +15,7 @@ import type { AuthenticatedAdmin, AuthenticatedClient } from '../auth/auth.servi
 import { OrgInboxService } from '../org-inbox/org-inbox.service'
 import { ProjectsService } from '../projects/projects.service'
 import { MessagingEmitService } from './messaging-emit.service'
+import { MessagingPresenceService } from './messaging-presence.service'
 import {
   CLIENT_JOIN_INBOX,
   CLIENT_JOIN_THREAD,
@@ -41,7 +44,9 @@ type MessagingSocket = Socket & {
     credentials: true,
   },
 })
-export class MessagingGateway implements OnGatewayInit {
+export class MessagingGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   private readonly logger = new Logger(MessagingGateway.name)
 
   @WebSocketServer()
@@ -52,6 +57,7 @@ export class MessagingGateway implements OnGatewayInit {
     private readonly projects: ProjectsService,
     private readonly inbox: OrgInboxService,
     private readonly emitService: MessagingEmitService,
+    private readonly presence: MessagingPresenceService,
   ) {}
 
   afterInit(server: Server): void {
@@ -78,6 +84,13 @@ export class MessagingGateway implements OnGatewayInit {
     }
   }
 
+  handleDisconnect(client: MessagingSocket): void {
+    const userId = client.data.actor?.id
+    if (userId) {
+      this.presence.leaveAllRooms(userId)
+    }
+  }
+
   @SubscribeMessage(CLIENT_JOIN_THREAD)
   async joinThread(
     @ConnectedSocket() client: MessagingSocket,
@@ -89,6 +102,7 @@ export class MessagingGateway implements OnGatewayInit {
 
     await this.projects.assertThreadAccess(actor, requestId)
     await client.join(threadRoom(requestId))
+    this.presence.joinRoom(threadRoom(requestId), actor.id)
     if (process.env.NODE_ENV === 'development') {
       this.logger.debug(`socket ${client.id} joined ${threadRoom(requestId)}`)
     }
@@ -101,8 +115,12 @@ export class MessagingGateway implements OnGatewayInit {
     @MessageBody() body: { requestId?: string },
   ): Promise<{ ok: boolean }> {
     const requestId = body?.requestId?.trim()
+    const actor = client.data.actor
     if (!requestId) return { ok: false }
     await client.leave(threadRoom(requestId))
+    if (actor) {
+      this.presence.leaveRoom(threadRoom(requestId), actor.id)
+    }
     return { ok: true }
   }
 
@@ -117,6 +135,7 @@ export class MessagingGateway implements OnGatewayInit {
 
     await this.inbox.assertInboxAccess(actor, conversationId)
     await client.join(inboxRoom(conversationId))
+    this.presence.joinRoom(inboxRoom(conversationId), actor.id)
     return { ok: true }
   }
 
@@ -126,8 +145,12 @@ export class MessagingGateway implements OnGatewayInit {
     @MessageBody() body: { conversationId?: string },
   ): Promise<{ ok: boolean }> {
     const conversationId = body?.conversationId?.trim()
+    const actor = client.data.actor
     if (!conversationId) return { ok: false }
     await client.leave(inboxRoom(conversationId))
+    if (actor) {
+      this.presence.leaveRoom(inboxRoom(conversationId), actor.id)
+    }
     return { ok: true }
   }
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { QueryProvider } from '@cocreate/app-ui/query-provider'
 import { ThemeProvider } from '@/components/theme-provider'
+import { PresenceHeartbeat } from '@/components/presence-heartbeat'
 import { ClientMessagingProvider } from '@/lib/messaging/client-messaging-provider'
 import {
   alkatra600,
@@ -32,7 +33,10 @@ export default function RootLayout({
       <body className={`${bricolage_grot400.className} max-w-full overflow-x-clip antialiased`}>
         <QueryProvider>
           <ThemeProvider>
-            <ClientMessagingProvider>{children}</ClientMessagingProvider>
+            <ClientMessagingProvider>
+              <PresenceHeartbeat />
+              {children}
+            </ClientMessagingProvider>
           </ThemeProvider>
         </QueryProvider>
       </body>

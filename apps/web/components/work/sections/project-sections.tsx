@@ -22,7 +22,7 @@ export default function ProjectSections({
   if (!sections.length) return null
 
   const wrap = (section: WorkProjectSection, node: ReactNode) => (
-    <SectionReveal key={section._key} revealKey={section._key}>
+    <SectionReveal key={section._key} revealKey={section._key} persistAfterReveal>
       {node}
     </SectionReveal>
   )

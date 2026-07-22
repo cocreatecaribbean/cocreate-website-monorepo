@@ -87,6 +87,13 @@ describe('ProjectsService addRequestMessage alert copy', () => {
       invalidate: jest.fn().mockResolvedValue(undefined),
     }
 
+    const messageDigests = {
+      activeAdminRecipients: jest.fn().mockResolvedValue(['admin-1']),
+      activeClientRecipients: jest.fn().mockResolvedValue(['client-1']),
+      enqueueProjectDigests: jest.fn().mockResolvedValue(undefined),
+      cancelPendingDigests: jest.fn().mockResolvedValue(undefined),
+    }
+
     const service = new ProjectsService(
       prisma as never,
       { createUploadUrl: jest.fn() } as never,
@@ -98,9 +105,10 @@ describe('ProjectsService addRequestMessage alert copy', () => {
       { inviteMember: jest.fn() } as never,
       { getUserById: jest.fn() } as never,
       threadSummaryStore as never,
+      messageDigests as never,
     )
 
-    return { service, prisma, notifications }
+    return { service, prisma, notifications, messageDigests }
   }
 
   const staleThreadRequest = {
@@ -134,8 +142,8 @@ describe('ProjectsService addRequestMessage alert copy', () => {
     attachmentLinks: [],
   }
 
-  it('uses project title (not stale thread title) when clients notify admins', async () => {
-    const { service, prisma, notifications } = createService()
+  it('uses project title (not stale thread title) for in-app admin alerts and enqueues digests', async () => {
+    const { service, prisma, notifications, messageDigests } = createService()
     prisma.projectRequest.findUnique.mockResolvedValue(staleThreadRequest)
     prisma.projectRequestMessage.create.mockResolvedValue(createdMessage)
 
@@ -146,22 +154,25 @@ describe('ProjectsService addRequestMessage alert copy', () => {
     expect(notifications.notifyAdmins).toHaveBeenCalledWith(
       expect.objectContaining({
         title: 'Client replied: new project',
-        email: expect.objectContaining({
-          subject: 'Client reply on new project',
-          html: expect.stringContaining('<strong>new project</strong>'),
-          text: expect.stringContaining('Client replied on new project:'),
-        }),
+        body: 'Hello from progress',
+      }),
+    )
+    expect(notifications.notifyAdmins.mock.calls[0][0].email).toBeUndefined()
+    expect(messageDigests.enqueueProjectDigests).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientUserIds: ['admin-1'],
+        requestId: 'req-progress',
+        projectTitle: 'new project',
+        preview: 'Hello from progress',
       }),
     )
 
     const payload = notifications.notifyAdmins.mock.calls[0][0]
     expect(payload.title).not.toContain('gandola')
-    expect(payload.email.html).not.toContain('gandola')
-    expect(payload.email.html).toContain('Traileverse replied on')
   })
 
-  it('uses project title (not stale thread title) when admins notify clients', async () => {
-    const { service, prisma, notifications } = createService()
+  it('uses project title for in-app client alerts and enqueues digests (no immediate email)', async () => {
+    const { service, prisma, notifications, messageDigests } = createService()
     prisma.projectRequest.findUnique.mockResolvedValue(staleThreadRequest)
     prisma.projectRequestMessage.create.mockResolvedValue({
       ...createdMessage,
@@ -181,16 +192,20 @@ describe('ProjectsService addRequestMessage alert copy', () => {
     expect(notifications.notifyOrgClients).toHaveBeenCalledWith(
       expect.objectContaining({
         title: 'CoCreate replied: new project',
-        email: expect.objectContaining({
-          subject: 'New message on new project',
-          html: expect.stringContaining('<strong>new project</strong>'),
-          text: expect.stringContaining('CoCreate replied on new project:'),
-        }),
+        body: 'Hello from progress',
+        href: expect.stringContaining('projectTab=progress'),
+      }),
+    )
+    expect(notifications.notifyOrgClients.mock.calls[0][0].email).toBeUndefined()
+    expect(messageDigests.enqueueProjectDigests).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientUserIds: ['client-1'],
+        requestId: 'req-progress',
+        projectTitle: 'new project',
       }),
     )
 
     const payload = notifications.notifyOrgClients.mock.calls[0][0]
     expect(payload.title).not.toContain('gandola')
-    expect(payload.email.html).not.toContain('gandola')
   })
 })

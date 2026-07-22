@@ -2,14 +2,18 @@ import { getAdminCenterSystemPrompt } from '@/lib/assistant/prompts'
 import { formatAdminCenterProductFacts } from '@/lib/assistant/product-facts'
 
 describe('Admin Center assistant prompts', () => {
-  it('includes PRODUCT FACTS with Get Help, Project Center, and PAGE LINKS', () => {
+  it('includes PRODUCT FACTS with Get Help, Project updates, and PAGE LINKS', () => {
     const facts = formatAdminCenterProductFacts()
     expect(facts).toContain('Get Help')
+    expect(facts).toContain('Project updates')
     expect(facts).toContain('Project Center')
     expect(facts).toContain('sidebar on the left')
     expect(facts).toContain('PAGE LINKS')
     expect(facts).toContain('[Team](/team)')
     expect(facts).toContain('[Get Help](/messages)')
+    expect(facts).toContain('two messaging places')
+    expect(facts).toContain('never assume')
+    expect(facts).toContain('Team review')
     expect(facts).toContain('users must NEVER see')
     expect(facts).not.toMatch(/Get Help \(\/messages\)/)
   })
@@ -21,13 +25,15 @@ describe('Admin Center assistant prompts', () => {
     })
     expect(prompt).toContain('PRODUCT FACTS')
     expect(prompt).toContain('Get Help')
+    expect(prompt).toContain('Project updates')
     expect(prompt).toContain('CURRENT LOCATION')
     expect(prompt).toContain('/messages')
     expect(prompt).toContain('numbered list')
-    expect(prompt).toContain('only see the highlighted clickable label')
     expect(prompt).toContain('Never show paths, query strings')
     expect(prompt).toContain('sidebar on the left')
     expect(prompt).toContain('[Team](/team)')
+    expect(prompt).toContain('**Get Help** (org inbox) vs **Project updates**')
+    expect(prompt).toContain('do not only push Get Help')
     expect(prompt).not.toMatch(/suggest Get Help \(\/messages\)/)
   })
 

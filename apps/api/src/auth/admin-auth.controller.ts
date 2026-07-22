@@ -10,6 +10,7 @@ import { AdminAuthGuard, type AdminRequest } from './guards/admin-auth.guard'
 import { SupabaseAuthService } from '../clients/supabase-auth.service'
 import { AdminProfileService } from '../users/admin-profile.service'
 import { UserPreferencesService } from '../users/user-preferences.service'
+import { MessageEmailDigestService } from '../messaging/message-email-digest.service'
 import { zodBody } from '../common/zod/zod-validation.pipe'
 
 @Controller({ path: 'auth/admin', version: '1' })
@@ -20,6 +21,7 @@ export class AdminAuthController {
     private readonly config: ConfigService,
     private readonly adminProfiles: AdminProfileService,
     private readonly preferences: UserPreferencesService,
+    private readonly messageDigests: MessageEmailDigestService,
   ) {}
 
   /** Current admin from Bearer token (or dev x-admin-key). */
@@ -47,6 +49,14 @@ export class AdminAuthController {
     }
 
     return { ok: true as const, mode: 'api_key' as const }
+  }
+
+  @Post('presence')
+  @UseGuards(AdminAuthGuard)
+  async presence(@Req() request: AdminRequest) {
+    if (!request.adminUser) return { ok: true as const }
+    await this.messageDigests.touchLastSeen(request.adminUser.id)
+    return { ok: true as const }
   }
 
   @Patch('preferences')

@@ -10,10 +10,12 @@ You sign in with the email your CoCreate team invited. Multiple organizations? U
 
 ## Main areas (tabs)
 
-At the top of the portal you typically see:
+At the **top of the portal workspace** (under the welcome header), you typically see workspace **tabs**:
 
-- **Control Center** — day-to-day project work and messaging with CoCreate
-- **Social Listening** — brand mentions and analytics (only when your company has a Social Listening subscription and your role allows it)
+- **Control Center** — day-to-day project work and messaging with CoCreate (`/` — default when `tab` is omitted)
+- **Social Listening** — brand mentions and analytics (`/?tab=social-listening`; only when your company has a Social Listening subscription and your role allows it)
+
+The left menu only appears inside the active workspace tab. Social Listening is a workspace tab, not a Control Center left-nav item.
 
 Social Analysts often land in Social Listening only and may not see the full Control Center nav.
 
@@ -24,7 +26,7 @@ Control Center views use the query param `ccView` on the home URL (`/`).
 | View | URL | What it is for |
 |------|-----|----------------|
 | Overview | `/?ccView=overview` | Snapshot of projects, files, and actions |
-| Projects | `/?ccView=projects` | Active workstreams with your CoCreate team; open a project for files, top picks, and request threads |
+| Projects | `/?ccView=projects` | Active workstreams; open a project for files, top picks, **Project updates**, and Onboarding |
 | Activity | `/?ccView=activity` | Recent updates across your workspace |
 | Get Help | `/?ccView=messages` | Message CoCreate about billing, timelines, or topics not tied to one project step |
 | Team | `/?ccView=team` | Organization members and project access (org admins) |
@@ -45,22 +47,40 @@ Older links like `approvals`, `files`, or `top-picks` as `ccView` values open **
 
 **Team hub:** Org admins open Control Center → Team to invite people and manage access.
 
-## Messaging — two kinds
+## Messaging — two kinds (do not assume)
 
-1. **Get Help (org inbox)** — General chat with CoCreate (billing, timelines, general questions). Open **Control Center → Get Help** (`/?ccView=messages`). You may see an org-wide thread and, if your admin created them, restricted threads for selected people.
-2. **Project request threads** — Messages on a specific project step (onboarding, progress, reviews, etc.). Open **Projects**, select the project, then use the project conversation / progress area.
+There are **two** messaging places. If someone just says “messaging” or “chat,” name both and ask which they mean (or give both short paths).
+
+1. **Get Help (org inbox)** — General chat with CoCreate (billing, timelines, account — not tied to one project). Open **Control Center → Get Help** (`/?ccView=messages`). You may see an org-wide thread and, if your admin created them, restricted threads for selected people.
+2. **Project updates** — The main day-to-day project messaging thread (deliverables, progress, replies with CoCreate). Open **Projects** (`/?ccView=projects`), select the project, then open the **Project updates** tab inside that project (`projectTab=progress`).
+3. **Onboarding** — Onboarding chat lives on the **Onboarding** tab inside a project (same Projects → open project pattern).
 
 Where do I message the agency about something not tied to one project? Use **Get Help**.
 
-Where do I discuss a specific deliverable? Use the **project thread** inside that project.
+Where do I discuss a specific deliverable or project progress? Use **Project updates** inside that project — not Get Help.
 
 ## Projects, files, and top picks
 
 - Open **Projects** to see workstreams.
-- Inside a project you can browse files, react to top picks, and follow request threads with CoCreate.
+- Inside a project you can browse files, react to top picks, and chat on **Project updates** (and **Onboarding**) with CoCreate.
 - Attention / notifications may deep-link into the right project or Get Help conversation.
 
 ## Social Listening
+
+Social Listening is a **workspace tab** at the top of the portal workspace (not an item in the Control Center left menu). Open it with `/?tab=social-listening`.
+
+Inside Social Listening, the left menu uses the `view` query param (always keep `tab=social-listening`):
+
+| View | URL | What it is for |
+|------|-----|----------------|
+| Summary | `/?tab=social-listening` | Key metrics and sentiment split (default; `view` omitted) |
+| Mentions | `/?tab=social-listening&view=mentions` | Volume, timing, and sentiment trends |
+| Analysis | `/?tab=social-listening&view=analysis` | Reach, engagement, and performance |
+| Sources | `/?tab=social-listening&view=sources` | Where conversations happen |
+| Reports | `/?tab=social-listening&view=reports` | PDF exports (Growth+ plans) |
+| Setup | `/?tab=social-listening&view=setup` | Configure keywords, platforms, and date range |
+
+Do **not** use `/?ccView=social-listening`, `/?ccView=mentions`, bare `/?view=mentions` (missing the tab), or the Admin Center path `/social-listening`.
 
 - Available when your organization has a Social Listening subscription and your membership allows it.
 - Admins and Social Analysts use the full Social Listening experience when subscribed.
@@ -83,4 +103,4 @@ You may be a Social Analyst, or your role does not include Control Center. Ask a
 Yes — use the organization switcher in the header when you belong to more than one org.
 
 **I am stuck.**  
-Use Get Help if you have access, or email your CoCreate contact / org admin.
+For messaging: use **Get Help** for general questions, or **Projects → Project updates** for project chat. Or email your CoCreate contact / org admin.

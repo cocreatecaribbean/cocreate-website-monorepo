@@ -5,6 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import {
+  MessageEmailDigestAudience,
+  MessageEmailDigestChannel,
   OrgInboxAuthorRole,
   OrgInboxVisibility,
   PortalNotificationType,
@@ -28,6 +30,7 @@ import type {
 import { ThreadSummaryStoreService } from '../messaging-summary/thread-summary-store.service'
 import { ProjectNotificationsService } from '../projects/project-notifications.service'
 import { MessagingEmitService } from '../messaging/messaging-emit.service'
+import { MessageEmailDigestService } from '../messaging/message-email-digest.service'
 import { ProjectStorageService } from '../projects/project-storage.service'
 
 type ConversationRow = {
@@ -57,6 +60,7 @@ export class OrgInboxService {
     private readonly messaging: MessagingEmitService,
     private readonly storage: ProjectStorageService,
     private readonly threadSummaryStore: ThreadSummaryStoreService,
+    private readonly messageDigests: MessageEmailDigestService,
   ) {}
 
   private assertClientCanAccessGetHelp(client: AuthenticatedClient) {
@@ -603,6 +607,18 @@ export class OrgInboxService {
       body: preview,
       href: this.adminMessagesHref(organizationId, conversationId),
     })
+    void this.messageDigests.activeAdminRecipients().then((adminIds) =>
+      this.messageDigests.enqueueInboxDigests({
+        recipientUserIds: adminIds,
+        audience: MessageEmailDigestAudience.ADMIN,
+        conversationId,
+        organizationId,
+        conversationSubject: conversation.subject,
+        preview,
+        authorLabel: client.email?.split('@')[0] ?? 'Client',
+        authorUserId: client.id,
+      }),
+    )
 
     return { ok: true as const, message: serialized }
   }
@@ -677,6 +693,20 @@ export class OrgInboxService {
         body: preview,
         href,
       })
+      void this.messageDigests
+        .activeClientRecipients(conversation.organizationId)
+        .then((clientIds) =>
+          this.messageDigests.enqueueInboxDigests({
+            recipientUserIds: clientIds,
+            audience: MessageEmailDigestAudience.CLIENT,
+            conversationId,
+            organizationId: conversation.organizationId,
+            conversationSubject: conversation.subject,
+            preview,
+            authorLabel: admin.email?.split('@')[0] ?? 'CoCreate',
+            authorUserId: admin.id,
+          }),
+        )
     } else {
       const userIds = conversation.participants.map((p) => p.userId)
       void this.notifications.notifyClientUsers({
@@ -686,6 +716,16 @@ export class OrgInboxService {
         title: 'Reply from CoCreate',
         body: preview,
         href,
+      })
+      void this.messageDigests.enqueueInboxDigests({
+        recipientUserIds: userIds,
+        audience: MessageEmailDigestAudience.CLIENT,
+        conversationId,
+        organizationId: conversation.organizationId,
+        conversationSubject: conversation.subject,
+        preview,
+        authorLabel: admin.email?.split('@')[0] ?? 'CoCreate',
+        authorUserId: admin.id,
       })
     }
 
@@ -713,6 +753,11 @@ export class OrgInboxService {
         href: { contains: `conversationId=${encodeURIComponent(conversationId)}` },
       },
       data: { readAt: new Date() },
+    })
+    void this.messageDigests.cancelPendingDigests({
+      userId,
+      channel: MessageEmailDigestChannel.ORG_INBOX,
+      threadKey: conversationId,
     })
     return { ok: true as const }
   }

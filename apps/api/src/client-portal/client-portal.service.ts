@@ -15,6 +15,7 @@ import { PrismaService } from '../prisma/prisma.service'
 import { SupabaseAuthService } from '../clients/supabase-auth.service'
 import { ClientProfileService } from '../users/client-profile.service'
 import { UserPreferencesService } from '../users/user-preferences.service'
+import { MessageEmailDigestService } from '../messaging/message-email-digest.service'
 
 @Injectable()
 export class ClientPortalService {
@@ -26,7 +27,13 @@ export class ClientPortalService {
     private readonly preferences: UserPreferencesService,
     private readonly clientsService: ClientsService,
     private readonly clientProfiles: ClientProfileService,
+    private readonly messageDigests: MessageEmailDigestService,
   ) {}
+
+  async touchPresence(userId: string) {
+    await this.messageDigests.touchLastSeen(userId)
+    return { ok: true as const }
+  }
 
   private normalizeEmail(email: string) {
     return email.trim().toLowerCase()

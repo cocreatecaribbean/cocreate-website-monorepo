@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { QueryProvider } from '@cocreate/app-ui/query-provider'
 import AdminShell from '@/components/admin-shell'
+import { PresenceHeartbeat } from '@/components/presence-heartbeat'
 import { AdminMessagingProvider } from '@/lib/messaging/admin-messaging-provider'
 import { ThemeProvider } from '@/components/theme-provider'
 import {
@@ -37,6 +38,7 @@ export default function RootLayout({
         <QueryProvider>
           <ThemeProvider>
             <AdminMessagingProvider>
+              <PresenceHeartbeat />
               <AdminShell>{children}</AdminShell>
             </AdminMessagingProvider>
           </ThemeProvider>

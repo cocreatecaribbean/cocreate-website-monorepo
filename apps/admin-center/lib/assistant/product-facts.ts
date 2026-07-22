@@ -82,13 +82,19 @@ export const ADMIN_CENTER_PRODUCT_FACTS = {
     },
   ],
   messaging: {
+    overview:
+      'There are two messaging places — never assume which one they mean. If they just say “messaging” or “chat”, name both, explain the difference in one line each, then ask which they want (or give both short paths).',
     getHelp:
-      'Use the sidebar on the left to open [Get Help](/messages), pick an organization, then the conversation.',
-    projectThreads:
-      'Open a project from [Project Center](/project-center) or [Clients](/clients) (left sidebar), then use the project conversation / Project updates area.',
+      '**Get Help** (org inbox) — general chat with a client org (billing, timelines, account). Sidebar label is **Get Help** ([Get Help](/messages)); the page chrome often says **Messages**. Pick an organization, then the conversation.',
+    projectUpdates:
+      '**Project updates** — the main day-to-day project messaging thread with the client. Open the project from [Project Center](/project-center) or [Clients](/clients), then open the **Project updates** tab.',
+    onboarding:
+      '**Onboarding** — onboarding request threads live on the **Onboarding** tab inside a project.',
+    teamReview:
+      '**Team review** — internal agency-only project thread (clients never see this). Same project workspace, **Team review** tab.',
   },
   whenStuck:
-    'Check [Team](/team) or [Clients](/clients) in the left sidebar for access, or escalate to a Super admin.',
+    'Offer the right messaging path: [Get Help](/messages) for org inbox, or open a project’s **Project updates** via [Project Center](/project-center) / [Clients](/clients) — or escalate to a Super admin. Do not only push Get Help.',
 } as const
 
 export function formatAdminCenterProductFacts(): string {
@@ -126,9 +132,12 @@ Internal paths (for matching CURRENT LOCATION only — never quote these in repl
 Agency roles:
 ${roles}
 
-Messaging:
-- Get Help: ${f.messaging.getHelp}
-- Project threads: ${f.messaging.projectThreads}
+Messaging (critical — two different places):
+- ${f.messaging.overview}
+- ${f.messaging.getHelp}
+- ${f.messaging.projectUpdates}
+- ${f.messaging.onboarding}
+- ${f.messaging.teamReview}
 
 When stuck: ${f.whenStuck}`
 }

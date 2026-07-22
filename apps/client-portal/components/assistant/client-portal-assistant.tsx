@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useMemo } from 'react'
 import { firstNameFromDisplayName } from '@/lib/assistant/prompts'
 import { CONTROL_CENTER_VIEW_QUERY } from '@/lib/control-center/nav'
+import { SOCIAL_LISTENING_VIEW_QUERY } from '@/lib/social-listening/nav'
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
 
 const queryDevtoolsLift =
@@ -18,6 +19,7 @@ export default function ClientPortalAssistant() {
   const searchParams = useSearchParams()
   const tab = searchParams.get('tab')
   const ccView = searchParams.get(CONTROL_CENTER_VIEW_QUERY)
+  const slView = searchParams.get(SOCIAL_LISTENING_VIEW_QUERY)
   const search = searchParams.toString()
   const { data: profile } = usePortalProfileQuery()
 
@@ -30,10 +32,11 @@ export default function ClientPortalAssistant() {
     () => ({
       pathname,
       search: search ? `?${search}` : '',
-      tab,
+      tab: tab === 'social-listening' ? 'social-listening' : 'control-center',
       ccView,
+      slView,
     }),
-    [pathname, search, tab, ccView],
+    [pathname, search, tab, ccView, slView],
   )
 
   const onNavigate = useCallback(

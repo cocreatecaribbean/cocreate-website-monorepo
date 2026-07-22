@@ -23,6 +23,7 @@ type ChatRequestBody = {
   search?: string
   tab?: string | null
   ccView?: string | null
+  slView?: string | null
 }
 
 export async function POST(req: Request) {
@@ -71,6 +72,7 @@ export async function POST(req: Request) {
     search: typeof body.search === 'string' ? body.search : undefined,
     tab: body.tab ?? null,
     ccView: body.ccView ?? null,
+    slView: body.slView ?? null,
   }
 
   const profile = await fetchClientPortalProfile()

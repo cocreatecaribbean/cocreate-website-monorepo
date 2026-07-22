@@ -41,10 +41,47 @@ const BRAND_COVER_MIN_WIDTH = 1280
 const BRAND_CONTENT_W = 0.5
 const BRAND_CONTENT_H = 0.78
 
-const INITIAL_PRELOAD_FRAMES = 28
-const INITIAL_PRELOAD_FRAMES_NATIVE = 56
-const IDLE_BATCH_SIZE = 16
 const MOBILE_BREAKPOINT = 768
+/** Default in-flight frame loads (good / unknown connection). */
+const LOAD_CONCURRENCY_DEFAULT = 6
+/** Constrained links (Save-Data / 2g): fewer parallel downloads. */
+const LOAD_CONCURRENCY_SLOW = 3
+const PREFETCH_BEHIND = 2
+const PREFETCH_AHEAD_DEFAULT = 10
+const PREFETCH_AHEAD_SLOW = 6
+/** Low-priority background fill batch size when the playhead window is healthy. */
+const FILL_BATCH_SIZE = 8
+
+type LoaderTuning = {
+  maxConcurrent: number
+  prefetchBehind: number
+  prefetchAhead: number
+}
+
+type NetworkConnection = {
+  saveData?: boolean
+  effectiveType?: string
+}
+
+function getLoaderTuning(): LoaderTuning {
+  if (typeof navigator === "undefined") {
+    return {
+      maxConcurrent: LOAD_CONCURRENCY_DEFAULT,
+      prefetchBehind: PREFETCH_BEHIND,
+      prefetchAhead: PREFETCH_AHEAD_DEFAULT,
+    }
+  }
+  const c = (navigator as Navigator & { connection?: NetworkConnection }).connection
+  const constrained =
+    !!c?.saveData ||
+    c?.effectiveType === "slow-2g" ||
+    c?.effectiveType === "2g"
+  return {
+    maxConcurrent: constrained ? LOAD_CONCURRENCY_SLOW : LOAD_CONCURRENCY_DEFAULT,
+    prefetchBehind: PREFETCH_BEHIND,
+    prefetchAhead: constrained ? PREFETCH_AHEAD_SLOW : PREFETCH_AHEAD_DEFAULT,
+  }
+}
 
 function getSequenceKey(): SequenceKey {
   if (typeof window === "undefined") return "landscape"
@@ -63,6 +100,10 @@ function scheduleIdle(cb: () => void) {
   } else {
     window.setTimeout(cb, 32)
   }
+}
+
+function isImageReady(img?: HTMLImageElement) {
+  return !!img && img.complete && img.naturalWidth > 0
 }
 
 function prefersReducedMotion() {
@@ -136,11 +177,18 @@ export default function HomeHeroSection({
   const lastRenderedSequenceRef = useRef<SequenceKey | null>(null);
   const canvasCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const lastPrefetchCenterRef = useRef(0);
+  const wantedFrameRef = useRef(1);
   const heroScrollingRef = useRef(false);
-  const idlePumpRef = useRef<(() => void) | null>(null);
+  const fillPumpRef = useRef<(() => void) | null>(null);
   const preloadCancelledRef = useRef(false);
   const brandCanvasRevealedRef = useRef(false);
-  const preloadNextRef = useRef<Record<SequenceKey, number>>({
+  const loaderTuningRef = useRef<LoaderTuning>(getLoaderTuning());
+  const loadInFlightRef = useRef(0);
+  const loadQueueRef = useRef<{ key: SequenceKey; index: number; priority: number }[]>(
+    [],
+  );
+  const loadQueuedIdsRef = useRef(new Set<string>());
+  const fillNextRef = useRef<Record<SequenceKey, number>>({
     landscape: 1,
     portrait: 1,
   });
@@ -211,63 +259,154 @@ export default function HomeHeroSection({
     return false;
   };
 
+  const loadId = (key: SequenceKey, index: number) => `${key}:${index}`
+
+  const findNearestReadyFrame = (wanted: number, key: SequenceKey): number | null => {
+    const frames = imagesRef.current[key]
+    const frameCount = SEQUENCES[key].frameCount
+    if (isImageReady(frames[wanted])) return wanted
+    for (let d = 1; d < frameCount; d++) {
+      const hi = wanted + d
+      const lo = wanted - d
+      // Prefer slightly ahead on ties so scrub feels progressive.
+      if (hi <= frameCount && isImageReady(frames[hi])) return hi
+      if (lo >= 1 && isImageReady(frames[lo])) return lo
+    }
+    return null
+  }
+
+  const playheadWindowHealthy = (center: number, key: SequenceKey) => {
+    const frameCount = SEQUENCES[key].frameCount
+    const behind = loaderTuningRef.current.prefetchBehind
+    const ahead = Math.min(4, loaderTuningRef.current.prefetchAhead)
+    for (let i = center - behind; i <= center + ahead; i++) {
+      if (i < 1 || i > frameCount) continue
+      if (!imagesRef.current[key][i]) return false
+    }
+    return true
+  }
+
+  const pumpLoader = () => {
+    if (preloadCancelledRef.current) return
+    const max = loaderTuningRef.current.maxConcurrent
+    const queue = loadQueueRef.current
+
+    while (loadInFlightRef.current < max && queue.length > 0) {
+      queue.sort((a, b) => a.priority - b.priority)
+      const next = queue.shift()
+      if (!next) break
+      const id = loadId(next.key, next.index)
+      loadQueuedIdsRef.current.delete(id)
+
+      if (imagesRef.current[next.key][next.index]) continue
+
+      loadInFlightRef.current += 1
+      const img = new window.Image()
+      imagesRef.current[next.key][next.index] = img
+
+      const finish = () => {
+        loadInFlightRef.current = Math.max(0, loadInFlightRef.current - 1)
+        if (preloadCancelledRef.current) return
+        if (next.key === sequenceKeyRef.current) {
+          const nearest = findNearestReadyFrame(wantedFrameRef.current, next.key)
+          if (nearest != null) paintFrame(nearest)
+        }
+        pumpLoader()
+        if (fillPumpRef.current) scheduleIdle(fillPumpRef.current)
+      }
+
+      img.addEventListener("load", finish, { once: true })
+      img.addEventListener("error", finish, { once: true })
+      img.src = SEQUENCES[next.key].path(next.index)
+    }
+  }
+
+  /** Enqueue a frame load. Lower `priority` = sooner. No-ops if already started. */
+  const enqueueFrame = (
+    index: number,
+    key: SequenceKey = sequenceKeyRef.current,
+    priority = 100,
+  ) => {
+    const sequence = SEQUENCES[key]
+    if (index < 1 || index > sequence.frameCount) return
+    if (imagesRef.current[key][index]) return
+
+    const id = loadId(key, index)
+    if (loadQueuedIdsRef.current.has(id)) {
+      const item = loadQueueRef.current.find(
+        (q) => q.key === key && q.index === index,
+      )
+      if (item && priority < item.priority) item.priority = priority
+      return
+    }
+
+    loadQueuedIdsRef.current.add(id)
+    loadQueueRef.current.push({ key, index, priority })
+    pumpLoader()
+  }
+
+  /** Kick a frame request at high priority (scroll / paint path). */
   const ensureImage = (index: number, key: SequenceKey = sequenceKeyRef.current) => {
-    const sequence = SEQUENCES[key];
-    if (index < 1 || index > sequence.frameCount) return;
-    if (imagesRef.current[key][index]) return;
-    const img = new window.Image();
-    img.src = sequence.path(index);
-    imagesRef.current[key][index] = img;
-  };
+    enqueueFrame(index, key, 0)
+  }
+
+  const prioritizeAroundFrame = (center: number) => {
+    const key = sequenceKeyRef.current
+    const frameCount = SEQUENCES[key].frameCount
+    const { prefetchBehind, prefetchAhead } = loaderTuningRef.current
+    lastPrefetchCenterRef.current = center
+
+    for (let i = center - prefetchBehind; i <= center + prefetchAhead; i++) {
+      if (i < 1 || i > frameCount) continue
+      // Ahead of playhead slightly preferred over equal distance behind.
+      const distance = Math.abs(i - center)
+      const aheadBias = i >= center ? 0 : 0.5
+      enqueueFrame(i, key, distance + aheadBias)
+    }
+  }
 
   const prefetchAroundFrame = (center: number) => {
-    if (center === lastPrefetchCenterRef.current) return;
-    lastPrefetchCenterRef.current = center;
-    const frameCount = SEQUENCES[sequenceKeyRef.current].frameCount;
-    for (let i = center - 2; i <= center + 8; i++) {
-      if (i >= 1 && i <= frameCount) ensureImage(i);
+    if (center === lastPrefetchCenterRef.current) {
+      // Still nudge the exact frame in case queue priorities went stale.
+      ensureImage(center)
+      return
     }
-  };
+    prioritizeAroundFrame(center)
+  }
 
-  const renderFrame = (index: number) => {
-    const key = sequenceKeyRef.current;
-    const sequence = SEQUENCES[key];
-    const canvas = canvasRef.current;
-    const img = imagesRef.current[key][index];
-    if (!canvas || !img) return;
+  const paintFrame = (index: number) => {
+    const key = sequenceKeyRef.current
+    const sequence = SEQUENCES[key]
+    const canvas = canvasRef.current
+    const img = imagesRef.current[key][index]
+    if (!canvas || !isImageReady(img)) return
 
-    if (!img.complete) {
-      ensureImage(index, key);
-      img.addEventListener("load", () => renderFrame(index), { once: true });
-      return;
-    }
-
-    const resized = fitCanvasForDisplay(canvas);
+    const resized = fitCanvasForDisplay(canvas)
     const sameFrame =
       !resized &&
       index === lastRenderedFrameRef.current &&
-      lastRenderedSequenceRef.current === key;
-    if (sameFrame) return;
+      lastRenderedSequenceRef.current === key
+    if (sameFrame) return
 
     if (!canvasCtxRef.current) {
       canvasCtxRef.current = canvas.getContext("2d", {
         alpha: true,
         desynchronized: prefersNativeScroll(),
-      });
+      })
     }
-    const ctx = canvasCtxRef.current;
-    if (!ctx) return;
+    const ctx = canvasCtxRef.current
+    if (!ctx || !img) return
 
-    const cw = canvas.width;
-    const ch = canvas.height;
-    const { width: imgW, height: imgH } = sequence;
-    ctx.clearRect(0, 0, cw, ch);
+    const cw = canvas.width
+    const ch = canvas.height
+    const { width: imgW, height: imgH } = sequence
+    ctx.clearRect(0, 0, cw, ch)
 
     if (key === "portrait" || usesBrandCoverFit()) {
       // Portrait 9:16 frames are authored for tall screens; landscape xl+ uses cover.
-      const scale = Math.max(cw / imgW, ch / imgH);
-      const dw = imgW * scale;
-      const dh = imgH * scale;
+      const scale = Math.max(cw / imgW, ch / imgH)
+      const dw = imgW * scale
+      const dh = imgH * scale
       ctx.drawImage(
         img,
         0,
@@ -278,16 +417,16 @@ export default function HomeHeroSection({
         (ch - dh) / 2,
         dw,
         dh,
-      );
+      )
     } else {
       // Landscape below xl: zoom to the mark (skip empty padding), contain so shapes aren’t clipped
-      const sw = imgW * BRAND_CONTENT_W;
-      const sh = imgH * BRAND_CONTENT_H;
-      const sx = (imgW - sw) / 2;
-      const sy = (imgH - sh) / 2;
-      const scale = Math.min(cw / sw, ch / sh);
-      const dw = sw * scale;
-      const dh = sh * scale;
+      const sw = imgW * BRAND_CONTENT_W
+      const sh = imgH * BRAND_CONTENT_H
+      const sx = (imgW - sw) / 2
+      const sy = (imgH - sh) / 2
+      const scale = Math.min(cw / sw, ch / sh)
+      const dw = sw * scale
+      const dh = sh * scale
       ctx.drawImage(
         img,
         sx,
@@ -298,93 +437,123 @@ export default function HomeHeroSection({
         (ch - dh) / 2,
         dw,
         dh,
-      );
+      )
     }
 
-    lastRenderedFrameRef.current = index;
-    lastRenderedSequenceRef.current = key;
-    revealBrandCanvas();
-  };
+    lastRenderedFrameRef.current = index
+    lastRenderedSequenceRef.current = key
+    revealBrandCanvas()
+  }
+
+  const renderFrame = (wanted: number) => {
+    const key = sequenceKeyRef.current
+    wantedFrameRef.current = wanted
+    enqueueFrame(wanted, key, 0)
+
+    const nearest = findNearestReadyFrame(wanted, key)
+    if (nearest == null) return
+    paintFrame(nearest)
+  }
 
   const startPreloadForSequence = (
     key: SequenceKey,
     cancelled: () => boolean,
     { autoRenderFirst = false }: { autoRenderFirst?: boolean } = {},
   ) => {
-    const frameCount = SEQUENCES[key].frameCount;
-    const initialCount = Math.min(
-      prefersNativeScroll() ? INITIAL_PRELOAD_FRAMES_NATIVE : INITIAL_PRELOAD_FRAMES,
-      frameCount,
-    );
+    loaderTuningRef.current = getLoaderTuning()
+    fillNextRef.current[key] = 1
 
-    const startBurstAndIdlePump = () => {
-      if (cancelled()) return;
+    const startPriorityAndFill = () => {
+      if (cancelled()) return
 
-      for (let i = 2; i <= initialCount; i++) {
-        ensureImage(i, key);
+      prioritizeAroundFrame(
+        key === sequenceKeyRef.current ? wantedFrameRef.current || 1 : 1,
+      )
+
+      const fill = () => {
+        if (cancelled()) return
+        const activeKey = sequenceKeyRef.current
+        const activeCount = SEQUENCES[activeKey].frameCount
+        const playhead =
+          activeKey === key ? wantedFrameRef.current || 1 : 1
+
+        if (heroScrollingRef.current) {
+          scheduleIdle(fill)
+          return
+        }
+
+        if (!playheadWindowHealthy(playhead, activeKey)) {
+          prioritizeAroundFrame(playhead)
+          scheduleIdle(fill)
+          return
+        }
+
+        let next = fillNextRef.current[activeKey]
+        let enqueued = 0
+        while (next <= activeCount && enqueued < FILL_BATCH_SIZE) {
+          if (!imagesRef.current[activeKey][next]) {
+            // Background fill — far below playhead priorities.
+            enqueueFrame(next, activeKey, 500 + next)
+            enqueued += 1
+          }
+          next += 1
+        }
+        fillNextRef.current[activeKey] = next
+        if (next <= activeCount) scheduleIdle(fill)
       }
 
-      preloadNextRef.current[key] = Math.max(
-        preloadNextRef.current[key],
-        initialCount + 1,
-      );
-
-      const pump = () => {
-        if (cancelled()) return;
-        const activeKey = sequenceKeyRef.current;
-        const activeCount = SEQUENCES[activeKey].frameCount;
-        let next = preloadNextRef.current[activeKey];
-        if (next > activeCount) return;
-        if (heroScrollingRef.current) {
-          scheduleIdle(pump);
-          return;
-        }
-        const end = Math.min(next + IDLE_BATCH_SIZE - 1, activeCount);
-        for (let i = next; i <= end; i++) {
-          ensureImage(i, activeKey);
-        }
-        next = end + 1;
-        preloadNextRef.current[activeKey] = next;
-        if (next <= activeCount) scheduleIdle(pump);
-      };
-      idlePumpRef.current = pump;
-      scheduleIdle(pump);
-    };
+      fillPumpRef.current = fill
+      scheduleIdle(fill)
+    }
 
     // Load frame 1 alone first so the burst cannot contend for bandwidth.
-    ensureImage(1, key);
-    const first = imagesRef.current[key][1];
-
-    const onFirstReady = () => {
-      if (cancelled()) return;
-      if (
-        autoRenderFirst &&
-        first &&
-        key === sequenceKeyRef.current &&
-        getReloadScrollY() == null
-      ) {
-        renderFrame(1);
+    enqueueFrame(1, key, 0)
+    const waitForFirst = () => {
+      if (cancelled()) return
+      const first = imagesRef.current[key][1]
+      if (isImageReady(first)) {
+        if (
+          autoRenderFirst &&
+          key === sequenceKeyRef.current &&
+          getReloadScrollY() == null
+        ) {
+          wantedFrameRef.current = 1
+          paintFrame(1)
+        }
+        startPriorityAndFill()
+        return
       }
-      startBurstAndIdlePump();
-    };
-
-    if (!first) {
-      startBurstAndIdlePump();
-      return;
+      if (first) {
+        first.addEventListener(
+          "load",
+          () => {
+            if (cancelled()) return
+            if (
+              autoRenderFirst &&
+              key === sequenceKeyRef.current &&
+              getReloadScrollY() == null
+            ) {
+              wantedFrameRef.current = 1
+              paintFrame(1)
+            }
+            startPriorityAndFill()
+          },
+          { once: true },
+        )
+        first.addEventListener("error", startPriorityAndFill, { once: true })
+        return
+      }
+      // Not queued yet — try again after pump.
+      scheduleIdle(waitForFirst)
     }
+    waitForFirst()
+  }
 
-    if (first.complete) {
-      onFirstReady();
-    } else {
-      first.addEventListener("load", onFirstReady, { once: true });
-      first.addEventListener("error", startBurstAndIdlePump, { once: true });
-    }
-  };
-
-  // Batched preload — avoids many simultaneous decodes on cold load
+  // Priority preload — concurrency-capped, playhead-first
   useEffect(() => {
     ScrollTrigger.config({ ignoreMobileResize: true });
     preloadCancelledRef.current = false;
+    loaderTuningRef.current = getLoaderTuning();
     sequenceKeyRef.current = getSequenceKey();
     startPreloadForSequence(
       sequenceKeyRef.current,
@@ -394,7 +563,9 @@ export default function HomeHeroSection({
 
     return () => {
       preloadCancelledRef.current = true;
-      idlePumpRef.current = null;
+      fillPumpRef.current = null;
+      loadQueueRef.current = [];
+      loadQueuedIdsRef.current.clear();
     };
   }, []);
 
@@ -446,10 +617,9 @@ export default function HomeHeroSection({
         gsap.set(".accordion-item", { opacity: 1, xPercent: 0 });
 
         const key = sequenceKeyRef.current;
+        wantedFrameRef.current = 1;
         ensureImage(1, key);
-        const first = imagesRef.current[key][1];
-        if (first?.complete) renderFrame(1);
-        else if (first) first.onload = () => renderFrame(1);
+        renderFrame(1);
 
         return;
       }
@@ -473,7 +643,7 @@ export default function HomeHeroSection({
         if (heroScrollEndTimer) clearTimeout(heroScrollEndTimer);
         heroScrollEndTimer = setTimeout(() => {
           heroScrollingRef.current = false;
-          if (idlePumpRef.current) scheduleIdle(idlePumpRef.current);
+          if (fillPumpRef.current) scheduleIdle(fillPumpRef.current);
         }, 200);
       };
 

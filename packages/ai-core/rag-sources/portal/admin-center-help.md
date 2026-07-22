@@ -37,12 +37,16 @@ Both can use most Admin Center features. Super-admin-only actions live mainly un
 - Enable Social Listening subscription / Brand24 project IDs on the org when needed.
 - From a client workspace you can reach projects, messages, and related tabs.
 
-## Messaging — two kinds
+## Messaging — two kinds (do not assume)
 
-1. **Get Help (org inbox)** — WhatsApp-style chat with a client organization (billing, timelines, general topics). Open **Get Help** (`/messages`), pick a client / organization, then the conversation. Deep links often look like `/messages?organizationId=…&conversationId=…`.
-2. **Project request threads** — Messages on a specific project request (onboarding, progress, checkpoints). Open the project from **Project Center** or **Clients**, then use the Progress / thread UI.
+There are **two** messaging places. If someone just says “messaging,” “chat,” or “inbox,” name both and ask which they mean (or give both short paths).
+
+1. **Get Help (org inbox)** — WhatsApp-style chat with a client organization (billing, timelines, general topics). Sidebar label is **Get Help** (`/messages`); the page chrome / client workspace tab often says **Messages** — same surface. Pick a client / organization, then the conversation. Deep links often look like `/messages?organizationId=…&conversationId=…`.
+2. **Project updates** — The main day-to-day project messaging thread with the client. Open the project from **Project Center** or **Clients**, then open the **Project updates** tab (`?tab=progress`). Also: **Onboarding** tab for onboarding threads; **Team review** is internal-only (clients never see it).
 
 Where does a client message the agency generally? They use Client Portal → **Get Help**. You reply in Admin Center → **Get Help**.
+
+Where do you discuss a deliverable or project progress? **Project updates** inside that project — not Get Help.
 
 ## Project Center
 
@@ -71,7 +75,7 @@ External collaborator surfaces live under `/collaborate` (separate login). The m
 **Get Help** (`/messages`) for that organization.
 
 **Where do I discuss a project deliverable?**  
-Open the project in **Project Center** or **Clients** and use the project request thread.
+Open the project in **Project Center** or **Clients** and use the **Project updates** tab (not Get Help unless it is a general org question).
 
 **Who invites new agency admins?**  
 **Super admins** via **Team**.
@@ -83,4 +87,4 @@ Any admin via **Clients** (and clients’ own org Admins can invite teammates in
 Confirm the email is an active admin (not suspended) and that you are on the Admin Center login, not the Client Portal.
 
 **I am stuck.**  
-Check Team / Clients for access, or escalate to a Super admin.
+For messaging: **Get Help** for org inbox, or a project’s **Project updates**. Otherwise check Team / Clients for access, or escalate to a Super admin.

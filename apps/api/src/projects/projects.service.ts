@@ -10,6 +10,8 @@ import {
   ClientOrgRole,
   ClientProjectPhase,
   ClientProjectStatus,
+  MessageEmailDigestAudience,
+  MessageEmailDigestChannel,
   Prisma,
   ProjectAttachment,
   ProjectAttachmentVisibility,
@@ -34,6 +36,9 @@ import { PrismaService } from '../prisma/prisma.service'
 import { ProjectNotificationMailService } from './project-notification-mail.service'
 import { ProjectNotificationsService } from './project-notifications.service'
 import { MessagingEmitService } from '../messaging/messaging-emit.service'
+import {
+  MessageEmailDigestService,
+} from '../messaging/message-email-digest.service'
 import { ProjectStorageService } from './project-storage.service'
 import type { ClientRecentActivityItem } from '@cocreate/api-contracts/v1/client-portal'
 import type {
@@ -85,6 +90,7 @@ export class ProjectsService {
     private readonly clientTeam: ClientTeamService,
     private readonly supabaseAuth: SupabaseAuthService,
     private readonly threadSummaryStore: ThreadSummaryStoreService,
+    private readonly messageDigests: MessageEmailDigestService,
   ) {}
 
   private portalCallbackUrl() {
@@ -1015,11 +1021,17 @@ export class ProjectsService {
     requestId?: string,
   ) {
     if (requestId) {
-      return this.notifications.markInboxReadForRequest(
+      const result = await this.notifications.markInboxReadForRequest(
         admin.id,
         organizationId,
         requestId,
       )
+      void this.messageDigests.cancelPendingDigests({
+        userId: admin.id,
+        channel: MessageEmailDigestChannel.PROJECT_REQUEST,
+        threadKey: requestId,
+      })
+      return result
     }
     return this.notifications.markAllInboxReadForOrg(admin.id, organizationId)
   }
@@ -1794,46 +1806,70 @@ export class ProjectsService {
       void this.notifyThreadUpdate(requestId, 'attachment')
     }
 
-    const adminLink = `${this.notifications.adminClientWorkspaceLink(request.project.organizationId)}?tab=projects&thread=${requestId}`
-    const clientLink =
-      request.type === ProjectRequestType.PROGRESS
-        ? `${this.notifications.clientPortalUrl()}/?ccView=projects&projectId=${request.projectId}`
-        : `${this.notifications.clientPortalUrl()}/?ccView=projects&projectId=${request.projectId}&requestId=${requestId}`
     const snippet = body.slice(0, 200) || (attachmentIds.length ? 'Sent an attachment' : '')
     const projectTitle = request.project.title
+    const authorLabel =
+      message.author?.email?.split('@')[0] ??
+      (isClient ? 'Client' : 'CoCreate')
 
     if (isClient) {
+      const adminHref = `${this.notifications.adminClientWorkspaceLink(request.project.organizationId)}?tab=projects&thread=${requestId}`
       void this.notifications.notifyAdmins({
         organizationId: request.project.organizationId,
         type: PortalNotificationType.REQUEST_MESSAGE,
         title: `Client replied: ${projectTitle}`,
         body: snippet,
-        href: adminLink,
+        href: adminHref,
         projectId: request.projectId,
         requestId,
-        email: {
-          subject: `Client reply on ${projectTitle}`,
-          html: `<p>${request.project.organization?.name ?? 'Client'} replied on <strong>${projectTitle}</strong>:</p><blockquote>${snippet}</blockquote><p><a href="${adminLink}">View conversation</a></p>`,
-          text: `Client replied on ${projectTitle}: ${snippet}\n\nView: ${adminLink}`,
-          actionLink: adminLink,
-        },
       })
+      void this.messageDigests.activeAdminRecipients().then((adminIds) =>
+        this.messageDigests.enqueueProjectDigests({
+          recipientUserIds: adminIds,
+          audience: MessageEmailDigestAudience.ADMIN,
+          requestId,
+          requestType: request.type,
+          organizationId: request.project.organizationId,
+          projectId: request.projectId,
+          projectTitle,
+          preview: snippet,
+          authorLabel,
+          authorUserId: actor.id,
+        }),
+      )
     } else if (request.type !== ProjectRequestType.INTERNAL) {
+      const relativeClientHref = `/?ccView=projects&projectId=${request.projectId}${
+        request.type === ProjectRequestType.PROGRESS
+          ? '&projectTab=progress'
+          : request.type === ProjectRequestType.ONBOARDING
+            ? '&projectTab=onboarding'
+            : ''
+      }`
       void this.notifications.notifyOrgClients({
         organizationId: request.project.organizationId,
         type: PortalNotificationType.REQUEST_MESSAGE,
         title: `CoCreate replied: ${projectTitle}`,
         body: snippet,
-        href: clientLink,
+        href: relativeClientHref,
         projectId: request.projectId,
         requestId,
-        email: {
-          subject: `New message on ${projectTitle}`,
-          html: `<p>CoCreate sent a follow-up on <strong>${projectTitle}</strong>:</p><blockquote>${snippet}</blockquote><p><a href="${clientLink}">Reply in portal</a></p>`,
-          text: `CoCreate replied on ${projectTitle}: ${snippet}\n\nReply: ${clientLink}`,
-          actionLink: clientLink,
-        },
       })
+      void this.messageDigests
+        .activeClientRecipients(request.project.organizationId)
+        .then((clientIds) =>
+          this.messageDigests.enqueueProjectDigests({
+            recipientUserIds: clientIds,
+            audience: MessageEmailDigestAudience.CLIENT,
+            requestId,
+            requestType: request.type,
+            organizationId: request.project.organizationId,
+            projectId: request.projectId,
+            projectTitle,
+            preview: snippet,
+            authorLabel,
+            authorUserId: actor.id,
+          }),
+        )
       void this.notifications.markInboxReadForRequest(
         actor.id,
         request.project.organizationId,
@@ -2410,12 +2446,18 @@ export class ProjectsService {
       })
       if (!request) return { count: 0 }
       await this.clientAccess.assertProjectAccess(client, request.projectId, 'VIEW')
-      return this.notifications.markRequestNotificationsReadForClient(
+      const result = await this.notifications.markRequestNotificationsReadForClient(
         client.id,
         this.clientAccess.requireOrganizationId(client),
         this.clientAccess.accessibleProjectsWhere(client),
         params.requestId,
       )
+      void this.messageDigests.cancelPendingDigests({
+        userId: client.id,
+        channel: MessageEmailDigestChannel.PROJECT_REQUEST,
+        threadKey: params.requestId,
+      })
+      return result
     }
     if (params.projectId) {
       await this.clientAccess.assertProjectAccess(client, params.projectId, 'VIEW')

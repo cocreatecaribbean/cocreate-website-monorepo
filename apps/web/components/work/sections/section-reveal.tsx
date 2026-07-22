@@ -24,11 +24,17 @@ const shownState = { opacity: 1, y: 0 }
 type SectionRevealProps = {
   children: ReactNode
   revealKey: string
+  /** After reveal, stay visible while scrolling past; hide only when scrolling back above. */
+  persistAfterReveal?: boolean
 }
 
 type RevealPhase = 'hidden' | 'shown' | 'animating'
 
-export default function SectionReveal({ children, revealKey }: SectionRevealProps) {
+export default function SectionReveal({
+  children,
+  revealKey,
+  persistAfterReveal = false,
+}: SectionRevealProps) {
   /** ScrollTrigger anchor — never animated, preserves layout spacing. */
   const triggerRef = useRef<HTMLDivElement>(null)
   /** Inner target for fade + slide. */
@@ -121,6 +127,7 @@ export default function SectionReveal({ children, revealKey }: SectionRevealProp
         trigger,
         onReveal: playReveal,
         onHide: hideSection,
+        persistAfterReveal,
       })
 
       const fallback = gsap.delayedCall(0.65, () => {
@@ -137,7 +144,7 @@ export default function SectionReveal({ children, revealKey }: SectionRevealProp
         phaseRef.current = 'hidden'
       }
     },
-    { scope: triggerRef, dependencies: [revealKey] },
+    { scope: triggerRef, dependencies: [revealKey, persistAfterReveal] },
   )
 
   return (

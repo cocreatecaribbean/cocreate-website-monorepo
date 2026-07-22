@@ -52,9 +52,9 @@ const panelClassName =
   'pointer-events-auto absolute right-0 bottom-[calc(100%+0.75rem)] flex w-full max-w-[28rem] flex-col overflow-hidden rounded-2xl border border-chambray/10 bg-white shadow-[0_12px_40px_rgba(57,65,154,0.18)]'
 
 const fabBaseClassName =
-  'pointer-events-auto flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-full bg-neutral-950 text-casablanca shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition hover:bg-neutral-900 hover:text-casablanca focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-casablanca'
+  'pointer-events-auto flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-full bg-sanmarino text-casablanca shadow-[0_8px_24px_rgba(15,76,129,0.35)] transition hover:bg-casablanca hover:text-sanmarino focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-casablanca'
 
-const fabOpenClassName = 'bg-neutral-900 text-casablanca'
+const fabOpenClassName = 'bg-chambray text-casablanca'
 
 type PanelSize = { width: number; height: number }
 

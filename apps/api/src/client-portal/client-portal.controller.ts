@@ -61,6 +61,12 @@ export class ClientPortalController {
     return this.clientPortalService.getSessionProfile(request.clientUser!)
   }
 
+  @Post('presence')
+  @UseGuards(ClientAuthGuard)
+  presence(@Req() request: ClientPortalRequest) {
+    return this.clientPortalService.touchPresence(request.clientUser!.id)
+  }
+
   @Patch('preferences')
   @UseGuards(ClientAuthGuard)
   updatePreferences(
