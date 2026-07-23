@@ -19,6 +19,7 @@ export type AboutPageContent = {
   heroVideoPlaybackId: string | null
   heroHeading: string
   heroBody: string
+  heroBodyHighlight: string
   /** Static fallback image when CMS has no hero image */
   fallbackHeroImageSrc: string
   fallbackHeroImageAlt: string
@@ -122,6 +123,11 @@ export function withAboutPageDefaults(
     heroVideoPlaybackId: row?.heroVideoPlaybackId?.trim() || null,
     heroHeading: row?.heroHeading?.trim() || aboutHero.heading,
     heroBody: row?.heroBody?.trim() || aboutHero.body,
+    // Prefer CMS highlight; only use static fallback when body also falls back
+    // (avoids duplicating a punchline still left in an older CMS heroBody).
+    heroBodyHighlight:
+      row?.heroBodyHighlight?.trim() ||
+      (row?.heroBody?.trim() ? '' : aboutHero.bodyHighlight),
     fallbackHeroImageSrc: aboutHero.imageSrc,
     fallbackHeroImageAlt: aboutHero.imageAlt,
     fallbackHeroBlurDataURL: aboutHero.imageBlurDataURL,
@@ -159,6 +165,10 @@ export function mergeAboutPageContent(
     heroHeading:
       live.heroHeading !== undefined ? live.heroHeading : initial.heroHeading,
     heroBody: live.heroBody !== undefined ? live.heroBody : initial.heroBody,
+    heroBodyHighlight:
+      live.heroBodyHighlight !== undefined
+        ? live.heroBodyHighlight
+        : initial.heroBodyHighlight,
     testimonialsTitle:
       live.testimonialsTitle !== undefined
         ? live.testimonialsTitle

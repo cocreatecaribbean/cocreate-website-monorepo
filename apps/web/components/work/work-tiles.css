@@ -34,9 +34,16 @@
   }
 }
 
+/*
+ * inline-block (not block): Safari fragments block items' rounded borders /
+ * shadows into the next column even with break-inside: avoid, leaving a
+ * stray corner-line artifact that flickers on hover repaints.
+ */
 .work-tile-reveal {
   break-inside: avoid;
-  display: block;
+  -webkit-column-break-inside: avoid;
+  display: inline-block;
+  vertical-align: top;
   margin-bottom: 1.125rem;
   width: 100%;
 }
@@ -60,12 +67,20 @@
 
 .work-tile-card {
   --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
-  box-shadow:
-    0 10px 28px rgba(57, 65, 154, 0.1),
-    inset 0 0 0 1px rgba(57, 65, 154, 0.1);
+  /* Real border — Safari mis-clips inset box-shadow on transformed rounded cards */
+  border: 1px solid rgba(57, 65, 154, 0.1);
+  box-shadow: 0 10px 28px rgba(57, 65, 154, 0.1);
+  /*
+   * Hover lift uses `top` (relative offset), NOT transform: WebKit applies
+   * transforms before multicol fragmentation and slices the lifted card's
+   * top edge into the next column (blinking ghost line on Safari).
+   * Relative offsets apply after fragmentation, so paint cannot leak.
+   */
+  top: 0;
   transition:
-    transform 0.85s var(--ease-premium),
-    box-shadow 0.85s var(--ease-premium);
+    top 0.85s var(--ease-premium),
+    box-shadow 0.85s var(--ease-premium),
+    border-color 0.85s var(--ease-premium);
 }
 
 .work-tile-card__veil {
@@ -81,10 +96,9 @@
 @media (hover: hover) and (pointer: fine) {
   .work-tile-card:hover,
   .work-tile-card:focus-visible {
-    transform: translateY(-6px);
-    box-shadow:
-      0 22px 44px rgba(57, 65, 154, 0.14),
-      inset 0 0 0 1px rgba(57, 65, 154, 0.18);
+    top: -6px;
+    border-color: rgba(57, 65, 154, 0.18);
+    box-shadow: 0 22px 44px rgba(57, 65, 154, 0.14);
   }
 
   .work-tile-card:hover img,
@@ -113,6 +127,6 @@
 
   .work-tile-card:hover,
   .work-tile-card:focus-visible {
-    transform: none;
+    top: 0;
   }
 }

@@ -18,6 +18,7 @@ import { SearchProvider } from "@/components/search/search-provider";
 import { ClientPortalProvider } from "@/components/client-portal/client-portal-provider";
 import { CookieConsentProvider } from "@/components/cookie-consent/cookie-consent-provider";
 import MarketingAssistant from "@/components/assistant/marketing-assistant";
+import CursorTrailDot from "@/components/cursor-trail-dot";
 
 
 
@@ -61,6 +62,7 @@ export default async function RootLayout({
         <SearchProvider>
         <CookieConsentProvider>
         <ClientPortalProvider>
+        <CursorTrailDot />
         <MarketingAssistant />
         <LandscapeWarning/>
         <ScrollSmoothWrapper>

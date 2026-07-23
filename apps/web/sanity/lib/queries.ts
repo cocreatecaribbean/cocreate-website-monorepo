@@ -218,6 +218,7 @@ export const ABOUT_PAGE_QUERY = defineQuery(`
     "heroVideoPlaybackId": heroVideo.asset->playbackId,
     heroHeading,
     heroBody,
+    heroBodyHighlight,
     testimonialsTitle,
     testimonials[] {
       "_id": _key,

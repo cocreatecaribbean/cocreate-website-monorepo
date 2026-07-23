@@ -3,7 +3,9 @@ import {defineField, defineType} from 'sanity'
 /** Keep in sync with apps/web/site-info/about-page-data.ts + about-testimonials.mock.ts */
 export const ABOUT_PAGE_DEFAULT_HERO_HEADING = 'Empowering Brands'
 export const ABOUT_PAGE_DEFAULT_HERO_BODY =
-  'COCREATE Caribbean bridges the gap between Caribbean brands and their audiences through strategic storytelling, innovative design, and immersive digital experiences. From motion graphics that simplify complex ideas to web platforms that foster real engagement, we blend technical expertise with a deep understanding of the market to help businesses shine in their industries.'
+  'Some clients come to us for a campaign. Others come for a rebrand, a product launch, public relations stories or a corporate transformation. The deliverables are different but our job is always the same:'
+export const ABOUT_PAGE_DEFAULT_HERO_BODY_HIGHLIGHT =
+  'helping people see your business the way it deserves to be seen.'
 export const ABOUT_PAGE_DEFAULT_TESTIMONIALS_TITLE = 'What Clients Say'
 
 export const aboutPage = defineType({
@@ -55,6 +57,15 @@ export const aboutPage = defineType({
       type: 'text',
       rows: 6,
       initialValue: ABOUT_PAGE_DEFAULT_HERO_BODY,
+    }),
+    defineField({
+      name: 'heroBodyHighlight',
+      title: 'Hero body highlight',
+      description:
+        'Closing line rendered with stronger emphasis under the body.',
+      type: 'text',
+      rows: 3,
+      initialValue: ABOUT_PAGE_DEFAULT_HERO_BODY_HIGHLIGHT,
     }),
     defineField({
       name: 'testimonialsTitle',

@@ -247,9 +247,11 @@ const AccordionDesktop: React.FC = () => {
               <Accordion.Panel className="grid grid-rows-[0fr] overflow-hidden transition-[grid-template-rows] duration-300 ease-out data-ending-style:grid-rows-[0fr] data-open:grid-rows-[1fr] data-starting-style:grid-rows-[0fr]">
                 <div className="min-h-0">
                   <div
-                    className={`w-[80%] pt-10 pr-0 pb-24 pl-2 text-3xl text-casablanca xl:text-4xl ${fonts.bricolage_grot400.className}`}
+                    className={`w-[80%] space-y-4 pt-10 pr-0 pb-24 pl-2 text-3xl text-casablanca md:space-y-5 xl:text-4xl ${fonts.bricolage_grot400.className}`}
                   >
-                    {service.description}
+                    {service.description.map((paragraph, i) => (
+                      <p key={i}>{paragraph}</p>
+                    ))}
                   </div>
                 </div>
               </Accordion.Panel>

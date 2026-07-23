@@ -17,7 +17,10 @@ const PORTAL_STUB_MESSAGE =
 
 const serviceLines = services
   .flatMap((group) => Object.values(group))
-  .map((service) => `- ${service.title}: ${service.description}`)
+  .map(
+    (service) =>
+      `- ${service.title}: ${service.description.join(' ')}`,
+  )
   .join('\n')
 
 const pageLinkLines = [

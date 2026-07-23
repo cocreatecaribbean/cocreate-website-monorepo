@@ -102,6 +102,26 @@ export default function AboutHeroSection() {
           >
             {about.heroBody}
           </p>
+          {about.heroBodyHighlight ? (
+            <p
+              className={`
+                about-hero-highlight
+                mt-4 min-[1500px]:mt-5
+                ${fonts.bricolage_grot700.className}
+                text-[clamp(1.15rem,2.5vw,1.55rem)] min-[1500px]:text-[clamp(1.2rem,2.8vw,1.75rem)]
+                leading-snug text-center min-[1500px]:text-left
+              `}
+            >
+              <span
+                className="
+                  about-hero-highlight-motion animate-float-soft inline-block
+                  bg-linear-to-r from-sanmarino to-chambray bg-clip-text text-transparent
+                "
+              >
+                {about.heroBodyHighlight}
+              </span>
+            </p>
+          ) : null}
         </div>
 
         {/* Scroll runway for mobile scrub — below copy, not between image and heading */}

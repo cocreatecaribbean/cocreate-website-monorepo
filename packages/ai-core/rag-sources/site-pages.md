@@ -39,7 +39,8 @@ Advisory / shared group oversight may include untitled executive director roles 
 
 Visitor-friendly overview of how CoCreate is organized:
 
-- Brands / Strategy & Campaigns: Strategies and campaigns with measurable results.
+- Brand Strategy: Clear brand foundations that guide every campaign and customer interaction.
+- Campaign Development: Campaigns that turn strategy into work audiences notice and remember.
 - Digital Products: Web apps, intranets, and mobile experiences.
 - Production / Studio: TV, digital video, and production craft.
 - PR & Communications: Media relations, storytelling, and stakeholder messaging.
@@ -63,7 +64,7 @@ Visitor-friendly overview of how CoCreate is organized:
 
 - Title: About CoCreate
 - Hero: Empowering Brands
-- Body: COCREATE Caribbean bridges the gap between Caribbean brands and their audiences through strategic storytelling, innovative design, and immersive digital experiences. From motion graphics that simplify complex ideas to web platforms that foster real engagement, we blend technical expertise with a deep understanding of the market to help businesses shine in their industries.
+- Body: Some clients come to us for a campaign. Others come for a rebrand, a product launch, public relations stories or a corporate transformation. The deliverables are different but our job is always the same: helping people see your business the way it deserves to be seen.
 - Strengths on the About page: Branding, Digital, Production, PR & Comms., Talent, Analytics.
 
 ## Home — philosophy
@@ -75,7 +76,8 @@ Visitor-friendly overview of how CoCreate is organized:
 
 ## Services (What We Do)
 
-- Brands / Strategy & Campaigns: We craft tailored strategies and campaigns that deliver measurable results and fulfill user needs.
+- Brand Strategy: A strong brand is built around a clear idea of who you are, why you matter and what you want to be known for. Our strategy process looks beyond the brief and becomes the foundation for everything that follows.
+- Campaign Development: Campaigns turn strategy into work audiences notice and remember. We develop and deliver campaigns across channels so every touchpoint reinforces the brand story and drives measurable results.
 - Digital Products: We turn your business needs into digital products — web apps, intranets, and mobile experiences your team and customers will actually love using.
 - Production / Studio: From TV to digital video, we bring your vision to life with world-class production and behind-the-scenes expertise.
 - PR & Communications: We amplify your message and connect you with your audience through impactful storytelling and media relations.

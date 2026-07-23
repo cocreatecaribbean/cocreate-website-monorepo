@@ -1,1 +1,4 @@
-export const originalsPageTitle = 'originals' as const
+export const originalsPageTitle = {
+    lineOne: 'featured',
+    lineTwo: 'originals',
+} as const

@@ -11,6 +11,7 @@ export const ABOUT_PRESENTATION_QUERY = `
   "heroVideoPlaybackId": heroVideo.asset->playbackId,
   heroHeading,
   heroBody,
+  heroBodyHighlight,
   testimonialsTitle,
   testimonials[] {
     "_id": _key,
@@ -44,6 +45,7 @@ export type AboutPresentationResult = {
   heroVideoPlaybackId?: string | null
   heroHeading?: string | null
   heroBody?: string | null
+  heroBodyHighlight?: string | null
   testimonialsTitle?: string | null
   testimonials?: Array<{
     _id?: string | null

@@ -2,7 +2,8 @@ import { StaticImageData } from 'next/image'
 
 export interface Service{
     title: string,
-    description: string,
+    /** One string per paragraph — rendered with spacing in What we do accordions */
+    description: string[],
     previewVideo: string,
 }
 

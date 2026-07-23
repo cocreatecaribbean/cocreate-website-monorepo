@@ -13,10 +13,10 @@ const TEMPLATE_ID = COCREATE_MUX_THEME
 const THEME_HTML = /* html */ `
   <style>
     :host {
-      --_bar-bg: #0a0a0a;
-      --_icon: #fff;
-      --_track: #3a3a3a;
-      --_progress: #fff;
+      --_bar-bg: var(--color-chambray);
+      --_icon: var(--color-casablanca);
+      --_track: var(--color-sanmarino);
+      --_progress: var(--color-casablanca);
       --_bar-height: 44px;
       --_bar-radius: 6px;
 
@@ -99,8 +99,8 @@ const THEME_HTML = /* html */ `
     }
 
     media-time-display {
-      background: #fff;
-      color: #0a0a0a;
+      background: var(--color-casablanca);
+      color: var(--color-chambray);
       border-radius: 4px;
       padding: 2px 6px;
       font-size: 11px;
@@ -131,18 +131,19 @@ const THEME_HTML = /* html */ `
     media-rendition-menu {
       border-radius: 8px;
       --media-settings-menu-min-width: 180px;
-      --media-menu-background: #141414;
+      --media-menu-background: var(--color-chambray);
       --media-menu-item-background-hover: rgb(255 255 255 / 0.1);
-      --media-text-color: #fff;
-      --media-icon-color: #fff;
-      --media-primary-color: #fff;
-      color: #fff;
+      --media-text-color: var(--color-casablanca);
+      --media-icon-color: var(--color-casablanca);
+      --media-primary-color: var(--color-casablanca);
+      --media-menu-item-hover-background: color-mix(in srgb, var(--color-sanmarino) 50%, transparent);
+      color: var(--color-casablanca);
     }
 
     media-settings-menu-item,
     media-chrome-menu-item {
-      color: #fff;
-      --media-text-color: #fff;
+      color: var(--color-casablanca);
+      --media-text-color: var(--color-casablanca);
     }
 
     @media (max-width: 640px) {

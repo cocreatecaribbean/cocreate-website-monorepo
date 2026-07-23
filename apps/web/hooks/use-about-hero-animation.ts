@@ -100,6 +100,7 @@ export function useAboutHeroAnimation({ scope }: UseAboutHeroAnimationOptions) {
 
         const heading = text?.querySelector<HTMLElement>('.about-hero-heading')
         const body = text?.querySelector<HTMLElement>('.about-hero-body')
+        const highlight = text?.querySelector<HTMLElement>('.about-hero-highlight')
         const split = heading ? new SplitText(heading, { type: 'words' }) : null
         const repaintHeadingGradient =
           split?.words?.length ? applySharedTextGradient(split) : null
@@ -118,6 +119,10 @@ export function useAboutHeroAnimation({ scope }: UseAboutHeroAnimationOptions) {
 
         if (body) {
           gsap.set(body, { opacity: 0, y: 36 })
+        }
+
+        if (highlight) {
+          gsap.set(highlight, { opacity: 0, y: 28 })
         }
 
         const scrollTl = gsap.timeline({
@@ -155,6 +160,10 @@ export function useAboutHeroAnimation({ scope }: UseAboutHeroAnimationOptions) {
 
         if (body) {
           scrollTl.to(body, { opacity: 1, y: 0, duration: 0.45 }, 0.5)
+        }
+
+        if (highlight) {
+          scrollTl.to(highlight, { opacity: 1, y: 0, duration: 0.4 }, 0.68)
         }
 
         return () => {

@@ -13,6 +13,7 @@ import {ensurePageSingletonsPlugin} from './plugins/ensure-page-singletons'
 import {LANDING_PAGE_DEFAULT_AGENCY_INTRO} from './schemaTypes/landingPage'
 import {
   ABOUT_PAGE_DEFAULT_HERO_BODY,
+  ABOUT_PAGE_DEFAULT_HERO_BODY_HIGHLIGHT,
   ABOUT_PAGE_DEFAULT_HERO_HEADING,
   ABOUT_PAGE_DEFAULT_TESTIMONIALS_TITLE,
 } from './schemaTypes/aboutPage'
@@ -83,6 +84,7 @@ export default defineConfig({
           heroMediaType: 'image',
           heroHeading: ABOUT_PAGE_DEFAULT_HERO_HEADING,
           heroBody: ABOUT_PAGE_DEFAULT_HERO_BODY,
+          heroBodyHighlight: ABOUT_PAGE_DEFAULT_HERO_BODY_HIGHLIGHT,
           testimonialsTitle: ABOUT_PAGE_DEFAULT_TESTIMONIALS_TITLE,
           testimonials: [],
         },

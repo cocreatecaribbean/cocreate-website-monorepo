@@ -166,6 +166,7 @@ export default function HomeHeroSection({
   const container = useRef<HTMLDivElement>(null);
   const brand_elem = useRef<HTMLDivElement>(null);
   const hero_text = useRef<HTMLDivElement>(null);
+  const hero_subhead = useRef<HTMLParagraphElement>(null);
   const vid_container = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imagesRef = useRef<Record<SequenceKey, HTMLImageElement[]>>({
@@ -577,7 +578,7 @@ export default function HomeHeroSection({
 
       let h1_text_split: SplitText | null = null;
       let about_text_split: SplitText | null = null;
-      let headlineTween: gsap.core.Tween | null = null;
+      let introTimeline: gsap.core.Timeline | null = null;
       let headlineFitTimer: ReturnType<typeof setTimeout> | undefined;
       let onHeadlineResize: (() => void) | undefined;
       let brandYResizeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -610,6 +611,7 @@ export default function HomeHeroSection({
         gsap.set(container.current, { visibility: "visible" });
         gsap.set(brand_elem.current, { translateY: 0 });
         gsap.set(hero_text.current, { opacity: 1 });
+        gsap.set(hero_subhead.current, { opacity: 1 });
         gsap.set(vid_container.current, { scale: 0 });
         gsap.set(".headline-text", { opacity: 1 });
         gsap.set(".about-text", { opacity: 1 });
@@ -733,14 +735,27 @@ export default function HomeHeroSection({
       // refresh can leave SplitText words stuck at opacity 0 mid-tween.
       if (enteredViaSpa) {
         gsap.set(h1_text_split.words, { opacity: 1, y: 0 });
+        gsap.set(hero_subhead.current, { opacity: 1 });
       } else {
-        headlineTween = gsap.from(h1_text_split.words, {
-          y: -100,
-          opacity: 0,
-          duration: 1.5,
-          ease: "back.out",
-          stagger: 0.07,
-        });
+        gsap.set(hero_subhead.current, { opacity: 0 });
+        introTimeline = gsap.timeline();
+        introTimeline
+          .from(h1_text_split.words, {
+            y: -100,
+            opacity: 0,
+            duration: 1.5,
+            ease: "back.out",
+            stagger: 0.07,
+          })
+          .to(
+            hero_subhead.current,
+            {
+              opacity: 1,
+              duration: 1,
+              ease: "power2.out",
+            },
+            "-=1.1",
+          );
       }
 
       // ─── Timelines ──────────────────────────────────────────────────────────
@@ -752,7 +767,11 @@ export default function HomeHeroSection({
           { y: () => getBrandStartY() },
           { y: 0, duration: 3 },
         )
-        .to(hero_text.current, { opacity: 0, duration: 1 }, "-=0.5")
+        .to(
+          [hero_text.current, hero_subhead.current],
+          { opacity: 0, duration: 1 },
+          "-=0.5",
+        )
         .to(vid_container.current, { scale: 1, duration: 1 })
         .to({}, { duration: 1 });
 
@@ -927,6 +946,7 @@ export default function HomeHeroSection({
             resetRouteScrollToTop();
             gsap.set(vid_container.current, { scale: 0 });
             gsap.set(hero_text.current, { opacity: 1 });
+            gsap.set(hero_subhead.current, { opacity: 1 });
             gsap.set(brand_elem.current, { y: getBrandStartY() });
             mainTimeline.progress(0);
             pendingFrame = null;
@@ -994,9 +1014,10 @@ export default function HomeHeroSection({
           window.removeEventListener("resize", onBrandYResize);
           window.removeEventListener("orientationchange", onBrandYResize);
         }
-        headlineTween?.kill();
-        headlineTween = null;
+        introTimeline?.kill();
+        introTimeline = null;
         if (h1_text_split) gsap.killTweensOf(h1_text_split.words);
+        if (hero_subhead.current) gsap.killTweensOf(hero_subhead.current);
         if (about_text_split) gsap.killTweensOf(about_text_split.words);
         h1_text_split?.revert();
         about_text_split?.revert();
@@ -1069,8 +1090,23 @@ export default function HomeHeroSection({
           `}
         >
           <span ref={hero_text} className="headline-text block">
-            Transforming Caribbean <span className={`${fonts.alkatra600.className}`}>Creativity</span> into Global Impact.
+          Every brand <br /> has a <span className={`${fonts.alkatra600.className}`}>story <br /> worth telling</span>.
           </span>
+
+          <p
+            ref={hero_subhead}
+            className={`
+          ${fonts.bricolage_grot600.className}
+          normal-case
+          bg-linear-to-r from-sanmarino to-chambray bg-clip-text text-transparent
+          mt-4 min-[1024px]:mt-6
+          mb-8 min-[1024px]:mb-10
+          text-center leading-snug
+          text-[clamp(1.1rem,2vw,1.5rem)]
+        `}
+          >
+            We make sure yours is Memorable.
+          </p>
         </h1>
 
         <div

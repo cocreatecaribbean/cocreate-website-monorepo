@@ -2,12 +2,13 @@
 
 import { Accordion } from "@base-ui/react/accordion";
 import { services } from "@/site-info/global-site-info";
+import type { Service } from "@/types/global-types";
 import * as fonts from "@/styles/fonts";
 import { useRef } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 
-const AccordionItem = ({ value, service, isFirst }: { value: string; service: any; isFirst: boolean }) => {
+const AccordionItem = ({ value, service, isFirst }: { value: string; service: Service; isFirst: boolean }) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const lineRef = useRef<HTMLDivElement>(null);
@@ -85,9 +86,11 @@ const AccordionItem = ({ value, service, isFirst }: { value: string; service: an
           className="h-0 opacity-0 overflow-hidden pointer-events-none data-open:pointer-events-auto"
         >
           <div
-            className={`w-[90%] text-casablanca text-xl md:text-3xl pl-2 pr-6 pt-8 pb-16 mx-auto ${fonts.bricolage_grot400.className}`}
+            className={`w-[90%] space-y-4 text-casablanca text-xl md:space-y-5 md:text-3xl pl-2 pr-6 pt-8 pb-16 mx-auto ${fonts.bricolage_grot400.className}`}
           >
-            {service.description}
+            {service.description.map((paragraph, i) => (
+              <p key={i}>{paragraph}</p>
+            ))}
           </div>
         </div>
       </Accordion.Panel>

@@ -7,7 +7,8 @@ export const aboutHero = {
   imageSrc: '/about-hero.jpg',
   imageAlt: 'CoCreate team at work',
   heading: 'Empowering Brands',
-  body: `COCREATE Caribbean bridges the gap between Caribbean brands and their audiences through strategic storytelling, innovative design, and immersive digital experiences. From motion graphics that simplify complex ideas to web platforms that foster real engagement, we blend technical expertise with a deep understanding of the market to help businesses shine in their industries.`,
+  body: `Some clients come to us for a campaign. Others come for a rebrand, a product launch, public relations stories or a corporate transformation. The deliverables are different but our job is always the same:`,
+  bodyHighlight: `helping people see your business the way it deserves to be seen.`,
   /** Tiny JPEG data URL for next/image blur placeholder (generated from about-hero.jpg). */
   imageBlurDataURL:
     'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDABQODxIPDRQSEBIXFRQYHjIhHhwcHj0sLiQySUBMS0dARkVQWnNiUFVtVkVGZIhlbXd7gYKBTmCNl4x9lnN+gXz/2wBDARUXFx4aHjshITt8U0ZTfHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHz/wAARCAAQAAsDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAAAgMF/8QAIBAAAQMFAQADAAAAAAAAAAAAAQIDEQAEEhMhMVGRwf/EABUBAQEAAAAAAAAAAAAAAAAAAAID/8QAGBEAAwEBAAAAAAAAAAAAAAAAAAECESH/2gAMAwEAAhEDEQA/AM+7Q+WtTCY2FKuez+Vdq0c1Izwyjs+zQv1KBS/sSg+gZTJHzTN20elxwEiSAnk/dSpVnBxibVH/2Q==',

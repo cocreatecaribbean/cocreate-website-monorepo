@@ -2,6 +2,7 @@ import {useEffect, useRef} from 'react'
 import {definePlugin, useClient, type LayoutProps} from 'sanity'
 import {
   ABOUT_PAGE_DEFAULT_HERO_BODY,
+  ABOUT_PAGE_DEFAULT_HERO_BODY_HIGHLIGHT,
   ABOUT_PAGE_DEFAULT_HERO_HEADING,
   ABOUT_PAGE_DEFAULT_TESTIMONIALS_TITLE,
 } from '../schemaTypes/aboutPage'
@@ -160,6 +161,7 @@ function EnsurePageSingletons() {
             heroMediaType: 'image',
             heroHeading: ABOUT_PAGE_DEFAULT_HERO_HEADING,
             heroBody: ABOUT_PAGE_DEFAULT_HERO_BODY,
+            heroBodyHighlight: ABOUT_PAGE_DEFAULT_HERO_BODY_HIGHLIGHT,
             testimonialsTitle: ABOUT_PAGE_DEFAULT_TESTIMONIALS_TITLE,
             testimonials: [],
           }),

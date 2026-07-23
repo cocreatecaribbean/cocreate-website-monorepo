@@ -11,10 +11,16 @@
   --color-casablanca: #f6b03f;
 
   --animate-float: float 3s ease-in-out infinite;
+  --animate-float-soft: float-soft 4.5s ease-in-out infinite;
 
   @keyframes float {
     0%, 100% { transform: translateY(0px); }
     50%       { transform: translateY(-30px); }
+  }
+
+  @keyframes float-soft {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-6px); }
   }
 
   --animate-fadein: fadein 0.5s ease-in-out forwards;
@@ -50,6 +56,30 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/*
+ * Custom CoCreate cursor (mouse/trackpad only; touch devices unaffected).
+ * Asset MUST stay a 32x32 RGBA PNG — Chrome silently rejects indexed-color
+ * or oversized cursor images and falls back to the default arrow.
+ * !important lets this beat Tailwind cursor-* utilities; text fields keep
+ * the I-beam so typing UX stays normal.
+ */
+@media (hover: hover) and (pointer: fine) {
+  html,
+  body,
+  *,
+  *::before,
+  *::after {
+    cursor: url('/cocreate-cursor-32.png') 1 1, auto !important;
+  }
+
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+  textarea,
+  select,
+  [contenteditable='true'] {
+    cursor: text !important;
+  }
 }
 
 /* Landing agency intro — fluid from ~2.3rem (phone) to ~5rem (desktop) */
@@ -118,7 +148,8 @@ body.client-portal-open #smooth-wrapper {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-float {
+  .animate-float,
+  .animate-float-soft {
     animation: none !important;
   }
 
