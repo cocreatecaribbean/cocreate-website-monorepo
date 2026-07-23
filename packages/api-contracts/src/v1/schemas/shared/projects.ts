@@ -36,6 +36,10 @@ export const ProjectAttachmentSchema = z.object({
   mimeType: z.string(),
   sizeBytes: z.number(),
   createdAt: isoDateTimeString,
+  reviewRequested: z.boolean().optional().default(false),
+  approvedAt: isoDateTimeString.nullable().optional(),
+  approvedByUserId: z.string().nullable().optional(),
+  changesRequestedAt: isoDateTimeString.nullable().optional(),
 })
 export type ProjectAttachment = z.infer<typeof ProjectAttachmentSchema>
 
@@ -84,7 +88,7 @@ export const ProjectRequestMessageBaseSchema = z.object({
   authorDisplayName: z.string().nullable().optional(),
   authorJobTitle: z.string().nullable().optional(),
   body: z.string(),
-  messageKind: z.enum(['CHAT']).optional(),
+  messageKind: z.enum(['CHAT', 'SYSTEM']).optional(),
   createdAt: isoDateTimeString,
   attachmentIds: z.array(z.string()).optional(),
   attachments: z.array(ProjectAttachmentSchema).optional(),

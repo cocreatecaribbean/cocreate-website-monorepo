@@ -6,10 +6,10 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Star,
   Bell,
+  ClipboardList,
   FileText,
   FolderKanban,
   LayoutGrid,
-  Sparkles,
   Users,
 } from 'lucide-react'
 import PortalProjectFilesPanel from '@/components/control-center/portal-project-files-panel'
@@ -54,7 +54,7 @@ function formatPhaseLabel(phase: string | null | undefined): string {
 
 const TABS: Array<{ id: PortalProjectTabId; label: string; description: string; icon: LucideIcon }> = [
   { id: 'overview', label: 'Overview', description: 'Project snapshot, status, and key details', icon: LayoutGrid },
-  { id: 'onboarding', label: 'Onboarding', description: 'Initial setup, requirements, and kickoff with your team', icon: Sparkles },
+  { id: 'onboarding', label: 'Onboarding', description: 'Initial setup, requirements, and kickoff with your team', icon: ClipboardList },
   { id: 'progress', label: 'Project updates', description: 'Day-to-day messages, deliverables, and updates', icon: Bell },
   { id: 'files', label: 'Files', description: 'Shared deliverables and project assets', icon: FileText },
   { id: 'top-picks', label: 'Top Picks', description: 'Files your team loved on this project', icon: Star },

@@ -64,10 +64,14 @@ const AccordionItem = ({ value, service, isFirst }: { value: string; service: an
 
       <Accordion.Header className="w-full ">
         <Accordion.Trigger
-          className={`${fonts.bricolage_grot600.className} mx-auto  py-8 px-4 text-white leading-none text-[clamp(2rem,4vw,4rem)] lg:text-[clamp(2rem,6vw,4rem)] rounded-2xl w-[95%] text-left flex items-center justify-between transition-colors duration-500 group-data-open:bg-casablanca group-data-open:text-chambray active:bg-black/10`}
+          className={`${fonts.bricolage_grot600.className} mx-auto  py-8 px-4 leading-none text-[clamp(2rem,4vw,4rem)] lg:text-[clamp(2rem,6vw,4rem)] rounded-2xl w-[95%] text-left flex items-center justify-between transition-colors duration-500 group-data-open:bg-casablanca active:bg-black/10`}
         >
-          <span>{service.title}</span>
-          <span className="text-3xl transition-transform duration-500 group-data-open:rotate-45">+</span>
+          <span className="text-gradient-white-casablanca group-data-open:bg-none group-data-open:text-chambray group-data-open:[-webkit-text-fill-color:var(--color-chambray)]">
+            {service.title}
+          </span>
+          <span className="text-3xl text-gradient-white-casablanca transition-transform duration-500 group-data-open:rotate-45 group-data-open:bg-none group-data-open:text-chambray group-data-open:[-webkit-text-fill-color:var(--color-chambray)]">
+            +
+          </span>
         </Accordion.Trigger>
       </Accordion.Header>
 

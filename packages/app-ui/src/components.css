@@ -66,6 +66,53 @@
   .dark .admin-glass-kpi,
   .dark .cc-glass-kpi { box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25); }
 
+  /* Clickable dashboard KPI cards — stronger lift + ring on hover */
+  a.portal-glass-kpi,
+  a.admin-glass-kpi,
+  a.cc-glass-kpi {
+    @apply outline-none transition-[transform,box-shadow,border-color] duration-300 ease-out;
+  }
+  a.portal-glass-kpi:hover,
+  a.admin-glass-kpi:hover,
+  a.cc-glass-kpi:hover {
+    transform: translateY(-4px);
+    border-color: rgba(64, 110, 181, 0.35);
+    box-shadow:
+      0 14px 36px rgba(64, 110, 181, 0.2),
+      0 0 0 1px rgba(64, 110, 181, 0.12);
+  }
+  a.portal-glass-kpi:focus-visible,
+  a.admin-glass-kpi:focus-visible,
+  a.cc-glass-kpi:focus-visible {
+    border-color: rgba(64, 110, 181, 0.5);
+    box-shadow:
+      0 14px 36px rgba(64, 110, 181, 0.18),
+      0 0 0 3px rgba(64, 110, 181, 0.28);
+  }
+  .dark a.portal-glass-kpi:hover,
+  .dark a.admin-glass-kpi:hover,
+  .dark a.cc-glass-kpi:hover {
+    border-color: rgba(246, 176, 63, 0.45);
+    box-shadow:
+      0 14px 36px rgba(0, 0, 0, 0.45),
+      0 0 0 1px rgba(246, 176, 63, 0.2);
+  }
+  .dark a.portal-glass-kpi:focus-visible,
+  .dark a.admin-glass-kpi:focus-visible,
+  .dark a.cc-glass-kpi:focus-visible {
+    border-color: rgba(246, 176, 63, 0.55);
+    box-shadow:
+      0 14px 36px rgba(0, 0, 0, 0.4),
+      0 0 0 3px rgba(246, 176, 63, 0.28);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    a.portal-glass-kpi:hover,
+    a.admin-glass-kpi:hover,
+    a.cc-glass-kpi:hover {
+      transform: none;
+    }
+  }
+
   .portal-btn-primary,
   .admin-btn-primary,
   .cc-btn-primary {

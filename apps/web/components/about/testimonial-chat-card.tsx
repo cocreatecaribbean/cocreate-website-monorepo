@@ -37,19 +37,19 @@ export default function TestimonialChatCard({
           </div>
           <div className="min-w-0 flex-1">
             <p
-              className={`truncate text-[0.9375rem] text-neutral-900 sm:text-base lg:text-[1.05rem] ${fonts.bricolage_grot700.className}`}
+              className={`truncate text-[0.9375rem] text-gradient-chambray-diagonal sm:text-base lg:text-[1.05rem] ${fonts.bricolage_grot700.className}`}
             >
               {testimonial.name}
             </p>
             {testimonial.jobTitle ? (
               <p
-                className={`mt-0.5 truncate text-xs italic text-neutral-600 sm:mt-1 sm:text-sm ${fonts.bricolage_grot500.className}`}
+                className={`mt-0.5 truncate text-xs italic text-gradient-chambray-diagonal sm:mt-1 sm:text-sm ${fonts.bricolage_grot500.className}`}
               >
                 {testimonial.jobTitle}
               </p>
             ) : null}
             <p
-              className={`mt-0.5 truncate text-xs text-neutral-500 sm:text-sm ${fonts.bricolage_grot400.className}`}
+              className={`mt-0.5 truncate text-xs text-gradient-chambray-diagonal sm:text-sm ${fonts.bricolage_grot400.className}`}
             >
               {testimonial.company}
             </p>
@@ -59,7 +59,7 @@ export default function TestimonialChatCard({
         <div className="shrink-0 pt-3 sm:pt-4">
           <p
             ref={quoteRef}
-            className={`line-clamp-4 max-w-[95%] text-[0.9rem] leading-relaxed text-neutral-700 sm:text-[0.95rem] sm:leading-relaxed lg:text-base ${fonts.bricolage_grot400.className}`}
+            className={`line-clamp-4 max-w-[95%] text-[0.9rem] leading-relaxed text-gradient-chambray-diagonal sm:text-[0.95rem] sm:leading-relaxed lg:text-base ${fonts.bricolage_grot400.className}`}
           >
             &ldquo;{testimonial.quote}&rdquo;
           </p>

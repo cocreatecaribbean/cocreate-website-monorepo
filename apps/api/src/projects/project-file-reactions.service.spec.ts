@@ -6,10 +6,34 @@ describe('ProjectFileReactionsService actor routing', () => {
     projectAttachment: {
       findMany: jest.fn().mockResolvedValue([]),
       findUnique: jest.fn(),
+      update: jest.fn().mockResolvedValue({}),
     },
     projectFileReaction: {
       upsert: jest.fn(),
       deleteMany: jest.fn(),
+    },
+    projectActivity: {
+      create: jest.fn().mockResolvedValue({}),
+    },
+    projectRequestMessage: {
+      create: jest.fn().mockResolvedValue({
+        id: 'msg-1',
+        requestId: 'req-1',
+        authorUserId: 'client-1',
+        authorRole: 'CLIENT',
+        body: 'system',
+        messageKind: 'SYSTEM',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        author: { id: 'client-1', email: 'client@test.com', profile: null },
+        attachmentLinks: [],
+      }),
+    },
+    user: {
+      findUnique: jest.fn().mockResolvedValue({
+        id: 'client-1',
+        email: 'client@test.com',
+        profile: { displayName: 'Alex', jobTitle: null, avatarStoragePath: null },
+      }),
     },
   }
 
@@ -24,6 +48,12 @@ describe('ProjectFileReactionsService actor routing', () => {
 
   const messaging = {
     emitThreadAttachment: jest.fn(),
+    emitThreadMessage: jest.fn(),
+  }
+
+  const notifications = {
+    notifyAdmins: jest.fn().mockResolvedValue(undefined),
+    adminClientWorkspaceLink: jest.fn().mockReturnValue('http://admin/clients/org-1'),
   }
 
   const service = new ProjectFileReactionsService(
@@ -31,6 +61,7 @@ describe('ProjectFileReactionsService actor routing', () => {
     clientAccess as never,
     agencyAccess as never,
     messaging as never,
+    notifications as never,
   )
 
   beforeEach(() => {
@@ -130,7 +161,14 @@ describe('ProjectFileReactionsService actor routing', () => {
       expect(agencyAccess.assertCanAccessProject).not.toHaveBeenCalled()
       const where = prisma.projectAttachment.findMany.mock.calls[0][0].where
       expect(where.visibility).toBe(ProjectAttachmentVisibility.CLIENT)
-      expect(where.reactions).toEqual({ some: {} })
+      expect(where.OR).toEqual(
+        expect.arrayContaining([
+          { reactions: { some: {} } },
+          { reviewRequested: true },
+          { approvedAt: { not: null } },
+          { changesRequestedAt: { not: null } },
+        ]),
+      )
     })
 
     it.each([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.COLLABORATOR])(
@@ -146,7 +184,12 @@ describe('ProjectFileReactionsService actor routing', () => {
         expect(clientAccess.assertProjectAccess).not.toHaveBeenCalled()
         const where = prisma.projectAttachment.findMany.mock.calls[0][0].where
         expect(where.visibility).toBeUndefined()
-        expect(where.reactions).toEqual({ some: {} })
+        expect(where.OR).toEqual(
+          expect.arrayContaining([
+            { reactions: { some: {} } },
+            { reviewRequested: true },
+          ]),
+        )
       },
     )
   })
@@ -163,6 +206,15 @@ describe('ProjectFileReactionsService actor routing', () => {
       sizeBytes: 10,
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
       reactions: [],
+      reviewRequested: false,
+      approvedAt: null,
+      approvedByUserId: null,
+      changesRequestedAt: null,
+      project: {
+        id: 'project-1',
+        title: 'Brand kit',
+        organizationId: 'org-1',
+      },
     }
 
     beforeEach(() => {
@@ -186,8 +238,18 @@ describe('ProjectFileReactionsService actor routing', () => {
         ...attachmentWithThread,
         requestId: null,
         messageLinks: [
-          { message: { requestId: 'req-chat' } },
-          { message: { requestId: 'req-chat' } },
+          {
+            message: {
+              requestId: 'req-chat',
+              request: { id: 'req-chat', type: 'PROGRESS' },
+            },
+          },
+          {
+            message: {
+              requestId: 'req-chat',
+              request: { id: 'req-chat', type: 'PROGRESS' },
+            },
+          },
         ],
       })
       await service.setReaction(clientActor as never, 'att-1', 'LOVE_THIS')

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { ScrollFadeHint } from '@cocreate/app-ui/scroll-fade-hint'
 import { formatRelativeTime } from '@/lib/format-relative-time'
 import type { ClientRecentActivityItem } from '@/lib/dashboard/types'
 import { bricolage_grot600 } from '@/styles/fonts'
@@ -68,9 +69,9 @@ export default function ClientPortalRecentUpdates({
 
   if (compact) {
     return (
-      <div className="mt-5 min-h-0 max-h-80 overflow-y-auto overscroll-y-contain pr-0.5">
+      <ScrollFadeHint className="mt-5" scrollClassName="max-h-80 pr-0.5">
         {list}
-      </div>
+      </ScrollFadeHint>
     )
   }
 

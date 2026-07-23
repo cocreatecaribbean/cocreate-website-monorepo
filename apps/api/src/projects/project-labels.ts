@@ -66,6 +66,16 @@ export function getActivitySummary(
       return `${who} requested client review`
     case 'request.change_created':
       return 'Client submitted a change request'
+    case 'file.approved': {
+      const fileName =
+        typeof metadata?.fileName === 'string' ? metadata.fileName : 'a file'
+      return `${who} marked ${fileName} as good to go`
+    }
+    case 'file.changes_requested': {
+      const fileName =
+        typeof metadata?.fileName === 'string' ? metadata.fileName : 'a file'
+      return `${who} requested changes on ${fileName}`
+    }
     case 'request.phase_approval':
       return 'Client requested phase approval'
     case 'request.message':

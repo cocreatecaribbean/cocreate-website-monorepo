@@ -1,6 +1,7 @@
 'use client'
 
 import ControlCenterAttentionLink from '@/components/control-center/control-center-attention-link'
+import ThemeToggle from '@/components/theme-toggle'
 import { useOrgInboxUnreadCountQuery } from '@/lib/api/queries/inbox'
 import {
   buildControlCenterNavItems,
@@ -130,7 +131,8 @@ export default function ControlCenterSidebar({
         ))}
       </nav>
 
-      <div className="shrink-0 border-t border-white/10 px-2 py-3">
+      <div className="shrink-0 space-y-3 border-t border-white/10 px-2 py-3">
+        <ThemeToggle variant="sidebar" />
         <NavButton
           item={CONTROL_CENTER_SETTINGS}
           active={activeView === CONTROL_CENTER_SETTINGS.id}

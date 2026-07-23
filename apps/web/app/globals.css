@@ -57,6 +57,34 @@ body {
   font-size: clamp(2.3rem, calc(1.6rem + 3vw), 5rem);
 }
 
+/* Black → Chambray → Black, top-left → bottom-right */
+.text-gradient-chambray-diagonal {
+  background-image: linear-gradient(
+    to bottom right,
+    #000000 0%,
+    var(--color-chambray) 50%,
+    #000000 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* White → Casablanca (What We Do accordion titles) */
+.text-gradient-white-casablanca {
+  background-image: linear-gradient(
+    to bottom right,
+    #ffffff 0%,
+    #ffffff 70%,
+    var(--color-casablanca) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
 #smooth-wrapper {
   z-index: 1;
 }

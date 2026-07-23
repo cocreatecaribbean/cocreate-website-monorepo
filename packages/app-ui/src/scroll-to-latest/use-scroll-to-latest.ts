@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import {
   DEFAULT_NEAR_BOTTOM_THRESHOLD,
@@ -21,6 +21,22 @@ export type UseScrollToLatestOptions = {
   smoothOnUserSend?: boolean
   nearBottomThreshold?: number
   enabled?: boolean
+}
+
+function countUnseenArrivals(previousSignature: string, currentSignature: string): number {
+  if (!previousSignature || previousSignature === currentSignature) return 0
+  const prevIds = previousSignature.split('|').filter(Boolean)
+  const currIds = currentSignature.split('|').filter(Boolean)
+  const prevSet = new Set(prevIds)
+  const currSet = new Set(currIds)
+
+  const added = currIds.filter((id) => !prevSet.has(id) && !id.startsWith('pending-'))
+  const removedPending = prevIds.filter(
+    (id) => id.startsWith('pending-') && !currSet.has(id),
+  )
+
+  // Replacing an optimistic pending bubble with the server message is not "new mail"
+  return Math.max(0, added.length - removedPending.length)
 }
 
 export function useScrollToLatest<T extends HTMLElement = HTMLDivElement>(
@@ -44,7 +60,14 @@ export function useScrollToLatest<T extends HTMLElement = HTMLDivElement>(
   const prevScopeKeyRef = useRef(scopeKey)
   const smoothNextRef = useRef(false)
 
+  const [isNearBottomState, setIsNearBottomState] = useState(true)
+  const [unseenCount, setUnseenCount] = useState(0)
+
   const signature = itemsSignature(items)
+
+  const clearUnseen = useCallback(() => {
+    setUnseenCount(0)
+  }, [])
 
   const shouldFollow = useCallback(
     (force = false) => {
@@ -71,6 +94,8 @@ export function useScrollToLatest<T extends HTMLElement = HTMLDivElement>(
       if (!container || !anchor) return
 
       nearBottomRef.current = true
+      setIsNearBottomState(true)
+      setUnseenCount(0)
       if (force) {
         pinBottomUntilRef.current = Date.now() + PIN_BOTTOM_MS
       }
@@ -83,6 +108,8 @@ export function useScrollToLatest<T extends HTMLElement = HTMLDivElement>(
     smoothNextRef.current = smoothOnUserSend
     pinBottomUntilRef.current = Date.now() + PIN_BOTTOM_MS
     nearBottomRef.current = true
+    setIsNearBottomState(true)
+    setUnseenCount(0)
     scrollToLatest(true, smoothOnUserSend)
   }, [scrollToLatest, smoothOnUserSend])
 
@@ -101,6 +128,8 @@ export function useScrollToLatest<T extends HTMLElement = HTMLDivElement>(
       prevSignatureRef.current = ''
       pinBottomUntilRef.current = 0
       nearBottomRef.current = true
+      setIsNearBottomState(true)
+      setUnseenCount(0)
     }
   }, [scopeKey])
 
@@ -109,7 +138,12 @@ export function useScrollToLatest<T extends HTMLElement = HTMLDivElement>(
     if (!container || !enabled) return
 
     const updateNearBottom = () => {
-      nearBottomRef.current = isNearBottom(container, nearBottomThreshold)
+      const next = isNearBottom(container, nearBottomThreshold)
+      nearBottomRef.current = next
+      setIsNearBottomState(next)
+      if (next) {
+        setUnseenCount(0)
+      }
     }
 
     updateNearBottom()
@@ -119,6 +153,8 @@ export function useScrollToLatest<T extends HTMLElement = HTMLDivElement>(
       if (shouldFollow(false)) {
         scrollEndIntoView(container, endRef.current, 'auto')
         nearBottomRef.current = true
+        setIsNearBottomState(true)
+        setUnseenCount(0)
       }
       updateNearBottom()
     })
@@ -143,6 +179,8 @@ export function useScrollToLatest<T extends HTMLElement = HTMLDivElement>(
     if (!hasInitialScrollRef.current && items.length >= 0) {
       hasInitialScrollRef.current = true
       nearBottomRef.current = true
+      setIsNearBottomState(true)
+      setUnseenCount(0)
       pinBottomUntilRef.current = Date.now() + PIN_BOTTOM_MS
       scrollEndIntoView(container, anchor, 'auto')
       return
@@ -154,8 +192,16 @@ export function useScrollToLatest<T extends HTMLElement = HTMLDivElement>(
     smoothNextRef.current = false
     if (shouldFollow(false)) {
       nearBottomRef.current = true
+      setIsNearBottomState(true)
+      setUnseenCount(0)
       pinBottomUntilRef.current = Date.now() + PIN_BOTTOM_MS
       scrollEndIntoView(container, anchor, smooth ? 'smooth' : 'auto')
+      return
+    }
+
+    const arrivals = countUnseenArrivals(prev, signature)
+    if (arrivals > 0) {
+      setUnseenCount((count) => count + arrivals)
     }
   }, [enabled, items.length, shouldFollow, signature])
 
@@ -165,6 +211,9 @@ export function useScrollToLatest<T extends HTMLElement = HTMLDivElement>(
     scrollToLatest,
     notifyUserSent,
     notifyItemsChanged,
+    isNearBottom: isNearBottomState,
+    unseenCount,
+    clearUnseen,
     /** @deprecated Use scrollToLatest */
     scrollToBottom: scrollToLatest,
   }

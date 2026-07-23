@@ -11,9 +11,9 @@ export default function TextAndMediaBlock({
 
   const text = (
     <div
-      className={`flex items-center text-left text-lg leading-relaxed text-slate-800 md:text-xl ${fonts.bricolage_grot400.className}`}
+      className={`flex items-center text-left text-lg leading-relaxed md:text-xl ${fonts.bricolage_grot400.className}`}
     >
-      <p className="whitespace-pre-line">{section.body}</p>
+      <p className="whitespace-pre-line text-gradient-chambray-diagonal">{section.body}</p>
     </div>
   )
 

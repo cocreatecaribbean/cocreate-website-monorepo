@@ -84,7 +84,7 @@ export default function AboutHeroSection() {
         >
           <h2
             className={`
-              about-hero-heading philosophy-header h-fit leading-none
+              about-hero-heading philosophy-header text-gradient-chambray-diagonal h-fit leading-none
               text-center min-[1500px]:text-left
               text-[clamp(1.85rem,4.5vw,3.25rem)] min-[1500px]:text-[clamp(2rem,3vw,4rem)]
               ${fonts.bricolage_grot500.className} mb-5 min-[1500px]:mb-6
@@ -94,7 +94,7 @@ export default function AboutHeroSection() {
           </h2>
           <p
             className={`
-              about-hero-body
+              about-hero-body text-gradient-chambray-diagonal
               ${fonts.bricolage_grot400.className}
               text-[clamp(1rem,2.2vw,1.35rem)] min-[1500px]:text-[clamp(1rem,2.5vw,1.5rem)]
               leading-relaxed text-center min-[1500px]:text-left

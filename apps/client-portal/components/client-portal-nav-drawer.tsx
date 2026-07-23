@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { LayoutDashboard, Radio, Sparkles, X, type LucideIcon } from 'lucide-react'
 import NavTooltip from '@cocreate/app-ui/nav-tooltip'
 import ControlCenterAttentionLink from '@/components/control-center/control-center-attention-link'
+import ThemeToggle from '@/components/theme-toggle'
 import { useOrgInboxUnreadCountQuery } from '@/lib/api/queries/inbox'
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import {
@@ -269,7 +270,8 @@ function ClientPortalNavDrawerInner({
               />
             ))}
           </nav>
-          <div className="mt-6 border-t border-white/10 pt-4">
+          <div className="mt-6 space-y-3 border-t border-white/10 pt-4">
+            <ThemeToggle variant="sidebar" />
             <SectionNavButton
               item={CONTROL_CENTER_SETTINGS}
               active={ccSettingsActive}
@@ -289,17 +291,20 @@ function ClientPortalNavDrawerInner({
               />
             ))}
           </nav>
-          <div className="mt-6 space-y-1 border-t border-white/10 pt-4">
-            <SectionNavButton
-              item={SOCIAL_LISTENING_REPORTS}
-              active={!slSettingsActive && slView === SOCIAL_LISTENING_REPORTS.id}
-              onSelect={() => selectSlView(SOCIAL_LISTENING_REPORTS.id)}
-            />
-            <SectionNavButton
-              item={slSettingsItem}
-              active={slSettingsActive}
-              onSelect={openSettings}
-            />
+          <div className="mt-6 space-y-3 border-t border-white/10 pt-4">
+            <ThemeToggle variant="sidebar" />
+            <div className="space-y-1">
+              <SectionNavButton
+                item={SOCIAL_LISTENING_REPORTS}
+                active={!slSettingsActive && slView === SOCIAL_LISTENING_REPORTS.id}
+                onSelect={() => selectSlView(SOCIAL_LISTENING_REPORTS.id)}
+              />
+              <SectionNavButton
+                item={slSettingsItem}
+                active={slSettingsActive}
+                onSelect={openSettings}
+              />
+            </div>
           </div>
         </>
       ) : (
@@ -315,6 +320,9 @@ function ClientPortalNavDrawerInner({
               onSelect={() => selectWorkspace('social-listening')}
             />
           </nav>
+          <div className="mt-6 border-t border-white/10 pt-4">
+            <ThemeToggle variant="sidebar" />
+          </div>
         </div>
       )}
     </div>

@@ -1,10 +1,10 @@
 import {
   FolderKanban,
+  Handshake,
   LayoutDashboard,
   MessageSquare,
   Radio,
   Settings2,
-  Shield,
   UserCircle,
   Users,
   type LucideIcon,
@@ -39,7 +39,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: 'Clients',
     href: '/clients',
     description: 'Client organizations, portal access, and brand assets',
-    icon: Users,
+    icon: Handshake,
   },
   {
     id: 'messages',
@@ -60,7 +60,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: 'Team',
     href: '/team',
     description: 'Agency members, roles, and permissions',
-    icon: Shield,
+    icon: Users,
   },
   {
     id: 'profile',

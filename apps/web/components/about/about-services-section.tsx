@@ -76,8 +76,9 @@ export default function AboutServicesSection() {
         className={`
           opacity-0
           ${fonts.bricolage_grot600.className}
+          text-gradient-chambray-diagonal
           mb-8 min-[1024px]:mb-10
-          text-center leading-none text-neutral-800
+          text-center leading-none
           text-[clamp(1.75rem,4vw,2.5rem)] min-[1024px]:text-[clamp(2rem,3vw,2.75rem)]
         `}
       >

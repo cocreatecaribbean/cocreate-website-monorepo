@@ -4,6 +4,7 @@ import { useRef, type RefObject } from 'react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { applySharedTextGradient } from '@/utils/util-funcs'
 import { SplitText } from 'gsap/SplitText'
 
 gsap.registerPlugin(ScrollTrigger, useGSAP, SplitText)
@@ -100,6 +101,8 @@ export function useAboutHeroAnimation({ scope }: UseAboutHeroAnimationOptions) {
         const heading = text?.querySelector<HTMLElement>('.about-hero-heading')
         const body = text?.querySelector<HTMLElement>('.about-hero-body')
         const split = heading ? new SplitText(heading, { type: 'words' }) : null
+        const repaintHeadingGradient =
+          split?.words?.length ? applySharedTextGradient(split) : null
 
         gsap.set(media, {
           scale: 0.52,
@@ -110,6 +113,7 @@ export function useAboutHeroAnimation({ scope }: UseAboutHeroAnimationOptions) {
 
         if (split) {
           gsap.set(split.words, { opacity: 1, y: 28 })
+          repaintHeadingGradient?.()
         }
 
         if (body) {

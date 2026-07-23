@@ -45,9 +45,17 @@ export default function TeamReviewPanel({
     onThreadUpdate?.()
   }
 
-  async function sendMessage(body: string, attachmentIds?: string[]) {
+  async function sendMessage(
+    body: string,
+    attachmentIds?: string[],
+    options?: { requestApproval?: boolean },
+  ) {
     try {
-      const message = await sendMessageMutation.mutateAsync({ body, attachmentIds })
+      const message = await sendMessageMutation.mutateAsync({
+        body,
+        attachmentIds,
+        requestApproval: options?.requestApproval,
+      })
       return { ok: true as const, data: message }
     } catch (err) {
       return {

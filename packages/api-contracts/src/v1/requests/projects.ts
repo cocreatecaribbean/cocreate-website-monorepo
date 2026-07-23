@@ -51,6 +51,8 @@ export const CreateRequestMessageSchema = z
   .object({
     body: z.string().max(10000),
     attachmentIds: z.array(z.string()).optional(),
+    /** When true with attachments on a client-visible thread, mark files for approval. */
+    requestApproval: z.boolean().optional(),
   })
   .refine(
     (data) => data.body.trim().length > 0 || (data.attachmentIds?.length ?? 0) > 0,

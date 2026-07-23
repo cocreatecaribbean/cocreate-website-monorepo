@@ -29,9 +29,9 @@ export const CLIENT_PORTAL_PRODUCT_FACTS = {
   controlCenterViews: [
     {
       id: 'overview',
-      label: 'Overview',
+      label: 'Dashboard',
       path: '/?ccView=overview',
-      howToNavigate: 'In the menu on the left, choose [Overview](/?ccView=overview)',
+      howToNavigate: 'In the menu on the left, choose [Dashboard](/?ccView=overview)',
       description: 'Snapshot of projects, files, and actions',
     },
     {

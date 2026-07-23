@@ -111,7 +111,7 @@ export default function ShareBarBlock({
   return (
     <section className="flex flex-col items-center gap-6 pt-10 pb-4 md:pt-14 lg:pt-16">
       <p
-        className={`text-2xl text-sanmarino sm:text-3xl ${fonts.bricolage_grot700.className}`}
+        className={`text-2xl text-gradient-chambray-diagonal sm:text-3xl ${fonts.bricolage_grot700.className}`}
       >
         {heading}
       </p>

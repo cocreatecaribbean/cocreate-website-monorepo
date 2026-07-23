@@ -73,19 +73,19 @@ export default function ArcGallerySection({
       >
         <div>
           <p
-            className={`text-sm uppercase tracking-[0.22em] text-chambray/70 ${fonts.bricolage_grot400.className}`}
+            className={`text-sm uppercase tracking-[0.22em] text-gradient-chambray-diagonal ${fonts.bricolage_grot400.className}`}
           >
             Client Work
           </p>
           <h2
             id="arc-gallery-heading"
-            className={`mt-2 text-[clamp(1.75rem,3.5vw,2.75rem)] leading-none text-chambray ${fonts.bricolage_grot600.className}`}
+            className={`mt-2 text-[clamp(1.75rem,3.5vw,2.75rem)] leading-none text-gradient-chambray-diagonal ${fonts.bricolage_grot600.className}`}
           >
             Projects at a Glance.
           </h2>
         </div>
         <p
-          className={`max-w-md text-sm text-neutral-600 md:text-base ${fonts.bricolage_grot400.className}`}
+          className={`max-w-md text-sm text-gradient-chambray-diagonal md:text-base ${fonts.bricolage_grot400.className}`}
         >
           A curated selection of our client work that spans across industries and disciplines.
         </p>

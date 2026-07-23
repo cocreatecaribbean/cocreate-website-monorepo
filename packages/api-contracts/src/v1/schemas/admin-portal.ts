@@ -94,6 +94,8 @@ export const ClientProjectSummarySchema = z.object({
   hasOpenAdminReview: z.boolean().optional(),
   openCancellationCount: z.number().optional(),
   hasOpenCancellation: z.boolean().optional(),
+  pendingFileReviewsCount: z.number().optional(),
+  recentlyApprovedFilesCount: z.number().optional(),
   requests: z.array(ProjectRequestItemSchema).optional(),
   activities: z.array(ProjectActivityItemSchema).optional(),
 })

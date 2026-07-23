@@ -116,12 +116,23 @@ export const ClientProjectDetailSchema = ClientProjectSummarySchema.extend({
 })
 export type ClientProjectDetail = z.infer<typeof ClientProjectDetailSchema>
 
+export const ClientDashboardProjectCountSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  count: z.number().int().nonnegative(),
+})
+export type ClientDashboardProjectCount = z.infer<
+  typeof ClientDashboardProjectCountSchema
+>
+
 export const ClientDashboardStatsSchema = z.object({
   activeProjects: z.number(),
   activeProjectsAwaitingReview: z.number(),
   topPicksCount: z.number(),
   sharedFiles: z.number(),
   lastSharedFileAt: isoDateTimeString.nullable(),
+  projectsWithTopPicks: z.array(ClientDashboardProjectCountSchema),
+  projectsWithSharedFiles: z.array(ClientDashboardProjectCountSchema),
 })
 export type ClientDashboardStats = z.infer<typeof ClientDashboardStatsSchema>
 

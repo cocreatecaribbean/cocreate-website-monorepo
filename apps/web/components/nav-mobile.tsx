@@ -213,27 +213,34 @@ const NavMobile: React.FC = () => {
         <ul
           className={`relative z-10 mx-auto flex w-full flex-col gap-1 px-8 py-12 text-[clamp(1.75rem,7vw,3.75rem)] sm:py-14 ${fonts.bricolage_grot600.className} pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]`}
         >
-          {menu_names.map((menu, index) => (
-            <li key={menu} className="w-full uppercase">
-              <div
-                ref={(el) => {
-                  itemsRef.current[index] = el
-                }}
-                className="will-change-[transform,opacity,filter]"
-              >
-                <Link
-                  href={`/${menu}`}
-                  onClick={() => {
-                    setIsOpen(false)
-                    closeSearch()
+          {menu_names.map((menu, index) => {
+            const isActive =
+              !isClientPortalOpen &&
+              (pathname === `/${menu}` || pathname.startsWith(`/${menu}/`))
+
+            return (
+              <li key={menu} className="w-full uppercase">
+                <div
+                  ref={(el) => {
+                    itemsRef.current[index] = el
                   }}
-                  className="relative z-10 flex min-h-14 w-full items-center uppercase text-white transition-opacity hover:opacity-80 touch-manipulation [-webkit-tap-highlight-color:transparent]"
+                  className="will-change-[transform,opacity,filter]"
                 >
-                  {getMenuLabel(menu)}
-                </Link>
-              </div>
-            </li>
-          ))}
+                  <Link
+                    href={`/${menu}`}
+                    aria-current={isActive ? 'page' : undefined}
+                    onClick={() => {
+                      setIsOpen(false)
+                      closeSearch()
+                    }}
+                    className={`relative z-10 flex min-h-14 w-full items-center uppercase transition-opacity hover:opacity-80 touch-manipulation [-webkit-tap-highlight-color:transparent] ${isActive ? 'text-casablanca opacity-100' : 'text-white opacity-90'}`}
+                  >
+                    {getMenuLabel(menu)}
+                  </Link>
+                </div>
+              </li>
+            )
+          })}
           <li key="client-portal" className="w-full uppercase">
             <div
               ref={(el) => {

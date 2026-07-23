@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { FileMediaTile } from '@cocreate/app-ui/file-media-tile'
+import { FileApprovalStatusPill } from '@cocreate/app-ui/file-approval-ui'
 import FilePreviewModal from '@/components/file-preview-modal'
 import FileReactionMenu from '@/components/file-reaction-menu'
 import {
@@ -97,6 +98,12 @@ function FileRow({
         </button>
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 lg:justify-end">
+        <FileApprovalStatusPill file={file} />
+        {file.reviewRequested && !file.approvedAt && !file.changesRequestedAt ? (
+          <span className="inline-flex items-center rounded-full border border-sanmarino/20 bg-sanmarino/10 px-2 py-0.5 text-[11px] font-medium text-sanmarino">
+            Awaiting approval
+          </span>
+        ) : null}
         <p className="whitespace-nowrap text-xs text-app-muted">
           {formatRelativeTime(file.createdAt)}
         </p>

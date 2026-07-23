@@ -4,8 +4,8 @@ import {
   FolderKanban,
   Mail,
   Radio,
-  Sparkles,
   Users,
+  Workflow,
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -24,21 +24,25 @@ const KPI_META = [
     icon: Users,
     accentBar: 'from-sanmarino to-chambray',
     accent: 'bg-sanmarino/10 text-sanmarino',
+    href: '/clients',
   },
   {
     icon: FolderKanban,
     accentBar: 'from-casablanca to-sanmarino',
     accent: 'bg-casablanca/15 text-chambray',
+    href: '/project-center',
   },
   {
     icon: Mail,
     accentBar: 'from-chambray to-sanmarino',
     accent: 'bg-chambray/10 text-chambray',
+    href: '/clients',
   },
   {
     icon: Radio,
     accentBar: 'from-emerald-400 to-sanmarino',
     accent: 'bg-emerald-500/10 text-emerald-700',
+    href: '/social-listening',
   },
 ] as const
 
@@ -101,9 +105,10 @@ export default async function AdminHomePage() {
             const meta = KPI_META[i]!
             const Icon = meta.icon
             return (
-              <article
+              <Link
                 key={stat.label}
-                className={`admin-glass-kpi admin-animate-in relative flex min-h-[7rem] flex-col justify-between p-5 ${KPI_STAGGER[i] ?? ''}`}
+                href={meta.href}
+                className={`admin-glass-kpi admin-shine-hover admin-animate-in relative flex min-h-[7rem] flex-col justify-between p-5 ${KPI_STAGGER[i] ?? ''}`}
               >
                 <div
                   className={`absolute inset-x-0 top-0 h-1 bg-linear-to-r ${meta.accentBar}`}
@@ -125,7 +130,7 @@ export default async function AdminHomePage() {
                   </div>
                 </div>
                 <p className="mt-2 text-xs text-app-muted">{stat.change}</p>
-              </article>
+              </Link>
             )
           })}
         </section>
@@ -142,7 +147,7 @@ export default async function AdminHomePage() {
                   Jump into the workflows your team uses most.
                 </p>
               </div>
-              <Sparkles className="h-5 w-5 shrink-0 text-casablanca" strokeWidth={1.75} />
+              <Workflow className="h-5 w-5 shrink-0 text-casablanca" strokeWidth={1.75} />
             </div>
 
             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-3">

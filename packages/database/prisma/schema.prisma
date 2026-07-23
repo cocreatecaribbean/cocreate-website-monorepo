@@ -145,6 +145,7 @@ enum ProjectRequestType {
 
 enum ProjectMessageKind {
   CHAT
+  SYSTEM
 }
 
 enum ProjectFileReactionKind {
@@ -177,6 +178,8 @@ enum PortalNotificationType {
   PHASE_APPROVAL
   REQUEST_RESOLVED
   REQUEST_MESSAGE
+  FILE_APPROVED
+  FILE_CHANGES_REQUESTED
   CANCELLATION_REQUESTED
   CANCELLATION_RESOLVED
   TEAM_INVITE_REQUEST
@@ -338,6 +341,12 @@ model ProjectAttachment {
   mimeType         String
   sizeBytes        Int
   visibility       ProjectAttachmentVisibility @default(CLIENT)
+  /// Admin marked this file for client sign-off when sharing in Project updates
+  reviewRequested  Boolean         @default(false)
+  approvedAt       DateTime?
+  approvedByUserId String?
+  approvedBy       User?           @relation("AttachmentApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  changesRequestedAt DateTime?
   uploadedByUserId String
   uploadedBy       User            @relation("AttachmentUploadedBy", fields: [uploadedByUserId], references: [id])
   createdAt        DateTime        @default(now())
@@ -347,6 +356,8 @@ model ProjectAttachment {
   @@index([projectId])
   @@index([requestId])
   @@index([projectId, visibility])
+  @@index([projectId, reviewRequested])
+  @@index([projectId, approvedAt])
 }
 
 /// Per-user reaction on a project file (drives Top Picks + tag filters)
@@ -724,6 +735,7 @@ model User {
   requestsCreated         ProjectRequest[]       @relation("RequestCreatedBy")
   requestsResolved        ProjectRequest[]       @relation("RequestResolvedBy")
   attachmentsUploaded     ProjectAttachment[]    @relation("AttachmentUploadedBy")
+  attachmentsApproved     ProjectAttachment[]    @relation("AttachmentApprovedBy")
   brandAssetsUploaded     OrganizationBrandAsset[] @relation("BrandAssetUploadedBy")
   projectActivities       ProjectActivity[]      @relation("ActivityActor")
   portalNotifications     PortalNotification[]

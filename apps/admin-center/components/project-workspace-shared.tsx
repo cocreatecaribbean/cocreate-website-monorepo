@@ -64,6 +64,7 @@ export function ProjectThreadPanel({
   onSendMessage: (
     body: string,
     attachmentIds?: string[],
+    options?: { requestApproval?: boolean },
   ) => Promise<{ ok: boolean; message?: string; data?: import('@/lib/projects/types').ProjectRequestMessage }>
   onThreadUpdate?: () => void
   cancellationResolve?: (payload: {

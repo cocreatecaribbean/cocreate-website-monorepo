@@ -28,7 +28,7 @@ export type ControlCenterNavItem = {
 export const CONTROL_CENTER_NAV: ControlCenterNavItem[] = [
   {
     id: 'overview',
-    label: 'Overview',
+    label: 'Dashboard',
     shortLabel: 'Home',
     description: 'Snapshot of projects, files, and actions',
     icon: LayoutDashboard,

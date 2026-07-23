@@ -18,7 +18,7 @@ const REACTION_OPTIONS: Array<{
   isPositive: boolean
 }> = [
   { kind: 'LOVE_THIS', label: 'Love this', isPositive: true },
-  { kind: 'SHIP_IT', label: 'Ship it', isPositive: true },
+  { kind: 'SHIP_IT', label: 'Good to go', isPositive: true },
   { kind: 'GREAT_DIRECTION', label: 'Great direction', isPositive: true },
   { kind: 'ANOTHER_VERSION', label: 'Another version', isPositive: false },
   { kind: 'NEEDS_A_TWEAK', label: 'Needs a tweak', isPositive: false },

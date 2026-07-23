@@ -204,8 +204,10 @@ export default function PhilosophyTitleLoop({
           ref={titleRef}
           className="home-philosophy-title inline-block will-change-transform"
         >
-          <span className="block">Our</span>
-          <span className="block">Philosophy</span>
+          <span className="text-gradient-chambray-diagonal inline-block">
+            <span className="block">Our</span>
+            <span className="block">Philosophy</span>
+          </span>
         </span>
       </h2>
       <p

@@ -141,6 +141,21 @@ export default function ProjectCenterList() {
                               </div>
                               <div className="flex min-w-0 flex-col items-start gap-2 pl-11 lg:items-end lg:pl-0">
                                 <ProjectStatusAttribution project={project} />
+                                {(project.pendingFileReviewsCount ?? 0) > 0 ||
+                                (project.recentlyApprovedFilesCount ?? 0) > 0 ? (
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    {(project.pendingFileReviewsCount ?? 0) > 0 ? (
+                                      <span className="inline-flex items-center rounded-full border border-sanmarino/20 bg-sanmarino/10 px-2 py-0.5 text-[11px] font-medium text-sanmarino">
+                                        {project.pendingFileReviewsCount} awaiting approval
+                                      </span>
+                                    ) : null}
+                                    {(project.recentlyApprovedFilesCount ?? 0) > 0 ? (
+                                      <span className="inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                                        {project.recentlyApprovedFilesCount} recently approved
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                ) : null}
                                 {project.organizationId ? (
                                   <Link
                                     href={`/clients/${project.organizationId}/projects/${project.id}`}

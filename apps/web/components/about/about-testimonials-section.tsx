@@ -23,7 +23,7 @@ export default function AboutTestimonialsSection() {
     >
       <div className="relative z-10 mb-8 min-[1024px]:mb-10">
         <p
-          className={`mb-3 text-center text-xs font-semibold uppercase tracking-[0.22em] text-sanmarino ${fonts.bricolage_grot600.className}`}
+          className={`mb-3 text-center text-xs font-semibold uppercase tracking-[0.22em] text-gradient-chambray-diagonal ${fonts.bricolage_grot600.className}`}
         >
           {about.testimonialsEyebrow}
         </p>
@@ -31,8 +31,8 @@ export default function AboutTestimonialsSection() {
           id="about-testimonials-heading"
           data-about-testimonials-heading
           className={`
-            philosophy-header opacity-0
-            text-center leading-none text-neutral-800
+            philosophy-header opacity-0 text-gradient-chambray-diagonal
+            text-center leading-none
             text-[clamp(1.85rem,4.5vw,2.75rem)] min-[1024px]:text-[clamp(2rem,3vw,3rem)]
             ${fonts.bricolage_grot600.className}
           `}

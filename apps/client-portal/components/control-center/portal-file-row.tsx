@@ -8,6 +8,7 @@ import type {
 import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-projects-client'
 import FileReactionMenu from '@/components/control-center/file-reaction-menu'
 import { FileMediaTile } from '@cocreate/app-ui/file-media-tile'
+import { FileApprovalStatusPill } from '@cocreate/app-ui/file-approval-ui'
 import { bricolage_grot600 } from '@/styles/fonts'
 import { Download, Trash2 } from 'lucide-react'
 
@@ -109,6 +110,12 @@ export default function PortalFileRow({
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:justify-end">
+        <FileApprovalStatusPill file={file} />
+        {file.reviewRequested && !file.approvedAt && !file.changesRequestedAt ? (
+          <span className="inline-flex items-center rounded-full border border-sanmarino/20 bg-sanmarino/10 px-2 py-0.5 text-[11px] font-medium text-sanmarino">
+            Review requested
+          </span>
+        ) : null}
         <p className="whitespace-nowrap text-xs text-app-muted">
           {formatFileRelativeTime(file.createdAt)}
         </p>

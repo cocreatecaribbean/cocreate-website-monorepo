@@ -53,7 +53,11 @@ export function useUpdateAdminProjectMutation(projectId: string, organizationId?
 
 export function useSendAdminRequestMessageMutation(requestId: string) {
   return useMutation({
-    mutationFn: (body: { body: string; attachmentIds?: string[] }) =>
+    mutationFn: (body: {
+      body: string
+      attachmentIds?: string[]
+      requestApproval?: boolean
+    }) =>
       fetchAdminBff<ProjectRequestMessage>(`/api/project-requests/${requestId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

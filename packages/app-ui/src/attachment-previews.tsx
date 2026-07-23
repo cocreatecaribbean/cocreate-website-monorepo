@@ -10,6 +10,14 @@ export type PreviewAttachment = {
   mimeType: string
   createdAt?: string
   uploadedByUserId?: string
+  reviewRequested?: boolean
+  approvedAt?: string | null
+  approvedByUserId?: string | null
+  changesRequestedAt?: string | null
+  /** Object URL for optimistic local file previews (not sent to the API). */
+  localPreviewUrl?: string
+  /** Show an uploading overlay on the card (optimistic send). */
+  uploading?: boolean
 }
 
 export type FetchAttachmentDownloadUrl = (
@@ -21,6 +29,10 @@ export type RenderAttachmentAction = (
 ) => ReactNode
 
 export type RenderAttachmentBadge = (
+  attachment: PreviewAttachment,
+) => ReactNode
+
+export type RenderAttachmentFooter = (
   attachment: PreviewAttachment,
 ) => ReactNode
 
@@ -61,6 +73,8 @@ type AttachmentPreviewsProps = {
   renderAttachmentAction?: RenderAttachmentAction
   /** Top-right overlay on the card (e.g. aggregate reaction emojis). */
   renderAttachmentBadge?: RenderAttachmentBadge
+  /** Content below each file card (e.g. review-requested callout). */
+  renderAttachmentFooter?: RenderAttachmentFooter
 }
 
 type MediaPreviewOverlayProps = {
@@ -180,6 +194,7 @@ function PreviewItem({
   deleting = false,
   action,
   badge,
+  footer,
 }: {
   attachment: PreviewAttachment
   fetchDownloadUrl: FetchAttachmentDownloadUrl
@@ -190,6 +205,7 @@ function PreviewItem({
   deleting?: boolean
   action?: ReactNode
   badge?: ReactNode
+  footer?: ReactNode
 }) {
   const [url, setUrl] = useState<string | null>(null)
   const [lightboxOpen, setLightboxOpen] = useState(false)
@@ -200,9 +216,15 @@ function PreviewItem({
   const isVideo = attachment.mimeType.startsWith('video/')
   const previewable = isImage || isVideo
   const showFooter = canDelete && Boolean(onDeleteAttachment)
+  const isOptimisticLocal =
+    Boolean(attachment.localPreviewUrl) || attachment.id.startsWith('pending-file-')
+  const displayUrl = attachment.localPreviewUrl ?? url
 
   useEffect(() => {
-    if (!previewable) return
+    if (!previewable || isOptimisticLocal) {
+      if (attachment.localPreviewUrl) setUrl(attachment.localPreviewUrl)
+      return
+    }
     let cancelled = false
     void fetchDownloadUrlRef.current(attachment.id).then((nextUrl) => {
       if (!cancelled) setUrl(nextUrl)
@@ -210,10 +232,11 @@ function PreviewItem({
     return () => {
       cancelled = true
     }
-  }, [attachment.id, previewable])
+  }, [attachment.id, attachment.localPreviewUrl, isOptimisticLocal, previewable])
 
   const openFile = async () => {
-    const downloadUrl = url ?? (await fetchDownloadUrl(attachment.id))
+    if (attachment.uploading || isOptimisticLocal) return
+    const downloadUrl = displayUrl ?? (await fetchDownloadUrl(attachment.id))
     if (!downloadUrl) return
 
     if (isImage) {
@@ -241,6 +264,7 @@ function PreviewItem({
 
   return (
     <>
+      <div className="space-y-2">
       <div className="relative pr-3">
         <div className={`relative ${cardClass} overflow-hidden`}>
           {badge ? (
@@ -249,36 +273,60 @@ function PreviewItem({
             </div>
           ) : null}
           <div className="p-3">
-            {isImage && url ? (
+            {isImage && displayUrl ? (
               <button
                 type="button"
                 onClick={() => void openFile()}
-                className="block w-full cursor-zoom-in text-left"
+                disabled={attachment.uploading}
+                className="block w-full cursor-zoom-in text-left disabled:cursor-default"
                 aria-label={`View ${attachment.fileName} full size`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt={attachment.fileName} className={mediaClass} />
+                <img src={displayUrl} alt={attachment.fileName} className={mediaClass} />
               </button>
-            ) : isVideo && url ? (
+            ) : isVideo && displayUrl ? (
               <button
                 type="button"
                 onClick={() => void openFile()}
-                className="block w-full cursor-pointer text-left"
+                disabled={attachment.uploading}
+                className="block w-full cursor-pointer text-left disabled:cursor-default"
                 aria-label={`Play ${attachment.fileName} full size`}
               >
-                <video src={url} controls className={mediaClass} preload="metadata" />
+                <video
+                  src={displayUrl}
+                  controls={!attachment.uploading}
+                  className={mediaClass}
+                  preload="metadata"
+                />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => void openFile()}
-                className="flex w-full items-center gap-2 text-left text-sm text-sanmarino hover:text-chambray dark:hover:text-casablanca"
+                disabled={attachment.uploading}
+                className="flex w-full items-center gap-2 text-left text-sm text-sanmarino hover:text-chambray disabled:cursor-default disabled:text-app-muted dark:hover:text-casablanca"
               >
                 <span className="min-w-0 flex-1 truncate">{attachment.fileName}</span>
-                <span aria-hidden>↗</span>
+                {!attachment.uploading ? <span aria-hidden>↗</span> : null}
               </button>
             )}
           </div>
+
+          {attachment.uploading ? (
+            <div
+              className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-1.5 bg-white/70 backdrop-blur-[1px] dark:bg-slate-950/55"
+              aria-live="polite"
+              aria-busy="true"
+            >
+              <span
+                className="h-5 w-5 animate-spin rounded-full border-2 border-sanmarino/25 border-t-sanmarino"
+                aria-hidden
+              />
+              <span className="text-[11px] font-medium text-chambray dark:text-white">
+                Uploading…
+              </span>
+            </div>
+          ) : null}
 
           {showFooter ? (
             <div className="flex items-center justify-between gap-2 border-t border-chambray/10 px-3 py-2 dark:border-white/10">
@@ -308,22 +356,24 @@ function PreviewItem({
           </div>
         ) : null}
       </div>
+      {footer ? <div className="pr-3">{footer}</div> : null}
+      </div>
 
-      {lightboxOpen && url ? (
+      {lightboxOpen && displayUrl ? (
         <MediaPreviewOverlay
           open={lightboxOpen}
           kind="image"
-          url={url}
+          url={displayUrl}
           fileName={attachment.fileName}
           onClose={() => setLightboxOpen(false)}
         />
       ) : null}
 
-      {videoModalOpen && url ? (
+      {videoModalOpen && displayUrl ? (
         <MediaPreviewOverlay
           open={videoModalOpen}
           kind="video"
-          url={url}
+          url={displayUrl}
           fileName={attachment.fileName}
           onClose={() => setVideoModalOpen(false)}
         />
@@ -344,6 +394,7 @@ export function AttachmentPreviews({
   deletingAttachmentId = null,
   renderAttachmentAction,
   renderAttachmentBadge,
+  renderAttachmentFooter,
 }: AttachmentPreviewsProps) {
   if (!attachments?.length) return null
 
@@ -367,6 +418,7 @@ export function AttachmentPreviews({
             deleting={deletingAttachmentId === attachment.id}
             action={renderAttachmentAction?.(attachment)}
             badge={renderAttachmentBadge?.(attachment)}
+            footer={renderAttachmentFooter?.(attachment)}
           />
         ))}
       </div>

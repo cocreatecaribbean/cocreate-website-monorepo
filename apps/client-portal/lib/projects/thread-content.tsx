@@ -17,6 +17,12 @@ export type ThreadAttachment = {
   mimeType: string
   createdAt?: string
   uploadedByUserId?: string
+  reviewRequested?: boolean
+  approvedAt?: string | null
+  approvedByUserId?: string | null
+  changesRequestedAt?: string | null
+  localPreviewUrl?: string
+  uploading?: boolean
 }
 
 type LinkifiedBodyProps = {
@@ -129,6 +135,7 @@ type RequestAttachmentsProps = {
   deletingAttachmentId?: string | null
   renderAttachmentAction?: (attachment: PreviewAttachment) => ReactNode
   renderAttachmentBadge?: RenderAttachmentBadge
+  renderAttachmentFooter?: (attachment: PreviewAttachment) => ReactNode
 }
 
 type MessageWithAttachments = {
@@ -156,6 +163,7 @@ export function RequestAttachments({
   deletingAttachmentId = null,
   renderAttachmentAction,
   renderAttachmentBadge,
+  renderAttachmentFooter,
 }: RequestAttachmentsProps) {
   return (
     <AttachmentPreviews
@@ -173,6 +181,7 @@ export function RequestAttachments({
       deletingAttachmentId={deletingAttachmentId}
       renderAttachmentAction={renderAttachmentAction}
       renderAttachmentBadge={renderAttachmentBadge}
+      renderAttachmentFooter={renderAttachmentFooter}
     />
   )
 }

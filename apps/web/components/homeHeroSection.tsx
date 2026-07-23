@@ -15,7 +15,7 @@ import PhilosophyTitleLoop from "@/components/philosophy-title-loop";
 import EmblaCarousel from "@/components/emblaCarousel";
 import { philosophies } from "@/site-info/home-page-data";
 import { EmblaOptionsType } from "embla-carousel";
-import { splitTextGradient } from "@/utils/util-funcs";
+import { applySharedTextGradient, splitTextGradient } from "@/utils/util-funcs";
 import { consumeSpaNavigation } from "@/lib/scroll/navigation";
 import { prefersNativeScroll } from "@/lib/scroll/native-scroll";
 import { resetRouteScrollToTop } from "@/lib/scroll/reset-route-scroll";
@@ -687,6 +687,10 @@ export default function HomeHeroSection({
 
       splitTextGradient(h1_text_split);
 
+      const repaintAboutGradient = about_text_split.words?.length
+        ? applySharedTextGradient(about_text_split)
+        : null;
+
       const fitHeroHeadline = () => {
         const box = hero_text.current?.parentElement
         const words = h1_text_split?.words
@@ -709,11 +713,17 @@ export default function HomeHeroSection({
       }
 
       fitHeroHeadline()
-      void document.fonts?.ready.then(fitHeroHeadline)
+      void document.fonts?.ready.then(() => {
+        fitHeroHeadline()
+        repaintAboutGradient?.()
+      })
 
       onHeadlineResize = () => {
         if (headlineFitTimer) clearTimeout(headlineFitTimer)
-        headlineFitTimer = setTimeout(fitHeroHeadline, 100)
+        headlineFitTimer = setTimeout(() => {
+          fitHeroHeadline()
+          repaintAboutGradient?.()
+        }, 100)
       }
       window.addEventListener("resize", onHeadlineResize)
 
@@ -1093,7 +1103,7 @@ export default function HomeHeroSection({
         <div className="w-full max-w-full">
           <p
             key={agencyIntro}
-            className={`about-text
+            className={`about-text text-gradient-chambray-diagonal
               leading-normal
               pl-4 pr-6 pt-20 pb-32
               md:pl-20 md:pr-48
@@ -1121,7 +1131,7 @@ export default function HomeHeroSection({
         <div className={`@container tracking-normal w-full max-w-[min(100%,24rem)] px-4 sm:max-w-none sm:w-[60%] sm:px-0 lg:w-[45%] mx-auto flex-1 2xl:translate-y-20 3xl:translate-y-40 ${fonts.bricolage_grot500.className}`}>
           <div className="flex flex-col gap-y-10 w-full lg:w-[75cqw] xl:w-[70cqw] 3xl:w-[55cqw] mx-auto min-w-0">
             <PhilosophyTitleLoop />
-            <p className="philosophy-text text-center lg:text-left text-[clamp(1rem,1vw,1.5rem)] ">
+            <p className="philosophy-text text-gradient-chambray-diagonal text-center lg:text-left text-[clamp(1rem,1vw,1.5rem)] ">
             We focus on four(4) key pillars to consistently deliver superior results for our clients. Having a proven framework gives us the freedom to inject new creative breadth with fresh perspectives into every project.
             </p>
           </div>

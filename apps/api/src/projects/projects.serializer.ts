@@ -136,6 +136,8 @@ export type ProjectFilesGroup = {
 
 type ProjectWithReviewMeta = ProjectWithRelations & {
   openCancellationCount?: number
+  pendingFileReviewsCount?: number
+  recentlyApprovedFilesCount?: number
 }
 
 export function serializeProject(project: ProjectWithReviewMeta) {
@@ -176,6 +178,10 @@ export function serializeProject(project: ProjectWithReviewMeta) {
     updatedAt: project.updatedAt.toISOString(),
     openCancellationCount,
     hasOpenCancellation: openCancellationCount > 0,
+    pendingFileReviewsCount:
+      (project as ProjectWithReviewMeta).pendingFileReviewsCount ?? 0,
+    recentlyApprovedFilesCount:
+      (project as ProjectWithReviewMeta).recentlyApprovedFilesCount ?? 0,
     requests:
       project.requests?.every((r) => 'title' in r && r.title !== undefined)
         ? project.requests.map((r) => serializeRequest(r as RequestWithRelations))
@@ -247,7 +253,21 @@ export function serializeRequest(
   }
 }
 
-export function serializeAttachment(attachment: ProjectAttachment) {
+export function serializeAttachment(attachment: {
+  id: string
+  projectId: string
+  requestId: string | null
+  storagePath: string
+  fileName: string
+  mimeType: string
+  sizeBytes: number
+  uploadedByUserId: string
+  createdAt: Date
+  reviewRequested?: boolean
+  approvedAt?: Date | null
+  approvedByUserId?: string | null
+  changesRequestedAt?: Date | null
+}) {
   return {
     id: attachment.id,
     projectId: attachment.projectId,
@@ -258,10 +278,27 @@ export function serializeAttachment(attachment: ProjectAttachment) {
     sizeBytes: attachment.sizeBytes,
     uploadedByUserId: attachment.uploadedByUserId,
     createdAt: attachment.createdAt.toISOString(),
+    reviewRequested: attachment.reviewRequested ?? false,
+    approvedAt: attachment.approvedAt?.toISOString() ?? null,
+    approvedByUserId: attachment.approvedByUserId ?? null,
+    changesRequestedAt: attachment.changesRequestedAt?.toISOString() ?? null,
   }
 }
 
-export function serializeAttachmentForPortal(attachment: ProjectAttachment) {
+export function serializeAttachmentForPortal(attachment: {
+  id: string
+  projectId: string
+  requestId: string | null
+  fileName: string
+  mimeType: string
+  sizeBytes: number
+  uploadedByUserId: string
+  createdAt: Date
+  reviewRequested?: boolean
+  approvedAt?: Date | null
+  approvedByUserId?: string | null
+  changesRequestedAt?: Date | null
+}) {
   return {
     id: attachment.id,
     projectId: attachment.projectId,
@@ -271,6 +308,10 @@ export function serializeAttachmentForPortal(attachment: ProjectAttachment) {
     sizeBytes: attachment.sizeBytes,
     uploadedByUserId: attachment.uploadedByUserId,
     createdAt: attachment.createdAt.toISOString(),
+    reviewRequested: attachment.reviewRequested ?? false,
+    approvedAt: attachment.approvedAt?.toISOString() ?? null,
+    approvedByUserId: attachment.approvedByUserId ?? null,
+    changesRequestedAt: attachment.changesRequestedAt?.toISOString() ?? null,
   }
 }
 

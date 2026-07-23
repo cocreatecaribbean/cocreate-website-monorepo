@@ -5,8 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import {
+  PortalNotificationType,
   ProjectAttachmentVisibility,
   ProjectFileReactionKind,
+  ProjectMessageAuthorRole,
+  ProjectMessageKind,
+  ProjectRequestType,
 } from '@cocreate/database'
 import type {
   FileReactionsResponse,
@@ -22,13 +26,16 @@ import { AgencyAccessService } from '../auth/agency-access.service'
 import { ClientAccessService } from '../auth/client-access.service'
 import { MessagingEmitService } from '../messaging/messaging-emit.service'
 import { PrismaService } from '../prisma/prisma.service'
+import { ProjectNotificationsService } from './project-notifications.service'
+import { serializeMessage } from './projects.serializer'
+import { resolveActorDisplayName } from '../users/display-name'
 
 const REACTION_META: Record<
   ProjectFileReactionKind,
   { label: string; isPositive: boolean }
 > = {
   LOVE_THIS: { label: 'Love this', isPositive: true },
-  SHIP_IT: { label: 'Ship it', isPositive: true },
+  SHIP_IT: { label: 'Good to go', isPositive: true },
   GREAT_DIRECTION: { label: 'Great direction', isPositive: true },
   ANOTHER_VERSION: { label: 'Another version', isPositive: false },
   NEEDS_A_TWEAK: { label: 'Needs a tweak', isPositive: false },
@@ -38,6 +45,11 @@ export const POSITIVE_REACTION_KINDS: ProjectFileReactionKind[] = [
   ProjectFileReactionKind.LOVE_THIS,
   ProjectFileReactionKind.SHIP_IT,
   ProjectFileReactionKind.GREAT_DIRECTION,
+]
+
+const CHANGES_REQUESTED_KINDS: ProjectFileReactionKind[] = [
+  ProjectFileReactionKind.ANOTHER_VERSION,
+  ProjectFileReactionKind.NEEDS_A_TWEAK,
 ]
 
 function parseKind(raw: string): ProjectFileReactionKind {
@@ -50,6 +62,18 @@ function parseKind(raw: string): ProjectFileReactionKind {
 
 type Actor = AuthenticatedClient | AuthenticatedAgencyUser
 
+const userActorSelect = {
+  id: true,
+  email: true,
+  profile: {
+    select: {
+      displayName: true,
+      jobTitle: true,
+      avatarStoragePath: true,
+    },
+  },
+} as const
+
 @Injectable()
 export class ProjectFileReactionsService {
   constructor(
@@ -57,6 +81,7 @@ export class ProjectFileReactionsService {
     private readonly clientAccess: ClientAccessService,
     private readonly agencyAccess: AgencyAccessService,
     private readonly messaging: MessagingEmitService,
+    private readonly notifications: ProjectNotificationsService,
   ) {}
 
   /**
@@ -107,6 +132,10 @@ export class ProjectFileReactionsService {
       mimeType: string
       sizeBytes: number
       createdAt: Date
+      reviewRequested?: boolean
+      approvedAt?: Date | null
+      approvedByUserId?: string | null
+      changesRequestedAt?: Date | null
       reactions: { userId: string; kind: ProjectFileReactionKind }[]
     },
     viewerUserId: string,
@@ -124,6 +153,10 @@ export class ProjectFileReactionsService {
       mimeType: attachment.mimeType,
       sizeBytes: attachment.sizeBytes,
       createdAt: attachment.createdAt.toISOString(),
+      reviewRequested: attachment.reviewRequested ?? false,
+      approvedAt: attachment.approvedAt?.toISOString() ?? null,
+      approvedByUserId: attachment.approvedByUserId ?? null,
+      changesRequestedAt: attachment.changesRequestedAt?.toISOString() ?? null,
       myReaction: my?.kind ?? null,
       tags,
       isTopPick,
@@ -149,6 +182,221 @@ export class ProjectFileReactionsService {
     await this.agencyAccess.assertCanAccessProject(actor, projectId)
   }
 
+  private async applyApprovalSideEffects(
+    actor: Actor,
+    attachmentId: string,
+    kind: ProjectFileReactionKind | null,
+  ) {
+    if (!this.isClient(actor)) return
+
+    const attachment = await this.prisma.projectAttachment.findUnique({
+      where: { id: attachmentId },
+      select: {
+        id: true,
+        projectId: true,
+        fileName: true,
+        visibility: true,
+        requestId: true,
+        reviewRequested: true,
+        approvedAt: true,
+        approvedByUserId: true,
+        changesRequestedAt: true,
+        project: {
+          select: {
+            id: true,
+            title: true,
+            organizationId: true,
+          },
+        },
+        messageLinks: {
+          select: {
+            message: {
+              select: {
+                requestId: true,
+                request: { select: { id: true, type: true } },
+              },
+            },
+          },
+        },
+      },
+    })
+    if (!attachment) return
+    if (attachment.visibility === ProjectAttachmentVisibility.INTERNAL) return
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: actor.id },
+      select: userActorSelect,
+    })
+    const displayName = resolveActorDisplayName(
+      user,
+      actor.email.split('@')[0] ?? 'Client',
+    )
+
+    if (kind === ProjectFileReactionKind.SHIP_IT) {
+      const alreadyApprovedBySame =
+        attachment.approvedAt != null &&
+        attachment.approvedByUserId === actor.id
+
+      await this.prisma.projectAttachment.update({
+        where: { id: attachmentId },
+        data: {
+          approvedAt: new Date(),
+          approvedByUserId: actor.id,
+          changesRequestedAt: null,
+        },
+      })
+
+      await this.prisma.projectActivity.create({
+        data: {
+          projectId: attachment.projectId,
+          action: 'file.approved',
+          actorUserId: actor.id,
+          metadata: {
+            attachmentId,
+            fileName: attachment.fileName,
+          },
+        },
+      })
+
+      if (!alreadyApprovedBySame) {
+        await this.postSystemLineAndNotify({
+          attachment,
+          actor,
+          displayName,
+          body: `${displayName} marked ${attachment.fileName} as good to go`,
+          notificationType: PortalNotificationType.FILE_APPROVED,
+          notificationTitle: `File approved: ${attachment.project.title}`,
+          activityAlreadyLogged: true,
+        })
+      }
+      return
+    }
+
+    if (kind && CHANGES_REQUESTED_KINDS.includes(kind)) {
+      await this.prisma.projectAttachment.update({
+        where: { id: attachmentId },
+        data: {
+          changesRequestedAt: new Date(),
+          approvedAt: null,
+          approvedByUserId: null,
+          reviewRequested: false,
+        },
+      })
+
+      await this.prisma.projectActivity.create({
+        data: {
+          projectId: attachment.projectId,
+          action: 'file.changes_requested',
+          actorUserId: actor.id,
+          metadata: {
+            attachmentId,
+            fileName: attachment.fileName,
+            kind,
+          },
+        },
+      })
+
+      await this.postSystemLineAndNotify({
+        attachment,
+        actor,
+        displayName,
+        body: `${displayName} requested changes on ${attachment.fileName}`,
+        notificationType: PortalNotificationType.FILE_CHANGES_REQUESTED,
+        notificationTitle: `Changes requested: ${attachment.project.title}`,
+        activityAlreadyLogged: true,
+      })
+      return
+    }
+
+    // Soft praise or cleared reaction — drop formal approval / changes state
+    if (attachment.approvedAt || attachment.changesRequestedAt) {
+      await this.prisma.projectAttachment.update({
+        where: { id: attachmentId },
+        data: {
+          approvedAt: null,
+          approvedByUserId: null,
+          changesRequestedAt: null,
+        },
+      })
+    }
+  }
+
+  private async postSystemLineAndNotify(params: {
+    attachment: {
+      id: string
+      projectId: string
+      fileName: string
+      requestId: string | null
+      project: { id: string; title: string; organizationId: string }
+      messageLinks: Array<{
+        message: {
+          requestId: string
+          request: { id: string; type: ProjectRequestType }
+        }
+      }>
+    }
+    actor: AuthenticatedClient
+    displayName: string
+    body: string
+    notificationType: PortalNotificationType
+    notificationTitle: string
+    activityAlreadyLogged?: boolean
+  }) {
+    void params.activityAlreadyLogged
+    const requestId = this.resolveClientFacingRequestId(params.attachment)
+    if (requestId) {
+      const message = await this.prisma.projectRequestMessage.create({
+        data: {
+          requestId,
+          authorUserId: params.actor.id,
+          authorRole: ProjectMessageAuthorRole.CLIENT,
+          body: params.body,
+          messageKind: ProjectMessageKind.SYSTEM,
+        },
+        include: {
+          author: { select: userActorSelect },
+          attachmentLinks: { include: { attachment: true } },
+        },
+      })
+      const serialized = serializeMessage(message)
+      this.messaging.emitThreadMessage(requestId, serialized as Record<string, unknown>)
+    }
+
+    const href = `${this.notifications.adminClientWorkspaceLink(params.attachment.project.organizationId)}?tab=projects&projectId=${params.attachment.projectId}&projectTab=progress`
+    void this.notifications.notifyAdmins({
+      organizationId: params.attachment.project.organizationId,
+      type: params.notificationType,
+      title: params.notificationTitle,
+      body: params.body,
+      href,
+      projectId: params.attachment.projectId,
+      requestId: requestId ?? undefined,
+    })
+  }
+
+  private resolveClientFacingRequestId(attachment: {
+    requestId: string | null
+    messageLinks: Array<{
+      message: {
+        requestId: string
+        request: { id: string; type: ProjectRequestType }
+      }
+    }>
+  }): string | null {
+    const linked = attachment.messageLinks.map((link) => link.message.request)
+    const progress = linked.find((r) => r.type === ProjectRequestType.PROGRESS)
+    if (progress) return progress.id
+    const onboarding = linked.find((r) => r.type === ProjectRequestType.ONBOARDING)
+    if (onboarding) return onboarding.id
+    const clientFacing = linked.find(
+      (r) =>
+        r.type !== ProjectRequestType.INTERNAL &&
+        r.type !== ProjectRequestType.CANCELLATION,
+    )
+    if (clientFacing) return clientFacing.id
+    return attachment.requestId
+  }
+
   async setReaction(
     actor: Actor,
     attachmentId: string,
@@ -162,7 +410,16 @@ export class ProjectFileReactionsService {
         projectId: true,
         visibility: true,
         requestId: true,
-        messageLinks: { select: { message: { select: { requestId: true } } } },
+        messageLinks: {
+          select: {
+            message: {
+              select: {
+                requestId: true,
+                request: { select: { id: true, type: true } },
+              },
+            },
+          },
+        },
       },
     })
     if (!attachment) throw new NotFoundException('File not found')
@@ -180,6 +437,7 @@ export class ProjectFileReactionsService {
       update: { kind },
     })
 
+    await this.applyApprovalSideEffects(actor, attachmentId, kind)
     this.notifyThreadAttachment(attachment)
     return this.getAttachmentWithReactions(actor, attachmentId)
   }
@@ -195,7 +453,16 @@ export class ProjectFileReactionsService {
         projectId: true,
         visibility: true,
         requestId: true,
-        messageLinks: { select: { message: { select: { requestId: true } } } },
+        messageLinks: {
+          select: {
+            message: {
+              select: {
+                requestId: true,
+                request: { select: { id: true, type: true } },
+              },
+            },
+          },
+        },
       },
     })
     if (!attachment) throw new NotFoundException('File not found')
@@ -206,6 +473,7 @@ export class ProjectFileReactionsService {
       where: { attachmentId, userId: actor.id },
     })
 
+    await this.applyApprovalSideEffects(actor, attachmentId, null)
     this.notifyThreadAttachment(attachment)
     return this.getAttachmentWithReactions(actor, attachmentId)
   }
@@ -241,7 +509,12 @@ export class ProjectFileReactionsService {
       where: {
         projectId,
         ...visibilityWhere,
-        reactions: { some: {} },
+        OR: [
+          { reactions: { some: {} } },
+          { reviewRequested: true },
+          { approvedAt: { not: null } },
+          { changesRequestedAt: { not: null } },
+        ],
       },
       include: {
         reactions: { select: { userId: true, kind: true } },

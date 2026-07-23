@@ -3,6 +3,11 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { AttachmentReactionCluster } from '@cocreate/app-ui/attachment-previews'
+import {
+  AttachmentApprovalBadgeCluster,
+  FileReviewRequestCallout,
+  fileApprovalStatus,
+} from '@cocreate/app-ui/file-approval-ui'
 import EmojiPickerButton from '@/components/emoji-picker-button'
 import FileReactionMenu from '@/components/control-center/file-reaction-menu'
 import {
@@ -18,7 +23,11 @@ import { insertAtTextareaCursor } from '@/lib/insert-at-textarea-cursor'
 import { useThreadAutoScroll } from '@/lib/projects/use-thread-auto-scroll'
 import { ThreadScrollEnd } from '@cocreate/app-ui/scroll-to-latest'
 import type { ProjectRequestItem, ProjectRequestMessage } from '@/lib/projects/api-types'
-import { fetchAttachmentDownloadUrl, markAttentionRead } from '@/lib/projects/fetch-projects-client'
+import {
+  fetchAttachmentDownloadUrl,
+  markAttentionRead,
+  setFileReaction,
+} from '@/lib/projects/fetch-projects-client'
 import { formatActorWithTitle } from '@/lib/projects/project-display'
 import { LinkifiedBody, indexAttachmentsByMessage, RequestAttachments } from '@/lib/projects/thread-content'
 import type { ThreadAttachment } from '@/lib/projects/thread-content'
@@ -36,9 +45,12 @@ import {
   rollbackOptimisticRequestMessageInMessagesList,
 } from '@/lib/projects/append-request-messages-list-cache'
 import {
+  buildOptimisticAttachments,
   createOptimisticRequestMessage,
   isPendingRequestMessage,
+  revokeOptimisticObjectUrls,
 } from '@/lib/projects/optimistic-request-message'
+import { NewMessagesJumpButton } from '@cocreate/app-ui/new-messages-jump-button'
 import { canSendThreadMessage } from '@/lib/messaging/can-send-thread-message'
 import { bricolage_grot600 } from '@/styles/fonts'
 
@@ -156,7 +168,16 @@ export default function RequestMessageThread({
   const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(request.status)
   const canCompose = !readOnly && !isClosed
   const attachmentsByMessage = indexAttachmentsByMessage(baseMessages, request.attachments)
-  const { panelRef, endRef, notifyUserSent } = useThreadAutoScroll(messages, request.id)
+  const { panelRef, endRef, notifyUserSent, scrollToBottom, unseenCount } =
+    useThreadAutoScroll(messages, request.id)
+  const optimisticObjectUrlsRef = useRef<string[]>([])
+
+  useEffect(() => {
+    return () => {
+      revokeOptimisticObjectUrls(optimisticObjectUrlsRef.current)
+      optimisticObjectUrlsRef.current = []
+    }
+  }, [])
   const inputClass = 'portal-textarea w-full resize-y'
   const btnPrimary = 'portal-btn-primary text-sm'
 
@@ -217,11 +238,18 @@ export default function RequestMessageThread({
     const savedSelectedIds = [...selectedAttachmentIds]
     const savedPendingFiles = [...pendingFiles]
     const hasUploads = savedPendingFiles.length > 0
+    const { attachments: optimisticAttachments, objectUrls } = buildOptimisticAttachments({
+      selectedIds: savedSelectedIds,
+      pendingFiles: savedPendingFiles,
+    })
+    revokeOptimisticObjectUrls(optimisticObjectUrlsRef.current)
+    optimisticObjectUrlsRef.current = objectUrls
     const optimistic = createOptimisticRequestMessage({
       requestId: request.id,
       body: bodyText,
       authorRole: viewerRole === 'CLIENT' ? 'CLIENT' : 'ADMIN',
       authorUserId: currentUserId ?? undefined,
+      attachments: optimisticAttachments,
     })
     const optimisticId = optimistic.id
 
@@ -233,14 +261,20 @@ export default function RequestMessageThread({
     setError(null)
     notifyUserSent()
 
+    const releaseOptimisticUrls = () => {
+      revokeOptimisticObjectUrls(optimisticObjectUrlsRef.current)
+      optimisticObjectUrlsRef.current = []
+    }
+
     try {
-      if (hasUploads) setUploading(true)
+      if (hasUploads || savedSelectedIds.length > 0) setUploading(true)
       const uploaded = await resolvePendingMessageAttachments(
         request.projectId,
         savedPendingFiles,
       )
       if (!uploaded.ok) {
         rollbackOptimisticRequestMessageInMessagesList(queryClient, request.id, optimisticId)
+        releaseOptimisticUrls()
         setReply(savedReply)
         setSelectedAttachmentIds(savedSelectedIds)
         setPendingFiles(savedPendingFiles)
@@ -254,6 +288,7 @@ export default function RequestMessageThread({
       const result = await onSendMessage(bodyText, attachmentIds)
       if (!result.ok) {
         rollbackOptimisticRequestMessageInMessagesList(queryClient, request.id, optimisticId)
+        releaseOptimisticUrls()
         setReply(savedReply)
         setSelectedAttachmentIds(savedSelectedIds)
         setPendingFiles(savedPendingFiles)
@@ -261,6 +296,7 @@ export default function RequestMessageThread({
         return
       }
 
+      releaseOptimisticUrls()
       if (result.data) {
         const replaced = replacePendingRequestMessageInMessagesList(
           queryClient,
@@ -276,6 +312,7 @@ export default function RequestMessageThread({
       }
     } catch {
       rollbackOptimisticRequestMessageInMessagesList(queryClient, request.id, optimisticId)
+      releaseOptimisticUrls()
       setReply(savedReply)
       setSelectedAttachmentIds(savedSelectedIds)
       setPendingFiles(savedPendingFiles)
@@ -287,6 +324,7 @@ export default function RequestMessageThread({
 
   return (
     <div className="portal-message-thread-shell max-h-[min(56svh,520px)]">
+      <div className="relative flex min-h-0 flex-1 flex-col">
       <div ref={panelRef} className="portal-thread-panel">
         {threadLoading ? (
           <ThreadLoadingSkeleton />
@@ -304,8 +342,19 @@ export default function RequestMessageThread({
             const isMine = viewerRole === 'CLIENT' && msg.authorRole === 'CLIENT'
             const isPending = isPendingRequestMessage(msg.id)
             const displayAttachments = messageAttachments ?? []
+            const isSystem = msg.messageKind === 'SYSTEM'
+            const showMessageBubble = Boolean(msg.body.trim()) && !isSystem
 
-            const showMessageBubble = Boolean(msg.body.trim())
+            if (isSystem) {
+              return (
+                <div key={msg.id} className="flex justify-center px-2 py-1.5">
+                  <p className="max-w-[90%] text-center text-xs text-app-muted">
+                    {msg.body}
+                  </p>
+                </div>
+              )
+            }
+
             return (
               <div
                 key={msg.id}
@@ -371,17 +420,60 @@ export default function RequestMessageThread({
                           }
                         : undefined
                     }
-                    renderAttachmentBadge={(attachment) => {
-                      const reacted = reactionsById.get(attachment.id)
-                      if (!reacted?.tags.length) return null
-                      return (
-                        <AttachmentReactionCluster
-                          emojis={emojisFromReactionTags(reacted.tags)}
-                        />
-                      )
-                    }}
+                    renderAttachmentBadge={
+                      isPending
+                        ? undefined
+                        : (attachment) => {
+                            const reacted = reactionsById.get(attachment.id)
+                            const approval = {
+                              reviewRequested:
+                                reacted?.reviewRequested ?? attachment.reviewRequested,
+                              approvedAt: reacted?.approvedAt ?? attachment.approvedAt,
+                              changesRequestedAt:
+                                reacted?.changesRequestedAt ?? attachment.changesRequestedAt,
+                            }
+                            const cluster =
+                              reacted?.tags.length ? (
+                                <AttachmentReactionCluster
+                                  emojis={emojisFromReactionTags(reacted.tags)}
+                                />
+                              ) : null
+                            return (
+                              <AttachmentApprovalBadgeCluster
+                                file={approval}
+                                reactionCluster={cluster}
+                              />
+                            )
+                          }
+                    }
+                    renderAttachmentFooter={
+                      isPending
+                        ? undefined
+                        : (attachment) => {
+                            const reacted = reactionsById.get(attachment.id)
+                            const approval = {
+                              reviewRequested:
+                                reacted?.reviewRequested ?? attachment.reviewRequested,
+                              approvedAt: reacted?.approvedAt ?? attachment.approvedAt,
+                              changesRequestedAt:
+                                reacted?.changesRequestedAt ?? attachment.changesRequestedAt,
+                            }
+                            if (fileApprovalStatus(approval) !== 'review_requested') return null
+                            if (!canReactToFiles) {
+                              return <FileReviewRequestCallout />
+                            }
+                            return (
+                              <FileReviewRequestCallout
+                                onApprove={async () => {
+                                  const result = await setFileReaction(attachment.id, 'SHIP_IT')
+                                  if (result) syncReactionCache(result)
+                                }}
+                              />
+                            )
+                          }
+                    }
                     renderAttachmentAction={
-                      canReactToFiles
+                      canReactToFiles && !isPending
                         ? (attachment) => (
                             <FileReactionMenu
                               attachmentId={attachment.id}
@@ -401,6 +493,18 @@ export default function RequestMessageThread({
           })
         )}
         <ThreadScrollEnd ref={endRef} />
+      </div>
+      {unseenCount > 0 ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center px-3">
+          <div className="pointer-events-auto">
+            <NewMessagesJumpButton
+              count={unseenCount}
+              variant="portal"
+              onClick={() => scrollToBottom(true, true)}
+            />
+          </div>
+        </div>
+      ) : null}
       </div>
 
       {canCompose ? (

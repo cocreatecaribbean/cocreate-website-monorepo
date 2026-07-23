@@ -25,7 +25,7 @@ Control Center views use the query param `ccView` on the home URL (`/`).
 
 | View | URL | What it is for |
 |------|-----|----------------|
-| Overview | `/?ccView=overview` | Snapshot of projects, files, and actions |
+| Dashboard | `/?ccView=overview` | Snapshot of projects, files, and actions |
 | Projects | `/?ccView=projects` | Active workstreams; open a project for files, top picks, **Project updates**, and Onboarding |
 | Activity | `/?ccView=activity` | Recent updates across your workspace |
 | Get Help | `/?ccView=messages` | Message CoCreate about billing, timelines, or topics not tied to one project step |

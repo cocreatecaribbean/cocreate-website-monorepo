@@ -325,7 +325,7 @@ export default function ControlCenterProjectsView() {
                 {canCreateProject
                   ? 'Create one to get started with your CoCreate team.'
                   : isContributor || isViewer
-                    ? 'An Admin will assign you to a project. Until then you can update your theme in Settings.'
+                    ? 'An Admin will assign you to a project. Until then you can change Appearance in the menu.'
                     : 'Check back soon.'}
               </p>
             </div>

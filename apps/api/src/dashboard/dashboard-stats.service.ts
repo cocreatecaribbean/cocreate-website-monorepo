@@ -26,8 +26,17 @@ export class DashboardStatsService {
   async getClientStats(client: AuthenticatedClient): Promise<ClientDashboardStats> {
     this.requireOrgId(client)
     const accessibleProjects = this.clientAccess.accessibleProjectsWhere(client)
+    const topPickReactionKinds = ['LOVE_THIS', 'SHIP_IT', 'GREAT_DIRECTION'] as const
+    const projectListLimit = 20
 
-    const [activeProjects, topPicksCount, sharedFiles, lastAttachment] = await Promise.all([
+    const [
+      activeProjects,
+      topPicksCount,
+      sharedFiles,
+      lastAttachment,
+      projects,
+      topPickGroups,
+    ] = await Promise.all([
       this.prisma.clientProject.count({
         where: { ...accessibleProjects, status: ClientProjectStatus.ACTIVE },
       }),
@@ -36,7 +45,7 @@ export class DashboardStatsService {
           project: accessibleProjects,
           reactions: {
             some: {
-              kind: { in: ['LOVE_THIS', 'SHIP_IT', 'GREAT_DIRECTION'] },
+              kind: { in: [...topPickReactionKinds] },
             },
           },
         },
@@ -49,7 +58,53 @@ export class DashboardStatsService {
         orderBy: { createdAt: 'desc' },
         select: { createdAt: true },
       }),
+      this.prisma.clientProject.findMany({
+        where: accessibleProjects,
+        select: {
+          id: true,
+          title: true,
+          _count: {
+            select: {
+              attachments: true,
+            },
+          },
+        },
+      }),
+      this.prisma.projectAttachment.groupBy({
+        by: ['projectId'],
+        where: {
+          project: accessibleProjects,
+          reactions: {
+            some: {
+              kind: { in: [...topPickReactionKinds] },
+            },
+          },
+        },
+        _count: { _all: true },
+      }),
     ])
+
+    const titleById = new Map(projects.map((p) => [p.id, p.title]))
+
+    const projectsWithTopPicks = topPickGroups
+      .map((g) => ({
+        id: g.projectId,
+        title: titleById.get(g.projectId) ?? 'Project',
+        count: g._count._all,
+      }))
+      .filter((p) => p.count > 0)
+      .sort((a, b) => b.count - a.count || a.title.localeCompare(b.title))
+      .slice(0, projectListLimit)
+
+    const projectsWithSharedFiles = projects
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        count: p._count.attachments,
+      }))
+      .filter((p) => p.count > 0)
+      .sort((a, b) => b.count - a.count || a.title.localeCompare(b.title))
+      .slice(0, projectListLimit)
 
     return {
       activeProjects,
@@ -57,6 +112,8 @@ export class DashboardStatsService {
       topPicksCount,
       sharedFiles,
       lastSharedFileAt: lastAttachment?.createdAt.toISOString() ?? null,
+      projectsWithTopPicks,
+      projectsWithSharedFiles,
     } satisfies ClientDashboardStats
   }
 

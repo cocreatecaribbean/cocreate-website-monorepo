@@ -41,6 +41,14 @@ function resetItemChrome(item: HTMLElement) {
   const trigger = item.querySelector(
     '[data-accordion-trigger]',
   ) as HTMLElement | null
+  const titleFill = trigger?.querySelector(
+    '.text-gradient-white-casablanca',
+  ) as HTMLElement | null
+  if (titleFill) {
+    titleFill.style.backgroundImage = ''
+    titleFill.style.removeProperty('-webkit-text-fill-color')
+    titleFill.style.color = ''
+  }
   if (trigger) {
     trigger.style.color = ''
     trigger.style.transform = 'translate(0rem, 0rem)'
@@ -169,7 +177,17 @@ const AccordionDesktop: React.FC = () => {
                 })
 
                 if (trigger) {
-                  trigger.style.color = '#39419a'
+                  const titleFill = trigger.querySelector(
+                    '.text-gradient-white-casablanca',
+                  ) as HTMLElement | null
+                  if (titleFill) {
+                    titleFill.style.backgroundImage = 'none'
+                    titleFill.style.setProperty(
+                      '-webkit-text-fill-color',
+                      '#39419a',
+                    )
+                    titleFill.style.color = '#39419a'
+                  }
                   header.classList.add('after:bg-transparent')
                   trigger.style.transform = 'translate(1rem, 0rem)'
                 }
@@ -219,9 +237,11 @@ const AccordionDesktop: React.FC = () => {
                 <Accordion.Trigger
                   data-accordion-trigger
                   className={`${fonts.bricolage_grot500.className}
-              relative z-10 inline-block h-full w-full py-8 text-left text-[clamp(2rem,4vw,4rem)] text-white transition duration-300 hover:cursor-pointer xl:text-[clamp(2rem,3vw,5rem)] 3xl:text-[clamp(2rem,3vw,5rem)]`}
+              relative z-10 inline-block h-full w-full py-8 text-left text-[clamp(2rem,4vw,4rem)] transition duration-300 hover:cursor-pointer xl:text-[clamp(2rem,3vw,5rem)] 3xl:text-[clamp(2rem,3vw,5rem)]`}
                 >
-                  {service.title}
+                  <span className="text-gradient-white-casablanca">
+                    {service.title}
+                  </span>
                 </Accordion.Trigger>
               </Accordion.Header>
               <Accordion.Panel className="grid grid-rows-[0fr] overflow-hidden transition-[grid-template-rows] duration-300 ease-out data-ending-style:grid-rows-[0fr] data-open:grid-rows-[1fr] data-starting-style:grid-rows-[0fr]">

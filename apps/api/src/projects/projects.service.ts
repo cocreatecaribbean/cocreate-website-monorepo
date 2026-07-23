@@ -165,19 +165,70 @@ export class ProjectsService {
   private async serializeProjectWithCover(
     project: Parameters<typeof serializeProject>[0],
   ) {
-    const base = serializeProject(project)
+    const [withCounts] = await this.attachFileReviewCounts([project])
+    const base = serializeProject(withCounts!)
     const coverImageUrl = await this.resolveCoverImageUrl(
       (project as { coverStoragePath?: string | null }).coverStoragePath,
     )
     return { ...base, coverImageUrl }
   }
 
-  private serializeProjectsForList(
+  private async serializeProjectsForList(
     projects: Parameters<typeof serializeProject>[0][],
   ) {
-    return projects.map((p) => ({
+    const withCounts = await this.attachFileReviewCounts(projects)
+    return withCounts.map((p) => ({
       ...serializeProject(p),
       coverImageUrl: null,
+    }))
+  }
+
+  private async attachFileReviewCounts<
+    T extends Parameters<typeof serializeProject>[0],
+  >(projects: T[]): Promise<Array<T & {
+    pendingFileReviewsCount: number
+    recentlyApprovedFilesCount: number
+  }>> {
+    if (projects.length === 0) {
+      return []
+    }
+    const projectIds = projects.map((p) => p.id)
+    const recentSince = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
+
+    const [pendingGroups, approvedGroups] = await Promise.all([
+      this.prisma.projectAttachment.groupBy({
+        by: ['projectId'],
+        where: {
+          projectId: { in: projectIds },
+          visibility: ProjectAttachmentVisibility.CLIENT,
+          reviewRequested: true,
+          approvedAt: null,
+          changesRequestedAt: null,
+        },
+        _count: { _all: true },
+      }),
+      this.prisma.projectAttachment.groupBy({
+        by: ['projectId'],
+        where: {
+          projectId: { in: projectIds },
+          visibility: ProjectAttachmentVisibility.CLIENT,
+          approvedAt: { gte: recentSince },
+        },
+        _count: { _all: true },
+      }),
+    ])
+
+    const pendingByProject = new Map(
+      pendingGroups.map((row) => [row.projectId, row._count._all]),
+    )
+    const approvedByProject = new Map(
+      approvedGroups.map((row) => [row.projectId, row._count._all]),
+    )
+
+    return projects.map((project) => ({
+      ...project,
+      pendingFileReviewsCount: pendingByProject.get(project.id) ?? 0,
+      recentlyApprovedFilesCount: approvedByProject.get(project.id) ?? 0,
     }))
   }
 
@@ -281,6 +332,7 @@ export class ProjectsService {
     projectId: string,
     attachmentIds: string[] | undefined,
     requestType?: ProjectRequestType,
+    requestApproval?: boolean,
   ) {
     const ids = [...new Set(attachmentIds ?? [])]
     if (ids.length === 0) return
@@ -304,6 +356,21 @@ export class ProjectsService {
       await this.prisma.projectAttachment.updateMany({
         where: { id: { in: ids }, projectId },
         data: { visibility: ProjectAttachmentVisibility.INTERNAL },
+      })
+      return
+    }
+
+    if (
+      requestApproval &&
+      (requestType === ProjectRequestType.PROGRESS ||
+        requestType === ProjectRequestType.ONBOARDING)
+    ) {
+      await this.prisma.projectAttachment.updateMany({
+        where: { id: { in: ids }, projectId },
+        data: {
+          reviewRequested: true,
+          changesRequestedAt: null,
+        },
       })
     }
   }
@@ -743,7 +810,7 @@ export class ProjectsService {
     const hasMore = projects.length > limit
     const page = hasMore ? projects.slice(0, limit) : projects
     return {
-      projects: this.serializeProjectsForList(page),
+      projects: await this.serializeProjectsForList(page),
       nextCursor: hasMore ? page[page.length - 1]!.id : null,
     }
   }
@@ -837,7 +904,9 @@ export class ProjectsService {
       project = this.mergeEnsuredRequest(project, progress)
     }
 
-    return this.serializeProjectWithCover(this.stripInternalFromProject(project))
+    return this.serializeProjectWithCover(
+      this.stripInternalFromProject(project) as Parameters<typeof serializeProject>[0],
+    )
   }
 
   async createChangeRequest(
@@ -1004,7 +1073,9 @@ export class ProjectsService {
       project = this.mergeEnsuredRequest(project, internal)
     }
 
-    return this.serializeProjectWithCover(project)
+    return this.serializeProjectWithCover(
+      project as Parameters<typeof serializeProject>[0],
+    )
   }
 
   async unreadInboxCountForAdmin(admin: AuthenticatedAdmin, organizationId: string) {
@@ -1770,6 +1841,7 @@ export class ProjectsService {
       request.projectId,
       dto.attachmentIds,
       request.type,
+      dto.requestApproval,
     )
 
     const messageWithAttachments =

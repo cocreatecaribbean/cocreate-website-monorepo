@@ -2,6 +2,8 @@
 
 import MuxPlayer from '@mux/mux-player-react'
 
+import cocreateTheme, { ensureCocreateMuxTheme } from '@/components/media/mux-player-theme-cocreate'
+
 type MuxVideoPlayerProps = {
   playbackId: string
   title?: string
@@ -21,6 +23,8 @@ export default function MuxVideoPlayer({
   muted = false,
   loop = false,
 }: MuxVideoPlayerProps) {
+  ensureCocreateMuxTheme()
+
   return (
     <MuxPlayer
       playbackId={playbackId}
@@ -31,6 +35,7 @@ export default function MuxVideoPlayer({
       muted={muted}
       loop={loop}
       streamType="on-demand"
+      theme={cocreateTheme}
     />
   )
 }

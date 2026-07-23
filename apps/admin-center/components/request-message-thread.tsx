@@ -3,6 +3,9 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { AttachmentReactionCluster } from '@cocreate/app-ui/attachment-previews'
+import {
+  AttachmentApprovalBadgeCluster,
+} from '@cocreate/app-ui/file-approval-ui'
 import EmojiPickerButton from '@/components/emoji-picker-button'
 import { useAdminSession } from '@/components/admin-session-provider'
 import { useProjectFileReactions } from '@/lib/api/queries/file-reactions'
@@ -32,9 +35,12 @@ import {
   rollbackOptimisticRequestMessageInMessagesList,
 } from '@/lib/projects/append-request-messages-list-cache'
 import {
+  buildOptimisticAttachments,
   createOptimisticRequestMessage,
   isPendingRequestMessage,
+  revokeOptimisticObjectUrls,
 } from '@/lib/projects/optimistic-request-message'
+import { NewMessagesJumpButton } from '@cocreate/app-ui/new-messages-jump-button'
 import { canSendThreadMessage } from '@/lib/messaging/can-send-thread-message'
 import { bricolage_grot600 } from '@/styles/fonts'
 
@@ -53,6 +59,7 @@ type RequestMessageThreadProps = {
   onSendMessage: (
     body: string,
     attachmentIds?: string[],
+    options?: { requestApproval?: boolean },
   ) => Promise<{ ok: boolean; message?: string; data?: ProjectRequestMessage }>
   onThreadUpdate?: () => void
   /** Notify parent of the latest message id (for mark-read-while-viewing). */
@@ -145,6 +152,7 @@ export default function RequestMessageThread({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<string[]>([])
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [requestApproval, setRequestApproval] = useState(false)
   const [olderMessages, setOlderMessages] = useState<ProjectRequestMessage[]>([])
   const [hasMoreOlder, setHasMoreOlder] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
@@ -192,7 +200,16 @@ export default function RequestMessageThread({
   const isClosed = ['RESOLVED', 'REJECTED', 'CANCELLED'].includes(request.status)
   const canCompose = !readOnly && !isClosed
   const attachmentsByMessage = indexAttachmentsByMessage(baseMessages, request.attachments)
-  const { panelRef, endRef, notifyUserSent } = useThreadAutoScroll(messages, request.id)
+  const { panelRef, endRef, notifyUserSent, scrollToBottom, unseenCount } =
+    useThreadAutoScroll(messages, request.id)
+  const optimisticObjectUrlsRef = useRef<string[]>([])
+
+  useEffect(() => {
+    return () => {
+      revokeOptimisticObjectUrls(optimisticObjectUrlsRef.current)
+      optimisticObjectUrlsRef.current = []
+    }
+  }, [])
   const fetchDownloadUrl = useCallback(
     (attachmentId: string) => fetchAttachmentDownloadUrl(attachmentId),
     [],
@@ -271,12 +288,20 @@ export default function RequestMessageThread({
     const savedReply = bodyText
     const savedSelectedIds = [...selectedAttachmentIds]
     const savedPendingFiles = [...pendingFiles]
+    const savedRequestApproval = requestApproval
     const hasUploads = savedPendingFiles.length > 0
+    const { attachments: optimisticAttachments, objectUrls } = buildOptimisticAttachments({
+      selectedIds: savedSelectedIds,
+      pendingFiles: savedPendingFiles,
+    })
+    revokeOptimisticObjectUrls(optimisticObjectUrlsRef.current)
+    optimisticObjectUrlsRef.current = objectUrls
     const optimistic = createOptimisticRequestMessage({
       requestId: request.id,
       body: bodyText,
       authorRole: viewerRole === 'CLIENT' ? 'CLIENT' : 'ADMIN',
       authorUserId: viewerRole === 'ADMIN' ? currentUserId ?? undefined : undefined,
+      attachments: optimisticAttachments,
     })
     const optimisticId = optimistic.id
 
@@ -287,11 +312,17 @@ export default function RequestMessageThread({
     setReply('')
     setSelectedAttachmentIds([])
     setPendingFiles([])
+    setRequestApproval(false)
     setError(null)
     notifyUserSent()
 
+    const releaseOptimisticUrls = () => {
+      revokeOptimisticObjectUrls(optimisticObjectUrlsRef.current)
+      optimisticObjectUrlsRef.current = []
+    }
+
     try {
-      if (hasUploads) setUploading(true)
+      if (hasUploads || savedSelectedIds.length > 0) setUploading(true)
       const uploaded = await resolvePendingMessageAttachments(
         request.projectId,
         savedPendingFiles,
@@ -299,9 +330,11 @@ export default function RequestMessageThread({
       )
       if (!uploaded.ok) {
         rollbackOptimisticRequestMessageInMessagesList(queryClient, request.id, optimisticId)
+        releaseOptimisticUrls()
         setReply(savedReply)
         setSelectedAttachmentIds(savedSelectedIds)
         setPendingFiles(savedPendingFiles)
+        setRequestApproval(savedRequestApproval)
         setError(uploaded.message ?? 'Could not upload attachments')
         return
       }
@@ -309,16 +342,24 @@ export default function RequestMessageThread({
       const attachmentIds = [
         ...new Set([...savedSelectedIds, ...uploaded.attachmentIds]),
       ]
-      const result = await onSendMessage(bodyText, attachmentIds)
+      const result = await onSendMessage(bodyText, attachmentIds, {
+        requestApproval:
+          savedRequestApproval &&
+          attachmentIds.length > 0 &&
+          (request.type === 'PROGRESS' || request.type === 'ONBOARDING'),
+      })
       if (!result.ok) {
         rollbackOptimisticRequestMessageInMessagesList(queryClient, request.id, optimisticId)
+        releaseOptimisticUrls()
         setReply(savedReply)
         setSelectedAttachmentIds(savedSelectedIds)
         setPendingFiles(savedPendingFiles)
+        setRequestApproval(savedRequestApproval)
         setError(result.message ?? 'Could not send message')
         return
       }
 
+      releaseOptimisticUrls()
       if (result.data) {
         const replaced = replacePendingRequestMessageInMessagesList(
           queryClient,
@@ -334,9 +375,11 @@ export default function RequestMessageThread({
       }
     } catch {
       rollbackOptimisticRequestMessageInMessagesList(queryClient, request.id, optimisticId)
+      releaseOptimisticUrls()
       setReply(savedReply)
       setSelectedAttachmentIds(savedSelectedIds)
       setPendingFiles(savedPendingFiles)
+      setRequestApproval(savedRequestApproval)
       setError('Could not send message')
     } finally {
       setUploading(false)
@@ -344,9 +387,22 @@ export default function RequestMessageThread({
   }
 
   const composeBusy = uploading
+  const canRequestApproval =
+    viewerRole === 'ADMIN' &&
+    !readOnly &&
+    (request.type === 'PROGRESS' || request.type === 'ONBOARDING')
+  const hasAttachments =
+    selectedAttachmentIds.length > 0 || pendingFiles.length > 0
+
+  useEffect(() => {
+    if (!hasAttachments && requestApproval) {
+      setRequestApproval(false)
+    }
+  }, [hasAttachments, requestApproval])
 
   return (
     <div className="admin-message-thread-shell admin-message-thread-shell--capped">
+      <div className="relative flex min-h-0 flex-1 flex-col">
       <div ref={panelRef} className="admin-thread-panel">
         {hasMoreOlder ? (
           <button
@@ -375,7 +431,17 @@ export default function RequestMessageThread({
             const isMine = messageIsMine(msg, viewerRole, currentUserId)
             const authorLabel = messageAuthorLabel(msg, isMine)
             const isPending = isPendingRequestMessage(msg.id)
-            const showMessageBubble = Boolean(msg.body.trim())
+            const isSystem = msg.messageKind === 'SYSTEM'
+            const showMessageBubble = Boolean(msg.body.trim()) && !isSystem
+            if (isSystem) {
+              return (
+                <div key={msg.id} className="flex justify-center px-2 py-1.5">
+                  <p className="max-w-[90%] text-center text-xs text-app-muted">
+                    {msg.body}
+                  </p>
+                </div>
+              )
+            }
             return (
               <div
                 key={msg.id}
@@ -429,15 +495,32 @@ export default function RequestMessageThread({
                           }
                         : undefined
                     }
-                    renderAttachmentAction={(attachment) => {
-                      const reacted = reactionsById.get(attachment.id)
-                      if (!reacted?.tags.length) return null
-                      return (
-                        <AttachmentReactionCluster
-                          emojis={emojisFromReactionTags(reacted.tags)}
-                        />
-                      )
-                    }}
+                    renderAttachmentBadge={
+                      isPending
+                        ? undefined
+                        : (attachment) => {
+                            const reacted = reactionsById.get(attachment.id)
+                            const approval = {
+                              reviewRequested:
+                                reacted?.reviewRequested ?? attachment.reviewRequested,
+                              approvedAt: reacted?.approvedAt ?? attachment.approvedAt,
+                              changesRequestedAt:
+                                reacted?.changesRequestedAt ?? attachment.changesRequestedAt,
+                            }
+                            const cluster =
+                              reacted?.tags.length ? (
+                                <AttachmentReactionCluster
+                                  emojis={emojisFromReactionTags(reacted.tags)}
+                                />
+                              ) : null
+                            return (
+                              <AttachmentApprovalBadgeCluster
+                                file={approval}
+                                reactionCluster={cluster}
+                              />
+                            )
+                          }
+                    }
                   />
                 ) : null}
               </div>
@@ -445,6 +528,18 @@ export default function RequestMessageThread({
           })
         )}
         <ThreadScrollEnd ref={endRef} />
+      </div>
+      {unseenCount > 0 ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center px-3">
+          <div className="pointer-events-auto">
+            <NewMessagesJumpButton
+              count={unseenCount}
+              variant="admin"
+              onClick={() => scrollToBottom(true, true)}
+            />
+          </div>
+        </div>
+      ) : null}
       </div>
 
       {canCompose ? (
@@ -480,6 +575,18 @@ export default function RequestMessageThread({
               onPendingFilesChange={setPendingFiles}
               toolbar
             />
+            {canRequestApproval && hasAttachments ? (
+              <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-chambray/15 bg-white/50 px-3 text-xs text-chambray dark:border-white/10 dark:bg-white/5">
+                <input
+                  type="checkbox"
+                  className="rounded border-chambray/30"
+                  checked={requestApproval}
+                  disabled={composeBusy}
+                  onChange={(event) => setRequestApproval(event.target.checked)}
+                />
+                Request approval
+              </label>
+            ) : null}
             <EmojiPickerButton
               variant="admin"
               disabled={composeBusy}

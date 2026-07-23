@@ -74,6 +74,8 @@ describe('api-contracts (Zod smoke)', () => {
       topPicksCount: 0,
       sharedFiles: 0,
       lastSharedFileAt: null,
+      projectsWithTopPicks: [],
+      projectsWithSharedFiles: [],
     })
     expect(sample.activeProjects).toBe(1)
   })

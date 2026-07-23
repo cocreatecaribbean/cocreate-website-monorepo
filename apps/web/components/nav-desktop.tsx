@@ -39,7 +39,9 @@ const NavDesktop: React.FC = () => {
         className={`flex min-w-0 flex-row flex-nowrap items-center gap-[clamp(1.5rem,3.5vw,2.5rem)] ${fonts.bricolage_grot500.className}`}
       >
         {menu_names.map((item, id) => {
-          const isActive = !isClientPortalOpen && pathname === `/${item}`;
+          const isActive =
+            !isClientPortalOpen &&
+            (pathname === `/${item}` || pathname.startsWith(`/${item}/`));
           const label = getMenuLabel(item);
 
           return (

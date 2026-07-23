@@ -87,18 +87,18 @@ export default function ContactForm() {
     <div className="grid gap-12 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start lg:gap-16 xl:gap-24">
       <aside className={`${fonts.bricolage_grot400.className}`}>
         <h2
-          className={`text-[2rem] leading-tight text-chambray sm:text-4xl lg:text-[2.75rem] ${fonts.bricolage_grot700.className}`}
+          className={`text-[2rem] leading-tight text-gradient-chambray-diagonal sm:text-4xl lg:text-[2.75rem] ${fonts.bricolage_grot700.className}`}
         >
           Get in Touch!
         </h2>
 
         <dl className="mt-10 space-y-8 sm:mt-12">
           <div>
-            <dt className="text-sm text-neutral-500">Tele:</dt>
+            <dt className="text-sm text-gradient-chambray-diagonal">Tele:</dt>
             <dd className="mt-1">
               <a
                 href={contactInfo.phoneHref}
-                className={`text-lg text-slate-900 transition hover:text-chambray sm:text-xl ${fonts.bricolage_grot600.className}`}
+                className={`text-lg text-gradient-chambray-diagonal transition hover:opacity-75 sm:text-xl ${fonts.bricolage_grot600.className}`}
               >
                 {contactInfo.phone}
               </a>
@@ -106,11 +106,11 @@ export default function ContactForm() {
           </div>
 
           <div>
-            <dt className="text-sm text-neutral-500">E-Mail:</dt>
+            <dt className="text-sm text-gradient-chambray-diagonal">E-Mail:</dt>
             <dd className="mt-1">
               <a
                 href={`mailto:${contactInfo.email}`}
-                className={`break-all text-lg text-slate-900 transition hover:text-chambray sm:text-xl ${fonts.bricolage_grot600.className}`}
+                className={`break-all text-lg text-gradient-chambray-diagonal transition hover:opacity-75 sm:text-xl ${fonts.bricolage_grot600.className}`}
               >
                 {contactInfo.email}
               </a>
@@ -118,7 +118,7 @@ export default function ContactForm() {
           </div>
 
           <div>
-            <dt className="text-sm text-neutral-500">Follow:</dt>
+            <dt className="text-sm text-gradient-chambray-diagonal">Follow:</dt>
             <dd className="mt-3">
               <SocialLinks color="blue" icon_width={40} align="start" />
             </dd>

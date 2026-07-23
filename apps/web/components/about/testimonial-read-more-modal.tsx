@@ -110,19 +110,19 @@ export default function TestimonialReadMoreModal({
             <div className="min-w-0 flex-1">
               <p
                 id={headingId}
-                className={`text-base text-neutral-900 sm:text-lg ${fonts.bricolage_grot700.className}`}
+                className={`text-base text-gradient-chambray-diagonal sm:text-lg ${fonts.bricolage_grot700.className}`}
               >
                 {testimonial.name}
               </p>
               {testimonial.jobTitle ? (
                 <p
-                  className={`mt-1 text-sm italic text-neutral-600 ${fonts.bricolage_grot500.className}`}
+                  className={`mt-1 text-sm italic text-gradient-chambray-diagonal ${fonts.bricolage_grot500.className}`}
                 >
                   {testimonial.jobTitle}
                 </p>
               ) : null}
               <p
-                className={`mt-0.5 text-sm text-neutral-500 ${fonts.bricolage_grot400.className}`}
+                className={`mt-0.5 text-sm text-gradient-chambray-diagonal ${fonts.bricolage_grot400.className}`}
               >
                 {testimonial.company}
               </p>
@@ -137,10 +137,15 @@ export default function TestimonialReadMoreModal({
               &ldquo;
             </span>
             <div
-              className={`relative space-y-4 text-[0.95rem] leading-relaxed text-neutral-700 sm:text-base sm:leading-relaxed ${fonts.bricolage_grot400.className}`}
+              className={`relative space-y-4 text-[0.95rem] leading-relaxed sm:text-base sm:leading-relaxed ${fonts.bricolage_grot400.className}`}
             >
               {quoteParagraphs.map((paragraph, index) => (
-                <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>
+                <p
+                  key={`${index}-${paragraph.slice(0, 24)}`}
+                  className="text-gradient-chambray-diagonal"
+                >
+                  {paragraph}
+                </p>
               ))}
             </div>
           </div>

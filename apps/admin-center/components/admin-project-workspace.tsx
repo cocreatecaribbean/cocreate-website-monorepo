@@ -32,11 +32,11 @@ import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import {
   ArrowLeft,
   Bell,
+  ClipboardList,
   FileText,
   FolderKanban,
   LayoutGrid,
   Shield,
-  Sparkles,
   Star,
   UserRound,
   Users,
@@ -170,7 +170,12 @@ export default function AdminProjectWorkspace({
   )
 
   const sendAdminMessage = useCallback(
-    async (requestId: string, body: string, attachmentIds?: string[]) => {
+    async (
+      requestId: string,
+      body: string,
+      attachmentIds?: string[],
+      options?: { requestApproval?: boolean },
+    ) => {
       try {
         const message = await fetchAdminBff<ProjectRequestMessage>(
           `/api/project-requests/${requestId}/messages`,
@@ -180,11 +185,15 @@ export default function AdminProjectWorkspace({
             body: JSON.stringify({
               body,
               attachmentIds: attachmentIds?.length ? attachmentIds : undefined,
+              requestApproval: options?.requestApproval || undefined,
             }),
           },
         )
         await queryClient.invalidateQueries({
           queryKey: adminQueryKeys.projects.workspace(organizationId, projectId),
+        })
+        await queryClient.invalidateQueries({
+          queryKey: adminQueryKeys.fileReactions.project(projectId),
         })
         return { ok: true as const, data: message }
       } catch (err) {
@@ -300,7 +309,7 @@ export default function AdminProjectWorkspace({
     () =>
       [
         { id: 'overview' as const, label: 'Overview', description: 'Project snapshot, status, and context', icon: LayoutGrid },
-        { id: 'onboarding' as const, label: 'Onboarding', description: 'Client intake, requirements, and kickoff progress', icon: Sparkles },
+        { id: 'onboarding' as const, label: 'Onboarding', description: 'Client intake, requirements, and kickoff progress', icon: ClipboardList },
         ...(isOnboarded
           ? [
               { id: 'progress' as const, label: 'Project updates', description: 'Day-to-day messages and deliverables with your client', icon: Bell },
@@ -377,8 +386,18 @@ export default function AdminProjectWorkspace({
                     {project.description}
                   </p>
                 ) : null}
-                <div className="mt-2">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   <ProjectStatusAttribution project={project} />
+                  {(project.pendingFileReviewsCount ?? 0) > 0 ? (
+                    <span className="inline-flex items-center rounded-full border border-sanmarino/20 bg-sanmarino/10 px-2 py-0.5 text-[11px] font-medium text-sanmarino">
+                      {project.pendingFileReviewsCount} awaiting approval
+                    </span>
+                  ) : null}
+                  {(project.recentlyApprovedFilesCount ?? 0) > 0 ? (
+                    <span className="inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                      {project.recentlyApprovedFilesCount} recently approved
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -458,8 +477,8 @@ export default function AdminProjectWorkspace({
                 loadMessages={tab === 'overview'}
                 markReadEnabled={canTrackUnread}
                 onInboxMarked={() => void refreshUnreadCount()}
-                onSendMessage={(body, attachmentIds) =>
-                  sendAdminMessage(cancellation.id, body, attachmentIds)
+                onSendMessage={(body, attachmentIds, options) =>
+                  sendAdminMessage(cancellation.id, body, attachmentIds, options)
                 }
                 onThreadUpdate={() => void refreshThread(cancellation.id)}
                 cancellationResolve={(payload) =>
@@ -484,8 +503,8 @@ export default function AdminProjectWorkspace({
               loadMessages={tab === 'onboarding'}
               markReadEnabled={canTrackUnread}
               onInboxMarked={() => void refreshUnreadCount()}
-              onSendMessage={(body, attachmentIds) =>
-                sendAdminMessage(onboarding.id, body, attachmentIds)
+              onSendMessage={(body, attachmentIds, options) =>
+                sendAdminMessage(onboarding.id, body, attachmentIds, options)
               }
               onThreadUpdate={() => void refreshThread(onboarding.id)}
             />
@@ -505,8 +524,8 @@ export default function AdminProjectWorkspace({
               liveMessagesLoading={progressLive.isLoading}
               markReadEnabled={canTrackUnread}
               onInboxMarked={() => void refreshUnreadCount()}
-              onSendMessage={(body, attachmentIds) =>
-                sendAdminMessage(progress.id, body, attachmentIds)
+              onSendMessage={(body, attachmentIds, options) =>
+                sendAdminMessage(progress.id, body, attachmentIds, options)
               }
               onThreadUpdate={() => void refreshThread(progress.id)}
             />

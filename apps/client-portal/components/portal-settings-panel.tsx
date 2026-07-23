@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import ThemeToggle from '@/components/theme-toggle'
 import PortalTeamPanel from '@/components/portal-team-panel'
 import PortalUserAvatar from '@/components/portal-user-avatar'
 import { OrganizationBrandingSection } from '@/components/organization-logo-editor'
@@ -9,7 +8,6 @@ import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import { useUpdatePortalProfileMutation } from '@/lib/api/mutations/profile'
 import { CONTROL_CENTER_VIEW_QUERY } from '@/lib/control-center/nav'
 import { bricolage_grot600 } from '@/styles/fonts'
-import { Settings } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
 
 type PortalSettingsPanelProps = {
@@ -109,24 +107,6 @@ export default function PortalSettingsPanel({
       ) : (
         <PortalTeamPanel canManage={canManageTeam} />
       )}
-      <section className="portal-glass-card portal-animate-in p-6 sm:p-8">
-        <div className="flex items-start gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-chambray/10 text-chambray dark:bg-white/10 dark:text-casablanca">
-            <Settings className="h-5 w-5" aria-hidden />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className={`text-lg text-app-heading ${bricolage_grot600.className}`}>
-              Settings
-            </h3>
-            <p className="mt-1 text-sm text-app-muted">
-              Appearance and workspace preferences.
-            </p>
-          </div>
-        </div>
-        <div className="mt-6">
-          <ThemeToggle variant="settings" />
-        </div>
-      </section>
       {showPreviewBanner ? (
         <p className="text-center text-xs tracking-wide text-app-muted uppercase">
           Preview workspace · Live data coming soon
