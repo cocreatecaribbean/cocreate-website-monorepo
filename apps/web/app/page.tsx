@@ -1,4 +1,5 @@
 import { HomeLanding } from '@/components/home/home-landing'
+import { HomeGalleryCmsProvider } from '@/components/home/home-gallery-cms-provider'
 import LogoTickerWrapper from '@/components/logoTickerWrapper'
 import ArcGallerySection from '@/components/arc-gallery-section'
 import { fetchLandingPage } from '@/lib/cms/landing-page'
@@ -36,7 +37,9 @@ export default async function Home() {
           <LogoTickerWrapper />
         </section>
 
-        <ArcGallerySection items={galleryItems} />
+        <HomeGalleryCmsProvider initial={galleryItems}>
+          <ArcGallerySection />
+        </HomeGalleryCmsProvider>
       </main>
     </>
   )

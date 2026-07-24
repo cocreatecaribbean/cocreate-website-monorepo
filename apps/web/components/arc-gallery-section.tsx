@@ -5,18 +5,13 @@ import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useGSAP } from '@gsap/react'
 import ArcGallery from '@/components/arc-gallery'
-import type { ProjectPreview } from '@cocreate/types'
+import { useHomeGalleryItems } from '@/components/home/home-gallery-cms-provider'
 import * as fonts from '@/styles/fonts'
-
-type ArcGallerySectionProps = {
-  items?: ProjectPreview[]
-}
 
 gsap.registerPlugin(useGSAP, ScrollTrigger)
 
-export default function ArcGallerySection({
-  items = [],
-}: ArcGallerySectionProps) {
+export default function ArcGallerySection() {
+  const items = useHomeGalleryItems()
   const sectionRef = useRef<HTMLElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
 

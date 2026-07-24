@@ -219,6 +219,8 @@ export const workProject = defineType({
     defineField({
       name: 'featured',
       title: 'Featured on home',
+      description:
+        'Pin this project into Home → Projects at a Glance (featured first; remaining slots fill by list order). Publish Work page so anonymous browsers pick it up via revalidate.',
       type: 'boolean',
       initialValue: false,
     }),

@@ -192,6 +192,8 @@ Registering Studio does not change `SANITY_STUDIO_PREVIEW_URL` or webhook URLs �
 
 ### Publish webhooks (cache revalidation)
 
+**Anonymous browsers (Brave/Safari/incognito) only update after this webhook fires.** Presentation iframe always reads live Sanity — do not use “it shows in Studio preview” as proof the public site refreshed. After publish, check a private window with no Studio login. Home **Projects at a Glance** uses the Work project **Featured on home** flag (featured first, then array order); publishing `workPage` must revalidate `/` so those flags appear for everyone.
+
 #### What they do
 
 When an editor **Publishes** (or deletes) a Work-related document, Sanity can notify the marketing Next.js app so cached pages refresh without waiting for a full rebuild.

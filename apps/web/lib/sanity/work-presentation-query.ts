@@ -1,6 +1,9 @@
 import type { ProjectPreview } from '@cocreate/types'
 import { stegaClean } from '@sanity/client/stega'
-import { mapSanityWorkProjectToPreview } from '@/sanity/lib/mappers'
+import {
+  mapSanityWorkProjectToHomePreview,
+  mapSanityWorkProjectToPreview,
+} from '@/sanity/lib/mappers'
 import { enrichProjectPreviews } from '@/lib/project-preview'
 
 /** Client-safe GROQ for Presentation live updates (page + project tiles). */
@@ -75,8 +78,9 @@ export function cleanPresentationPage(
   }
 }
 
-export function mapPresentationProjects(
+function mapPresentationProjectRows(
   rows: WorkPresentationProjectRow[] | null | undefined,
+  mapRow: typeof mapSanityWorkProjectToPreview,
 ): ProjectPreview[] {
   if (!rows?.length) return []
 
@@ -87,7 +91,7 @@ export function mapPresentationProjects(
       .map((row) => {
         const rawSlug = row.slug != null ? stegaClean(row.slug) : row.slug
         const slug = (typeof rawSlug === 'string' ? rawSlug.trim() : '') || row._id
-        return mapSanityWorkProjectToPreview({
+        return mapRow({
           _id: row._id,
           title: row.title,
           slug,
@@ -105,4 +109,17 @@ export function mapPresentationProjects(
         })
       }),
   )
+}
+
+export function mapPresentationProjects(
+  rows: WorkPresentationProjectRow[] | null | undefined,
+): ProjectPreview[] {
+  return mapPresentationProjectRows(rows, mapSanityWorkProjectToPreview)
+}
+
+/** Home arc gallery — landscape cover crop + featured selection upstream. */
+export function mapPresentationHomeProjects(
+  rows: WorkPresentationProjectRow[] | null | undefined,
+): ProjectPreview[] {
+  return mapPresentationProjectRows(rows, mapSanityWorkProjectToHomePreview)
 }

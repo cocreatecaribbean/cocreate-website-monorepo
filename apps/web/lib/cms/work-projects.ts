@@ -18,6 +18,7 @@ import {
 import { enrichProjectPreviews } from '@/lib/project-preview'
 import { toWorkProjectDetail } from '@/lib/work-project-detail'
 import { HOME_GALLERY_PREVIEW_COUNT } from '@/site-info/home-gallery-config'
+import { selectHomeGalleryPreviews } from '@/lib/cms/home-gallery-select'
 import { galleryProjectPreviews } from '@/site-info/gallery-data'
 import { isSanityConfigured } from '@/sanity/env'
 
@@ -140,13 +141,15 @@ export const fetchWorkProjectSlugs = cache(async (): Promise<string[]> => {
 
 export const fetchHomeGalleryPreviews = cache(
   async (preview = false): Promise<ProjectPreview[]> => {
-    // Use landscape CDN crop so letterboxed creatives don’t paint black bars in the card.
+    // Landscape CDN crop so letterboxed creatives don’t paint black bars in the card.
     const fromSanity = await fetchSanityWorkPreviews(preview, 'homeGallery')
     const projects =
       fromSanity ??
       (isSanityConfigured() || preview ? [] : mockWorkPreviews())
-    const withCovers = projects.filter((project) => Boolean(project.coverImageSrc?.trim()))
-    const source = preview ? withCovers : withCovers.length > 0 ? withCovers : projects
-    return source.slice(0, HOME_GALLERY_PREVIEW_COUNT)
+    // Preview: only show cards that have covers (avoid empty tiles mid-edit).
+    const source = preview
+      ? projects.filter((project) => Boolean(project.coverImageSrc?.trim()))
+      : projects
+    return selectHomeGalleryPreviews(source, HOME_GALLERY_PREVIEW_COUNT)
   },
 )
