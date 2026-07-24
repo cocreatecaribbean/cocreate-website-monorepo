@@ -11,6 +11,18 @@ export const WORK_PROJECT_PRESENTATION_QUERY = `
 *[_type == "workPage" && _id == "workPage"][0].projects[lower(slug.current) == $slug][0] {
   "_id": _key,
   title,
+  titleFillMode,
+  titleSolidColor,
+  titleGradientFrom,
+  titleGradientVia,
+  titleGradientTo,
+  titleGradientAngle,
+  clientFillMode,
+  clientSolidColor,
+  clientGradientFrom,
+  clientGradientVia,
+  clientGradientTo,
+  clientGradientAngle,
   "slug": slug.current,
   summary,
   tags,
@@ -42,7 +54,19 @@ export const WORK_PROJECT_PRESENTATION_QUERY = `
     },
     _type == "impactCallout" => {
       headline,
-      subheadline
+      subheadline,
+      fillMode,
+      solidColor,
+      gradientFrom,
+      gradientVia,
+      gradientTo,
+      gradientAngle,
+      subFillMode,
+      subSolidColor,
+      subGradientFrom,
+      subGradientVia,
+      subGradientTo,
+      subGradientAngle
     },
     _type == "textAndMedia" => {
       body,
@@ -63,6 +87,18 @@ export const WORK_PROJECT_PRESENTATION_QUERY = `
 export type WorkProjectPresentationRow = {
   _id?: string | null
   title?: string | null
+  titleFillMode?: string | null
+  titleSolidColor?: string | null
+  titleGradientFrom?: string | null
+  titleGradientVia?: string | null
+  titleGradientTo?: string | null
+  titleGradientAngle?: number | null
+  clientFillMode?: string | null
+  clientSolidColor?: string | null
+  clientGradientFrom?: string | null
+  clientGradientVia?: string | null
+  clientGradientTo?: string | null
+  clientGradientAngle?: number | null
   slug?: string | null
   summary?: string | null
   tags?: string[] | null
@@ -111,6 +147,18 @@ export function mapPresentationWorkProject(
         typeof mapSanityWorkProjectToDetail
       >[0]['category'],
       hero: row.hero as Parameters<typeof mapSanityWorkProjectToDetail>[0]['hero'],
+      titleFillMode: row.titleFillMode,
+      titleSolidColor: row.titleSolidColor,
+      titleGradientFrom: row.titleGradientFrom,
+      titleGradientVia: row.titleGradientVia,
+      titleGradientTo: row.titleGradientTo,
+      titleGradientAngle: row.titleGradientAngle,
+      clientFillMode: row.clientFillMode,
+      clientSolidColor: row.clientSolidColor,
+      clientGradientFrom: row.clientGradientFrom,
+      clientGradientVia: row.clientGradientVia,
+      clientGradientTo: row.clientGradientTo,
+      clientGradientAngle: row.clientGradientAngle,
       sections: row.sections as Parameters<
         typeof mapSanityWorkProjectToDetail
       >[0]['sections'],

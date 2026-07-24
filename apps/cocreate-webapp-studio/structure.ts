@@ -39,6 +39,18 @@ export const structure: StructureResolver = (S) =>
       S.divider(),
       S.listItem()
         .title('Originals')
-        .schemaType('original')
-        .child(S.documentTypeList('original').title('Originals')),
+        .child(
+          S.list()
+            .title('Originals')
+            .items([
+              S.listItem()
+                .title('All originals')
+                .schemaType('original')
+                .child(S.documentTypeList('original').title('Originals')),
+              S.listItem()
+                .title('Episodes')
+                .schemaType('originalEpisode')
+                .child(S.documentTypeList('originalEpisode').title('Episodes')),
+            ]),
+        ),
     ])

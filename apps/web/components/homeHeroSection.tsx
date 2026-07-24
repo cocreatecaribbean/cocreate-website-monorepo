@@ -1044,24 +1044,27 @@ export default function HomeHeroSection({
 
       gsap.set(slides, { opacity: 0 })
 
+      const revealSlides = () => {
+        const selectedIndex = emblaApi.selectedScrollSnap()
+        const count = slides.length
+        const orderedIndices = Array.from({ length: count }, (_, i) => (selectedIndex + i) % count)
+
+        gsap.to(
+          orderedIndices.map((i) => slides[i]),
+          {
+            opacity: 1,
+            duration: 0.8,
+            stagger: 0.08,
+            ease: CustomEase.create('custom', 'M0,0 C0,0 0.061,-0.021 0.18,0.055 0.388,0.189 0.645,0.87 0.847,0.976 0.892,1 1,1 1,1'),
+          }
+        )
+      }
+
       ScrollTrigger.create({
         trigger: '.embla',
         start: 'top 90%',
-        onEnter: () => {
-          const selectedIndex = emblaApi.selectedScrollSnap()
-          const count = slides.length
-          const orderedIndices = Array.from({ length: count }, (_, i) => (selectedIndex + i) % count)
-
-          gsap.to(
-            orderedIndices.map((i) => slides[i]),
-            {
-              opacity: 1,
-              duration: 0.8,
-              stagger: 0.08,
-              ease: CustomEase.create('custom', 'M0,0 C0,0 0.061,-0.021 0.18,0.055 0.388,0.189 0.645,0.87 0.847,0.976 0.892,1 1,1 1,1'),
-            }
-          )
-        },
+        onEnter: revealSlides,
+        onEnterBack: revealSlides,
         onLeaveBack: () => {
           gsap.to(slides, {
             opacity: 0,
@@ -1168,7 +1171,10 @@ export default function HomeHeroSection({
           <div className="flex flex-col gap-y-10 w-full lg:w-[75cqw] xl:w-[70cqw] 3xl:w-[55cqw] mx-auto min-w-0">
             <PhilosophyTitleLoop />
             <p className="philosophy-text text-gradient-chambray-diagonal text-center lg:text-left text-[clamp(1rem,1vw,1.5rem)] ">
-            We focus on four(4) key pillars to consistently deliver superior results for our clients. Having a proven framework gives us the freedom to inject new creative breadth with fresh perspectives into every project.
+            The best advertising starts with understanding people.
+What motivates them, what they value, what they ignore - what earns their attention!
+Before we create anything, we work to understand the people we're trying to reach. We measure success by how well we understand the challenge. The extra time spent at the beginning usually leads to stronger work in the end.
+
             </p>
           </div>
         </div>

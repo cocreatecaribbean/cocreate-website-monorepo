@@ -1,5 +1,6 @@
 import {defineField, defineType} from 'sanity'
 import {ClientReferenceInput} from '../components/ClientReferenceInput'
+import {brandColorsField, brandFillFields} from './brandFillFields'
 import {projectSectionMembers} from './projectSections'
 
 type WorkProjectParent = {
@@ -26,6 +27,19 @@ export const workProject = defineType({
       title: 'Project name',
       type: 'string',
       validation: (rule) => rule.required(),
+    }),
+    brandColorsField,
+    ...brandFillFields({
+      prefix: 'title',
+      label: 'Project name',
+      modeDescription:
+        'Default keeps the CoCreate gradient. Solid or gradient uses brand colors.',
+    }),
+    ...brandFillFields({
+      prefix: 'client',
+      label: 'Client name',
+      modeDescription:
+        'Default keeps muted San Marino. Solid or gradient uses brand colors.',
     }),
     defineField({
       name: 'slug',

@@ -69,6 +69,18 @@ const workIndexProjection = `
 const workDetailProjection = `
   "_id": _key,
   title,
+  titleFillMode,
+  titleSolidColor,
+  titleGradientFrom,
+  titleGradientVia,
+  titleGradientTo,
+  titleGradientAngle,
+  clientFillMode,
+  clientSolidColor,
+  clientGradientFrom,
+  clientGradientVia,
+  clientGradientTo,
+  clientGradientAngle,
   "slug": slug.current,
   summary,
   tags,
@@ -101,7 +113,19 @@ const workDetailProjection = `
     },
     _type == "impactCallout" => {
       headline,
-      subheadline
+      subheadline,
+      fillMode,
+      solidColor,
+      gradientFrom,
+      gradientVia,
+      gradientTo,
+      gradientAngle,
+      subFillMode,
+      subSolidColor,
+      subGradientFrom,
+      subGradientVia,
+      subGradientTo,
+      subGradientAngle
     },
     _type == "textAndMedia" => {
       body,
@@ -177,6 +201,13 @@ export const WORK_PAGE_QUERY = defineQuery(`
 
 const publishedOriginalFilter = `_type == "original" && defined(publishedAt) && publishedAt <= now()`
 
+const originalMediaProj = /* groq */ `
+  "mediaSource": mediaSource,
+  "youtubeVideoId": youtubeVideoId,
+  "playbackId": muxVideo.asset->playbackId,
+  "posterUrl": poster.asset->url
+`
+
 export const ORIGINALS_QUERY = defineQuery(`
   *[${publishedOriginalFilter}] | order(publishedAt desc) {
     _id,
@@ -186,9 +217,67 @@ export const ORIGINALS_QUERY = defineQuery(`
     format,
     tags,
     publishedAt,
-    youtubeVideoId,
-    "coverImageUrl": coverImage.asset->url
+    "contentKind": coalesce(contentKind, "film"),
+    "coverImageUrl": coverImage.asset->url,
+    "youtubeVideoId": select(
+      coalesce(contentKind, "film") == "film" => coalesce(film.media.youtubeVideoId, youtubeVideoId),
+      null
+    )
   }
+`)
+
+export const ORIGINAL_BY_SLUG_QUERY = defineQuery(`
+  *[${publishedOriginalFilter} && slug.current == $slug][0] {
+    _id,
+    title,
+    "slug": slug.current,
+    description,
+    format,
+    tags,
+    publishedAt,
+    "contentKind": coalesce(contentKind, "film"),
+    "coverImageUrl": coverImage.asset->url,
+    "legacyYoutubeVideoId": youtubeVideoId,
+    film {
+      media { ${originalMediaProj} },
+      trailer { ${originalMediaProj} }
+    },
+    podcastSeries {
+      youtubePlaylistId,
+      lastSyncedAt,
+      episodes[]->{
+        _id,
+        title,
+        "slug": slug.current,
+        episodeNumber,
+        description,
+        publishedAt,
+        "thumbnailUrl": thumbnail.asset->url,
+        media { ${originalMediaProj} },
+        youtubeVideoId
+      }
+    },
+    articleSeries {
+      chapters[] {
+        _key,
+        title,
+        body[] {
+          ...,
+          _type == "image" => {
+            ...,
+            "asset": {
+              "_id": asset->_id,
+              "url": asset->url
+            }
+          }
+        }
+      }
+    }
+  }
+`)
+
+export const ORIGINAL_SLUGS_QUERY = defineQuery(`
+  *[${publishedOriginalFilter} && defined(slug.current)].slug.current
 `)
 
 export const SEARCH_WORK_QUERY = defineQuery(`

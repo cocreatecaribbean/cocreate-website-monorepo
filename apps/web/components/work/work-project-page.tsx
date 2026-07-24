@@ -24,6 +24,8 @@ export default function WorkProjectPage({ project }: WorkProjectPageProps) {
           projectName={project.projectName}
           clientName={project.clientName}
           clientHref={clientHref}
+          titleFill={project.titleFill}
+          clientFill={project.clientFill}
           hero={project.hero}
           coverFallbackSrc={project.coverImageSrc}
           coverFallbackBlurDataURL={project.coverImageBlurDataURL}

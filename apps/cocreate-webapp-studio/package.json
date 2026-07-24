@@ -9,12 +9,15 @@
     "start": "sanity start",
     "build": "sanity build",
     "deploy": "sanity deploy",
-    "deploy-graphql": "sanity graphql deploy"
+    "deploy-graphql": "sanity graphql deploy",
+    "sync:youtube-playlist": "tsx scripts/sync-youtube-playlist.ts",
+    "migrate:originals-film": "tsx scripts/migrate-originals-film.ts"
   },
   "keywords": [
     "sanity"
   ],
   "dependencies": {
+    "@sanity/client": "catalog:studio",
     "@sanity/vision": "catalog:studio",
     "react": "catalog:react",
     "react-dom": "catalog:react",
@@ -29,6 +32,7 @@
     "@types/react": "catalog:react",
     "eslint": "catalog:tooling",
     "prettier": "catalog:studio",
+    "tsx": "catalog:tooling",
     "typescript": "catalog:tooling"
   },
   "prettier": {

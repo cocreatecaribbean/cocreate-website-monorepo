@@ -10,6 +10,7 @@ import {dataset, previewOrigin, projectId} from './env'
 import {StudioNavbar} from './components/StudioNavbar'
 import {mainDocuments, presentationLocations} from './presentation/resolve'
 import {ensurePageSingletonsPlugin} from './plugins/ensure-page-singletons'
+import {syncYouTubePlaylistAction} from './actions/syncYouTubePlaylistAction'
 import {LANDING_PAGE_DEFAULT_AGENCY_INTRO} from './schemaTypes/landingPage'
 import {
   ABOUT_PAGE_DEFAULT_HERO_BODY,
@@ -105,6 +106,12 @@ export default defineConfig({
     newDocumentOptions: (prev, {creationContext}) => {
       if (creationContext.type === 'global') {
         return prev.filter((template) => !PAGE_SINGLETON_TEMPLATE_IDS.has(template.templateId))
+      }
+      return prev
+    },
+    actions: (prev, {schemaType}) => {
+      if (schemaType === 'original') {
+        return [...prev, syncYouTubePlaylistAction]
       }
       return prev
     },

@@ -52,7 +52,7 @@ const panelClassName =
   'pointer-events-auto absolute right-0 bottom-[calc(100%+0.75rem)] flex w-full max-w-[28rem] flex-col overflow-hidden rounded-2xl border border-chambray/10 bg-white shadow-[0_12px_40px_rgba(57,65,154,0.18)]'
 
 const fabBaseClassName =
-  'pointer-events-auto flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-full bg-sanmarino text-casablanca shadow-[0_8px_24px_rgba(15,76,129,0.35)] transition hover:bg-casablanca hover:text-sanmarino focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-casablanca'
+  'pointer-events-auto flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-full bg-sanmarino text-casablanca shadow-[0_8px_24px_rgba(15,76,129,0.35)] outline outline-2 outline-offset-4 outline-casablanca transition hover:bg-casablanca hover:text-sanmarino focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-casablanca'
 
 const fabOpenClassName = 'bg-chambray text-casablanca'
 
@@ -213,6 +213,19 @@ export default function AssistantShell({
     setOpen(true)
     writeOpenState(context, true)
   }, [close, context, open])
+
+  useEffect(() => {
+    if (!open) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      close()
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [close, open])
 
   useLayoutEffect(() => {
     const panel = panelRef.current

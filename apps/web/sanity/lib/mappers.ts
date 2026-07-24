@@ -1,12 +1,20 @@
 import type {
+  BrandTextFill,
+  ImpactCalloutFill,
+  OriginalArticleChapter,
+  OriginalContentKind,
+  OriginalDetail,
+  OriginalEpisode,
+  OriginalPreview,
+  OriginalVideoMedia,
   ProjectMedia,
   ProjectMediaType,
   ProjectPreview,
-  OriginalPreview,
   WorkProjectCategory,
   WorkProjectDetail,
   WorkProjectSection,
 } from '@cocreate/types'
+import { stegaClean } from '@sanity/client/stega'
 import type { SanityImageSource } from '@sanity/image-url'
 import { workProjectPath } from '@/lib/work-project-path'
 import {
@@ -92,6 +100,18 @@ type SanityWorkProjectRow = {
   overviewCategories?: string[] | null
   overviewIndustries?: string[] | null
   hero?: SanityMediaRow
+  titleFillMode?: string | null
+  titleSolidColor?: string | null
+  titleGradientFrom?: string | null
+  titleGradientVia?: string | null
+  titleGradientTo?: string | null
+  titleGradientAngle?: number | null
+  clientFillMode?: string | null
+  clientSolidColor?: string | null
+  clientGradientFrom?: string | null
+  clientGradientVia?: string | null
+  clientGradientTo?: string | null
+  clientGradientAngle?: number | null
   sections?: SanitySectionRow[] | null
   seo?: { metaTitle?: string; metaDescription?: string } | null
 }
@@ -106,10 +126,92 @@ type SanitySectionRow = {
   right?: SanityMediaRow
   headline?: string | null
   subheadline?: string | null
+  fillMode?: string | null
+  solidColor?: string | null
+  gradientFrom?: string | null
+  gradientVia?: string | null
+  gradientTo?: string | null
+  gradientAngle?: number | null
+  subFillMode?: string | null
+  subSolidColor?: string | null
+  subGradientFrom?: string | null
+  subGradientVia?: string | null
+  subGradientTo?: string | null
+  subGradientAngle?: number | null
   media?: SanityMediaRow
   mediaPosition?: string | null
   heading?: string | null
 }
+
+const HEX_EXTRACT = /#?([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})\b/
+/** Zero-width / format chars Presentation may inject; strip before hex parse. */
+const INVISIBLE_CHARS = /[\u200B-\u200D\uFEFF\u2060]/g
+
+function cleanFillString(value: string | null | undefined): string {
+  if (value == null) return ''
+  return stegaClean(String(value)).replace(INVISIBLE_CHARS, '').trim()
+}
+
+/** Normalize a hex color; strips stega / invisible chars and extracts the first valid hex. */
+export function normalizeHexColor(value: string | null | undefined): string | undefined {
+  const cleaned = cleanFillString(value)
+  if (!cleaned) return undefined
+  const match = cleaned.match(HEX_EXTRACT)
+  if (!match?.[1]) return undefined
+  const hex = match[1]
+  if (hex.length === 3) {
+    const [r, g, b] = hex
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase()
+  }
+  return `#${hex}`.toLowerCase()
+}
+
+type BrandFillSource = {
+  fillMode?: string | null
+  solidColor?: string | null
+  gradientFrom?: string | null
+  gradientVia?: string | null
+  gradientTo?: string | null
+  gradientAngle?: number | null
+}
+
+/** Map Sanity brand fill fields into a resolved fill (or undefined for default gradient). */
+export function mapBrandFill(row: BrandFillSource): BrandTextFill | undefined {
+  const mode = cleanFillString(row.fillMode)
+  if (mode === 'solid') {
+    const color = normalizeHexColor(row.solidColor)
+    return color ? {mode: 'solid', color} : undefined
+  }
+  if (mode === 'gradient') {
+    const from = normalizeHexColor(row.gradientFrom)
+    const to = normalizeHexColor(row.gradientTo)
+    if (!from || !to) return undefined
+    const via = normalizeHexColor(row.gradientVia)
+    const angle =
+      typeof row.gradientAngle === 'number' &&
+      Number.isFinite(row.gradientAngle) &&
+      row.gradientAngle >= 0 &&
+      row.gradientAngle <= 360
+        ? row.gradientAngle
+        : 90
+    return via
+      ? {mode: 'gradient', from, via, to, angle}
+      : {mode: 'gradient', from, to, angle}
+  }
+  return undefined
+}
+
+/** @deprecated Prefer mapBrandFill */
+export function mapImpactCalloutFill(row: BrandFillSource): ImpactCalloutFill | undefined {
+  return mapBrandFill(row)
+}
+
+type SanityOriginalMediaRow = {
+  mediaSource?: string | null
+  youtubeVideoId?: string | null
+  playbackId?: string | null
+  posterUrl?: string | null
+} | null
 
 type SanityOriginalRow = {
   _id: string
@@ -117,8 +219,89 @@ type SanityOriginalRow = {
   slug: string
   description?: string | null
   format?: string | null
+  contentKind?: string | null
   coverImageUrl?: string | null
   youtubeVideoId?: string | null
+  tags?: string[] | null
+  publishedAt?: string | null
+  legacyYoutubeVideoId?: string | null
+  film?: {
+    media?: SanityOriginalMediaRow
+    trailer?: SanityOriginalMediaRow
+  } | null
+  podcastSeries?: {
+    episodes?: Array<{
+      _id: string
+      title?: string | null
+      slug?: string | null
+      episodeNumber?: number | null
+      description?: string | null
+      publishedAt?: string | null
+      thumbnailUrl?: string | null
+      media?: SanityOriginalMediaRow
+      youtubeVideoId?: string | null
+    } | null> | null
+  } | null
+  articleSeries?: {
+    chapters?: Array<{
+      _key?: string | null
+      title?: string | null
+      body?: unknown[] | null
+    } | null> | null
+  } | null
+}
+
+function normalizeOriginalContentKind(value: string | null | undefined): OriginalContentKind {
+  if (value === 'podcastSeries' || value === 'articleSeries' || value === 'film') {
+    return value
+  }
+  return 'film'
+}
+
+function mapOriginalVideoMedia(
+  row: SanityOriginalMediaRow | undefined,
+  legacyYoutubeId?: string | null,
+): OriginalVideoMedia | null {
+  const mediaSource = row?.mediaSource === 'muxVideo' ? 'muxVideo' : 'youtube'
+  if (mediaSource === 'muxVideo') {
+    const playbackId = row?.playbackId?.trim()
+    if (!playbackId) return null
+    return {
+      mediaSource: 'muxVideo',
+      playbackId,
+      posterUrl: row?.posterUrl?.trim() || undefined,
+    }
+  }
+
+  const youtubeVideoId =
+    row?.youtubeVideoId?.trim() || legacyYoutubeId?.trim() || undefined
+  if (!youtubeVideoId) return null
+  return {
+    mediaSource: 'youtube',
+    youtubeVideoId,
+  }
+}
+
+function mapOriginalEpisode(row: NonNullable<
+  NonNullable<SanityOriginalRow['podcastSeries']>['episodes']
+>[number]): OriginalEpisode | null {
+  if (!row?._id || !row.title) return null
+  const media =
+    mapOriginalVideoMedia(row.media, row.youtubeVideoId) ??
+    (row.youtubeVideoId
+      ? {mediaSource: 'youtube' as const, youtubeVideoId: row.youtubeVideoId}
+      : null)
+  if (!media) return null
+  return {
+    id: row._id,
+    title: row.title,
+    slug: row.slug?.trim() || row._id,
+    episodeNumber: typeof row.episodeNumber === 'number' ? row.episodeNumber : undefined,
+    description: row.description?.trim() || undefined,
+    publishedAt: row.publishedAt ?? undefined,
+    thumbnailSrc: row.thumbnailUrl?.trim() || undefined,
+    media,
+  }
 }
 
 function resolveImageSrc(image: SanityImageRow | undefined): string | undefined {
@@ -219,11 +402,22 @@ function mapSections(
         const headline = row.headline?.trim()
         const subheadline = row.subheadline?.trim()
         if (!headline || !subheadline) break
+        const fill = mapBrandFill(row)
+        const subFill = mapBrandFill({
+          fillMode: row.subFillMode,
+          solidColor: row.subSolidColor,
+          gradientFrom: row.subGradientFrom,
+          gradientVia: row.subGradientVia,
+          gradientTo: row.subGradientTo,
+          gradientAngle: row.subGradientAngle,
+        })
         sections.push({
           _type: 'impactCallout',
           _key: key,
           headline,
           subheadline,
+          ...(fill ? {fill} : {}),
+          ...(subFill ? {subFill} : {}),
         })
         break
       }
@@ -360,26 +554,101 @@ export function mapSanityWorkProjectToDetail(row: SanityWorkProjectRow): WorkPro
     throw new Error(`Sanity project "${preview.id}" is missing category`)
   }
 
+  const titleFill = mapBrandFill({
+    fillMode: row.titleFillMode,
+    solidColor: row.titleSolidColor,
+    gradientFrom: row.titleGradientFrom,
+    gradientVia: row.titleGradientVia,
+    gradientTo: row.titleGradientTo,
+    gradientAngle: row.titleGradientAngle,
+  })
+  const clientFill = mapBrandFill({
+    fillMode: row.clientFillMode,
+    solidColor: row.clientSolidColor,
+    gradientFrom: row.clientGradientFrom,
+    gradientVia: row.clientGradientVia,
+    gradientTo: row.clientGradientTo,
+    gradientAngle: row.clientGradientAngle,
+  })
+
   return {
     ...preview,
     slug: preview.slug ?? preview.id,
     category: preview.category,
     summary: preview.summary ?? '',
     hero: mapSanityProjectMedia(row.hero),
+    ...(titleFill ? {titleFill} : {}),
+    ...(clientFill ? {clientFill} : {}),
     sections: mapSections(row.sections),
     seo: row.seo ?? undefined,
   }
 }
 
 export function mapSanityOriginalToPreview(row: SanityOriginalRow): OriginalPreview {
+  const contentKind = normalizeOriginalContentKind(row.contentKind)
+  const slug = row.slug
   return {
     id: row._id,
     title: row.title,
-    slug: row.slug,
+    slug,
     description: row.description ?? undefined,
     format: row.format ?? undefined,
+    contentKind,
     coverImageSrc: row.coverImageUrl ?? '',
     youtubeVideoId: row.youtubeVideoId ?? undefined,
-    href: '/originals',
+    href: `/originals/${slug}`,
+  }
+}
+
+export function mapSanityOriginalToDetail(row: SanityOriginalRow): OriginalDetail {
+  const preview = mapSanityOriginalToPreview(row)
+  const base = {
+    ...preview,
+    publishedAt: row.publishedAt ?? undefined,
+    tags: row.tags?.filter(Boolean) ?? undefined,
+  }
+
+  if (preview.contentKind === 'podcastSeries') {
+    const episodes = (row.podcastSeries?.episodes ?? [])
+      .map(mapOriginalEpisode)
+      .filter((ep): ep is OriginalEpisode => Boolean(ep))
+    return {...base, contentKind: 'podcastSeries', episodes}
+  }
+
+  if (preview.contentKind === 'articleSeries') {
+    const chapters: OriginalArticleChapter[] = (row.articleSeries?.chapters ?? [])
+      .filter((ch): ch is NonNullable<typeof ch> => Boolean(ch?.title && ch.body?.length))
+      .map((ch, index) => ({
+        _key: ch._key?.trim() || `chapter-${index}`,
+        title: ch.title as string,
+        body: ch.body as unknown[],
+      }))
+    return {...base, contentKind: 'articleSeries', chapters}
+  }
+
+  const media =
+    mapOriginalVideoMedia(row.film?.media, row.legacyYoutubeVideoId ?? row.youtubeVideoId) ??
+    (row.legacyYoutubeVideoId || row.youtubeVideoId
+      ? {
+          mediaSource: 'youtube' as const,
+          youtubeVideoId: (row.legacyYoutubeVideoId || row.youtubeVideoId) as string,
+        }
+      : null)
+
+  if (!media) {
+    // Published film without media — still render detail shell with cover only
+    return {
+      ...base,
+      contentKind: 'film',
+      media: {mediaSource: 'youtube'},
+      trailer: null,
+    }
+  }
+
+  return {
+    ...base,
+    contentKind: 'film',
+    media,
+    trailer: mapOriginalVideoMedia(row.film?.trailer),
   }
 }

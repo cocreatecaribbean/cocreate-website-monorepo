@@ -62,7 +62,7 @@ const LOOKS: PhilosophyLook[] = [
   },
   {
     name: 'Dela Gothic One',
-    quote: 'Restraint is a craft.',
+    quote: 'Curiosity comes first.',
     className: fonts.delaGothicOne.className,
     textTransform: 'uppercase',
     letterSpacing: '0em',
@@ -80,6 +80,8 @@ const LOOKS: PhilosophyLook[] = [
 
 const HOLD_SECONDS = 1.35
 const FLIP_SECONDS = 0.28
+/** Soft floor so a stalled scroll frame never leaves a blank title. */
+const FLIP_OPACITY_DIP = 0.2
 
 function prefersReducedMotion() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -96,13 +98,31 @@ function applyLook(el: HTMLElement, look: PhilosophyLook) {
   el.style.fontSize = `calc(${BASE_FONT_SIZE} * ${look.fontSizeFactor})`
 }
 
-/** Tallest Natural height across all looks — locks layout so copy never shifts. */
-function measureMaxTitleHeight(title: HTMLElement): number {
+/**
+ * Tallest natural height across all looks — measured on an off-DOM probe so the
+ * live animated title is never mutated mid-cycle.
+ */
+function measureMaxTitleHeight(template: HTMLElement, width: number): number {
+  const probe = template.cloneNode(true) as HTMLElement
+  probe.setAttribute('aria-hidden', 'true')
+  probe.style.cssText = [
+    'position:absolute',
+    'left:-9999px',
+    'top:0',
+    'visibility:hidden',
+    'pointer-events:none',
+    `width:${Math.max(0, width)}px`,
+  ].join(';')
+
+  document.body.appendChild(probe)
+
   let max = 0
   for (const look of LOOKS) {
-    applyLook(title, look)
-    max = Math.max(max, title.getBoundingClientRect().height)
+    applyLook(probe, look)
+    max = Math.max(max, probe.getBoundingClientRect().height)
   }
+
+  probe.remove()
   return max
 }
 
@@ -126,6 +146,10 @@ export default function PhilosophyTitleLoop({
       const label = labelRef.current
       if (!root || !stage || !title || !label) return
 
+      let lookIndex = 0
+      let cancelled = false
+      let lastWidth = window.innerWidth
+
       const setLook = (look: PhilosophyLook) => {
         applyLook(title, look)
         label.textContent = look.quote
@@ -133,25 +157,37 @@ export default function PhilosophyTitleLoop({
 
       const lockStageHeight = () => {
         stage.style.height = 'auto'
-        const maxH = measureMaxTitleHeight(title)
+        const width =
+          stage.clientWidth || title.getBoundingClientRect().width || lastWidth
+        const maxH = measureMaxTitleHeight(title, width)
         if (maxH > 0) {
           stage.style.height = `${Math.ceil(maxH)}px`
         }
-        setLook(LOOKS[0])
+        setLook(LOOKS[lookIndex])
       }
 
       lockStageHeight()
-      void document.fonts?.ready.then(lockStageHeight)
+      void document.fonts?.ready.then(() => {
+        if (cancelled) return
+        lockStageHeight()
+      })
 
       let resizeTimer: ReturnType<typeof setTimeout> | undefined
       const onResize = () => {
         if (resizeTimer) clearTimeout(resizeTimer)
-        resizeTimer = setTimeout(lockStageHeight, 120)
+        resizeTimer = setTimeout(() => {
+          const width = window.innerWidth
+          // Ignore height-only mobile chrome (URL bar) resizes while scrolling.
+          if (width === lastWidth) return
+          lastWidth = width
+          lockStageHeight()
+        }, 120)
       }
       window.addEventListener('resize', onResize)
 
       if (prefersReducedMotion()) {
         return () => {
+          cancelled = true
           if (resizeTimer) clearTimeout(resizeTimer)
           window.removeEventListener('resize', onResize)
         }
@@ -162,13 +198,15 @@ export default function PhilosophyTitleLoop({
       tl.to({}, { duration: HOLD_SECONDS })
 
       LOOKS.forEach((_, i) => {
-        const next = LOOKS[(i + 1) % LOOKS.length]
+        const nextIndex = (i + 1) % LOOKS.length
+        const next = LOOKS[nextIndex]
         tl.to(title, {
-          opacity: 0,
+          opacity: FLIP_OPACITY_DIP,
           y: -10,
           duration: FLIP_SECONDS,
           ease: 'power2.in',
           onComplete: () => {
+            lookIndex = nextIndex
             setLook(next)
             gsap.set(title, { y: 12 })
           },
@@ -183,6 +221,7 @@ export default function PhilosophyTitleLoop({
       })
 
       return () => {
+        cancelled = true
         if (resizeTimer) clearTimeout(resizeTimer)
         window.removeEventListener('resize', onResize)
         tl.kill()

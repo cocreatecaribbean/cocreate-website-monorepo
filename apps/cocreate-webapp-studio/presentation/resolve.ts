@@ -3,6 +3,7 @@ import {defineDocuments, defineLocations} from 'sanity/presentation'
 export const WORK_INDEX_PATH = '/work'
 export const HOME_PATH = '/'
 export const ABOUT_PATH = '/about'
+export const ORIGINALS_PATH = '/originals'
 
 /**
  * One page document per marketing route.
@@ -24,6 +25,14 @@ export const mainDocuments = defineDocuments([
   {
     route: ABOUT_PATH,
     type: 'aboutPage',
+  },
+  {
+    route: ORIGINALS_PATH,
+    type: 'original',
+  },
+  {
+    route: '/originals/:slug',
+    type: 'original',
   },
 ])
 
@@ -59,6 +68,28 @@ export const presentationLocations = {
           title: 'About',
           href: ABOUT_PATH,
         },
+      ],
+    }),
+  }),
+  original: defineLocations({
+    select: {
+      title: 'title',
+      slug: 'slug.current',
+    },
+    resolve: (doc) => ({
+      locations: [
+        {
+          title: 'Originals',
+          href: ORIGINALS_PATH,
+        },
+        ...(doc?.slug
+          ? [
+              {
+                title: doc?.title || 'Original',
+                href: `${ORIGINALS_PATH}/${doc.slug}`,
+              },
+            ]
+          : []),
       ],
     }),
   }),

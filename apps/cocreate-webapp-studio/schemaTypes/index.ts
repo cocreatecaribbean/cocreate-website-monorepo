@@ -3,7 +3,10 @@ import { client } from './client'
 import { aboutPage } from './aboutPage'
 import { aboutTestimonial } from './aboutTestimonial'
 import { landingPage } from './landingPage'
+import { articleSeries, filmContent, podcastSeries } from './originalContent'
 import { original } from './original'
+import { originalEpisode } from './originalEpisode'
+import { originalMedia } from './originalMedia'
 import { projectMedia } from './projectMedia'
 import {
   impactCallout,
@@ -30,6 +33,11 @@ export const schemaTypes = [
   workPage,
   aboutTestimonial,
   aboutPage,
+  originalMedia,
+  podcastSeries,
+  filmContent,
+  articleSeries,
+  originalEpisode,
   original,
   landingPage,
 ]

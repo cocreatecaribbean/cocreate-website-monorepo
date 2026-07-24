@@ -45,11 +45,22 @@ export type MediaPairSection = {
   right: ProjectMedia
 }
 
+export type BrandTextFill =
+  | {mode: 'solid'; color: string}
+  | {mode: 'gradient'; from: string; via?: string; to: string; angle: number}
+
+/** @deprecated Prefer BrandTextFill — same shape. */
+export type ImpactCalloutFill = BrandTextFill
+
 export type ImpactCalloutSection = {
   _type: 'impactCallout'
   _key: string
   headline: string
   subheadline: string
+  /** When omitted, UI uses the default CoCreate gradient. */
+  fill?: BrandTextFill
+  /** When omitted, UI uses muted San Marino. */
+  subFill?: BrandTextFill
 }
 
 export type TextAndMediaSection = {
@@ -115,6 +126,10 @@ export type WorkProjectDetail = ProjectPreview & {
   summary: string
   /** Detail heading hero (image or Mux video) */
   hero?: ProjectMedia | null
+  /** Optional brand fill for the project name H1. Default = CoCreate gradient. */
+  titleFill?: BrandTextFill
+  /** Optional brand fill for the client name under the H1. Default = muted San Marino. */
+  clientFill?: BrandTextFill
   /** Modular page-builder sections */
   sections: WorkProjectSection[]
   seo?: {
@@ -123,16 +138,74 @@ export type WorkProjectDetail = ProjectPreview & {
   }
 }
 
+export type OriginalContentKind = 'podcastSeries' | 'film' | 'articleSeries'
+
+export type OriginalMediaSource = 'youtube' | 'muxVideo'
+
+/** Resolved YouTube or Mux video for originals / episodes. */
+export type OriginalVideoMedia = {
+  mediaSource: OriginalMediaSource
+  youtubeVideoId?: string
+  playbackId?: string
+  posterUrl?: string
+}
+
 export type OriginalPreview = {
   id: string
   title: string
   slug: string
   description?: string
   format?: string
+  contentKind: OriginalContentKind
   coverImageSrc: string
+  /** Film YouTube id when present (list/search convenience) */
   youtubeVideoId?: string
   href?: string
 }
+
+export type OriginalEpisode = {
+  id: string
+  title: string
+  slug: string
+  episodeNumber?: number
+  description?: string
+  publishedAt?: string
+  thumbnailSrc?: string
+  media: OriginalVideoMedia
+}
+
+export type OriginalArticleChapter = {
+  _key: string
+  title: string
+  /** Portable Text blocks from Sanity `blockContent` */
+  body: unknown[]
+}
+
+export type OriginalDetailBase = OriginalPreview & {
+  publishedAt?: string
+  tags?: string[]
+}
+
+export type OriginalPodcastDetail = OriginalDetailBase & {
+  contentKind: 'podcastSeries'
+  episodes: OriginalEpisode[]
+}
+
+export type OriginalFilmDetail = OriginalDetailBase & {
+  contentKind: 'film'
+  media: OriginalVideoMedia
+  trailer?: OriginalVideoMedia | null
+}
+
+export type OriginalArticleDetail = OriginalDetailBase & {
+  contentKind: 'articleSeries'
+  chapters: OriginalArticleChapter[]
+}
+
+export type OriginalDetail =
+  | OriginalPodcastDetail
+  | OriginalFilmDetail
+  | OriginalArticleDetail
 
 export type SearchResultKind = 'client' | 'project' | 'original' | 'category' | 'tag'
 

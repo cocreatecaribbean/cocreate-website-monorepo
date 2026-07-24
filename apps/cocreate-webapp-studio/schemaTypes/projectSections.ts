@@ -1,4 +1,5 @@
 import {defineArrayMember, defineField, defineType} from 'sanity'
+import {brandFillFields} from './brandFillFields'
 
 export const projectOverview = defineType({
   name: 'projectOverview',
@@ -84,9 +85,29 @@ export const impactCallout = defineType({
       type: 'string',
       validation: (rule) => rule.required(),
     }),
+    ...brandFillFields({
+      prefix: '',
+      label: 'Headline',
+      modeDescription:
+        'Default keeps the CoCreate gradient. Solid or gradient uses brand colors.',
+    }),
+    ...brandFillFields({
+      prefix: 'sub',
+      label: 'Subheadline',
+      modeDescription:
+        'Default keeps San Marino. Solid or gradient uses brand colors.',
+    }),
   ],
   preview: {
-    select: {title: 'headline', subtitle: 'subheadline'},
+    select: {title: 'headline', subtitle: 'subheadline', fillMode: 'fillMode'},
+    prepare({title, subtitle, fillMode}) {
+      const fill =
+        fillMode === 'solid' ? 'Solid' : fillMode === 'gradient' ? 'Gradient' : 'Default'
+      return {
+        title,
+        subtitle: subtitle ? `${subtitle} · ${fill}` : fill,
+      }
+    },
   },
 })
 
