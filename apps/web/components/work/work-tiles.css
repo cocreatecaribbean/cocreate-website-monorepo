@@ -1,63 +1,8 @@
-/* Work masonry + hover — co-located so styles always ship with /work */
+/* Work tile grid + hover — co-located so styles always ship with /work */
 
-.work-masonry-columns {
-  column-gap: 1.125rem;
-}
-
-/*
- * Safari iOS: border-radius on tiles inside `columns` often does not paint.
- * Use flex stack on touch/narrow viewports instead of column layout.
- */
-@media (max-width: 767px), (hover: none) and (pointer: coarse) {
-  .work-masonry-columns {
-    column-count: unset !important;
-    columns: unset !important;
-    display: flex;
-    flex-direction: column;
-    gap: 1.125rem;
-  }
-
-  .work-tile-reveal {
-    margin-bottom: 0;
-  }
-}
-
-@media (min-width: 640px) {
-  .work-masonry-columns {
-    column-gap: 1.375rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .work-masonry-columns {
-    column-gap: 1.5rem;
-  }
-}
-
-/*
- * inline-block (not block): Safari fragments block items' rounded borders /
- * shadows into the next column even with break-inside: avoid, leaving a
- * stray corner-line artifact that flickers on hover repaints.
- */
 .work-tile-reveal {
-  break-inside: avoid;
-  -webkit-column-break-inside: avoid;
-  display: inline-block;
-  vertical-align: top;
-  margin-bottom: 1.125rem;
+  display: block;
   width: 100%;
-}
-
-@media (min-width: 640px) {
-  .work-tile-reveal {
-    margin-bottom: 1.375rem;
-  }
-}
-
-@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
-  .work-tile-reveal {
-    margin-bottom: 1.375rem;
-  }
 }
 
 .work-tile-card img {
@@ -71,10 +16,8 @@
   border: 1px solid rgba(57, 65, 154, 0.1);
   box-shadow: 0 10px 28px rgba(57, 65, 154, 0.1);
   /*
-   * Hover lift uses `top` (relative offset), NOT transform: WebKit applies
-   * transforms before multicol fragmentation and slices the lifted card's
-   * top edge into the next column (blinking ghost line on Safari).
-   * Relative offsets apply after fragmentation, so paint cannot leak.
+   * Hover lift uses `top` (relative offset), NOT transform, so WebKit does
+   * not mis-composite the lifted card against neighbouring tiles.
    */
   top: 0;
   transition:

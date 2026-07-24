@@ -9,45 +9,26 @@ import { useWorkTileBatchReveal } from '@/hooks/use-work-tile-batch-reveal'
 import WorkTileShell from '@/components/work/work-tile-shell'
 import './work-tiles.css'
 
-const TILE_HEIGHT_PATTERN = [
-  'pb-[108%]',
-  'pb-[66%]',
-  'pb-[92%]',
-  'pb-[72%]',
-  'pb-[102%]',
-  'pb-[84%]',
-] as const
-
-function getTileHeightClass(index: number): string {
-  return TILE_HEIGHT_PATTERN[index % TILE_HEIGHT_PATTERN.length]
-}
-
 type WorkMasonryGridProps = {
   items?: ProjectPreview[]
 }
 
 const CARD_CLASS = 'work-tile-card relative block w-full overflow-hidden'
 
-function WorkMasonryTile({
-  item,
-  heightClass,
-}: {
-  item: ProjectPreview
-  heightClass: string
-}) {
+function WorkMasonryTile({ item }: { item: ProjectPreview }) {
   const coverSrc = item.coverImageSrc?.trim() || null
   const hasCover = Boolean(coverSrc)
   const blurDataURL = item.coverImageBlurDataURL?.trim() || undefined
 
   const media = (
-    <div className={`work-tile-card__frame relative w-full ${heightClass}`}>
+    <div className="work-tile-card__frame relative aspect-square w-full">
       <div className="work-tile-card__clip absolute inset-0 overflow-hidden bg-chambray">
         {hasCover && coverSrc ? (
           <Image
             src={coverSrc}
             alt=""
             fill
-            sizes="(max-width: 767px) 88vw, (max-width: 1023px) 44vw, 440px"
+            sizes="(max-width: 767px) 88vw, (max-width: 1023px) 44vw, 29vw"
             className="object-cover object-center"
             {...(blurDataURL
               ? { placeholder: 'blur' as const, blurDataURL }
@@ -114,13 +95,16 @@ export default function WorkMasonryGrid({
       <p className="sr-only" aria-live="polite">
         Showing {visibleItems.length} of {totalCount} projects
       </p>
-      <div className="work-masonry-columns columns-1 min-[640px]:columns-2 min-[1024px]:columns-3">
-        {visibleItems.map((item, index) => (
+      <div
+        className="
+          work-masonry-columns grid grid-cols-1 gap-x-[1.125rem] gap-y-[1.125rem]
+          md:grid-cols-2 md:gap-x-[1.375rem] md:gap-y-[1.375rem]
+          lg:grid-cols-3 lg:gap-x-6 lg:gap-y-6
+        "
+      >
+        {visibleItems.map((item) => (
           <div key={item.id} data-work-tile className="work-tile-reveal">
-            <WorkMasonryTile
-              item={item}
-              heightClass={getTileHeightClass(index)}
-            />
+            <WorkMasonryTile item={item} />
           </div>
         ))}
       </div>
