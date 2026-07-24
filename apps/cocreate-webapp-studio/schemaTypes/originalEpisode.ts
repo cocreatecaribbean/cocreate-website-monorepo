@@ -37,10 +37,11 @@ export const originalEpisode = defineType({
     }),
     defineField({
       name: 'thumbnail',
-      title: 'Thumbnail',
+      title: 'Thumbnail (image only)',
       type: 'image',
       options: {hotspot: true},
-      description: 'Optional override. Otherwise YouTube/Mux thumbnails are used.',
+      description:
+        'Still image only — not video. Optional override; otherwise YouTube/Mux thumbnails are used.',
     }),
     defineField({
       name: 'media',

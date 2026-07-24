@@ -17,12 +17,16 @@ export const aboutPage = defineType({
       name: 'heroMediaType',
       title: 'Hero media type',
       description:
-        'Image or Mux video for the About hero. Media itself is optional — empty uses the site default image.',
+        'Image, Mux video (autoplay loop), or looping video file (GIF-like). Media is optional — empty uses the site default image.',
       type: 'string',
       options: {
         list: [
           {title: 'Image', value: 'image'},
-          {title: 'Video', value: 'video'},
+          {title: 'Mux video', value: 'video'},
+          {
+            title: 'Looping video (GIF-like)',
+            value: 'loopVideo',
+          },
         ],
         layout: 'radio',
       },
@@ -31,19 +35,31 @@ export const aboutPage = defineType({
     }),
     defineField({
       name: 'heroImage',
-      title: 'Hero image',
-      description: 'Leave empty to use the site default About hero image.',
+      title: 'Hero image (image only)',
+      description:
+        'Still image only — videos are not accepted. Leave empty to use the site default About hero image.',
       type: 'image',
       options: {hotspot: true},
       hidden: ({parent}) => parent?.heroMediaType !== 'image',
     }),
     defineField({
       name: 'heroVideo',
-      title: 'Hero video',
+      title: 'Hero Mux video',
       description:
-        'Upload via Mux when media type is Video. Leave empty to use the site default hero image.',
+        'Upload via Mux. Autoplays muted and loops on the About page. Leave empty to use the site default hero image.',
       type: 'mux.video',
       hidden: ({parent}) => parent?.heroMediaType !== 'video',
+    }),
+    defineField({
+      name: 'heroLoopVideo',
+      title: 'Looping video file',
+      description:
+        'mp4 or webm. Autoplays muted, loops, no controls. Prefer short h.264 mp4 for Safari.',
+      type: 'file',
+      options: {
+        accept: 'video/mp4,video/webm',
+      },
+      hidden: ({parent}) => parent?.heroMediaType !== 'loopVideo',
     }),
     defineField({
       name: 'heroHeading',

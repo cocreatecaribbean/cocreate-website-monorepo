@@ -1,4 +1,5 @@
 import type {StructureResolver} from 'sanity/structure'
+import {PublishAllOriginalsTool} from './components/PublishAllOriginalsTool'
 
 export const structure: StructureResolver = (S) =>
   S.list()
@@ -51,6 +52,12 @@ export const structure: StructureResolver = (S) =>
                 .title('Episodes')
                 .schemaType('originalEpisode')
                 .child(S.documentTypeList('originalEpisode').title('Episodes')),
+              S.listItem()
+                .title('Publish all drafts')
+                .id('publish-all-originals')
+                .child(
+                  S.component(PublishAllOriginalsTool).title('Publish all originals'),
+                ),
             ]),
         ),
     ])

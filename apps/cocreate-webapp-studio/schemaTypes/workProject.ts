@@ -1,5 +1,6 @@
 import {defineField, defineType} from 'sanity'
 import {ClientReferenceInput} from '../components/ClientReferenceInput'
+import {PublishedAtField} from '../components/PublishedAtInput'
 import {brandColorsField, brandFillFields} from './brandFillFields'
 import {projectSectionMembers} from './projectSections'
 
@@ -10,6 +11,7 @@ type WorkProjectParent = {
     mediaType?: string
     image?: {asset?: {_ref?: string}}
     video?: {asset?: {_ref?: string}}
+    loopVideo?: {asset?: {_ref?: string}}
   }
 }
 
@@ -27,19 +29,6 @@ export const workProject = defineType({
       title: 'Project name',
       type: 'string',
       validation: (rule) => rule.required(),
-    }),
-    brandColorsField,
-    ...brandFillFields({
-      prefix: 'title',
-      label: 'Project name',
-      modeDescription:
-        'Default keeps the CoCreate gradient. Solid or gradient uses brand colors.',
-    }),
-    ...brandFillFields({
-      prefix: 'client',
-      label: 'Client name',
-      modeDescription:
-        'Default keeps muted San Marino. Solid or gradient uses brand colors.',
     }),
     defineField({
       name: 'slug',
@@ -61,9 +50,32 @@ export const workProject = defineType({
       components: {input: ClientReferenceInput},
     }),
     defineField({
+      name: 'publishedAt',
+      // Title/description rendered in PublishedAtField (caution Card).
+      title: 'Published at',
+      type: 'datetime',
+      components: {
+        field: PublishedAtField,
+      },
+    }),
+    brandColorsField,
+    ...brandFillFields({
+      prefix: 'title',
+      label: 'Project name',
+      modeDescription:
+        'Default keeps the CoCreate gradient. Solid or gradient uses brand colors.',
+    }),
+    ...brandFillFields({
+      prefix: 'client',
+      label: 'Client name',
+      modeDescription:
+        'Default keeps muted San Marino. Solid or gradient uses brand colors.',
+    }),
+    defineField({
       name: 'coverImage',
-      title: 'Cover image',
-      description: 'Used on the Work index and home gallery. Required to publish.',
+      title: 'Cover image (image only)',
+      description:
+        'Still image for the Work index and home gallery — videos are not accepted. Use hero or section media for video. Required to publish.',
       type: 'image',
       options: {hotspot: true},
       validation: (rule) =>
@@ -104,7 +116,7 @@ export const workProject = defineType({
       name: 'hero',
       title: 'Project heading — hero media',
       description:
-        'Full-width hero below the project title on the detail page. Image or Mux video.',
+        'Full-width hero below the project title. Image, Mux video (Play), or looping video (GIF-like autoplay).',
       type: 'object',
       fields: [
         defineField({
@@ -114,24 +126,52 @@ export const workProject = defineType({
           options: {
             list: [
               {title: 'Image', value: 'image'},
-              {title: 'Video', value: 'video'},
+              {title: 'Mux video', value: 'video'},
+              {
+                title: 'Looping video (GIF-like)',
+                value: 'loopVideo',
+              },
             ],
             layout: 'radio',
           },
           initialValue: 'image',
           validation: (rule) => rule.required(),
+          description:
+            'Mux for watchable clips with Play. Looping video autoplays muted with no controls — keep clips short/compressed; prefer mp4 (h.264) for Safari.',
         }),
         defineField({
           name: 'image',
-          title: 'Hero image',
+          title: 'Hero image (image only)',
+          description: 'Still image only — videos are not accepted here.',
           type: 'image',
           options: {hotspot: true},
           hidden: ({parent}) => parent?.mediaType !== 'image',
         }),
         defineField({
           name: 'video',
-          title: 'Hero video',
+          title: 'Mux video',
+          description: 'Upload via Mux — shown with a Play control',
           type: 'mux.video',
+          hidden: ({parent}) => parent?.mediaType !== 'video',
+        }),
+        defineField({
+          name: 'loopVideo',
+          title: 'Looping video file',
+          description:
+            'mp4 or webm. Autoplays muted, loops, no controls. Prefer short h.264 mp4 for Safari.',
+          type: 'file',
+          options: {
+            accept: 'video/mp4,video/webm',
+          },
+          hidden: ({parent}) => parent?.mediaType !== 'loopVideo',
+        }),
+        defineField({
+          name: 'cover',
+          title: 'Cover image (image only)',
+          description:
+            'Still image only — not video. Shown before Play. Mux falls back to an auto thumbnail if empty.',
+          type: 'image',
+          options: {hotspot: true},
           hidden: ({parent}) => parent?.mediaType !== 'video',
         }),
         defineField({
@@ -153,6 +193,9 @@ export const workProject = defineType({
           }
           if (hero.mediaType === 'video' && !hero.video?.asset) {
             return 'Add a hero video before publishing'
+          }
+          if (hero.mediaType === 'loopVideo' && !hero.loopVideo?.asset) {
+            return 'Add a looping video file before publishing'
           }
           return true
         }),
@@ -178,13 +221,6 @@ export const workProject = defineType({
       title: 'Featured on home',
       type: 'boolean',
       initialValue: false,
-    }),
-    defineField({
-      name: 'publishedAt',
-      title: 'Published at',
-      description:
-        'Leave empty to keep as draft. Only published projects appear on the public site.',
-      type: 'datetime',
     }),
     defineField({
       name: 'seo',
@@ -216,8 +252,9 @@ export const workProject = defineType({
     },
     prepare({title, subtitle, description, media, publishedAt}) {
       const clientLabel = subtitle || 'No client'
+      const name = title || 'Untitled project'
       return {
-        title: title || 'Untitled project',
+        title: publishedAt ? name : `[Draft] ${name}`,
         subtitle: publishedAt ? `${clientLabel} · ${description}` : `${clientLabel} · Draft`,
         ...(media ? {media} : {}),
       }

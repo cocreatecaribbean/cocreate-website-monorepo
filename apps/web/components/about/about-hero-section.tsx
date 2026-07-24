@@ -12,17 +12,20 @@ export default function AboutHeroSection() {
   const { sectionRef, mediaRef, refreshScroll } = useAboutHeroAnimation({ scope: rootRef })
   const about = useAboutPageContent()
 
-  const useVideo =
+  const useMuxVideo =
     about.heroMediaType === 'video' && Boolean(about.heroVideoPlaybackId)
+  const useLoopVideo =
+    about.heroMediaType === 'loopVideo' && Boolean(about.heroLoopVideoSrc)
+  const useMotion = useMuxVideo || useLoopVideo
   const imageSrc = about.heroImageUrl || about.fallbackHeroImageSrc
   const imageIsRemote = imageSrc.startsWith('http')
 
   useEffect(() => {
-    if (!useVideo) return
+    if (!useMotion) return
     refreshScroll()
     // refreshScroll is intentionally unstable (new fn each render from the animation hook)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when hero video changes
-  }, [useVideo, about.heroVideoPlaybackId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when hero media changes
+  }, [useMotion, about.heroVideoPlaybackId, about.heroLoopVideoSrc])
 
   return (
     <section ref={rootRef} aria-label="About CoCreate hero" className="pb-6 max-[767px]:pb-0 min-[768px]:max-[1499px]:pb-0 min-[1500px]:pb-0">
@@ -48,7 +51,7 @@ export default function AboutHeroSection() {
             min-[1024px]:max-h-[46svh] min-[1500px]:min-h-[46svh] min-[1500px]:max-h-[54svh]
           "
         >
-          {useVideo ? (
+          {useMuxVideo ? (
             <MuxVideoPlayer
               playbackId={about.heroVideoPlaybackId!}
               title={about.heroHeading}
@@ -57,6 +60,20 @@ export default function AboutHeroSection() {
               loop
               className="absolute inset-0 h-full w-full object-cover [--controls:none]"
             />
+          ) : useLoopVideo ? (
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              disablePictureInPicture
+              aria-label={about.heroHeading}
+              className="absolute inset-0 h-full w-full object-cover pointer-events-none select-none"
+              onLoadedData={refreshScroll}
+            >
+              <source src={about.heroLoopVideoSrc!} />
+            </video>
           ) : (
             <Image
               src={imageSrc}

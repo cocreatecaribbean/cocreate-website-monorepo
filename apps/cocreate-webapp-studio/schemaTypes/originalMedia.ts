@@ -60,8 +60,9 @@ export const originalMedia = defineType({
     }),
     defineField({
       name: 'poster',
-      title: 'Poster image',
-      description: 'Optional. Mux falls back to an auto-generated thumbnail if empty.',
+      title: 'Poster image (image only)',
+      description:
+        'Still image only — not video. Optional. Mux falls back to an auto-generated thumbnail if empty.',
       type: 'image',
       options: {hotspot: true},
       hidden: ({parent}) => parent?.mediaSource !== 'muxVideo',

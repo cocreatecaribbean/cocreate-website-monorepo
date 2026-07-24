@@ -10,9 +10,10 @@ type SectionScrollRevealOptions = {
 
 /**
  * ScrollTrigger section reveal tuned for ScrollSmoother + touch.
- * Default: bidirectional enter/leave. With persistAfterReveal: reveal on scroll-down
- * entry, stay visible when scrolling past or back up through the section, hide only
- * when scrolling back above the section top (onLeaveBack) so the next scroll-down can reveal again.
+ * Default: bidirectional enter/leave.
+ * With persistAfterReveal: reveal on enter and enter-back; stay visible when
+ * scrolling past downward; hide only when scrolling back above the section top
+ * (onLeaveBack). Init sync reveals when already past start (mid-page reload).
  */
 export function bindSectionScrollReveal({
   trigger,
@@ -29,7 +30,10 @@ export function bindSectionScrollReveal({
     invalidateOnRefresh: true,
     onEnter: onReveal,
     ...(persistAfterReveal
-      ? { onLeaveBack: onHide }
+      ? {
+          onEnterBack: onReveal,
+          onLeaveBack: onHide,
+        }
       : {
           onEnterBack: onReveal,
           onLeave: onHide,
@@ -38,7 +42,12 @@ export function bindSectionScrollReveal({
   })
 
   const syncIfInView = () => {
-    if (!st.isActive) return
+    // Persist: already past start (progress > 0 includes scrolled past end).
+    // Default: only while the trigger is in the active window.
+    const shouldShow = persistAfterReveal
+      ? st.progress > 0 || st.isActive
+      : st.isActive
+    if (!shouldShow) return
 
     const content = document.getElementById('smooth-content')
     const contentOpacity = content

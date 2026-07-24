@@ -1,4 +1,5 @@
 import {defineField, defineType} from 'sanity'
+import {WorkProjectsLiveStatus} from '../components/WorkProjectsLiveStatus'
 
 /** Keep in sync with apps/web/site-info/work-page-data.ts */
 export const WORK_PAGE_DEFAULT_TITLE_LINE_ONE = 'Our'
@@ -14,6 +15,14 @@ export const workPage = defineType({
   title: 'Work page',
   type: 'document',
   fields: [
+    defineField({
+      name: 'liveStatus',
+      title: 'Live status',
+      description: 'Read-only: which projects are live on the public Work page.',
+      type: 'string',
+      readOnly: true,
+      components: {input: WorkProjectsLiveStatus},
+    }),
     defineField({
       name: 'titleLineOne',
       title: 'Title line one',

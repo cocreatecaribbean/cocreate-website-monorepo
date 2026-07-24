@@ -136,7 +136,15 @@ const workDetailProjection = `
       media { ${projectMediaProjection} }
     },
     _type == "shareBar" => {
-      heading
+      heading,
+      fillMode,
+      solidColor,
+      gradientFrom,
+      gradientVia,
+      gradientTo,
+      gradientAngle,
+      circleColor,
+      iconColor
     }
   },
   seo
@@ -305,6 +313,7 @@ export const ABOUT_PAGE_QUERY = defineQuery(`
       "assetUrl": asset->url
     },
     "heroVideoPlaybackId": heroVideo.asset->playbackId,
+    "heroLoopVideoSrc": heroLoopVideo.asset->url,
     heroHeading,
     heroBody,
     heroBodyHighlight,

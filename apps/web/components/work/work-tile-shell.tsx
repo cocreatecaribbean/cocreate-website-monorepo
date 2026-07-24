@@ -1,7 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useLayoutEffect, useRef, type MouseEvent, type ReactNode } from 'react'
+import {
+  useLayoutEffect,
+  useRef,
+  useSyncExternalStore,
+  type MouseEvent,
+  type ReactNode,
+} from 'react'
 import { useIsPresentationTool } from 'next-sanity/hooks'
 
 /** Mobile work tiles — inline so iOS respects it (between 2rem original and 4rem) */
@@ -35,6 +41,14 @@ function applyTileRadius(shell: HTMLElement) {
   }
 }
 
+function subscribeNoop() {
+  return () => {}
+}
+
+function getIsPreviewIframe() {
+  return typeof window !== 'undefined' && window.self !== window.top
+}
+
 type WorkTileShellProps = {
   href?: string
   className: string
@@ -48,8 +62,14 @@ export default function WorkTileShell({
 }: WorkTileShellProps) {
   const ref = useRef<HTMLAnchorElement | HTMLElement>(null)
   // Always <Link> so radius useLayoutEffect is not killed by Link↔<a> remount.
-  // Presentation: hard-assign on click so iframe load restores draft SSR.
+  // Presentation iframe: hard-assign on click so iframe load restores draft SSR.
   const isPresentation = Boolean(useIsPresentationTool())
+  const isPreviewIframe = useSyncExternalStore(
+    subscribeNoop,
+    getIsPreviewIframe,
+    () => false,
+  )
+  const hardNav = isPresentation || isPreviewIframe
 
   useLayoutEffect(() => {
     const shell = ref.current
@@ -67,7 +87,7 @@ export default function WorkTileShell({
 
   if (href) {
     const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
-      if (!isPresentation) return
+      if (!hardNav) return
       event.preventDefault()
       window.location.assign(href)
     }

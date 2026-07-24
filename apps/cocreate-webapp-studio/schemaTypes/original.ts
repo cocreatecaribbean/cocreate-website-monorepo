@@ -20,7 +20,9 @@ export const original = defineType({
     }),
     defineField({
       name: 'coverImage',
-      title: 'Cover image',
+      title: 'Cover image (image only)',
+      description:
+        'Still image for cards and listings — videos are not accepted. Use Main video / media for video.',
       type: 'image',
       options: {hotspot: true},
       validation: (rule) => rule.required(),

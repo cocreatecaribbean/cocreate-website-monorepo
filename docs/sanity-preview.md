@@ -104,19 +104,27 @@ Same idea as joh FX **currency rows**: one document in the right pane, projects 
 2. Right pane shows the **Work page**: title lines + **Projects** array.
 3. Expand a project section to edit it, or scroll to the bottom and click **Add item** to create a new project.
 4. Drag projects in the array to reorder the Work grid (array order = display order).
-5. Set **Published at** (and add a cover) when a project should go live on the public site.
+5. Set **Published at** (and add a cover + hero) when a project should go live on the public site — **or** use the Work page document action **Publish all (N drafts)**, which stamps `publishedAt` on ready projects and publishes `workPage` in one step.
 6. `/work/[slug]` URLs still work — they resolve the matching project inside `workPage.projects`.
+
+**Publish vs Published at (critical):** Studio **Publish** on the Work page only promotes the `workPage` document. The live site still filters projects with `defined(publishedAt) && publishedAt <= now()`. Empty **Published at** = invisible on the public site even after Publish (Presentation can still show it). Use **Publish all** on the Work page document, or set **Published at** per project. If Publish is grayed out but a project is missing, open Work page — the Live status panel lists projects without Published at.
+
+**Published at dates:** A **past** datetime goes live immediately. A **future** datetime stays hidden until that time (scheduled). **Publish all** only auto-fills **empty** Published at fields with *now* — it does not rewrite dates you already set.
 
 Home ↔ Work in the iframe switches Presentation between `landingPage` and `workPage` via stock `mainDocuments` (no custom header buttons). There is **no** All projects / Add project header.
 
 Structure → **Work page** + **Clients** for bulk management. Global Create (+) does not create standalone projects (they only exist on the Work page array).
+
+### Originals publish
+
+Each Original is its own document **and** needs **Published at** for the public `/originals` listing. Structure → **Originals → Publish all drafts** stamps `publishedAt` and publishes ready originals in batch.
 
 ### About page (hero + testimonials)
 
 Same embedded-array pattern as Work projects:
 
 1. Open Presentation → navigate to **About** (`/about`) in the iframe (or Structure → About page).
-2. Right pane shows the **About page**: hero media type (image **or** Mux video), hero heading/body, testimonials section title, and **Testimonials** array.
+2. Right pane shows the **About page**: hero media type (image, Mux video, or looping video file), hero heading/body, testimonials section title, and **Testimonials** array.
 3. Expand a testimonial section to edit it, or scroll to the bottom and click **Add item**. Array order = carousel order.
 4. Page title lines and the services section stay **code-only** for this pass.
 

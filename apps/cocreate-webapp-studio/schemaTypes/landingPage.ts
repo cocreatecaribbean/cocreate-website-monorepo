@@ -12,7 +12,8 @@ export const landingPage = defineType({
     defineField({
       name: 'heroReel',
       title: 'Hero reel',
-      description: 'Homepage background reel. Upload via Mux. Leave empty to use the site default MP4.',
+      description:
+        'Homepage background reel via Mux. Always plays muted and loops (not Play-to-watch). Leave empty to use the site default MP4.',
       type: 'mux.video',
     }),
     defineField({

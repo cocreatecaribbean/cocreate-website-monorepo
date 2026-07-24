@@ -10,6 +10,32 @@ import {
 } from '@/sanity/lib/mappers'
 
 describe('work project detail page builder mapping', () => {
+  it('maps hero loopVideo on project detail', () => {
+    const detail = mapSanityWorkProjectToDetail({
+      _id: 'proj-loop',
+      title: 'Loop Hero',
+      slug: 'loop-hero',
+      coverImageUrl: 'https://cdn.example.com/cover.jpg',
+      clientName: 'Client',
+      clientSlug: 'client',
+      category: 'Digital',
+      hero: {
+        mediaType: 'loopVideo',
+        alt: 'Ambient hero',
+        loopVideoSrc: 'https://cdn.sanity.io/files/x/y/hero.mp4',
+        cover: { assetUrl: 'https://cdn.example.com/hero-poster.jpg' },
+      },
+      sections: [],
+    })
+
+    expect(detail.hero).toEqual({
+      mediaType: 'loopVideo',
+      alt: 'Ambient hero',
+      loopVideoSrc: 'https://cdn.sanity.io/files/x/y/hero.mp4',
+      posterUrl: 'https://cdn.example.com/hero-poster.jpg',
+    })
+  })
+
   it('maps hero video + modular sections', () => {
     const detail = mapSanityWorkProjectToDetail({
       _id: 'proj1',
@@ -129,6 +155,37 @@ describe('work project detail page builder mapping', () => {
     expect(detail.sections[6]).toMatchObject({
       _type: 'shareBar',
       heading: 'Share on',
+    })
+  })
+
+  it('maps shareBar heading fill, circle, and icon colors', () => {
+    const detail = mapSanityWorkProjectToDetail({
+      _id: 'proj-share',
+      title: 'Share Project',
+      slug: 'share-project',
+      coverImageUrl: 'https://cdn.example.com/cover.jpg',
+      clientName: 'Client',
+      category: 'Digital',
+      sections: [
+        {
+          _key: 'share1',
+          _type: 'shareBar',
+          heading: 'Share this',
+          fillMode: 'solid',
+          solidColor: '#E85D04',
+          circleColor: '#112233',
+          iconColor: '#AABBCC',
+        },
+      ],
+    })
+
+    expect(detail.sections[0]).toEqual({
+      _type: 'shareBar',
+      _key: 'share1',
+      heading: 'Share this',
+      headingFill: {mode: 'solid', color: '#e85d04'},
+      circleColor: '#112233',
+      iconColor: '#aabbcc',
     })
   })
 

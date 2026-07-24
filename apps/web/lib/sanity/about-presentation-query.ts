@@ -9,6 +9,7 @@ export const ABOUT_PRESENTATION_QUERY = `
     "assetUrl": asset->url
   },
   "heroVideoPlaybackId": heroVideo.asset->playbackId,
+  "heroLoopVideoSrc": heroLoopVideo.asset->url,
   heroHeading,
   heroBody,
   heroBodyHighlight,
@@ -43,6 +44,7 @@ export type AboutPresentationResult = {
   /** Already-resolved URL (merge/fallback only) */
   heroImageUrl?: string | null
   heroVideoPlaybackId?: string | null
+  heroLoopVideoSrc?: string | null
   heroHeading?: string | null
   heroBody?: string | null
   heroBodyHighlight?: string | null

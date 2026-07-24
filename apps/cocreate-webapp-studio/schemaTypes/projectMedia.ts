@@ -28,7 +28,8 @@ export const projectMedia = defineType({
     }),
     defineField({
       name: 'image',
-      title: 'Image',
+      title: 'Image (image only)',
+      description: 'Still image only — videos are not accepted here.',
       type: 'image',
       options: {hotspot: true},
       hidden: ({parent}) => parent?.mediaType !== 'image',
@@ -83,13 +84,12 @@ export const projectMedia = defineType({
     }),
     defineField({
       name: 'cover',
-      title: 'Cover image',
+      title: 'Cover image (image only)',
       description:
-        'Shown before playback (Play overlay / loop poster). Mux videos fall back to an auto-generated thumbnail if empty.',
+        'Still image only — not video. Shown before playback (Play overlay). Mux videos fall back to an auto-generated thumbnail if empty.',
       type: 'image',
       options: {hotspot: true},
-      hidden: ({parent}) =>
-        parent?.mediaType !== 'muxVideo' && parent?.mediaType !== 'loopVideo',
+      hidden: ({parent}) => parent?.mediaType !== 'muxVideo',
     }),
     defineField({
       name: 'loopPoster',

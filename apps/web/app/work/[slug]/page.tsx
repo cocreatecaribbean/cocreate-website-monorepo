@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { draftMode } from 'next/headers'
 import type { Metadata } from 'next'
 import { WorkProjectCmsProvider } from '@/components/work/work-project-cms-provider'
 import WorkProjectPageLive from '@/components/work/work-project-page-live'
@@ -38,7 +39,13 @@ export default async function WorkProjectRoute({ params }: WorkProjectRouteProps
   const { slug } = await params
   const preview = await getSanityPreviewContext()
   const project = await fetchWorkProjectBySlug(slug, preview)
-  if (!project) notFound()
+
+  if (!project) {
+    const { isEnabled: isDraftMode } = await draftMode()
+    // Soft RSC refresh drops embedded → published miss. Keep a shell in draft
+    // mode so Presentation can recover via usePresentationQuery (no 404 flash).
+    if (!isDraftMode) notFound()
+  }
 
   return (
     <WorkProjectCmsProvider initial={project} slug={slug}>

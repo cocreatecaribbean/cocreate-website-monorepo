@@ -26,7 +26,7 @@ function getIsPreviewIframe() {
 }
 
 type WorkProjectCmsProviderProps = {
-  initial: WorkProjectDetail
+  initial: WorkProjectDetail | null
   slug: string
   children: ReactNode
 }
@@ -85,10 +85,7 @@ export function WorkProjectCmsProvider({
   )
 }
 
-export function useWorkProjectLive(): WorkProjectDetail {
-  const context = useContext(WorkProjectCmsContext)
-  if (!context) {
-    throw new Error('useWorkProjectLive must be used within WorkProjectCmsProvider')
-  }
-  return context
+/** Null while draft soft-miss waits for Presentation query. */
+export function useWorkProjectLive(): WorkProjectDetail | null {
+  return useContext(WorkProjectCmsContext)
 }

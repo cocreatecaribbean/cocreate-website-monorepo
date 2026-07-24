@@ -11,6 +11,7 @@ import {StudioNavbar} from './components/StudioNavbar'
 import {mainDocuments, presentationLocations} from './presentation/resolve'
 import {ensurePageSingletonsPlugin} from './plugins/ensure-page-singletons'
 import {syncYouTubePlaylistAction} from './actions/syncYouTubePlaylistAction'
+import {publishAllWorkProjectsAction} from './actions/publishAllWorkProjectsAction'
 import {LANDING_PAGE_DEFAULT_AGENCY_INTRO} from './schemaTypes/landingPage'
 import {
   ABOUT_PAGE_DEFAULT_HERO_BODY,
@@ -112,6 +113,9 @@ export default defineConfig({
     actions: (prev, {schemaType}) => {
       if (schemaType === 'original') {
         return [...prev, syncYouTubePlaylistAction]
+      }
+      if (schemaType === 'workPage') {
+        return [...prev, publishAllWorkProjectsAction]
       }
       return prev
     },

@@ -1,5 +1,6 @@
 import {defineArrayMember, defineField, defineType} from 'sanity'
-import {brandFillFields} from './brandFillFields'
+import {HexColorInput} from '../components/HexColorInput'
+import {brandFillFields, isValidHex} from './brandFillFields'
 
 export const projectOverview = defineType({
   name: 'projectOverview',
@@ -190,11 +191,46 @@ export const shareBar = defineType({
       type: 'string',
       initialValue: 'Share on',
     }),
+    ...brandFillFields({
+      prefix: '',
+      label: 'Heading',
+      modeDescription:
+        'Default keeps the chambray diagonal gradient. Solid or gradient uses brand colors.',
+    }),
+    defineField({
+      name: 'circleColor',
+      title: 'Icon circle background',
+      description: 'Optional. Empty keeps Casablanca yellow (#f6b03f).',
+      type: 'string',
+      components: {input: HexColorInput},
+      validation: (rule) =>
+        rule.custom((value) => {
+          if (!value) return true
+          return isValidHex(value) ? true : 'Enter a hex color like #f6b03f'
+        }),
+    }),
+    defineField({
+      name: 'iconColor',
+      title: 'Icon color',
+      description: 'Optional. Empty keeps Chambray (#39419a).',
+      type: 'string',
+      components: {input: HexColorInput},
+      validation: (rule) =>
+        rule.custom((value) => {
+          if (!value) return true
+          return isValidHex(value) ? true : 'Enter a hex color like #39419a'
+        }),
+    }),
   ],
   preview: {
-    select: {title: 'heading'},
-    prepare({title}) {
-      return {title: title || 'Share on', subtitle: 'Social share links'}
+    select: {title: 'heading', fillMode: 'fillMode'},
+    prepare({title, fillMode}) {
+      const fill =
+        fillMode === 'solid' ? 'Solid' : fillMode === 'gradient' ? 'Gradient' : 'Default'
+      return {
+        title: title || 'Share on',
+        subtitle: `Social share · ${fill}`,
+      }
     },
   },
 })

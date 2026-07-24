@@ -141,6 +141,8 @@ type SanitySectionRow = {
   media?: SanityMediaRow
   mediaPosition?: string | null
   heading?: string | null
+  circleColor?: string | null
+  iconColor?: string | null
 }
 
 const HEX_EXTRACT = /#?([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})\b/
@@ -449,10 +451,16 @@ function mapSections(
         break
       }
       case 'shareBar': {
+        const headingFill = mapBrandFill(row)
+        const circleColor = normalizeHexColor(row.circleColor)
+        const iconColor = normalizeHexColor(row.iconColor)
         sections.push({
           _type: 'shareBar',
           _key: key,
           heading: row.heading?.trim() || 'Share on',
+          ...(headingFill ? {headingFill} : {}),
+          ...(circleColor ? {circleColor} : {}),
+          ...(iconColor ? {iconColor} : {}),
         })
         break
       }

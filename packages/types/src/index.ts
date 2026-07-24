@@ -81,6 +81,12 @@ export type ShareBarSection = {
   _type: 'shareBar'
   _key: string
   heading?: string
+  /** When omitted, UI uses the chambray diagonal gradient. */
+  headingFill?: BrandTextFill
+  /** Icon circle background. When omitted, Casablanca. */
+  circleColor?: string
+  /** Icon glyph color. When omitted, Chambray. */
+  iconColor?: string
 }
 
 export type WorkProjectSection =

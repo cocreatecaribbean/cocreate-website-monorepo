@@ -105,14 +105,15 @@ Bump `next-sanity` carefully — re-apply or drop the patch after upstream fixes
 
 ### 4. Click project in Presentation → 404
 
-**Symptom:** Tile click opens `/work/[slug]` → not found. Unpublished projects only.
+**Symptom:** Tile click opens `/work/[slug]` → not found. Unpublished projects only. Also: soft `router.refresh` while parked on a project URL (live edits / Live goaway ~30s) flashes the same Next 404.
 
-**Root cause:** Next `<Link>` soft-nav → no iframe / Studio referer → `preview=false` → published GROQ + `publishedAt` filter → miss → `notFound()`.
+**Root cause:** Soft RSC / `<Link>` soft-nav → no iframe / Studio referer → `preview=false` → published GROQ + `publishedAt` filter → miss → `notFound()`.
 
 **Final fix:**
 - Map `/work/:slug` → `workPage` in [`presentation/resolve.ts`](../apps/cocreate-webapp-studio/presentation/resolve.ts) (keep form focused; projects are objects, not docs)
-- In Presentation iframe: hard-nav with `onClick` → `preventDefault()` + `location.assign(href)` while **keeping** `<Link>` in the DOM
+- In Presentation iframe: hard-nav with `onClick` → `preventDefault()` + `location.assign(href)` while **keeping** `<Link>` in the DOM (Presentation **or** `window.self !== window.top`)
 - `stegaClean` slugs before building hrefs (stega poisons URLs)
+- When `draftMode` is on and SSR miss: **do not** `notFound()` — keep a null-initial live shell so `usePresentationQuery` can recover ([`work/[slug]/page.tsx`](../apps/web/app/work/[slug]/page.tsx)). Do **not** widen the proxy.
 
 ---
 
@@ -139,7 +140,20 @@ Bump `next-sanity` carefully — re-apply or drop the patch after upstream fixes
 
 ---
 
-### 7. `Cannot read properties of null (reading 'page')`
+### 7. Published Work page but projects missing on the live site
+
+**Symptom:** Studio Publish succeeded; Presentation shows projects; public `/work` does not.
+
+**Root cause:** Two gates. Document Publish promotes `workPage`. Public GROQ still requires each project’s `publishedAt`. Empty **Published at** = draft for the site.
+
+**Final fix:**
+- Work page document action **Publish all (N drafts)** stamps `publishedAt` on ready projects (cover + hero) then publishes
+- Originals: Structure → **Publish all drafts**
+- Callout in [sanity-preview.md](./sanity-preview.md)
+
+---
+
+### 8. `Cannot read properties of null (reading 'page')`
 
 **Symptom:** Crash in Work CMS provider.
 
@@ -149,14 +163,16 @@ Bump `next-sanity` carefully — re-apply or drop the patch after upstream fixes
 
 ---
 
-### 8. Schema / migration footguns (Studio)
+### 9. Schema / migration footguns (Studio)
 
 **Risks we hit:**
 - `setIfMissing({ projects: [] })` on published after migrating into a **draft** stamped an empty published array
 - Orphan-delete of legacy `workProject` docs when flag/array already existed
 - Treating projects as sibling Presentation documents (wrong pane chrome, wrong `mainDocuments`)
 
-**Final model:** One `workPage` singleton; `projects[]` objects; array order = grid order; Client as shared references; `publishedAt` gates public visibility. Same pattern for About: one `aboutPage` singleton; `testimonials[]` objects; hero image **or** Mux video; never `setIfMissing({ testimonials: [] })` on published after a draft-only migrate.
+**Final model:** One `workPage` singleton; `projects[]` objects; array order = grid order; Client as shared references; `publishedAt` gates public visibility. Same pattern for About: one `aboutPage` singleton; `testimonials[]` objects; hero image, Mux video, or looping video file; never `setIfMissing({ testimonials: [] })` on published after a draft-only migrate.
+
+**Work / About media:** Project **hero** and section `projectMedia` share Image / Mux (Play) / Looping video (GIF-like file). Cover fields are **image only** — not video. Landing `heroReel` is Mux and always muted-loops as background.
 
 ---
 

@@ -14,9 +14,10 @@ import type {
 import type { AboutTestimonial } from '@/types/about-testimonial'
 
 export type AboutPageContent = {
-  heroMediaType: 'image' | 'video'
+  heroMediaType: 'image' | 'video' | 'loopVideo'
   heroImageUrl: string | null
   heroVideoPlaybackId: string | null
+  heroLoopVideoSrc: string | null
   heroHeading: string
   heroBody: string
   heroBodyHighlight: string
@@ -107,8 +108,11 @@ function mockTestimonials(): AboutTestimonial[] {
   )
 }
 
-function normalizeMediaType(value: string | null | undefined): 'image' | 'video' {
-  return value === 'video' ? 'video' : 'image'
+function normalizeMediaType(
+  value: string | null | undefined,
+): 'image' | 'video' | 'loopVideo' {
+  if (value === 'video' || value === 'loopVideo') return value
+  return 'image'
 }
 
 export function withAboutPageDefaults(
@@ -121,6 +125,7 @@ export function withAboutPageDefaults(
     heroMediaType: normalizeMediaType(row?.heroMediaType),
     heroImageUrl: resolveHeroImageUrl(row),
     heroVideoPlaybackId: row?.heroVideoPlaybackId?.trim() || null,
+    heroLoopVideoSrc: row?.heroLoopVideoSrc?.trim() || null,
     heroHeading: row?.heroHeading?.trim() || aboutHero.heading,
     heroBody: row?.heroBody?.trim() || aboutHero.body,
     // Prefer CMS highlight; only use static fallback when body also falls back
@@ -162,6 +167,10 @@ export function mergeAboutPageContent(
       live.heroVideoPlaybackId !== undefined
         ? live.heroVideoPlaybackId
         : initial.heroVideoPlaybackId,
+    heroLoopVideoSrc:
+      live.heroLoopVideoSrc !== undefined
+        ? live.heroLoopVideoSrc
+        : initial.heroLoopVideoSrc,
     heroHeading:
       live.heroHeading !== undefined ? live.heroHeading : initial.heroHeading,
     heroBody: live.heroBody !== undefined ? live.heroBody : initial.heroBody,

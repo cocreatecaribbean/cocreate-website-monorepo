@@ -77,7 +77,15 @@ export const WORK_PROJECT_PRESENTATION_QUERY = `
       media { ${projectMediaProjection} }
     },
     _type == "shareBar" => {
-      heading
+      heading,
+      fillMode,
+      solidColor,
+      gradientFrom,
+      gradientVia,
+      gradientTo,
+      gradientAngle,
+      circleColor,
+      iconColor
     }
   },
   seo
