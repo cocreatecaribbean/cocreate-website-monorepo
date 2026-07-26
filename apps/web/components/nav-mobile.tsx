@@ -327,7 +327,6 @@ const NavMobile: React.FC = () => {
         <div
           ref={headerRef}
           className="site-nav-mobile-bar pointer-events-auto relative z-10 flex h-[10svh] min-h-14 w-full flex-row items-center justify-between rounded-full backdrop-blur-lg pl-4 pr-6"
-          style={{ backgroundColor: 'rgba(246, 176, 63, 0.7)' }}
         >
           <div className="h-auto w-40">
             <Link

@@ -3,6 +3,9 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Cream ≈ 12% Casablanca into white (#fef6e8), at 70% opacity.
+     Use rgba — nested color-mix(..., transparent) gets flattened to opaque by Lightning CSS. */
+  --site-nav-pill-bg: rgba(254, 246, 232, 0.7);
 }
 
 @theme {
@@ -150,10 +153,10 @@ body.client-portal-open #smooth-wrapper {
   opacity: 0;
 }
 
-/* Nav pill tint — inline + !important so mobile Safari/blur layers can’t drop it */
+/* Nav pill tint — CSS only (no inline) so local/preview can’t drift */
 .site-nav-mobile-bar,
 #desktop-nav {
-  background-color: rgba(246, 176, 63, 0.7) !important;
+  background-color: var(--site-nav-pill-bg) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
