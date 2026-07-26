@@ -101,11 +101,16 @@ async function main() {
       .map((row) => [row.youtubeVideoId as string, row]),
   )
 
-  const episodeRefs: Array<{_type: 'reference'; _ref: string; _key: string}> = []
+  const episodeRefs: Array<{
+    _type: 'reference'
+    _ref: string
+    _key: string
+    _weak: true
+  }> = []
 
   for (const [index, item] of items.entries()) {
     const existingRow = existingByVideoId.get(item.videoId)
-    const docId = existingRow?._id ?? episodeDocumentId(item.videoId)
+    const docId = (existingRow?._id ?? episodeDocumentId(item.videoId)).replace(/^drafts\./, '')
     const preserveMux = existingRow?.mediaSource === 'muxVideo'
 
     const baseFields = {
@@ -117,7 +122,7 @@ async function main() {
       description: item.description || undefined,
       publishedAt: item.publishedAt || undefined,
       youtubeVideoId: item.videoId,
-      parent: {_type: 'reference' as const, _ref: originalId, _weak: true},
+      parent: {_type: 'reference' as const, _ref: originalId, _weak: true as const},
     }
 
     if (preserveMux) {
@@ -146,7 +151,7 @@ async function main() {
       console.log(`  upserted ${docId}`)
     }
 
-    episodeRefs.push({_type: 'reference', _ref: docId, _key: item.videoId})
+    episodeRefs.push({_type: 'reference', _ref: docId, _key: item.videoId, _weak: true})
   }
 
   await client

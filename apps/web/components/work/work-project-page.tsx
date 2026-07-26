@@ -1,6 +1,6 @@
 import type { WorkProjectDetail } from '@cocreate/types'
 import { workClientFilterHref } from '@/lib/client-slug'
-import { workPageTopOffsetClass } from '@/lib/work-page-layout'
+import { pageNavClearanceClass } from '@/lib/page-layout'
 import { workProjectPath } from '@/lib/work-project-path'
 import CoCreateButton from '@/components/ui/cocreate-button'
 import ViewAllWorkLink from '@/components/work/view-all-work-link'
@@ -16,9 +16,9 @@ export default function WorkProjectPage({ project }: WorkProjectPageProps) {
   const sharePath = workProjectPath(project.slug)
 
   return (
-    <main className="min-h-svh pb-20 md:pb-28">
+    <main className="min-h-svh">
       <article
-        className={`mx-auto flex w-[88svw] max-w-[1200px] flex-col gap-24 md:gap-28 lg:gap-32 ${workPageTopOffsetClass}`}
+        className={`mx-auto flex w-[88svw] max-w-[1200px] flex-col gap-24 md:gap-28 lg:gap-32 ${pageNavClearanceClass}`}
       >
         <ProjectHeader
           projectName={project.projectName}

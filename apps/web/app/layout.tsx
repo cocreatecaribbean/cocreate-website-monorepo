@@ -19,6 +19,7 @@ import { ClientPortalProvider } from "@/components/client-portal/client-portal-p
 import { CookieConsentProvider } from "@/components/cookie-consent/cookie-consent-provider";
 import MarketingAssistant from "@/components/assistant/marketing-assistant";
 import CursorTrailDot from "@/components/cursor-trail-dot";
+import { pageFooterClearanceClass } from "@/lib/page-layout";
 
 
 
@@ -71,6 +72,7 @@ export default async function RootLayout({
           <PageTransition>
             {children}
           </PageTransition>
+          <div className={pageFooterClearanceClass} aria-hidden />
           <Footer/>
         </ScrollSmoothWrapper>
         <nav className="pointer-events-none relative z-[250] hidden h-0 w-full lg:block">

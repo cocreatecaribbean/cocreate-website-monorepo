@@ -6,6 +6,7 @@ import {
   PRIVACY_POLICY_SECTIONS,
   type PrivacyPolicySection,
 } from '@/site-info/privacy-policy-content'
+import { pageNavClearanceClass } from '@/lib/page-layout'
 
 function PolicySection({ section }: { section: PrivacyPolicySection }) {
   return (
@@ -31,9 +32,9 @@ function PolicySection({ section }: { section: PrivacyPolicySection }) {
 
 export default function LegalPage() {
   return (
-    <main className="min-h-svh overflow-x-clip pb-20 md:pb-28">
+    <main className="overflow-x-clip">
       <LegalPageHashScroll />
-      <div className="mx-auto w-[88svw] max-w-[1320px] pt-[calc(9svh+4.25rem)] sm:pt-[calc(9svh+4.75rem)] min-[1024px]:pt-[calc(8svh+5rem)]">
+      <div className={`mx-auto w-[88svw] max-w-[1320px] ${pageNavClearanceClass}`}>
         <p className={`text-xs font-medium uppercase tracking-[0.2em] text-sanmarino ${fonts.bricolage_grot600.className}`}>
           Legal
         </p>

@@ -15,8 +15,20 @@ import gsap from 'gsap'
 
 const PANEL_OPEN_DURATION = 0.72
 const PANEL_CLOSE_DURATION = 0.4
+const PAGE_BLUR_DURATION = 0.5
+const PAGE_BLUR = 'blur(30px)'
+const PAGE_BLUR_NONE = 'blur(0px)'
 const ITEM_STAGGER = 0.08
 const MENU_GAP_PX = 12
+
+function getPageRoot(): HTMLElement | null {
+  return document.getElementById('smooth-wrapper')
+}
+
+function clearPageBlur() {
+  const page = getPageRoot()
+  if (page) gsap.set(page, { clearProps: 'filter' })
+}
 
 const NavMobile: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -25,7 +37,7 @@ const NavMobile: React.FC = () => {
   const [menuTop, setMenuTop] = useState(0)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const pathname = usePathname()
-  const { openSearch, closeSearch } = useSearch()
+  const { isOpen: isSearchOpen, closeSearch, toggleSearch } = useSearch()
   const { isOpen: isClientPortalOpen, openClientPortalLogin, closeClientPortalLogin } =
     useClientPortalLogin()
   const headerRef = useRef<HTMLDivElement>(null)
@@ -41,9 +53,9 @@ const NavMobile: React.FC = () => {
     setMenuTop(header.getBoundingClientRect().bottom + MENU_GAP_PX)
   }, [])
 
-  const handleOpenSearch = () => {
+  const handleToggleSearch = () => {
     setIsOpen(false)
-    openSearch()
+    toggleSearch()
   }
 
   const handleOpenClientPortal = () => {
@@ -97,6 +109,7 @@ const NavMobile: React.FC = () => {
   useLayoutEffect(() => {
     const backdrop = backdropRef.current
     const items = itemsRef.current.filter(Boolean) as HTMLDivElement[]
+    const page = getPageRoot()
     if (!backdrop || !panelAlive) return
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -111,6 +124,10 @@ const NavMobile: React.FC = () => {
         clipPath: 'inset(0% 0% 0% 0% round 2rem)',
       })
       gsap.set(items, { opacity: 1, y: 0, filter: 'blur(0px)' })
+      if (page) {
+        if (isOpen) gsap.set(page, { filter: PAGE_BLUR })
+        else clearPageBlur()
+      }
       if (!isOpen) setPanelAlive(false)
       return
     }
@@ -119,9 +136,21 @@ const NavMobile: React.FC = () => {
       hasOpenedRef.current = true
       gsap.set(backdrop, { pointerEvents: 'none', force3D: true })
       gsap.set(items, { opacity: 0, y: 36, filter: 'blur(10px)', force3D: true })
+      if (page) gsap.set(page, { filter: PAGE_BLUR_NONE })
 
-      timelineRef.current = gsap
-        .timeline({ defaults: { ease: 'power4.out' } })
+      const openTl = gsap.timeline({ defaults: { ease: 'power4.out' } })
+      if (page) {
+        openTl.to(
+          page,
+          {
+            filter: PAGE_BLUR,
+            duration: PAGE_BLUR_DURATION,
+            ease: 'power2.out',
+          },
+          0,
+        )
+      }
+      openTl
         .fromTo(
           backdrop,
           {
@@ -139,6 +168,7 @@ const NavMobile: React.FC = () => {
             duration: PANEL_OPEN_DURATION,
             ease: 'expo.out',
           },
+          0,
         )
         .to(
           items,
@@ -152,31 +182,48 @@ const NavMobile: React.FC = () => {
           },
           `-=${PANEL_OPEN_DURATION * 0.55}`,
         )
+      timelineRef.current = openTl
     } else if (hasOpenedRef.current) {
       gsap.set(backdrop, { clipPath: 'inset(0% 0% 0% 0% round 2rem)' })
 
-      timelineRef.current = gsap
-        .timeline({
-          defaults: { ease: 'power2.inOut' },
-          onComplete: () => {
-            gsap.set(backdrop, {
-              opacity: 0,
-              scale: 1,
-              y: 0,
-              clipPath: 'inset(0% 0% 0% 0% round 2rem)',
-            })
-            gsap.set(items, { opacity: 0, y: 0, filter: 'blur(0px)' })
-            setPanelAlive(false)
+      const closeTl = gsap.timeline({
+        defaults: { ease: 'power2.inOut' },
+        onComplete: () => {
+          gsap.set(backdrop, {
+            opacity: 0,
+            scale: 1,
+            y: 0,
+            clipPath: 'inset(0% 0% 0% 0% round 2rem)',
+          })
+          gsap.set(items, { opacity: 0, y: 0, filter: 'blur(0px)' })
+          clearPageBlur()
+          setPanelAlive(false)
+        },
+      })
+      if (page) {
+        closeTl.to(
+          page,
+          {
+            filter: PAGE_BLUR_NONE,
+            duration: PAGE_BLUR_DURATION,
+            ease: 'power2.inOut',
           },
-        })
-        .to(items, {
-          opacity: 0,
-          y: 14,
-          filter: 'blur(6px)',
-          duration: 0.2,
-          stagger: { each: 0.03, from: 'start' },
-          ease: 'power2.in',
-        })
+          0,
+        )
+      }
+      closeTl
+        .to(
+          items,
+          {
+            opacity: 0,
+            y: 14,
+            filter: 'blur(6px)',
+            duration: 0.2,
+            stagger: { each: 0.03, from: 'start' },
+            ease: 'power2.in',
+          },
+          0,
+        )
         .to(
           backdrop,
           {
@@ -188,6 +235,7 @@ const NavMobile: React.FC = () => {
           },
           '-=0.06',
         )
+      timelineRef.current = closeTl
     }
 
     return () => {
@@ -195,9 +243,19 @@ const NavMobile: React.FC = () => {
     }
   }, [isOpen, panelAlive])
 
-  const menuPanel =
+  const menuOverlay =
     isMobileViewport && panelAlive && mounted && menuTop > 0 ? (
-      <nav
+      <>
+        <button
+          type="button"
+          aria-label="Close menu"
+          tabIndex={isOpen ? 0 : -1}
+          onClick={() => setIsOpen(false)}
+          className={`fixed inset-0 z-[245] bg-transparent touch-manipulation [-webkit-tap-highlight-color:transparent] ${
+            isOpen ? 'pointer-events-auto' : 'pointer-events-none'
+          }`}
+        />
+        <nav
         ref={panelRef}
         aria-hidden={!isOpen}
         className="site-nav-mobile-panel pointer-events-auto fixed inset-x-5 z-[260] sm:inset-x-auto sm:left-1/2 sm:w-[70svw] sm:max-w-[70svw] sm:-translate-x-1/2"
@@ -260,14 +318,16 @@ const NavMobile: React.FC = () => {
           </li>
         </ul>
       </nav>
+      </>
     ) : null
 
   return (
-    <div className="site-nav-mobile pointer-events-none fixed inset-x-0 top-0 px-5 pt-5 sm:mx-auto sm:max-w-[70svw]">
+    <div className="site-nav-mobile pointer-events-none fixed inset-x-0 top-0 z-[250] px-5 pt-5 sm:mx-auto sm:max-w-[70svw]">
       <div className="relative w-full">
         <div
           ref={headerRef}
-          className="pointer-events-auto relative z-10 flex h-[10svh] min-h-14 w-full flex-row items-center justify-between rounded-full bg-white/70 backdrop-blur-lg pl-4 pr-6"
+          className="site-nav-mobile-bar pointer-events-auto relative z-10 flex h-[10svh] min-h-14 w-full flex-row items-center justify-between rounded-full backdrop-blur-lg pl-4 pr-6"
+          style={{ backgroundColor: 'rgba(246, 176, 63, 0.7)' }}
         >
           <div className="h-auto w-40">
             <Link
@@ -290,8 +350,9 @@ const NavMobile: React.FC = () => {
           <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
-              aria-label="Open search"
-              onClick={handleOpenSearch}
+              aria-label={isSearchOpen ? 'Close search' : 'Open search'}
+              aria-expanded={isSearchOpen}
+              onClick={handleToggleSearch}
               className="flex h-11 w-11 cursor-pointer items-center justify-center text-sanmarino transition-opacity hover:opacity-70"
             >
               <Search className="h-5 w-5" strokeWidth={2.25} />
@@ -310,7 +371,7 @@ const NavMobile: React.FC = () => {
           </div>
         </div>
 
-        {menuPanel ? createPortal(menuPanel, document.body) : null}
+        {menuOverlay ? createPortal(menuOverlay, document.body) : null}
       </div>
     </div>
   )

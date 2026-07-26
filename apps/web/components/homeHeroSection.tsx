@@ -905,16 +905,6 @@ export default function HomeHeroSection({
             },
           });
 
-          let vvTimer: ReturnType<typeof setTimeout> | undefined;
-          let onViewportResize: (() => void) | undefined;
-          if (isMobile && nativeScroll) {
-            onViewportResize = () => {
-              if (vvTimer) clearTimeout(vvTimer);
-              vvTimer = setTimeout(() => ScrollTrigger.refresh(true), 120);
-            };
-            window.visualViewport?.addEventListener("resize", onViewportResize);
-          }
-
           // About / What We Do: mobile scrub windows tuned for on-screen play without lagging entry.
           if (about_text_split?.words?.length) {
             gsap.from(about_text_split.words, {
@@ -975,16 +965,6 @@ export default function HomeHeroSection({
               resetHeroToScrollStart();
             });
           }
-
-          return () => {
-            if (vvTimer) clearTimeout(vvTimer);
-            if (onViewportResize) {
-              window.visualViewport?.removeEventListener(
-                "resize",
-                onViewportResize,
-              );
-            }
-          };
         },
       );
 
@@ -1081,13 +1061,13 @@ export default function HomeHeroSection({
     <div ref={mainRef} className="opacity-0">
       <section
         ref={container}
-        className="grid grid-cols-1 grid-rows-1 h-svh w-full max-w-full justify-start content-start items-start"
+        className="grid h-svh w-full max-w-full grid-cols-1 grid-rows-1 place-items-center"
       >
         <h1
           className={`
             text-[clamp(3rem,5vw,7rem)] md:text-[clamp(4rem,5vw,7rem)]
             leading-none uppercase w-[calc(100%-1.5rem)] sm:w-[65%] md:w-[70%] lg:w-[70%] 2xl:w-[65%] 3xl:w-[60%]
-            mx-auto pt-60 landscape:pt-20 landscape:lg:pt-48 landscape:xl:pt-72 landscape:2xl:pt-90
+            mx-auto
             col-span-1 col-start-1 row-span-1 row-start-1 text-center overflow-visible
             ${fonts.bricolage_grot800.className}
           `}
@@ -1114,7 +1094,7 @@ export default function HomeHeroSection({
 
         <div
           ref={brand_elem}
-          className="z-10 col-span-1 col-start-1 row-span-1 row-start-1 mx-auto h-screen w-full max-w-full overflow-hidden"
+          className="z-10 col-span-1 col-start-1 row-span-1 row-start-1 h-svh w-full max-w-full justify-self-stretch self-stretch overflow-hidden"
         >
           <canvas
             ref={canvasRef}
@@ -1128,7 +1108,7 @@ export default function HomeHeroSection({
 
         <div
           ref={vid_container}
-          className="col-span-1 col-start-1 row-span-1 row-start-1 h-full w-full max-w-full scale-0 self-start overflow-hidden will-change-transform"
+          className="col-span-1 col-start-1 row-span-1 row-start-1 h-svh w-full max-w-full scale-0 justify-self-stretch self-stretch overflow-hidden will-change-transform"
         >
           {heroReelPlaybackId ? (
             <MuxBackgroundVideo playbackId={heroReelPlaybackId} />
@@ -1144,8 +1124,8 @@ export default function HomeHeroSection({
             key={agencyIntro}
             className={`about-text text-gradient-chambray-diagonal
               leading-normal
-              pl-4 pr-6 pt-20 pb-32
-              md:pl-20 md:pr-48
+              pl-4 pr-6 pt-12 pb-32
+              md:pl-20 md:pt-20 md:pr-48
               xl:pb-72 xl:pl-32 xl:pr-72
               2xl:pl-32 2xl:pr-96
               3xl:pl-72 3xl:pr-96

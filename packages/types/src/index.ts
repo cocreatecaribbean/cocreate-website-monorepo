@@ -164,9 +164,16 @@ export type OriginalPreview = {
   format?: string
   contentKind: OriginalContentKind
   coverImageSrc: string
+  /** Series/film mark — separate from cover */
+  logoSrc?: string
   /** Film YouTube id when present (list/search convenience) */
   youtubeVideoId?: string
   href?: string
+  videoTitleFill?: BrandTextFill
+  playlistSidebarFill?: BrandTextFill
+  playlistSelectedFill?: BrandTextFill
+  watchButtonFill?: BrandTextFill
+  watchButtonTextFill?: BrandTextFill
 }
 
 export type OriginalEpisode = {

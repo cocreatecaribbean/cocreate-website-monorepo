@@ -11,6 +11,7 @@ import {
   GLOBE_WEBM_SRC,
   prefersAppleGlobeMp4,
 } from '@/lib/media/prefers-apple-globe-mp4'
+import { pageNavClearanceClass } from '@/lib/page-layout'
 
 export default function ContactPageHeader() {
   const sectionRef = useRef<HTMLElement>(null)
@@ -74,17 +75,15 @@ export default function ContactPageHeader() {
   return (
     <section
       ref={sectionRef}
-      className="
+      className={`
         contact-page-header mx-auto mb-16 grid w-[88svw] max-w-[1320px]
         grid-cols-1 items-center gap-4 text-black
-        pt-[calc(5svh+3.5rem)] sm:pt-[calc(5svh+4rem)]
         min-[1024px]:mb-20 min-[1024px]:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]
         min-[1024px]:items-center min-[1024px]:gap-16
-        min-[1024px]:pt-[calc(8svh+5rem)]
-        min-[1500px]:mb-24 min-[1500px]:pt-52
+        min-[1500px]:mb-24
         xl:gap-24
-        landscape:pt-20 landscape:lg:pt-44 landscape:xl:pt-64
-      "
+        ${pageNavClearanceClass}
+      `}
     >
       <div
         className="

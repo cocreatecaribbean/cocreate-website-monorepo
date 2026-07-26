@@ -30,6 +30,8 @@ export async function POST(request: NextRequest) {
     'aboutPage',
     'landingPage',
     'workPage',
+    'original',
+    'originalEpisode',
   ])
   if (body._type && !revalidateTypes.has(body._type)) {
     return NextResponse.json({ revalidated: false, skipped: true })
@@ -42,6 +44,15 @@ export async function POST(request: NextRequest) {
 
   if (body._type === 'aboutPage') {
     revalidatePath('/about')
+    return NextResponse.json({ revalidated: true, now: Date.now() })
+  }
+
+  if (body._type === 'original' || body._type === 'originalEpisode') {
+    revalidatePath('/originals')
+    const slug = body.slug?.current?.trim()
+    if (slug && body._type === 'original') {
+      revalidatePath(`/originals/${slug}`)
+    }
     return NextResponse.json({ revalidated: true, now: Date.now() })
   }
 

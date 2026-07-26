@@ -77,7 +77,15 @@ export default function SearchOverlay() {
           clients: SearchResult[]
           tags: SearchResult[]
         }
-        setSuggestions([...(data.clients ?? []), ...(data.tags ?? [])])
+        const merged = [...(data.clients ?? []), ...(data.tags ?? [])]
+        const seen = new Set<string>()
+        setSuggestions(
+          merged.filter((item) => {
+            if (seen.has(item.id)) return false
+            seen.add(item.id)
+            return true
+          }),
+        )
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
           setSuggestions([])

@@ -53,6 +53,8 @@ export const workProject = defineType({
       name: 'publishedAt',
       // Title/description rendered in PublishedAtField (caution Card).
       title: 'Published at',
+      description:
+        'Required for the public Work page. Empty = invisible on the site even if Work page is Published.',
       type: 'datetime',
       components: {
         field: PublishedAtField,

@@ -11,7 +11,7 @@ import { useClientPortalLogin } from "@/components/client-portal/client-portal-p
 
 const NavDesktop: React.FC = () => {
   const pathname = usePathname();
-  const { openSearch, closeSearch } = useSearch();
+  const { isOpen: isSearchOpen, closeSearch, toggleSearch } = useSearch();
   const { isOpen: isClientPortalOpen, openClientPortalLogin, closeClientPortalLogin } =
     useClientPortalLogin();
 
@@ -19,7 +19,8 @@ const NavDesktop: React.FC = () => {
     
     <div
       id="desktop-nav"
-      className="pointer-events-auto fixed inset-x-0 top-10 z-[250] mx-auto flex h-fit w-fit max-w-[calc(100vw-2.5rem)] flex-row flex-nowrap items-center justify-center gap-[clamp(1.25rem,3vw,2.5rem)] rounded-full border border-white/20 bg-white/70 px-[clamp(1.25rem,3.5vw,2.5rem)] py-[clamp(0.875rem,1.5vw,1.25rem)] backdrop-blur-lg"
+      className="pointer-events-auto fixed inset-x-0 top-10 z-[250] mx-auto flex h-fit w-fit max-w-[calc(100vw-2.5rem)] flex-row flex-nowrap items-center justify-center gap-[clamp(1.25rem,3vw,2.5rem)] rounded-full border border-white/20 px-[clamp(1.25rem,3.5vw,2.5rem)] py-[clamp(0.875rem,1.5vw,1.25rem)] backdrop-blur-lg"
+      style={{ backgroundColor: 'rgba(246, 176, 63, 0.7)' }}
     >
       <div className="shrink-0">
         <Link
@@ -105,8 +106,9 @@ const NavDesktop: React.FC = () => {
         <li>
           <button
             type="button"
-            aria-label="Open search"
-            onClick={openSearch}
+            aria-label={isSearchOpen ? 'Close search' : 'Open search'}
+            aria-expanded={isSearchOpen}
+            onClick={toggleSearch}
             className="relative inline-block cursor-pointer text-slate-900 transition-all duration-300 hover:-translate-y-2 hover:text-sanmarino"
           >
             <span className="relative z-[1] inline-flex shrink-0 translate-y-[3px] items-center whitespace-nowrap">

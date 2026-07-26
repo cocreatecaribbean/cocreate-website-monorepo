@@ -215,7 +215,40 @@ type SanityOriginalMediaRow = {
   posterUrl?: string | null
 } | null
 
-type SanityOriginalRow = {
+type SanityOriginalBrandFillFields = {
+  videoTitleFillMode?: string | null
+  videoTitleSolidColor?: string | null
+  videoTitleGradientFrom?: string | null
+  videoTitleGradientVia?: string | null
+  videoTitleGradientTo?: string | null
+  videoTitleGradientAngle?: number | null
+  playlistSidebarFillMode?: string | null
+  playlistSidebarSolidColor?: string | null
+  playlistSidebarGradientFrom?: string | null
+  playlistSidebarGradientVia?: string | null
+  playlistSidebarGradientTo?: string | null
+  playlistSidebarGradientAngle?: number | null
+  playlistSelectedFillMode?: string | null
+  playlistSelectedSolidColor?: string | null
+  playlistSelectedGradientFrom?: string | null
+  playlistSelectedGradientVia?: string | null
+  playlistSelectedGradientTo?: string | null
+  playlistSelectedGradientAngle?: number | null
+  watchButtonFillMode?: string | null
+  watchButtonSolidColor?: string | null
+  watchButtonGradientFrom?: string | null
+  watchButtonGradientVia?: string | null
+  watchButtonGradientTo?: string | null
+  watchButtonGradientAngle?: number | null
+  watchButtonTextFillMode?: string | null
+  watchButtonTextSolidColor?: string | null
+  watchButtonTextGradientFrom?: string | null
+  watchButtonTextGradientVia?: string | null
+  watchButtonTextGradientTo?: string | null
+  watchButtonTextGradientAngle?: number | null
+}
+
+type SanityOriginalRow = SanityOriginalBrandFillFields & {
   _id: string
   title: string
   slug: string
@@ -223,6 +256,7 @@ type SanityOriginalRow = {
   format?: string | null
   contentKind?: string | null
   coverImageUrl?: string | null
+  logoUrl?: string | null
   youtubeVideoId?: string | null
   tags?: string[] | null
   publishedAt?: string | null
@@ -251,6 +285,25 @@ type SanityOriginalRow = {
       body?: unknown[] | null
     } | null> | null
   } | null
+}
+
+function mapPrefixedBrandFill(
+  row: SanityOriginalBrandFillFields,
+  prefix:
+    | 'videoTitle'
+    | 'playlistSidebar'
+    | 'playlistSelected'
+    | 'watchButton'
+    | 'watchButtonText',
+): BrandTextFill | undefined {
+  return mapBrandFill({
+    fillMode: row[`${prefix}FillMode`],
+    solidColor: row[`${prefix}SolidColor`],
+    gradientFrom: row[`${prefix}GradientFrom`],
+    gradientVia: row[`${prefix}GradientVia`],
+    gradientTo: row[`${prefix}GradientTo`],
+    gradientAngle: row[`${prefix}GradientAngle`],
+  })
 }
 
 function normalizeOriginalContentKind(value: string | null | undefined): OriginalContentKind {
@@ -595,6 +648,13 @@ export function mapSanityWorkProjectToDetail(row: SanityWorkProjectRow): WorkPro
 export function mapSanityOriginalToPreview(row: SanityOriginalRow): OriginalPreview {
   const contentKind = normalizeOriginalContentKind(row.contentKind)
   const slug = row.slug
+  const videoTitleFill = mapPrefixedBrandFill(row, 'videoTitle')
+  const playlistSidebarFill = mapPrefixedBrandFill(row, 'playlistSidebar')
+  const playlistSelectedFill = mapPrefixedBrandFill(row, 'playlistSelected')
+  const watchButtonFill = mapPrefixedBrandFill(row, 'watchButton')
+  const watchButtonTextFill = mapPrefixedBrandFill(row, 'watchButtonText')
+  const logoSrc = row.logoUrl?.trim() || undefined
+
   return {
     id: row._id,
     title: row.title,
@@ -603,8 +663,14 @@ export function mapSanityOriginalToPreview(row: SanityOriginalRow): OriginalPrev
     format: row.format ?? undefined,
     contentKind,
     coverImageSrc: row.coverImageUrl ?? '',
+    ...(logoSrc ? {logoSrc} : {}),
     youtubeVideoId: row.youtubeVideoId ?? undefined,
     href: `/originals/${slug}`,
+    ...(videoTitleFill ? {videoTitleFill} : {}),
+    ...(playlistSidebarFill ? {playlistSidebarFill} : {}),
+    ...(playlistSelectedFill ? {playlistSelectedFill} : {}),
+    ...(watchButtonFill ? {watchButtonFill} : {}),
+    ...(watchButtonTextFill ? {watchButtonTextFill} : {}),
   }
 }
 

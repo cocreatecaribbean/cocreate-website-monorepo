@@ -208,6 +208,7 @@ export const WORK_PAGE_QUERY = defineQuery(`
 `)
 
 const publishedOriginalFilter = `_type == "original" && defined(publishedAt) && publishedAt <= now()`
+const previewOriginalFilter = `_type == "original"`
 
 const originalMediaProj = /* groq */ `
   "mediaSource": mediaSource,
@@ -216,71 +217,129 @@ const originalMediaProj = /* groq */ `
   "posterUrl": poster.asset->url
 `
 
-export const ORIGINALS_QUERY = defineQuery(`
-  *[${publishedOriginalFilter}] | order(publishedAt desc) {
-    _id,
-    title,
-    "slug": slug.current,
-    description,
-    format,
-    tags,
-    publishedAt,
-    "contentKind": coalesce(contentKind, "film"),
-    "coverImageUrl": coverImage.asset->url,
-    "youtubeVideoId": select(
-      coalesce(contentKind, "film") == "film" => coalesce(film.media.youtubeVideoId, youtubeVideoId),
-      null
-    )
-  }
-`)
+const originalBrandFillProjection = /* groq */ `
+  videoTitleFillMode,
+  videoTitleSolidColor,
+  videoTitleGradientFrom,
+  videoTitleGradientVia,
+  videoTitleGradientTo,
+  videoTitleGradientAngle,
+  playlistSidebarFillMode,
+  playlistSidebarSolidColor,
+  playlistSidebarGradientFrom,
+  playlistSidebarGradientVia,
+  playlistSidebarGradientTo,
+  playlistSidebarGradientAngle,
+  playlistSelectedFillMode,
+  playlistSelectedSolidColor,
+  playlistSelectedGradientFrom,
+  playlistSelectedGradientVia,
+  playlistSelectedGradientTo,
+  playlistSelectedGradientAngle,
+  watchButtonFillMode,
+  watchButtonSolidColor,
+  watchButtonGradientFrom,
+  watchButtonGradientVia,
+  watchButtonGradientTo,
+  watchButtonGradientAngle,
+  watchButtonTextFillMode,
+  watchButtonTextSolidColor,
+  watchButtonTextGradientFrom,
+  watchButtonTextGradientVia,
+  watchButtonTextGradientTo,
+  watchButtonTextGradientAngle
+`
 
-export const ORIGINAL_BY_SLUG_QUERY = defineQuery(`
-  *[${publishedOriginalFilter} && slug.current == $slug][0] {
-    _id,
-    title,
-    "slug": slug.current,
-    description,
-    format,
-    tags,
-    publishedAt,
-    "contentKind": coalesce(contentKind, "film"),
-    "coverImageUrl": coverImage.asset->url,
-    "legacyYoutubeVideoId": youtubeVideoId,
-    film {
+const originalIndexProjection = /* groq */ `
+  _id,
+  title,
+  "slug": slug.current,
+  description,
+  format,
+  tags,
+  publishedAt,
+  "contentKind": coalesce(contentKind, "film"),
+  "coverImageUrl": coverImage.asset->url,
+  "logoUrl": logo.asset->url,
+  "youtubeVideoId": select(
+    coalesce(contentKind, "film") == "film" => coalesce(film.media.youtubeVideoId, youtubeVideoId),
+    null
+  ),
+  ${originalBrandFillProjection}
+`
+
+const originalDetailProjection = /* groq */ `
+  _id,
+  title,
+  "slug": slug.current,
+  description,
+  format,
+  tags,
+  publishedAt,
+  "contentKind": coalesce(contentKind, "film"),
+  "coverImageUrl": coverImage.asset->url,
+  "logoUrl": logo.asset->url,
+  "legacyYoutubeVideoId": youtubeVideoId,
+  ${originalBrandFillProjection},
+  film {
+    media { ${originalMediaProj} },
+    trailer { ${originalMediaProj} }
+  },
+  podcastSeries {
+    youtubePlaylistId,
+    lastSyncedAt,
+    episodes[]->{
+      _id,
+      title,
+      "slug": slug.current,
+      episodeNumber,
+      description,
+      publishedAt,
+      "thumbnailUrl": thumbnail.asset->url,
       media { ${originalMediaProj} },
-      trailer { ${originalMediaProj} }
-    },
-    podcastSeries {
-      youtubePlaylistId,
-      lastSyncedAt,
-      episodes[]->{
-        _id,
-        title,
-        "slug": slug.current,
-        episodeNumber,
-        description,
-        publishedAt,
-        "thumbnailUrl": thumbnail.asset->url,
-        media { ${originalMediaProj} },
-        youtubeVideoId
-      }
-    },
-    articleSeries {
-      chapters[] {
-        _key,
-        title,
-        body[] {
+      youtubeVideoId
+    }
+  },
+  articleSeries {
+    chapters[] {
+      _key,
+      title,
+      body[] {
+        ...,
+        _type == "image" => {
           ...,
-          _type == "image" => {
-            ...,
-            "asset": {
-              "_id": asset->_id,
-              "url": asset->url
-            }
+          "asset": {
+            "_id": asset->_id,
+            "url": asset->url
           }
         }
       }
     }
+  }
+`
+
+export const ORIGINALS_QUERY = defineQuery(`
+  *[${publishedOriginalFilter}] | order(publishedAt desc) {
+    ${originalIndexProjection}
+  }
+`)
+
+/** Presentation / draft — no publishedAt gate; undated drafts sort by _updatedAt. */
+export const ORIGINALS_PREVIEW_QUERY = defineQuery(`
+  *[${previewOriginalFilter}] | order(coalesce(publishedAt, _updatedAt) desc) {
+    ${originalIndexProjection}
+  }
+`)
+
+export const ORIGINAL_BY_SLUG_QUERY = defineQuery(`
+  *[${publishedOriginalFilter} && lower(slug.current) == $slug][0] {
+    ${originalDetailProjection}
+  }
+`)
+
+export const ORIGINAL_BY_SLUG_PREVIEW_QUERY = defineQuery(`
+  *[${previewOriginalFilter} && lower(slug.current) == $slug][0] {
+    ${originalDetailProjection}
   }
 `)
 

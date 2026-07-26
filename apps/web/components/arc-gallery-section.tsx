@@ -56,7 +56,7 @@ export default function ArcGallerySection() {
   return (
     <section
       ref={sectionRef}
-      className="mt-16 mb-40 w-full min-w-0 md:mt-24 md:mb-48 lg:mt-28"
+      className="mt-16 mb-0 w-full min-w-0 md:mt-24 lg:mt-28"
       aria-labelledby="arc-gallery-heading"
     >
       <header

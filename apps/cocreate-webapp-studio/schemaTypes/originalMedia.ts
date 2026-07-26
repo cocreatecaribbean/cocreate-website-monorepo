@@ -1,7 +1,29 @@
 import {defineField, defineType} from 'sanity'
 import {YouTubeVideoIdInput} from '../components/YouTubeVideoIdInput'
+import {YOUTUBE_VIDEO_ID_PATTERN} from '../lib/youtube-ids'
+import {
+  isInactiveOriginalBranch,
+  isValidationHidden,
+  pathIncludesSegment,
+} from '../lib/validation-context'
 
-const YOUTUBE_ID_PATTERN = /^[a-zA-Z0-9_-]{11}$/
+const YOUTUBE_ID_PATTERN = YOUTUBE_VIDEO_ID_PATTERN
+
+function skipInactiveFilmMedia(context: {
+  hidden?: boolean
+  document?: unknown
+  path?: unknown
+}): boolean {
+  if (isValidationHidden(context)) return true
+  // Leftover film.media / film.trailer on a podcast or article original
+  if (
+    pathIncludesSegment(context.path, 'film') &&
+    isInactiveOriginalBranch(context, 'film')
+  ) {
+    return true
+  }
+  return false
+}
 
 /** YouTube embed or Mux-hosted video for originals / episodes. */
 export const originalMedia = defineType({
@@ -21,7 +43,11 @@ export const originalMedia = defineType({
         layout: 'radio',
       },
       initialValue: 'youtube',
-      validation: (rule) => rule.required(),
+      validation: (rule) =>
+        rule.custom((value, context) => {
+          if (skipInactiveFilmMedia(context)) return true
+          return value ? true : 'Required'
+        }),
     }),
     defineField({
       name: 'youtubeVideoId',
@@ -32,6 +58,7 @@ export const originalMedia = defineType({
       hidden: ({parent}) => parent?.mediaSource !== 'youtube',
       validation: (rule) =>
         rule.custom((value, context) => {
+          if (skipInactiveFilmMedia(context) || isValidationHidden(context)) return true
           const parent = context.parent as {mediaSource?: string} | undefined
           if (parent?.mediaSource !== 'youtube') return true
           if (!value) return 'Add a YouTube video ID'
@@ -48,6 +75,7 @@ export const originalMedia = defineType({
       hidden: ({parent}) => parent?.mediaSource !== 'muxVideo',
       validation: (rule) =>
         rule.custom((value, context) => {
+          if (skipInactiveFilmMedia(context) || isValidationHidden(context)) return true
           const parent = context.parent as {mediaSource?: string} | undefined
           if (
             parent?.mediaSource === 'muxVideo' &&

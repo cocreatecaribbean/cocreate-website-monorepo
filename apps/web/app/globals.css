@@ -134,17 +134,26 @@ body {
   }
 }
 
-body.menu-open #smooth-wrapper,
+/* Menu: pointer lock only — page blur animated in nav-mobile via GSAP */
+body.menu-open #smooth-wrapper {
+  pointer-events: none;
+}
+
 body.search-open #smooth-wrapper,
 body.client-portal-open #smooth-wrapper {
   pointer-events: none;
   filter: blur(30px);
-  transition: filter 0.5s ease-in-out;
 }
 
 .gsap-reveal {
   visibility: hidden;
   opacity: 0;
+}
+
+/* Nav pill tint — inline + !important so mobile Safari/blur layers can’t drop it */
+.site-nav-mobile-bar,
+#desktop-nav {
+  background-color: rgba(246, 176, 63, 0.7) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

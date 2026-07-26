@@ -12,7 +12,7 @@ export default async function AboutPage() {
   const about = await fetchAboutPage(preview)
 
   return (
-    <main className="overflow-x-clip min-h-svh">
+    <main className="min-h-svh overflow-x-clip">
       <AboutCmsProvider initial={about}>
         <AboutScrollTune />
         <AboutPageHeader />

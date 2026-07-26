@@ -18,7 +18,6 @@ export default function AboutTestimonialsSection() {
       className="
         about-testimonials-section relative
         w-[92svw] max-w-[1180px] min-[1500px]:max-w-[1280px] mx-auto
-        mb-20 min-[1024px]:mb-32 min-[1500px]:mb-40
       "
     >
       <div className="relative z-10 mb-8 min-[1024px]:mb-10">

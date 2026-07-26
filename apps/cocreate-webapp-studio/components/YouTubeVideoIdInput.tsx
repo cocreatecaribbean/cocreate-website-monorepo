@@ -1,31 +1,16 @@
-import { Stack, Text, TextInput } from '@sanity/ui'
-import { set, unset, type StringInputProps } from 'sanity'
-
-const YOUTUBE_ID_PATTERN = /^[a-zA-Z0-9_-]{11}$/
-
-function extractYouTubeId(value: string): string | null {
-  const trimmed = value.trim()
-  if (!trimmed) return null
-  if (YOUTUBE_ID_PATTERN.test(trimmed)) return trimmed
-
-  const urlPatterns = [
-    /(?:youtube\.com\/watch\?.*v=|youtu\.be\/|youtube-nocookie\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
-    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
-  ]
-
-  for (const pattern of urlPatterns) {
-    const match = trimmed.match(pattern)
-    if (match?.[1]) return match[1]
-  }
-
-  return null
-}
+import {Stack, Text, TextInput} from '@sanity/ui'
+import {set, unset, type StringInputProps} from 'sanity'
+import {
+  extractYouTubeVideoId,
+  YOUTUBE_VIDEO_ID_PATTERN,
+  youtubeVideoFieldError,
+} from '../lib/youtube-ids'
 
 export function YouTubeVideoIdInput(props: StringInputProps) {
-  const { value, onChange, elementProps, readOnly } = props
+  const {value, onChange, elementProps, readOnly} = props
   const id = typeof value === 'string' ? value : ''
-  const isValid = !id || YOUTUBE_ID_PATTERN.test(id)
+  const isValid = !id || YOUTUBE_VIDEO_ID_PATTERN.test(id)
+  const error = id && !isValid ? youtubeVideoFieldError(id) : null
 
   return (
     <Stack space={3}>
@@ -36,7 +21,7 @@ export function YouTubeVideoIdInput(props: StringInputProps) {
         placeholder="Paste a YouTube URL or 11-character video ID"
         onChange={(event) => {
           const raw = event.currentTarget.value
-          const extracted = extractYouTubeId(raw)
+          const extracted = extractYouTubeVideoId(raw)
           if (!raw.trim()) {
             onChange(unset())
             return
@@ -49,9 +34,9 @@ export function YouTubeVideoIdInput(props: StringInputProps) {
           Embed preview: youtube-nocookie.com/embed/{id}
         </Text>
       ) : null}
-      {id && !isValid ? (
-        <Text size={1} style={{ color: 'var(--card-badge-critical-fg-color)' }}>
-          Enter a valid YouTube video ID or URL
+      {error ? (
+        <Text size={1} style={{color: 'var(--card-badge-critical-fg-color)'}}>
+          {error}
         </Text>
       ) : null}
     </Stack>

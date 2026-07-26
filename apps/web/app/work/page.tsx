@@ -82,7 +82,7 @@ export default async function WorkPage({ searchParams }: WorkPageProps) {
   }
 
   return (
-    <main className="min-h-svh overflow-x-clip pb-20 md:pb-28">
+    <main className="min-h-svh overflow-x-clip">
       <Suspense fallback={null}>
         <WorkPageContent
           items={items}

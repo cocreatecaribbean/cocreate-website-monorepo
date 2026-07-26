@@ -9,21 +9,72 @@ import type {
 import type { PortableTextBlock } from '@portabletext/types'
 import CaseStudyContent from '@/components/work/case-study-content'
 import OriginalVideoPlayer from '@/components/originals/original-video-player'
+import PodcastEpisodePlayer from '@/components/originals/podcast-episode-player'
+import { pageNavClearanceClass } from '@/lib/page-layout'
 import * as fonts from '@/styles/fonts'
 
 type OriginalDetailViewProps = {
   original: OriginalDetail
 }
 
-function DetailHeader({ original }: { original: OriginalDetail }) {
+function BackLink() {
   return (
-    <header className="mx-auto mb-10 w-[88svw] max-w-[900px] min-[1024px]:mb-14">
-      <Link
-        href="/originals"
-        className={`text-sm uppercase tracking-[0.12em] text-casablanca hover:text-chambray ${fonts.bricolage_grot400.className}`}
-      >
-        ← All originals
-      </Link>
+    <Link
+      href="/originals"
+      className={`text-sm uppercase tracking-[0.12em] text-casablanca hover:text-chambray ${fonts.bricolage_grot400.className}`}
+    >
+      ← All originals
+    </Link>
+  )
+}
+
+function PodcastHeader({ original }: { original: OriginalPodcastDetail }) {
+  return (
+    <header
+      className={`mx-auto mb-10 flex w-[88svw] max-w-[900px] flex-col items-center min-[1024px]:mb-14 ${pageNavClearanceClass}`}
+    >
+      <div className="mb-8 self-start">
+        <BackLink />
+      </div>
+      {original.logoSrc ? (
+        <div className="relative h-40 w-full max-w-[280px] min-[768px]:h-52 min-[768px]:max-w-[340px]">
+          <Image
+            src={original.logoSrc}
+            alt={original.title}
+            fill
+            sizes="340px"
+            className="object-contain"
+            priority
+          />
+        </div>
+      ) : (
+        <h1
+          className={`text-center text-4xl text-chambray min-[768px]:text-5xl ${fonts.bricolage_grot700.className}`}
+        >
+          {original.title}
+        </h1>
+      )}
+    </header>
+  )
+}
+
+function StandardHeader({ original }: { original: OriginalDetail }) {
+  return (
+    <header
+      className={`mx-auto mb-10 w-[88svw] max-w-[900px] min-[1024px]:mb-14 ${pageNavClearanceClass}`}
+    >
+      <BackLink />
+      {original.logoSrc ? (
+        <div className="relative mx-auto mt-8 h-28 w-full max-w-[220px]">
+          <Image
+            src={original.logoSrc}
+            alt={original.title}
+            fill
+            sizes="220px"
+            className="object-contain"
+          />
+        </div>
+      ) : null}
       <p
         className={`mt-6 text-xs uppercase tracking-[0.14em] text-casablanca ${fonts.bricolage_grot400.className}`}
       >
@@ -68,58 +119,6 @@ function FilmBody({ original }: { original: OriginalFilmDetail }) {
   )
 }
 
-function PodcastBody({ original }: { original: OriginalPodcastDetail }) {
-  if (!original.episodes.length) {
-    return (
-      <p
-        className={`mx-auto w-[88svw] max-w-[900px] text-lg text-slate-600 ${fonts.bricolage_grot400.className}`}
-      >
-        Episodes coming soon.
-      </p>
-    )
-  }
-
-  return (
-    <div className="mx-auto flex w-[88svw] max-w-[1100px] flex-col gap-12">
-      {original.episodes.map((episode) => (
-        <article key={episode.id} className="grid gap-6 min-[900px]:grid-cols-[200px_1fr]">
-          <div className="relative aspect-square overflow-hidden rounded-2xl ring-1 ring-chambray/10">
-            {episode.thumbnailSrc || original.coverImageSrc ? (
-              <Image
-                src={episode.thumbnailSrc || original.coverImageSrc}
-                alt=""
-                fill
-                sizes="200px"
-                className="object-cover"
-              />
-            ) : null}
-          </div>
-          <div className="space-y-4">
-            <div>
-              {typeof episode.episodeNumber === 'number' ? (
-                <p
-                  className={`text-xs uppercase tracking-[0.14em] text-casablanca ${fonts.bricolage_grot400.className}`}
-                >
-                  Episode {episode.episodeNumber}
-                </p>
-              ) : null}
-              <h2 className={`mt-1 text-2xl text-chambray ${fonts.bricolage_grot600.className}`}>
-                {episode.title}
-              </h2>
-              {episode.description ? (
-                <p className={`mt-2 text-base text-slate-700 ${fonts.bricolage_grot400.className}`}>
-                  {episode.description}
-                </p>
-              ) : null}
-            </div>
-            <OriginalVideoPlayer media={episode.media} title={episode.title} />
-          </div>
-        </article>
-      ))}
-    </div>
-  )
-}
-
 function ArticleBody({ original }: { original: OriginalArticleDetail }) {
   return (
     <div className="mx-auto w-[88svw] max-w-[760px] space-y-14">
@@ -136,12 +135,20 @@ function ArticleBody({ original }: { original: OriginalArticleDetail }) {
 }
 
 export default function OriginalDetailView({ original }: OriginalDetailViewProps) {
+  if (original.contentKind === 'podcastSeries') {
+    return (
+      <main className="min-h-svh overflow-x-clip pb-16">
+        <PodcastHeader original={original} />
+        <PodcastEpisodePlayer original={original} />
+      </main>
+    )
+  }
+
   return (
-    <main className="min-h-svh overflow-x-clip pb-20 md:pb-28">
-      <DetailHeader original={original} />
+    <main className="min-h-svh overflow-x-clip">
+      <StandardHeader original={original} />
       <Cover src={original.coverImageSrc} title={original.title} />
       {original.contentKind === 'film' ? <FilmBody original={original} /> : null}
-      {original.contentKind === 'podcastSeries' ? <PodcastBody original={original} /> : null}
       {original.contentKind === 'articleSeries' ? <ArticleBody original={original} /> : null}
     </main>
   )

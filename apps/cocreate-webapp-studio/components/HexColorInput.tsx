@@ -28,12 +28,16 @@ function normalizeHex(value: string): string | null {
   return withHash.toLowerCase()
 }
 
-function brandColorsPathFromFieldPath(path: Path): Path | null {
+function brandColorsPathFromFieldPath(path: Path): Path {
   const projectsIndex = path.findIndex((seg) => seg === 'projects')
-  if (projectsIndex === -1) return null
-  const projectSeg = path[projectsIndex + 1]
-  if (projectSeg === undefined) return null
-  return ['projects', projectSeg, 'brandColors']
+  if (projectsIndex !== -1) {
+    const projectSeg = path[projectsIndex + 1]
+    if (projectSeg !== undefined) {
+      return ['projects', projectSeg, 'brandColors']
+    }
+  }
+  // Document-root palette (e.g. original) and nested brandColors hex rows
+  return ['brandColors']
 }
 
 function SwatchButton({
@@ -95,8 +99,7 @@ export function HexColorInput(props: StringInputProps) {
   const pickerValue = normalizedCurrent || '#39419a'
 
   const palettePath = useMemo(() => brandColorsPathFromFieldPath(path), [path])
-  // Hook must receive a stable path; use a dummy when outside a project.
-  const brandColorsRaw = useFormValue(palettePath ?? ['__no_project_brand_colors__'])
+  const brandColorsRaw = useFormValue(palettePath)
 
   const projectSwatches = useMemo(() => {
     if (!Array.isArray(brandColorsRaw)) return []
@@ -139,7 +142,7 @@ export function HexColorInput(props: StringInputProps) {
       {projectSwatches.length > 0 ? (
         <Stack space={2}>
           <Text size={1} muted>
-            This project
+            Brand colors
           </Text>
           <Flex gap={2} wrap="wrap">
             {projectSwatches.map((swatch) => (
@@ -154,13 +157,13 @@ export function HexColorInput(props: StringInputProps) {
             ))}
           </Flex>
         </Stack>
-      ) : palettePath ? (
+      ) : (
         <Card padding={3} radius={2} tone="transparent" border>
           <Text size={1} muted>
-            Add colors under Brand colors on this project to reuse them here.
+            Add colors under Brand colors to reuse them here.
           </Text>
         </Card>
-      ) : null}
+      )}
 
       <Flex gap={3} align="center">
         <Box>

@@ -4,7 +4,7 @@ import * as fonts from '@/styles/fonts'
 import ViewAllWorkLink from '@/components/work/view-all-work-link'
 import { useWorkPageContent } from '@/components/work/work-cms-provider'
 import { getWorkPageTitle } from '@/site-info/work-page-data'
-import { workPageTopOffsetClass } from '@/lib/work-page-layout'
+import { pageNavClearanceClass } from '@/lib/page-layout'
 import { cn } from '@/utils/tailwind-helpers'
 
 type WorkPageHeaderProps = {
@@ -37,7 +37,7 @@ export default function WorkPageHeader({
           'uppercase opacity-0',
           'bg-linear-to-r from-sanmarino via-sanmarino to-casablanca text-transparent',
           'mx-auto',
-          workPageTopOffsetClass,
+          pageNavClearanceClass,
         )}
       >
         {title.variant === 'filter' ? (

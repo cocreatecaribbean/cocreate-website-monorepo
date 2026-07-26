@@ -89,7 +89,7 @@ export default function WorkMasonryGrid({
   return (
     <section
       ref={gridRef}
-      className="work-masonry mx-auto w-[88svw] max-w-[1320px] pb-8"
+      className="work-masonry mx-auto w-[88svw] max-w-[1320px]"
       aria-label="Project gallery"
     >
       <p className="sr-only" aria-live="polite">

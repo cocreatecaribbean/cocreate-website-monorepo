@@ -1,5 +1,6 @@
 import {defineArrayMember, defineField, type FieldDefinition} from 'sanity'
 import {HexColorInput} from '../components/HexColorInput'
+import {isValidationHidden} from '../lib/validation-context'
 
 const HEX_PATTERN = /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/
 
@@ -13,13 +14,24 @@ const FILL_MODE_LIST = [
   {title: 'Custom gradient', value: 'gradient'},
 ]
 
+export type BrandFillPrefix =
+  | ''
+  | 'title'
+  | 'client'
+  | 'sub'
+  | 'videoTitle'
+  | 'playlistSidebar'
+  | 'playlistSelected'
+  | 'watchButton'
+  | 'watchButtonText'
+
 /**
  * Build Default | Solid | Gradient fill fields with HexColorInput.
  * When prefix is '', mode field is `fillMode` and colors are unprefixed (callout headline).
  * When prefix is 'sub', mode is `subFillMode` and colors are `subSolidColor`, etc.
  */
 export function brandFillFields(options: {
-  prefix: '' | 'title' | 'client' | 'sub'
+  prefix: BrandFillPrefix
   label: string
   modeDescription: string
 }): FieldDefinition[] {
@@ -51,6 +63,7 @@ export function brandFillFields(options: {
       hidden: ({parent}) => modeIs('solid')(parent as Record<string, unknown> | undefined),
       validation: (rule) =>
         rule.custom((value, context) => {
+          if (isValidationHidden(context)) return true
           const parent = context.parent as Record<string, unknown> | undefined
           if (parent?.[modeName] !== 'solid') return true
           if (!value) return 'Pick a brand color'
@@ -65,6 +78,7 @@ export function brandFillFields(options: {
       hidden: ({parent}) => modeIs('gradient')(parent as Record<string, unknown> | undefined),
       validation: (rule) =>
         rule.custom((value, context) => {
+          if (isValidationHidden(context)) return true
           const parent = context.parent as Record<string, unknown> | undefined
           if (parent?.[modeName] !== 'gradient') return true
           if (!value) return 'Add a start color'
@@ -79,6 +93,7 @@ export function brandFillFields(options: {
       hidden: ({parent}) => modeIs('gradient')(parent as Record<string, unknown> | undefined),
       validation: (rule) =>
         rule.custom((value, context) => {
+          if (isValidationHidden(context)) return true
           const parent = context.parent as Record<string, unknown> | undefined
           if (parent?.[modeName] !== 'gradient' || !value) return true
           return isValidHex(value) ? true : 'Enter a hex color like #39419a'
@@ -92,6 +107,7 @@ export function brandFillFields(options: {
       hidden: ({parent}) => modeIs('gradient')(parent as Record<string, unknown> | undefined),
       validation: (rule) =>
         rule.custom((value, context) => {
+          if (isValidationHidden(context)) return true
           const parent = context.parent as Record<string, unknown> | undefined
           if (parent?.[modeName] !== 'gradient') return true
           if (!value) return 'Add an end color'
@@ -105,7 +121,18 @@ export function brandFillFields(options: {
       type: 'number',
       initialValue: 90,
       hidden: ({parent}) => modeIs('gradient')(parent as Record<string, unknown> | undefined),
-      validation: (rule) => rule.min(0).max(360),
+      validation: (rule) =>
+        rule.custom((value, context) => {
+          if (isValidationHidden(context)) return true
+          const parent = context.parent as Record<string, unknown> | undefined
+          if (parent?.[modeName] !== 'gradient') return true
+          if (value == null) return true
+          const n = typeof value === 'number' ? value : Number(value)
+          if (!Number.isFinite(n) || n < 0 || n > 360) {
+            return 'Angle must be between 0 and 360'
+          }
+          return true
+        }),
     }),
   ]
 }
@@ -114,7 +141,7 @@ export const brandColorsField = defineField({
   name: 'brandColors',
   title: 'Brand colors',
   description:
-    'Define this project’s brand colors once; use the swatches on title, client, and callout fills.',
+    'Define brand colors once; use the swatches on fill pickers (title, playlist, Watch button, etc.).',
   type: 'array',
   of: [
     defineArrayMember({

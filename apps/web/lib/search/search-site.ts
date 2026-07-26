@@ -78,13 +78,16 @@ export function projectSearchFacetLabels(project: ProjectPreview): string[] {
 }
 
 export function collectUniqueTags(projects: ProjectPreview[]): string[] {
-  const tags = new Set<string>()
+  // Dedupe by slug — "Banking" and "banking" must not both become `tag-banking`.
+  const bySlug = new Map<string, string>()
   for (const project of projects) {
     for (const tag of projectSearchFacetLabels(project)) {
-      tags.add(tag)
+      const slug = toTagSlug(tag)
+      if (!slug || bySlug.has(slug)) continue
+      bySlug.set(slug, tag)
     }
   }
-  return [...tags].sort((a, b) => a.localeCompare(b))
+  return [...bySlug.values()].sort((a, b) => a.localeCompare(b))
 }
 
 function countProjectsForTag(projects: ProjectPreview[], tag: string): number {
