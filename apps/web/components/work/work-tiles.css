@@ -5,6 +5,17 @@
   width: 100%;
 }
 
+/* Tablet/desktop: 2-col stagger — offset only the first right-column tile */
+@media (min-width: 768px) {
+  .work-masonry-columns > [data-work-tile]:nth-child(even) {
+    margin-top: clamp(4rem, 12vw, 9rem);
+  }
+
+  .work-masonry-columns > [data-work-tile]:nth-child(even):nth-child(n + 3) {
+    margin-top: 0;
+  }
+}
+
 .work-tile-card img {
   transition: transform 1.15s var(--ease-premium);
   transform: scale(1);

@@ -21,14 +21,14 @@ function WorkMasonryTile({ item }: { item: ProjectPreview }) {
   const blurDataURL = item.coverImageBlurDataURL?.trim() || undefined
 
   const media = (
-    <div className="work-tile-card__frame relative aspect-square w-full">
+    <div className="work-tile-card__frame relative aspect-[4/3] w-full">
       <div className="work-tile-card__clip absolute inset-0 overflow-hidden bg-chambray">
         {hasCover && coverSrc ? (
           <Image
             src={coverSrc}
             alt=""
             fill
-            sizes="(max-width: 767px) 88vw, (max-width: 1023px) 44vw, 29vw"
+            sizes="(max-width: 767px) 92vw, 44vw"
             className="object-cover object-center"
             {...(blurDataURL
               ? { placeholder: 'blur' as const, blurDataURL }
@@ -89,7 +89,7 @@ export default function WorkMasonryGrid({
   return (
     <section
       ref={gridRef}
-      className="work-masonry mx-auto w-[88svw] max-w-[1320px]"
+      className="work-masonry mx-auto w-[92svw] max-w-[1480px]"
       aria-label="Project gallery"
     >
       <p className="sr-only" aria-live="polite">
@@ -98,8 +98,8 @@ export default function WorkMasonryGrid({
       <div
         className="
           work-masonry-columns grid grid-cols-1 gap-x-[1.125rem] gap-y-[1.125rem]
-          md:grid-cols-2 md:gap-x-[1.375rem] md:gap-y-[1.375rem]
-          lg:grid-cols-3 lg:gap-x-6 lg:gap-y-6
+          md:grid-cols-2 md:gap-x-[1.5rem] md:gap-y-[1.5rem]
+          lg:gap-x-6 lg:gap-y-6
         "
       >
         {visibleItems.map((item) => (
