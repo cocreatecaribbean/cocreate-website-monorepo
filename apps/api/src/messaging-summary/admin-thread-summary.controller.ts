@@ -39,13 +39,34 @@ export class AdminThreadSummaryController {
     @Req() req: AdminRequest,
     @Param('requestId') requestId: string,
     @Query('force') force: string | undefined,
+    @Query('timeZone') timeZone: string | undefined,
     @Res() res: Response,
   ) {
     const { buffer, filename } =
       await this.summaries.exportProjectRequestSummaryPdf(
         this.actor(req),
         requestId,
-        { force: force === 'true' },
+        { force: force === 'true', timeZone },
+      )
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    res.send(buffer)
+  }
+
+  @Get('project-requests/:requestId/transcript/export')
+  async exportProjectTranscript(
+    @Req() req: AdminRequest,
+    @Param('requestId') requestId: string,
+    @Query('from') from: string | undefined,
+    @Query('to') to: string | undefined,
+    @Query('timeZone') timeZone: string | undefined,
+    @Res() res: Response,
+  ) {
+    const { buffer, filename } =
+      await this.summaries.exportProjectRequestTranscriptPdf(
+        this.actor(req),
+        requestId,
+        { from, to, timeZone },
       )
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
@@ -68,12 +89,32 @@ export class AdminThreadSummaryController {
     @Req() req: AdminRequest,
     @Param('conversationId') conversationId: string,
     @Query('force') force: string | undefined,
+    @Query('timeZone') timeZone: string | undefined,
     @Res() res: Response,
   ) {
     const { buffer, filename } = await this.summaries.exportOrgInboxSummaryPdf(
       this.actor(req),
       conversationId,
-      { force: force === 'true' },
+      { force: force === 'true', timeZone },
+    )
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    res.send(buffer)
+  }
+
+  @Get('inbox/conversations/:conversationId/transcript/export')
+  async exportInboxTranscript(
+    @Req() req: AdminRequest,
+    @Param('conversationId') conversationId: string,
+    @Query('from') from: string | undefined,
+    @Query('to') to: string | undefined,
+    @Query('timeZone') timeZone: string | undefined,
+    @Res() res: Response,
+  ) {
+    const { buffer, filename } = await this.summaries.exportOrgInboxTranscriptPdf(
+      this.actor(req),
+      conversationId,
+      { from, to, timeZone },
     )
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)

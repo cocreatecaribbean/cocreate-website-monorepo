@@ -49,6 +49,17 @@ One org-wide conversation per organization; optional additional restricted threa
 | `POST /client-portal/inbox/conversations/:id/mark-read` | `POST /admin/inbox/conversations/:id/mark-read` |
 | `GET /client-portal/inbox/conversations/:id/realtime` | `GET /admin/inbox/conversations/:id/realtime` |
 | `POST /client-portal/inbox/conversations` (restricted) | `GET /admin/inbox/clients/:organizationId/conversations` |
+| `POST …/summary` · `GET …/summary/export` | Same under `/admin/inbox/conversations/:id/…` |
+| `GET …/transcript/export?from=&to=&timeZone=` (local calendar days) | Same under `/admin/…` |
+
+## Retention and exports
+
+Project threads and Get Help (org inbox) messages are stored durably in Postgres for the life of the engagement/account (no automatic TTL purge). Client-facing retention/access language lives on the marketing site `/privacy`.
+
+Exports (admin + client):
+
+- **AI Summary PDF** — digest via existing Summary UI (`…/summary` + `…/summary/export`)
+- **Transcript PDF** — full chronological messages via **Transcript** UI (`…/transcript/export`), optional `from`/`to` date range (calendar days in the viewer’s timezone via `timeZone` query); empty = entire thread; hard-capped at 2000 messages with a truncation note in the PDF. Image attachments are embedded inline under their messages (up to 40 images per export); other files are listed by filename. PDF timestamps use the browser `timeZone` (fallback `America/Jamaica`).
 
 ## Contracts
 

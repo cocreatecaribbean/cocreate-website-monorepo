@@ -90,7 +90,7 @@ function prefersReducedMotion() {
 function applyLook(el: HTMLElement, look: PhilosophyLook) {
   el.className = [
     'home-philosophy-title',
-    'block h-fit leading-none text-center lg:text-left will-change-transform',
+    'block h-fit leading-none text-left will-change-transform',
     look.className,
   ].join(' ')
   el.style.textTransform = look.textTransform
@@ -252,7 +252,7 @@ export default function PhilosophyTitleLoop({
       <p
         ref={labelRef}
         aria-live="polite"
-        className="mt-3 text-center text-sm font-medium tracking-wide text-chambray/80 lg:text-left"
+        className="mt-3 text-left text-sm font-medium tracking-wide text-chambray/80"
       >
         {LOOKS[0].quote}
       </p>

@@ -27,10 +27,23 @@
   }
 
   --animate-fadein: fadein 0.5s ease-in-out forwards;
+  --animate-fadeout: fadeout 0.5s ease-in-out forwards;
 
   @keyframes fadein {
     from { opacity: 0; }
     to   { opacity: 1; }
+  }
+
+  @keyframes fadeout {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+  }
+}
+
+/* First-frame gate: utility alone can paint opaque for one frame before the animation starts. */
+@layer utilities {
+  .animate-fadein {
+    opacity: 0;
   }
 }
 

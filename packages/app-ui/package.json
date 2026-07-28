@@ -29,7 +29,8 @@
     "./assistant-shell": "./src/assistant-shell.tsx",
     "./assistant-chat": "./src/assistant-chat.tsx",
     "./assistant-message-content": "./src/assistant-message-content.tsx",
-    "./thread-summary-export": "./src/thread-summary-export.tsx"
+    "./thread-summary-export": "./src/thread-summary-export.tsx",
+    "./thread-transcript-export": "./src/thread-transcript-export.tsx"
   },
   "peerDependencies": {
     "@ai-sdk/react": "catalog:ai",

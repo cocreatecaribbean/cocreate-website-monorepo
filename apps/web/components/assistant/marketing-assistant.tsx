@@ -27,6 +27,7 @@ export default function MarketingAssistant() {
       title="Ask CoCreate"
       greeting="Hi CoCreator!"
       placeholder="Ask about our services, work, or how to get in touch..."
+      nudgeMessage="Ask CoCreate — I’m here to help."
       positionClassName={queryDevtoolsLift}
       onNavigate={onNavigate}
     />

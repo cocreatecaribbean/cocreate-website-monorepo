@@ -32,8 +32,10 @@ import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import { CONTROL_CENTER_VIEW_QUERY } from '@/lib/control-center/nav'
 import { bricolage_grot600 } from '@/styles/fonts'
 import ThreadSummaryExport from '@cocreate/app-ui/thread-summary-export'
+import ThreadTranscriptExport from '@cocreate/app-ui/thread-transcript-export'
 import {
   downloadOrgInboxThreadSummaryPdf,
+  downloadOrgInboxThreadTranscriptPdf,
   fetchOrgInboxAttachmentPreviewUrl,
   generateOrgInboxThreadSummary,
 } from '@/lib/messaging/fetch-thread-summary'
@@ -293,15 +295,22 @@ export default function OrgInboxMessagesView() {
                   <p className={`min-w-0 flex-1 text-sm text-chambray ${bricolage_grot600.className}`}>
                     {conversationLabel(selected)}
                   </p>
-                  <ThreadSummaryExport
-                    fetchAttachmentDownloadUrl={fetchOrgInboxAttachmentPreviewUrl}
-                    onGenerate={(options) =>
-                      generateOrgInboxThreadSummary(selected.id, options)
-                    }
-                    onExportPdf={(options) =>
-                      downloadOrgInboxThreadSummaryPdf(selected.id, options)
-                    }
-                  />
+                  <div className="flex shrink-0 items-start gap-2">
+                    <ThreadSummaryExport
+                      fetchAttachmentDownloadUrl={fetchOrgInboxAttachmentPreviewUrl}
+                      onGenerate={(options) =>
+                        generateOrgInboxThreadSummary(selected.id, options)
+                      }
+                      onExportPdf={(options) =>
+                        downloadOrgInboxThreadSummaryPdf(selected.id, options)
+                      }
+                    />
+                    <ThreadTranscriptExport
+                      onExportPdf={(options) =>
+                        downloadOrgInboxThreadTranscriptPdf(selected.id, options)
+                      }
+                    />
+                  </div>
                 </div>
               ) : null}
             </div>

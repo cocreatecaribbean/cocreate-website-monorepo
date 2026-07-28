@@ -47,9 +47,25 @@ export {
 } from './summarize'
 export {
   renderThreadSummaryPdf,
+  renderThreadTranscriptPdf,
   threadSummaryPdfFilename,
   type RenderThreadSummaryPdfOptions,
+  type RenderThreadTranscriptPdfOptions,
 } from './pdf/render'
+export {
+  THREAD_TRANSCRIPT_IMAGE_CAP,
+  THREAD_TRANSCRIPT_MESSAGE_CAP,
+  buildThreadTranscriptPayload,
+  capTranscriptMessages,
+  collectTranscriptImageIds,
+  filterMessagesByDateRange,
+  parseTranscriptDateRange,
+  threadTranscriptPdfFilename,
+  type ThreadTranscriptAttachment,
+  type ThreadTranscriptMessage,
+  type ThreadTranscriptPayload,
+  type TranscriptDateRange,
+} from './transcript'
 export {
   collectAttachmentCatalog,
   enrichReferencedFiles,
@@ -60,4 +76,4 @@ export {
   withContentVersion,
   type AttachmentCatalogEntry,
 } from './enrich-summary'
-export { formatSummaryDate, formatMessageTimestamp } from './format-date'
+export { formatSummaryDate, formatMessageTimestamp, formatExportInstant, resolvePdfTimeZone, DEFAULT_PDF_TIMEZONE } from './format-date'

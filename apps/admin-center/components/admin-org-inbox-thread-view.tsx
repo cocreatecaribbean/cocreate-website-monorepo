@@ -35,8 +35,10 @@ import {
 } from '@/lib/inbox/org-inbox-display'
 import { bricolage_grot600 } from '@/styles/fonts'
 import ThreadSummaryExport from '@cocreate/app-ui/thread-summary-export'
+import ThreadTranscriptExport from '@cocreate/app-ui/thread-transcript-export'
 import {
   downloadAdminOrgInboxThreadSummaryPdf,
+  downloadAdminOrgInboxThreadTranscriptPdf,
   generateAdminOrgInboxThreadSummary,
 } from '@/lib/api/mutations/thread-summary'
 
@@ -231,19 +233,30 @@ export default function AdminOrgInboxThreadView({
                 {formatConversationDate(conversation.createdAt)}
               </p>
             </div>
-            <ThreadSummaryExport
-              triggerClassName="admin-btn-ghost shrink-0 px-3 py-1.5 text-xs"
-              panelClassName="admin-glass-card"
-              primaryButtonClassName="admin-btn-primary px-4 py-2 text-sm"
-              ghostButtonClassName="admin-btn-ghost px-4 py-2 text-sm"
-              fetchAttachmentDownloadUrl={fetchOrgInboxAttachmentDownloadUrl}
-              onGenerate={(options) =>
-                generateAdminOrgInboxThreadSummary(conversationId, options)
-              }
-              onExportPdf={(options) =>
-                downloadAdminOrgInboxThreadSummaryPdf(conversationId, options)
-              }
-            />
+            <div className="flex shrink-0 items-start gap-2">
+              <ThreadSummaryExport
+                triggerClassName="admin-btn-ghost shrink-0 px-3 py-1.5 text-xs"
+                panelClassName="admin-glass-card"
+                primaryButtonClassName="admin-btn-primary px-4 py-2 text-sm"
+                ghostButtonClassName="admin-btn-ghost px-4 py-2 text-sm"
+                fetchAttachmentDownloadUrl={fetchOrgInboxAttachmentDownloadUrl}
+                onGenerate={(options) =>
+                  generateAdminOrgInboxThreadSummary(conversationId, options)
+                }
+                onExportPdf={(options) =>
+                  downloadAdminOrgInboxThreadSummaryPdf(conversationId, options)
+                }
+              />
+              <ThreadTranscriptExport
+                triggerClassName="admin-btn-ghost shrink-0 px-3 py-1.5 text-xs"
+                panelClassName="admin-glass-card"
+                primaryButtonClassName="admin-btn-primary px-4 py-2 text-sm"
+                ghostButtonClassName="admin-btn-ghost px-4 py-2 text-sm"
+                onExportPdf={(options) =>
+                  downloadAdminOrgInboxThreadTranscriptPdf(conversationId, options)
+                }
+              />
+            </div>
           </div>
           <div ref={panelRef} className="admin-thread-panel mt-4">
             {messages.length === 0 ? (

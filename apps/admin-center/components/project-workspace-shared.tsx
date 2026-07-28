@@ -6,9 +6,11 @@ import RequestMessageThread from '@/components/request-message-thread'
 import ResizableAdminThreadSurface from '@/components/resizable-admin-thread-surface'
 import MarkInboxReadOnView from '@/components/mark-inbox-read-on-view'
 import ThreadSummaryExport from '@cocreate/app-ui/thread-summary-export'
+import ThreadTranscriptExport from '@cocreate/app-ui/thread-transcript-export'
 import { adminQueryKeys } from '@/lib/api/query-keys'
 import {
   downloadAdminProjectThreadSummaryPdf,
+  downloadAdminProjectThreadTranscriptPdf,
   generateAdminProjectThreadSummary,
 } from '@/lib/api/mutations/thread-summary'
 import { fetchAttachmentDownloadUrl } from '@/lib/projects/fetch-project-files'
@@ -97,19 +99,30 @@ export function ProjectThreadPanel({
               <p className={`text-chambray ${bricolage_grot600.className}`}>{title}</p>
               <p className="mt-1 text-xs text-app-muted">{subtitle}</p>
             </div>
-            <ThreadSummaryExport
-              triggerClassName="admin-btn-ghost shrink-0 px-3 py-1.5 text-xs"
-              panelClassName="admin-glass-card"
-              primaryButtonClassName="admin-btn-primary px-4 py-2 text-sm"
-              ghostButtonClassName="admin-btn-ghost px-4 py-2 text-sm"
-              fetchAttachmentDownloadUrl={fetchAttachmentDownloadUrl}
-              onGenerate={(options) =>
-                generateAdminProjectThreadSummary(request.id, options)
-              }
-              onExportPdf={(options) =>
-                downloadAdminProjectThreadSummaryPdf(request.id, options)
-              }
-            />
+            <div className="flex shrink-0 items-start gap-2">
+              <ThreadSummaryExport
+                triggerClassName="admin-btn-ghost shrink-0 px-3 py-1.5 text-xs"
+                panelClassName="admin-glass-card"
+                primaryButtonClassName="admin-btn-primary px-4 py-2 text-sm"
+                ghostButtonClassName="admin-btn-ghost px-4 py-2 text-sm"
+                fetchAttachmentDownloadUrl={fetchAttachmentDownloadUrl}
+                onGenerate={(options) =>
+                  generateAdminProjectThreadSummary(request.id, options)
+                }
+                onExportPdf={(options) =>
+                  downloadAdminProjectThreadSummaryPdf(request.id, options)
+                }
+              />
+              <ThreadTranscriptExport
+                triggerClassName="admin-btn-ghost shrink-0 px-3 py-1.5 text-xs"
+                panelClassName="admin-glass-card"
+                primaryButtonClassName="admin-btn-primary px-4 py-2 text-sm"
+                ghostButtonClassName="admin-btn-ghost px-4 py-2 text-sm"
+                onExportPdf={(options) =>
+                  downloadAdminProjectThreadTranscriptPdf(request.id, options)
+                }
+              />
+            </div>
           </div>
         </div>
         <div className="mt-0 flex min-h-0 flex-1 flex-col md:mt-4">

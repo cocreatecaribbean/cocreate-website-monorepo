@@ -46,7 +46,7 @@ export default function LegalPage() {
         <p
           className={`mt-4 max-w-2xl text-base leading-relaxed text-neutral-600 ${fonts.bricolage_grot400.className}`}
         >
-          How CoCreate Caribbean handles your information and cookie preferences on this site.
+          How CoCreate Caribbean handles your information, Client Portal message records, and cookie preferences.
         </p>
 
         <nav

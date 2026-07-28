@@ -1,4 +1,5 @@
 import { Document, Image, Page, Text, View } from '@react-pdf/renderer'
+import { formatExportInstant } from '../format-date'
 import type { ThreadSummaryPayload } from '../schema'
 import { pdfTheme } from './theme'
 
@@ -37,17 +38,13 @@ function formatVisualMeta(file: ThreadSummaryPayload['referencedFiles'][number])
 export function ThreadSummaryDocument({
   summary,
   imageDataByAttachmentId = {},
+  timeZone,
 }: {
   summary: ThreadSummaryPayload
   imageDataByAttachmentId?: Record<string, string>
+  timeZone?: string
 }) {
-  const generated = new Date(summary.generatedAt).toLocaleString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  const generated = formatExportInstant(summary.generatedAt, timeZone)
 
   const deliverableLines = summary.deliverablesPresented.map((item) => {
     const who = item.presentedBy ? ` (${item.presentedBy})` : ''

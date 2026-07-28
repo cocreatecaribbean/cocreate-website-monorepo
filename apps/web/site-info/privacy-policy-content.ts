@@ -5,16 +5,27 @@ export type PrivacyPolicySection = {
 }
 
 /**
- * Paste your Google Docs privacy policy copy here.
- * Each section becomes a heading + paragraphs on /privacy.
+ * Client-facing privacy copy for /privacy.
+ * Portal messaging retention/access should stay accurate to product behavior.
  */
 export const PRIVACY_POLICY_SECTIONS: PrivacyPolicySection[] = [
   {
     id: 'privacy',
     title: 'Privacy Policy',
     paragraphs: [
-      'Replace this placeholder with your privacy policy text from Google Docs.',
-      'Add one string per paragraph — each will render as its own block on the page.',
+      'CoCreate Caribbean (“CoCreate,” “we,” “us”) provides marketing and creative services, a public website, and authenticated Client Portal tools for project collaboration and support.',
+      'This page explains how we handle information you share with us through our website and Client Portal. For questions about this policy, email requests@cocreatecaribbean.com.',
+    ],
+  },
+  {
+    id: 'portal-messaging',
+    title: 'Client Portal messages and records',
+    paragraphs: [
+      'When you use the Client Portal, project conversations (including onboarding, project updates, and cancellation threads) and Get Help messages are stored in CoCreate systems so we can deliver work, provide support, and keep a shared record of what was discussed and decided.',
+      'CoCreate administrators can access those threads as needed to work with your organization. Team members on your account see messages according to the permissions configured for their role (for example, Get Help access).',
+      'Message history is retained for the life of your client engagement and account, unless removed under your contract with us or in response to a valid deletion or access request.',
+      'Where the product provides it, clients and CoCreate admins can download AI thread summaries and full message transcripts (including optional date ranges) from project and Get Help conversations.',
+      'To request access to, correction of, or deletion of portal messaging records, contact requests@cocreatecaribbean.com. We may need to verify your identity and account relationship before acting on a request.',
     ],
   },
 ]

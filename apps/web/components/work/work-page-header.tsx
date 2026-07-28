@@ -31,7 +31,7 @@ export default function WorkPageHeader({
   return (
     <section className="work-page-header mx-auto mb-8 flex w-[88svw] max-w-[1320px] flex-col text-black min-[1024px]:mb-12 min-[1500px]:mb-16">
       <h1
-        data-work-page-heading
+        data-page-heading
         className={cn(
           'work-page-title w-fit overflow-hidden bg-clip-text text-center leading-none',
           'uppercase opacity-0',

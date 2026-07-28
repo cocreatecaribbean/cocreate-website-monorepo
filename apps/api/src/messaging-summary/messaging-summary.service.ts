@@ -1,5 +1,6 @@
 import {
   Injectable,
+  BadRequestException,
   ServiceUnavailableException,
 } from '@nestjs/common'
 import {
@@ -7,14 +8,25 @@ import {
   ThreadSummaryContentSchema,
   ThreadSummaryPayloadSchema,
   buildSummaryPayload,
+  buildThreadTranscriptPayload,
+  capTranscriptMessages,
+  collectTranscriptImageIds,
+  filterMessagesByDateRange,
   normalizeOrgInboxMessages,
   normalizeProjectMessages,
+  parseTranscriptDateRange,
   renderThreadSummaryPdf,
+  renderThreadTranscriptPdf,
+  resolvePdfTimeZone,
   summarizeThreadMessages,
   threadSummaryPdfFilename,
+  threadTranscriptPdfFilename,
   type ThreadSummaryContent,
   type ThreadSummaryPayload,
   type ThreadSummarySourceType,
+  type ThreadTranscriptAttachment,
+  type ThreadTranscriptMessage,
+  type TranscriptDateRange,
 } from '@cocreate/message-summary'
 import { resolveOpenAiApiKey } from '@cocreate/ai-core/models'
 import type { AuthenticatedAdmin, AuthenticatedAgencyUser, AuthenticatedClient } from '../auth/auth.service'
@@ -227,8 +239,9 @@ export class MessagingSummaryService {
   async exportProjectRequestSummaryPdf(
     actor: AgencyOrClient,
     requestId: string,
-    options?: { force?: boolean },
+    options?: { force?: boolean; timeZone?: string },
   ) {
+    const timeZone = resolvePdfTimeZone(options?.timeZone)
     const result = await this.generateProjectRequestSummary(actor, requestId, options)
     const imageDataByAttachmentId = await this.resolveSummaryPdfImages(
       result.summary,
@@ -236,6 +249,7 @@ export class MessagingSummaryService {
     )
     const buffer = await renderThreadSummaryPdf(result.summary, {
       imageDataByAttachmentId,
+      timeZone,
     })
     return {
       buffer,
@@ -246,8 +260,9 @@ export class MessagingSummaryService {
   async exportOrgInboxSummaryPdf(
     viewer: AuthenticatedClient | AuthenticatedAdmin,
     conversationId: string,
-    options?: { force?: boolean },
+    options?: { force?: boolean; timeZone?: string },
   ) {
+    const timeZone = resolvePdfTimeZone(options?.timeZone)
     const result = await this.generateOrgInboxSummary(viewer, conversationId, options)
     const imageDataByAttachmentId = await this.resolveSummaryPdfImages(
       result.summary,
@@ -255,10 +270,164 @@ export class MessagingSummaryService {
     )
     const buffer = await renderThreadSummaryPdf(result.summary, {
       imageDataByAttachmentId,
+      timeZone,
     })
     return {
       buffer,
       filename: threadSummaryPdfFilename(result.summary),
+    }
+  }
+
+  async exportProjectRequestTranscriptPdf(
+    actor: AgencyOrClient,
+    requestId: string,
+    range?: TranscriptDateRange,
+  ) {
+    const timeZone = resolvePdfTimeZone(range?.timeZone)
+    const { fromInclusive, toInclusive, rangeLabel } =
+      this.parseRangeOrThrow(range, timeZone)
+
+    const request = await this.projects.getRequestThread(actor, requestId)
+    const messages = await this.fetchAllProjectMessages(actor, requestId)
+    const normalized = normalizeProjectMessages(
+      messages.map((message) => ({
+        id: message.id,
+        authorDisplayName: message.authorDisplayName,
+        authorEmail: message.authorEmail,
+        authorRole: message.authorRole,
+        body: message.body,
+        createdAt: message.createdAt,
+        messageKind: message.messageKind,
+        attachments: message.attachments?.map((attachment) => ({
+          id: attachment.id,
+          fileName: attachment.fileName,
+          mimeType: attachment.mimeType,
+        })),
+      })),
+    )
+
+    const kindById = new Map(
+      messages.map((message) => [message.id, message.messageKind ?? null]),
+    )
+
+    const filtered = filterMessagesByDateRange(
+      normalized,
+      fromInclusive,
+      toInclusive,
+    )
+    const { messages: capped, truncated } = capTranscriptMessages(filtered)
+    const transcriptMessages = this.toTranscriptMessages(capped, kindById)
+    const summaryLabels = projectRequestSummaryLabels(request)
+    const { attachmentIds, imagesTruncated } =
+      collectTranscriptImageIds(transcriptMessages)
+
+    const mimeById = new Map(
+      transcriptMessages.flatMap((message) =>
+        message.attachments.map(
+          (attachment) => [attachment.id, attachment.mimeType] as const,
+        ),
+      ),
+    )
+
+    const imageDataByAttachmentId = await this.resolveAttachmentImageDataUrls(
+      attachmentIds,
+      mimeById,
+      (attachmentId) =>
+        this.projects.downloadAttachmentBytes(actor, attachmentId),
+    )
+
+    const transcript = buildThreadTranscriptPayload({
+      title: summaryLabels.title,
+      subtitle: summaryLabels.subtitle,
+      sourceId: requestId,
+      rangeLabel,
+      timeZone,
+      messages: transcriptMessages,
+      truncated,
+      imagesTruncated,
+    })
+
+    const buffer = await renderThreadTranscriptPdf(transcript, {
+      imageDataByAttachmentId,
+    })
+    return {
+      buffer,
+      filename: threadTranscriptPdfFilename(transcript),
+    }
+  }
+
+  async exportOrgInboxTranscriptPdf(
+    viewer: AuthenticatedClient | AuthenticatedAdmin,
+    conversationId: string,
+    range?: TranscriptDateRange,
+  ) {
+    const timeZone = resolvePdfTimeZone(range?.timeZone)
+    const { fromInclusive, toInclusive, rangeLabel } =
+      this.parseRangeOrThrow(range, timeZone)
+
+    const { messages } = await this.inbox.listMessages(conversationId, viewer)
+    const conversation = await this.inbox.getConversationForSummary(
+      conversationId,
+      viewer,
+    )
+
+    const normalized = normalizeOrgInboxMessages(
+      messages.map((message) => ({
+        id: message.id,
+        authorEmail: message.authorEmail,
+        authorRole: message.authorRole,
+        body: message.body,
+        createdAt: message.createdAt,
+        attachments: message.attachments?.map((attachment) => ({
+          id: attachment.id,
+          fileName: attachment.fileName,
+          mimeType: attachment.mimeType,
+        })),
+      })),
+    )
+
+    const filtered = filterMessagesByDateRange(
+      normalized,
+      fromInclusive,
+      toInclusive,
+    )
+    const { messages: capped, truncated } = capTranscriptMessages(filtered)
+    const transcriptMessages = this.toTranscriptMessages(capped)
+    const { attachmentIds, imagesTruncated } =
+      collectTranscriptImageIds(transcriptMessages)
+
+    const mimeById = new Map(
+      transcriptMessages.flatMap((message) =>
+        message.attachments.map(
+          (attachment) => [attachment.id, attachment.mimeType] as const,
+        ),
+      ),
+    )
+
+    const imageDataByAttachmentId = await this.resolveAttachmentImageDataUrls(
+      attachmentIds,
+      mimeById,
+      (attachmentId) =>
+        this.inbox.downloadAttachmentBytes(viewer, attachmentId),
+    )
+
+    const transcript = buildThreadTranscriptPayload({
+      title: conversation.title,
+      subtitle: conversation.subtitle,
+      sourceId: conversationId,
+      rangeLabel,
+      timeZone,
+      messages: transcriptMessages,
+      truncated,
+      imagesTruncated,
+    })
+
+    const buffer = await renderThreadTranscriptPdf(transcript, {
+      imageDataByAttachmentId,
+    })
+    return {
+      buffer,
+      filename: threadTranscriptPdfFilename(transcript),
     }
   }
 
@@ -270,35 +439,95 @@ export class MessagingSummaryService {
     return this.store.invalidate('ORG_INBOX', conversationId)
   }
 
-  private async resolveSummaryPdfImages(
-    summary: ThreadSummaryPayload,
-    actor: AgencyOrClient | AuthenticatedClient | AuthenticatedAdmin,
+  private parseRangeOrThrow(range?: TranscriptDateRange, timeZone?: string) {
+    try {
+      return parseTranscriptDateRange(range, timeZone)
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Invalid date range.',
+      )
+    }
+  }
+
+  private toTranscriptMessages(
+    messages: Array<{
+      id: string
+      author: string
+      role: string
+      timestamp: string
+      body: string
+      attachments: Array<{
+        id: string
+        fileName: string
+        mimeType: string
+        isImage: boolean
+      }>
+    }>,
+    kindById?: Map<string, string | null>,
+  ): ThreadTranscriptMessage[] {
+    return messages.map((message) => ({
+      id: message.id,
+      author: message.author,
+      role: message.role,
+      kind: kindById?.get(message.id) ?? null,
+      timestamp: message.timestamp,
+      body: message.body,
+      attachments: message.attachments.map(
+        (attachment): ThreadTranscriptAttachment => ({
+          id: attachment.id,
+          fileName: attachment.fileName,
+          mimeType: attachment.mimeType,
+          isImage: attachment.isImage,
+        }),
+      ),
+    }))
+  }
+
+  private async resolveAttachmentImageDataUrls(
+    attachmentIds: string[],
+    mimeById: Map<string, string>,
+    download: (attachmentId: string) => Promise<Buffer | null>,
   ): Promise<Record<string, string>> {
     const imageDataByAttachmentId: Record<string, string> = {}
 
-    for (const file of summary.referencedFiles.filter((entry) => entry.isImage)) {
+    for (const attachmentId of attachmentIds) {
       try {
-        const bytes =
-          summary.sourceType === 'PROJECT_REQUEST'
-            ? await this.projects.downloadAttachmentBytes(
-                actor as AgencyOrClient,
-                file.attachmentId,
-              )
-            : await this.inbox.downloadAttachmentBytes(
-                actor as AuthenticatedClient | AuthenticatedAdmin,
-                file.attachmentId,
-              )
-
+        const bytes = await download(attachmentId)
         if (!bytes) continue
-
-        imageDataByAttachmentId[file.attachmentId] =
-          `data:${file.mimeType};base64,${bytes.toString('base64')}`
+        const mimeType = mimeById.get(attachmentId) || 'image/jpeg'
+        imageDataByAttachmentId[attachmentId] =
+          `data:${mimeType};base64,${bytes.toString('base64')}`
       } catch {
-        // Skip images that cannot be resolved; PDF falls back to filename + text.
+        // Skip images that cannot be resolved; PDF falls back to filename.
       }
     }
 
     return imageDataByAttachmentId
+  }
+
+  private async resolveSummaryPdfImages(
+    summary: ThreadSummaryPayload,
+    actor: AgencyOrClient | AuthenticatedClient | AuthenticatedAdmin,
+  ): Promise<Record<string, string>> {
+    const imageFiles = summary.referencedFiles.filter((entry) => entry.isImage)
+    const mimeById = new Map(
+      imageFiles.map((file) => [file.attachmentId, file.mimeType] as const),
+    )
+
+    return this.resolveAttachmentImageDataUrls(
+      imageFiles.map((file) => file.attachmentId),
+      mimeById,
+      async (attachmentId) =>
+        summary.sourceType === 'PROJECT_REQUEST'
+          ? this.projects.downloadAttachmentBytes(
+              actor as AgencyOrClient,
+              attachmentId,
+            )
+          : this.inbox.downloadAttachmentBytes(
+              actor as AuthenticatedClient | AuthenticatedAdmin,
+              attachmentId,
+            ),
+    )
   }
 
   private async fetchAllProjectMessages(actor: AgencyOrClient, requestId: string) {

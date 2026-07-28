@@ -3,7 +3,7 @@
 import './work-tiles.css'
 import {useMemo, useRef} from 'react'
 import {usePathname, useSearchParams} from 'next/navigation'
-import {useWorkPageAnimation} from '@/hooks/use-work-page-animation'
+import {usePageTitleReveal} from '@/hooks/use-page-title-reveal'
 import WorkMasonryGrid from '@/components/work/work-masonry-grid'
 import WorkPageHeader from '@/components/work/work-page-header'
 import {
@@ -42,7 +42,7 @@ function WorkPageBody({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const revealKey = `${pathname}?${searchParams.toString()}`
-  useWorkPageAnimation({scope: sectionRef, revealKey})
+  usePageTitleReveal({scope: sectionRef, revealKey})
 
   const liveProjects = useWorkProjectsLive()
 

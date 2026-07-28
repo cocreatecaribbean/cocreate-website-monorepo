@@ -29,12 +29,20 @@ export type AssistantShellProps = {
   requestExtras?: Record<string, unknown>
   /** Soft-navigate relative `/…` links in assistant replies (e.g. router.push). */
   onNavigate?: (href: string) => void
+  /** Speech-bubble intro beside the FAB. Default on. */
+  showNudge?: boolean
+  /** Nudge copy. */
+  nudgeMessage?: string
 }
 
 const PANEL_OPEN_DURATION = 0.5
 const PANEL_CLOSE_DURATION = 0.35
 const CSS_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'
 const CSS_DURATION_MS = 400
+const NUDGE_SHOW_DELAY_MS = 3000
+const NUDGE_VISIBLE_MS = 15000
+const NUDGE_EXIT_MS = 400
+const DEFAULT_NUDGE_MESSAGE = 'Your virtual assistant is here to help.'
 
 const REM = 16
 const DEFAULT_WIDTH_REM = 28
@@ -55,6 +63,9 @@ const fabBaseClassName =
   'pointer-events-auto flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-full bg-sanmarino text-casablanca shadow-[0_8px_24px_rgba(15,76,129,0.35)] outline outline-2 outline-offset-4 outline-casablanca transition hover:bg-casablanca hover:text-sanmarino focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-casablanca'
 
 const fabOpenClassName = 'bg-chambray text-casablanca'
+
+const nudgeBubbleClassName =
+  'pointer-events-auto absolute bottom-[calc(100%+0.65rem)] right-0 z-10 w-max max-w-[min(22rem,calc(100vw-2.5rem))] cursor-pointer rounded-2xl border border-chambray/15 bg-white px-4 py-3 text-left text-sm leading-snug whitespace-nowrap max-sm:whitespace-normal text-chambray shadow-[0_10px_28px_rgba(57,65,154,0.16)] transition-[opacity,transform] duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none before:absolute before:-bottom-1.5 before:right-5 before:h-3 before:w-3 before:rotate-45 before:border-r before:border-b before:border-chambray/15 before:bg-white before:content-[\'\'] dark:border-casablanca/25 dark:bg-chambray dark:text-casablanca dark:shadow-[0_10px_28px_rgba(0,0,0,0.35)] dark:before:border-casablanca/25 dark:before:bg-chambray'
 
 type PanelSize = { width: number; height: number }
 
@@ -146,6 +157,8 @@ export default function AssistantShell({
   animation = 'css',
   requestExtras,
   onNavigate,
+  showNudge = true,
+  nudgeMessage = DEFAULT_NUDGE_MESSAGE,
 }: AssistantShellProps) {
   const panelId = useId()
   const fabRef = useRef<HTMLButtonElement>(null)
@@ -153,6 +166,7 @@ export default function AssistantShell({
   const timelineRef = useRef<gsap.core.Timeline | null>(null)
   const hasOpenedRef = useRef(false)
   const isAnimatingRef = useRef(false)
+  const openRef = useRef(false)
   const dragRef = useRef<{
     pointerId: number
     startX: number
@@ -165,6 +179,13 @@ export default function AssistantShell({
   const [panelMounted, setPanelMounted] = useState(false)
   const [cssPanelOpen, setCssPanelOpen] = useState(false)
   const [panelSize, setPanelSize] = useState<PanelSize | null>(null)
+  const [nudgeMounted, setNudgeMounted] = useState(false)
+  const [nudgeEntered, setNudgeEntered] = useState(false)
+  const nudgeWasShownRef = useRef(false)
+  /** In-memory only — full reload can show the nudge again. */
+  const nudgeDismissedRef = useRef(false)
+
+  openRef.current = open
 
   useEffect(() => {
     setPanelSize(readPanelSize(context))
@@ -176,6 +197,76 @@ export default function AssistantShell({
     setPanelMounted(true)
     setOpen(true)
   }, [context])
+
+  const dismissNudge = useCallback(() => {
+    nudgeDismissedRef.current = true
+    setNudgeEntered(false)
+  }, [])
+
+  // Intro bubble beside the FAB (once per shell mount / page load).
+  useEffect(() => {
+    if (!showNudge) return
+    if (nudgeDismissedRef.current) return
+    if (readOpenState(context)) return
+
+    const showTimer = window.setTimeout(() => {
+      if (openRef.current || nudgeDismissedRef.current) return
+      nudgeWasShownRef.current = false
+      setNudgeMounted(true)
+    }, NUDGE_SHOW_DELAY_MS)
+
+    return () => window.clearTimeout(showTimer)
+  }, [context, showNudge])
+
+  // Enter animation after mount; auto-hide after 15s while showing.
+  useEffect(() => {
+    if (!nudgeMounted) return
+
+    let hideTimer: number | undefined
+    const enterFrame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (openRef.current || nudgeDismissedRef.current) return
+        setNudgeEntered(true)
+        nudgeWasShownRef.current = true
+        hideTimer = window.setTimeout(() => {
+          dismissNudge()
+        }, NUDGE_VISIBLE_MS)
+      })
+    })
+
+    return () => {
+      cancelAnimationFrame(enterFrame)
+      if (hideTimer !== undefined) window.clearTimeout(hideTimer)
+    }
+  }, [dismissNudge, nudgeMounted])
+
+  // Keep in DOM through exit transition, then unmount (only after a real show).
+  useEffect(() => {
+    if (nudgeEntered || !nudgeMounted || !nudgeWasShownRef.current) return
+    const exitTimer = window.setTimeout(() => {
+      setNudgeMounted(false)
+      nudgeWasShownRef.current = false
+    }, NUDGE_EXIT_MS)
+    return () => window.clearTimeout(exitTimer)
+  }, [nudgeEntered, nudgeMounted])
+
+  useEffect(() => {
+    if (!open) return
+    dismissNudge()
+  }, [dismissNudge, open])
+
+  useEffect(() => {
+    if (!nudgeMounted || open) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      dismissNudge()
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [dismissNudge, nudgeMounted, open])
 
   useEffect(() => {
     if (!panelSize) return
@@ -209,10 +300,11 @@ export default function AssistantShell({
       close()
       return
     }
+    dismissNudge()
     setPanelMounted(true)
     setOpen(true)
     writeOpenState(context, true)
-  }, [close, context, open])
+  }, [close, context, dismissNudge, open])
 
   useEffect(() => {
     if (!open) return
@@ -465,17 +557,35 @@ export default function AssistantShell({
         </div>
       ) : null}
 
-      <button
-        ref={fabRef}
-        type="button"
-        aria-expanded={open}
-        aria-controls={panelMounted ? panelId : undefined}
-        aria-label={open ? 'Close assistant' : 'Open assistant'}
-        onClick={toggle}
-        className={`${fabBaseClassName} ${open ? fabOpenClassName : ''}`.trim()}
-      >
-        <MessageCircle className="h-6 w-6" strokeWidth={1.75} aria-hidden />
-      </button>
+      <div className="relative shrink-0">
+        {nudgeMounted ? (
+          <button
+            type="button"
+            role="status"
+            aria-live="polite"
+            aria-label={nudgeMessage}
+            onClick={dismissNudge}
+            className={`${nudgeBubbleClassName} ${
+              nudgeEntered
+                ? 'translate-y-0 opacity-100'
+                : 'translate-y-2 opacity-0 motion-reduce:translate-y-0'
+            }`}
+          >
+            {nudgeMessage}
+          </button>
+        ) : null}
+        <button
+          ref={fabRef}
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelMounted ? panelId : undefined}
+          aria-label={open ? 'Close assistant' : 'Open assistant'}
+          onClick={toggle}
+          className={`${fabBaseClassName} ${open ? fabOpenClassName : ''}`.trim()}
+        >
+          <MessageCircle className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+        </button>
+      </div>
     </div>
   )
 }

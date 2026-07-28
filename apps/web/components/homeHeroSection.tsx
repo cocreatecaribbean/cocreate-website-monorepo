@@ -19,6 +19,7 @@ import { applySharedTextGradient, splitTextGradient } from "@/utils/util-funcs";
 import { consumeSpaNavigation } from "@/lib/scroll/navigation";
 import { prefersNativeScroll } from "@/lib/scroll/native-scroll";
 import { resetRouteScrollToTop } from "@/lib/scroll/reset-route-scroll";
+import { PAGE_TITLE_FADE_MS } from "@/hooks/use-page-title-reveal";
 import {
   DEFAULT_AGENCY_INTRO,
   DEFAULT_HERO_REEL_FALLBACK_SRC,
@@ -579,6 +580,7 @@ export default function HomeHeroSection({
       let h1_text_split: SplitText | null = null;
       let about_text_split: SplitText | null = null;
       let introTimeline: gsap.core.Timeline | null = null;
+      let introWaitCancelled = false;
       let headlineFitTimer: ReturnType<typeof setTimeout> | undefined;
       let onHeadlineResize: (() => void) | undefined;
       let brandYResizeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -671,6 +673,34 @@ export default function HomeHeroSection({
           check();
         });
 
+      /** Match pageTransition fade-in so SplitText does not stack with CSS page fade. */
+      const waitForPageFadeHost = () =>
+        new Promise<void>((resolve) => {
+          const main = mainRef.current;
+          const host = main?.closest(".animate-fadein, .animate-fadeout");
+          if (!host) {
+            resolve();
+            return;
+          }
+          const started = performance.now();
+          const capMs = PAGE_TITLE_FADE_MS + 250;
+          const check = () => {
+            const opacity = Number.parseFloat(
+              getComputedStyle(host).opacity || "1",
+            );
+            if (
+              !Number.isFinite(opacity) ||
+              opacity >= 0.95 ||
+              performance.now() - started > capMs
+            ) {
+              resolve();
+              return;
+            }
+            requestAnimationFrame(check);
+          };
+          check();
+        });
+
       const runAfterLayoutReady = async (fn: () => void) => {
         if (document.fonts?.ready) {
           await document.fonts.ready.catch(() => undefined);
@@ -733,29 +763,41 @@ export default function HomeHeroSection({
 
       // SPA remounts (e.g. contact → home): skip the from() entrance — ScrollTrigger
       // refresh can leave SplitText words stuck at opacity 0 mid-tween.
+      // Hard load: wait for shared page fade so SplitText does not fight CSS fade-in.
       if (enteredViaSpa) {
         gsap.set(h1_text_split.words, { opacity: 1, y: 0 });
         gsap.set(hero_subhead.current, { opacity: 1 });
       } else {
+        gsap.set(h1_text_split.words, { opacity: 0, y: -100 });
         gsap.set(hero_subhead.current, { opacity: 0 });
-        introTimeline = gsap.timeline();
-        introTimeline
-          .from(h1_text_split.words, {
-            y: -100,
-            opacity: 0,
-            duration: 1.5,
-            ease: "back.out",
-            stagger: 0.07,
-          })
-          .to(
-            hero_subhead.current,
-            {
+
+        const playHardLoadIntro = () => {
+          if (!h1_text_split?.words) return;
+          introTimeline?.kill();
+          introTimeline = gsap.timeline();
+          introTimeline
+            .to(h1_text_split.words, {
+              y: 0,
               opacity: 1,
-              duration: 1,
-              ease: "power2.out",
-            },
-            "-=1.1",
-          );
+              duration: 1.5,
+              ease: "back.out",
+              stagger: 0.07,
+            })
+            .to(
+              hero_subhead.current,
+              {
+                opacity: 1,
+                duration: 1,
+                ease: "power2.out",
+              },
+              "-=1.1",
+            );
+        };
+
+        void waitForPageFadeHost().then(() => {
+          if (introWaitCancelled || !h1_text_split?.words) return;
+          playHardLoadIntro();
+        });
       }
 
       // ─── Timelines ──────────────────────────────────────────────────────────
@@ -985,6 +1027,7 @@ export default function HomeHeroSection({
       }, mainRef);
 
       return () => {
+        introWaitCancelled = true;
         if (headlineFitTimer) clearTimeout(headlineFitTimer);
         if (onHeadlineResize) {
           window.removeEventListener("resize", onHeadlineResize);
@@ -1150,7 +1193,7 @@ export default function HomeHeroSection({
         <div className={`@container tracking-normal w-full max-w-[min(100%,24rem)] px-4 sm:max-w-none sm:w-[60%] sm:px-0 lg:w-[45%] mx-auto flex-1 2xl:translate-y-20 3xl:translate-y-40 ${fonts.bricolage_grot500.className}`}>
           <div className="flex flex-col gap-y-10 w-full lg:w-[75cqw] xl:w-[70cqw] 3xl:w-[55cqw] mx-auto min-w-0">
             <PhilosophyTitleLoop />
-            <p className="philosophy-text text-gradient-chambray-diagonal text-center lg:text-left text-[clamp(1rem,1vw,1.5rem)] ">
+            <p className="philosophy-text text-gradient-chambray-diagonal text-left text-[clamp(1rem,1vw,1.5rem)] ">
             The best advertising starts with understanding people.
 What motivates them, what they value, what they ignore - what earns their attention!
 Before we create anything, we work to understand the people we're trying to reach. We measure success by how well we understand the challenge. The extra time spent at the beginning usually leads to stronger work in the end.

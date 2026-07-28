@@ -17,6 +17,7 @@ import PortalProjectTopPicksPanel from '@/components/control-center/portal-proje
 import RequestMessageThread from '@/components/control-center/request-message-thread'
 import { useClientThreadLive } from '@/lib/messaging/use-client-thread-live'
 import ThreadSummaryExport from '@cocreate/app-ui/thread-summary-export'
+import ThreadTranscriptExport from '@cocreate/app-ui/thread-transcript-export'
 import ProjectCoverEditor from '@/components/project-cover-editor'
 import ProjectStatusAttribution, { ProjectTimeline } from '@/components/project-status-attribution'
 import ProjectTeamAside from '@/components/project-team-aside'
@@ -35,6 +36,7 @@ import { useProjectMembers } from '@/lib/team/use-project-members'
 import { bricolage_grot600, bricolage_grot700 } from '@/styles/fonts'
 import {
   downloadProjectThreadSummaryPdf,
+  downloadProjectThreadTranscriptPdf,
   fetchProjectAttachmentPreviewUrl,
   generateProjectThreadSummary,
 } from '@/lib/messaging/fetch-thread-summary'
@@ -376,15 +378,22 @@ export default function PortalProjectWorkspace({
                           </p>
                         ) : null}
                       </div>
-                      <ThreadSummaryExport
-                        fetchAttachmentDownloadUrl={fetchProjectAttachmentPreviewUrl}
-                        onGenerate={(options) =>
-                          generateProjectThreadSummary(cancellation.id, options)
-                        }
-                        onExportPdf={(options) =>
-                          downloadProjectThreadSummaryPdf(cancellation.id, options)
-                        }
-                      />
+                      <div className="flex shrink-0 items-start gap-2">
+                        <ThreadSummaryExport
+                          fetchAttachmentDownloadUrl={fetchProjectAttachmentPreviewUrl}
+                          onGenerate={(options) =>
+                            generateProjectThreadSummary(cancellation.id, options)
+                          }
+                          onExportPdf={(options) =>
+                            downloadProjectThreadSummaryPdf(cancellation.id, options)
+                          }
+                        />
+                        <ThreadTranscriptExport
+                          onExportPdf={(options) =>
+                            downloadProjectThreadTranscriptPdf(cancellation.id, options)
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
                   <div className="mt-0 min-h-0 flex-1 md:mt-4">
@@ -441,15 +450,22 @@ export default function PortalProjectWorkspace({
                           : 'Discussion before your project is accepted.'}
                       </p>
                     </div>
-                    <ThreadSummaryExport
-                      fetchAttachmentDownloadUrl={fetchProjectAttachmentPreviewUrl}
-                      onGenerate={(options) =>
-                        generateProjectThreadSummary(onboarding.id, options)
-                      }
-                      onExportPdf={(options) =>
-                        downloadProjectThreadSummaryPdf(onboarding.id, options)
-                      }
-                    />
+                    <div className="flex shrink-0 items-start gap-2">
+                      <ThreadSummaryExport
+                        fetchAttachmentDownloadUrl={fetchProjectAttachmentPreviewUrl}
+                        onGenerate={(options) =>
+                          generateProjectThreadSummary(onboarding.id, options)
+                        }
+                        onExportPdf={(options) =>
+                          downloadProjectThreadSummaryPdf(onboarding.id, options)
+                        }
+                      />
+                      <ThreadTranscriptExport
+                        onExportPdf={(options) =>
+                          downloadProjectThreadTranscriptPdf(onboarding.id, options)
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="mt-0 min-h-0 flex-1 md:mt-4">
@@ -476,15 +492,22 @@ export default function PortalProjectWorkspace({
                         Updates, deliverables, and replies with CoCreate.
                       </p>
                     </div>
-                    <ThreadSummaryExport
-                      fetchAttachmentDownloadUrl={fetchProjectAttachmentPreviewUrl}
-                      onGenerate={(options) =>
-                        generateProjectThreadSummary(progress.id, options)
-                      }
-                      onExportPdf={(options) =>
-                        downloadProjectThreadSummaryPdf(progress.id, options)
-                      }
-                    />
+                    <div className="flex shrink-0 items-start gap-2">
+                      <ThreadSummaryExport
+                        fetchAttachmentDownloadUrl={fetchProjectAttachmentPreviewUrl}
+                        onGenerate={(options) =>
+                          generateProjectThreadSummary(progress.id, options)
+                        }
+                        onExportPdf={(options) =>
+                          downloadProjectThreadSummaryPdf(progress.id, options)
+                        }
+                      />
+                      <ThreadTranscriptExport
+                        onExportPdf={(options) =>
+                          downloadProjectThreadTranscriptPdf(progress.id, options)
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="mt-0 min-h-0 flex-1 md:mt-4">

@@ -1,16 +1,28 @@
+'use client'
+
+import { useRef } from 'react'
 import * as fonts from '@/styles/fonts'
 import { originalsPageTitle } from '@/site-info/originals-page-data'
 import { pageNavClearanceClass } from '@/lib/page-layout'
+import { usePageTitleReveal } from '@/hooks/use-page-title-reveal'
 import { cn } from '@/utils/tailwind-helpers'
 
 export default function OriginalsPageHeader() {
+  const scopeRef = useRef<HTMLElement>(null)
+  usePageTitleReveal({ scope: scopeRef })
+
   return (
-    <section className="originals-page-header mx-auto mb-8 flex w-[88svw] max-w-[1320px] flex-col text-black min-[1024px]:mb-12 min-[1500px]:mb-20">
+    <section
+      ref={scopeRef}
+      className="originals-page-header mx-auto mb-8 flex w-[88svw] max-w-[1320px] flex-col text-black min-[1024px]:mb-12 min-[1500px]:mb-20"
+    >
       <h1
+        data-page-heading
         className={cn(
-          'about-page-title opacity-100 leading-none uppercase w-fit mx-auto',
-          'overflow-hidden text-center bg-clip-text',
+          'about-page-title w-fit overflow-hidden bg-clip-text text-center leading-none',
+          'uppercase opacity-0',
           'bg-linear-to-r from-sanmarino via-sanmarino to-casablanca text-transparent',
+          'mx-auto',
           pageNavClearanceClass,
         )}
       >

@@ -184,6 +184,13 @@ function DesktopHeader({
   )
 }
 
+const MARKETING_PRIVACY_URL = (() => {
+  const origin =
+    process.env.NEXT_PUBLIC_WEB_URL?.trim().replace(/\/$/, '') ||
+    'http://localhost:3000'
+  return `${origin}/privacy`
+})()
+
 function PortalFooter({ userEmail }: { userEmail: string }) {
   return (
     <footer className="px-4 py-6 sm:px-6 lg:px-8">
@@ -194,9 +201,19 @@ function PortalFooter({ userEmail }: { userEmail: string }) {
         <p className="hidden text-xs uppercase tracking-[0.14em] text-app-muted dark:text-casablanca/90 lg:block">
           CoCreate Caribbean · Client Portal
         </p>
-        <SignOutButton className="text-sanmarino transition hover:text-chambray dark:text-casablanca dark:hover:text-white">
-          Sign out
-        </SignOutButton>
+        <div className="flex items-center gap-4">
+          <a
+            href={MARKETING_PRIVACY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sanmarino transition hover:text-chambray dark:text-casablanca dark:hover:text-white"
+          >
+            Privacy
+          </a>
+          <SignOutButton className="text-sanmarino transition hover:text-chambray dark:text-casablanca dark:hover:text-white">
+            Sign out
+          </SignOutButton>
+        </div>
       </div>
     </footer>
   )

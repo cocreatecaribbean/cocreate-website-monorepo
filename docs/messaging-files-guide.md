@@ -90,7 +90,9 @@ These live in `apps/api/`.
 
 **Plain English:** When someone posts a message on a project thread, this service checks they are allowed, **writes the message to the database**, then tells the emit service to announce it.
 
-**Example:** Maria sends “We uploaded the logo.” This service saves that sentence forever, then tells the bell-ringer: “Announce this in project abc-123’s room.”
+**Example:** Maria sends “We uploaded the logo.” This service saves that sentence forever (no automatic purge — see `/privacy` for client-facing retention language), then tells the bell-ringer: “Announce this in project abc-123’s room.”
+
+Clients and admins can also download an AI **Summary** PDF or a full **Transcript** PDF (optional date range; image attachments embedded inline; timestamps in the viewer’s browser timezone via `timeZone`) from the thread header. Client Portal Privacy links use `NEXT_PUBLIC_WEB_URL` (same origin as API `WEB_URL` for that environment).
 
 ---
 
@@ -339,6 +341,8 @@ These live in `apps/client-portal/`. They mirror the admin files with client-spe
 | Job | Who does it |
 |-----|-------------|
 | Save message forever | `projects.service.ts` or `org-inbox.service.ts` |
+| Export AI summary PDF | `messaging-summary.service.ts` + `ThreadSummaryExport` |
+| Export full transcript PDF (optional date range) | `messaging-summary.service.ts` + `ThreadTranscriptExport` |
 | Shout “new message!” to browsers | `messaging-emit.service.ts` |
 | Let browsers connect and join rooms | `messaging.gateway.ts` |
 | Keep browser line open | `messaging-provider.tsx` |
