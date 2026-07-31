@@ -188,6 +188,48 @@ function isModifiedClick(event: MouseEvent<HTMLAnchorElement>): boolean {
   )
 }
 
+/** Marketing main-nav labels models often bold instead of linking. */
+const BOLD_NAV_LABEL_HREFS: Record<string, string> = {
+  home: '/',
+  about: '/about',
+  work: '/work',
+  originals: '/originals',
+  contact: '/contact',
+}
+
+function hrefForBoldNavLabel(label: string): string | null {
+  return BOLD_NAV_LABEL_HREFS[label.trim().toLowerCase()] ?? null
+}
+
+function renderAssistantLink(
+  key: string,
+  label: string,
+  href: string,
+  onNavigate?: (href: string) => void,
+): ReactNode {
+  const isExternal = /^https?:/i.test(href)
+  const isRelative = href.startsWith('/')
+  return (
+    <a
+      key={key}
+      href={href}
+      className={LINK_CLASS}
+      {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+      onClick={
+        isRelative && onNavigate
+          ? (event) => {
+              if (event.defaultPrevented || isModifiedClick(event)) return
+              event.preventDefault()
+              onNavigate(href)
+            }
+          : undefined
+      }
+    >
+      {label}
+    </a>
+  )
+}
+
 function renderInline(
   text: string,
   keyPrefix: string,
@@ -210,37 +252,35 @@ function renderInline(
 
     const isBold = Boolean(match[1])
     if (isBold) {
-      nodes.push(
-        <strong key={`${keyPrefix}-b-${key++}`} className={BOLD_CLASS}>
-          {match[2]}
-        </strong>,
-      )
+      const boldLabel = match[2] ?? ''
+      const navHref = hrefForBoldNavLabel(boldLabel)
+      if (navHref && isAllowedAssistantHref(navHref)) {
+        nodes.push(
+          renderAssistantLink(
+            `${keyPrefix}-a-${key++}`,
+            boldLabel,
+            navHref,
+            onNavigate,
+          ),
+        )
+      } else {
+        nodes.push(
+          <strong key={`${keyPrefix}-b-${key++}`} className={BOLD_CLASS}>
+            {boldLabel}
+          </strong>,
+        )
+      }
     } else {
       const label = match[3] ?? ''
       const href = (match[4] ?? '').trim()
       if (isAllowedAssistantHref(href)) {
-        const isExternal = /^https?:/i.test(href)
-        const isRelative = href.startsWith('/')
         nodes.push(
-          <a
-            key={`${keyPrefix}-a-${key++}`}
-            href={href}
-            className={LINK_CLASS}
-            {...(isExternal
-              ? { target: '_blank', rel: 'noopener noreferrer' }
-              : {})}
-            onClick={
-              isRelative && onNavigate
-                ? (event) => {
-                    if (event.defaultPrevented || isModifiedClick(event)) return
-                    event.preventDefault()
-                    onNavigate(href)
-                  }
-                : undefined
-            }
-          >
-            {label}
-          </a>,
+          renderAssistantLink(
+            `${keyPrefix}-a-${key++}`,
+            label,
+            href,
+            onNavigate,
+          ),
         )
       } else {
         nodes.push(

@@ -51,7 +51,7 @@ const NavDesktop: React.FC = () => {
                 onClick={closeSearch}
                 className={`
                     relative inline-block
-                    transition-all duration-300 hover:-translate-y-2
+                    transition-all duration-500 ease-in-out hover:-translate-y-2
                     before:content-[''] before:absolute before:left-1/2 before:top-0 before:z-0
                     before:h-[2.75rem] before:w-[calc(100%+0.75rem)] before:-translate-x-1/2
                     ${isActive ? "text-sanmarino" : "text-slate-900"}
@@ -59,7 +59,7 @@ const NavDesktop: React.FC = () => {
                     after:content-[''] after:absolute after:left-1/2 after:-translate-x-1/2 after:top-[110%]
                     after:rounded-full after:w-3 after:h-3
                     ${isActive ? "after:bg-casablanca" : "after:bg-sanmarino"}
-                    after:transition-opacity after:duration-300
+                    after:transition-[opacity,background-color] after:duration-500 after:ease-in-out
                     ${
                       isActive
                         ? "after:opacity-100"
@@ -83,7 +83,7 @@ const NavDesktop: React.FC = () => {
             }}
             className={`
                     relative inline-block cursor-pointer
-                    transition-all duration-300 hover:-translate-y-2
+                    transition-all duration-500 ease-in-out hover:-translate-y-2
                     before:content-[''] before:absolute before:left-1/2 before:top-0 before:z-0
                     before:h-[2.75rem] before:w-[calc(100%+0.75rem)] before:-translate-x-1/2
                     ${isClientPortalOpen ? "text-sanmarino" : "text-slate-900"}
@@ -91,7 +91,7 @@ const NavDesktop: React.FC = () => {
                     after:content-[''] after:absolute after:left-1/2 after:-translate-x-1/2 after:top-[110%]
                     after:rounded-full after:w-3 after:h-3
                     ${isClientPortalOpen ? "after:bg-casablanca" : "after:bg-sanmarino"}
-                    after:transition-opacity after:duration-300
+                    after:transition-[opacity,background-color] after:duration-500 after:ease-in-out
                     ${
                       isClientPortalOpen
                         ? "after:opacity-100"
@@ -108,7 +108,7 @@ const NavDesktop: React.FC = () => {
             aria-label={isSearchOpen ? 'Close search' : 'Open search'}
             aria-expanded={isSearchOpen}
             onClick={toggleSearch}
-            className="relative inline-block cursor-pointer text-slate-900 transition-all duration-300 hover:-translate-y-2 hover:text-sanmarino"
+            className="relative inline-block cursor-pointer text-slate-900 transition-all duration-500 ease-in-out hover:-translate-y-2 hover:text-sanmarino"
           >
             <span className="relative z-[1] inline-flex shrink-0 translate-y-[3px] items-center whitespace-nowrap">
               <Search className="h-5 w-5" strokeWidth={2.25} />

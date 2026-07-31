@@ -39,6 +39,8 @@ describe('getAssistantSystemPrompt (marketing)', () => {
     expect(prompt).toContain('users must NEVER see')
     expect(prompt).toContain('only see the highlighted clickable label')
     expect(prompt).toContain('main nav → [Contact](/contact)')
+    expect(prompt).toContain('Wrong: the **Work** section')
+    expect(prompt).toContain('Never use **Work**, **About**, **Contact**, **Originals**, or **Home**')
     expect(prompt).not.toMatch(/Contact page: \/contact/)
   })
 
