@@ -212,7 +212,6 @@ export default function ContactForm() {
               rows={7}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              minLength={CONTACT_FIELD_LIMITS.messageMin}
               maxLength={CONTACT_FIELD_LIMITS.message}
               className={`${fieldClassName} min-h-[10rem] resize-y rounded-4xl!`}
               suppressHydrationWarning

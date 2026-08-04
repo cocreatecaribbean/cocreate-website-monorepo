@@ -53,7 +53,7 @@ There are **two** messaging places. If someone just says “messaging” or “c
 
 1. **Get Help (org inbox)** — General chat with CoCreate (billing, timelines, account — not tied to one project). Open **Control Center → Get Help** (`/?ccView=messages`). You may see an org-wide thread and, if your admin created them, restricted threads for selected people.
 2. **Project updates** — The main day-to-day project messaging thread (deliverables, progress, replies with CoCreate). Open **Projects** (`/?ccView=projects`), select the project, then open the **Project updates** tab inside that project (`projectTab=progress`).
-3. **Onboarding** — Onboarding chat lives on the **Onboarding** tab inside a project (same Projects → open project pattern).
+3. **Onboarding** — Onboarding chat lives on the **Onboarding** tab inside a project (same Projects → open project pattern). “How do I onboard?” is ambiguous — see FAQ below.
 
 Where do I message the agency about something not tied to one project? Use **Get Help**.
 
@@ -61,9 +61,16 @@ Where do I discuss a specific deliverable or project progress? Use **Project upd
 
 ## Projects, files, and top picks
 
-- Open **Projects** to see workstreams.
+- Open **Projects** to see workstreams. Use **New project** on that screen to create one.
 - Inside a project you can browse files, react to top picks, and chat on **Project updates** (and **Onboarding**) with CoCreate.
 - Attention / notifications may deep-link into the right project or Get Help conversation.
+
+## FAQ — How do I onboard a project?
+
+Do **not** assume they already have a project. Ask one clarifying question first if unclear:
+
+1. **Create a project first** — Control Center → **Projects** (`/?ccView=projects`) → **New project**. After creation, open the project and use the **Onboarding** tab to chat with CoCreate about kickoff details.
+2. **Already have a project** — Control Center → **Projects** → open that project → **Onboarding** tab.
 
 ## Social Listening
 

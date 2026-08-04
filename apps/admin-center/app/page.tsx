@@ -23,25 +23,25 @@ const KPI_META = [
   {
     icon: Users,
     accentBar: 'from-sanmarino to-chambray',
-    accent: 'bg-sanmarino/10 text-sanmarino',
+    accent: 'cc-kpi-icon bg-sanmarino/10 text-sanmarino',
     href: '/clients',
   },
   {
     icon: FolderKanban,
     accentBar: 'from-casablanca to-sanmarino',
-    accent: 'bg-casablanca/15 text-chambray',
+    accent: 'cc-kpi-icon bg-casablanca/15 text-chambray',
     href: '/project-center',
   },
   {
     icon: Mail,
     accentBar: 'from-chambray to-sanmarino',
-    accent: 'bg-chambray/10 text-chambray',
+    accent: 'cc-kpi-icon bg-chambray/10 text-chambray',
     href: '/clients',
   },
   {
     icon: Radio,
     accentBar: 'from-emerald-400 to-sanmarino',
-    accent: 'bg-emerald-500/10 text-emerald-700',
+    accent: 'cc-kpi-icon bg-emerald-500/10 text-emerald-700',
     href: '/social-listening',
   },
 ] as const

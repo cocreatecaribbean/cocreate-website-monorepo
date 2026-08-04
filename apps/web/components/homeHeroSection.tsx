@@ -12,7 +12,7 @@ import BackgroundVideo from "@/components/background_video";
 import MuxBackgroundVideo from "@/components/media/mux-background-video";
 import WhatWeDoAccordions from "@/components/what-we-do-accordions";
 import PhilosophyTitleLoop from "@/components/philosophy-title-loop";
-import EmblaCarousel from "@/components/emblaCarousel";
+import PhilosophyCarousel from "@/components/philosophy-carousel";
 import { philosophies } from "@/site-info/home-page-data";
 import { EmblaOptionsType } from "embla-carousel";
 import { applySharedTextGradient, splitTextGradient } from "@/utils/util-funcs";
@@ -1201,7 +1201,7 @@ Before we create anything, we work to understand the people we're trying to reac
             </p>
           </div>
         </div>
-        <EmblaCarousel
+        <PhilosophyCarousel
           slides={philosophies}
           options={OPTIONS}
           onInit={setEmblaApi}

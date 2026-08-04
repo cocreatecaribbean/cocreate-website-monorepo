@@ -7,7 +7,7 @@ import {
   usePrevNextButtons
 } from './emblaCarouselArrowButtons'
 import { DotButton, useDotButton, getEmblaDotClassName } from './emblaCarouselDotButton'
-import EmblaSlide from './emblaSlide'
+import PhilosophyCarouselSlide from './philosophy-carousel-slide'
 import { cn } from '@/utils/tailwind-helpers'
 import { Philosophy } from '@/types/global-types'
 import {
@@ -23,7 +23,7 @@ type PropType = {
   onInit?: (api: EmblaCarouselType) => void
 }
 
-const EmblaCarousel = (props: PropType) => {
+const PhilosophyCarousel = (props: PropType) => {
   const { slides, options, className_embla, className_emblaView, onInit } = props
 
   const [emblaRef, emblaApi] = useEmblaCarousel(options)
@@ -64,7 +64,7 @@ const EmblaCarousel = (props: PropType) => {
                     className="embla__slide__gsap w-full h-full"
                     ref={(el) => { gsapSlideRefs.current[index] = el }}
                   >
-                    <EmblaSlide
+                    <PhilosophyCarouselSlide
                       name={slide.name}
                       info={slide.info}
                       bgImage={slide.bgImage}
@@ -101,4 +101,4 @@ const EmblaCarousel = (props: PropType) => {
   )
 }
 
-export default EmblaCarousel
+export default PhilosophyCarousel

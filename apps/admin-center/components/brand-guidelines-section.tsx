@@ -166,7 +166,7 @@ export default function BrandGuidelinesSection({ organizationId }: BrandGuidelin
       <section className="admin-glass-card overflow-hidden ring-1 ring-casablanca/25">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-casablanca/20 bg-linear-to-r from-casablanca/15 via-transparent to-sanmarino/10 px-5 py-4 sm:px-6">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-casablanca/25 text-chambray">
+            <div className="cc-kpi-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-casablanca/25 text-chambray">
               <BookOpen className="h-5 w-5" strokeWidth={1.75} aria-hidden />
             </div>
             <div>

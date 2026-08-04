@@ -1,6 +1,7 @@
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import Image from 'next/image'
 import { Suspense, useEffect, useState } from 'react'
 import { LogOut, Menu } from 'lucide-react'
 import PortalDrawerShell from '@cocreate/app-ui/portal-drawer-shell'
@@ -12,7 +13,13 @@ import ClientPortalAssistant from '@/components/assistant/client-portal-assistan
 import { usePortalProfileQuery } from '@/lib/api/queries/team'
 import { setActiveOrganizationId } from '@/lib/api/active-organization'
 import { resolveCanUseSocialListening } from '@/lib/portal-profile-types'
-import { bricolage_grot500 } from '@/styles/fonts'
+import {
+  getMarketingCookiesUrl,
+  getMarketingPrivacyUrl,
+  getMarketingSiteOrigin,
+  warnIfMarketingSiteUrlMissing,
+} from '@/lib/marketing-site-url'
+import { bricolage_grot400, bricolage_grot500 } from '@/styles/fonts'
 
 type ClientPortalShellProps = {
   userEmail: string
@@ -66,7 +73,7 @@ function ClientPortalShellFallback({
         organizationLogoUrl={organizationLogoUrl}
       />
       <div className="flex-1">{children}</div>
-      <PortalFooter userEmail={userEmail} />
+      <PortalFooter />
     </div>
   )
 }
@@ -148,7 +155,7 @@ function ClientPortalShellInner({
 
       <div className="flex-1">{children}</div>
 
-      <PortalFooter userEmail={userEmail} />
+      <PortalFooter />
       <ClientPortalAssistant />
     </PortalDrawerShell>
   )
@@ -184,35 +191,80 @@ function DesktopHeader({
   )
 }
 
-const MARKETING_PRIVACY_URL = (() => {
-  const origin =
-    process.env.NEXT_PUBLIC_WEB_URL?.trim().replace(/\/$/, '') ||
-    'http://localhost:3000'
-  return `${origin}/privacy`
-})()
+/** Compact chambray brand footer (stripped marketing footer). */
+function PortalFooter() {
+  const [year, setYear] = useState<number | null>(null)
+  const marketingOrigin = getMarketingSiteOrigin()
+  const privacyUrl = getMarketingPrivacyUrl()
+  const cookiesUrl = getMarketingCookiesUrl()
 
-function PortalFooter({ userEmail }: { userEmail: string }) {
+  useEffect(() => {
+    setYear(new Date().getFullYear())
+    warnIfMarketingSiteUrlMissing()
+  }, [])
+
+  const linkClass =
+    'text-sm text-white/90 transition hover:text-casablanca underline-offset-2 hover:underline'
+
   return (
-    <footer className="px-4 py-6 sm:px-6 lg:px-8">
-      <div
-        className={`mx-auto flex w-full max-w-[88rem] flex-wrap items-center justify-between gap-3 text-sm text-app-muted dark:text-white/80 ${bricolage_grot500.className}`}
-      >
-        <p className="truncate lg:hidden dark:text-white/90">{userEmail}</p>
-        <p className="hidden text-xs uppercase tracking-[0.14em] text-app-muted dark:text-casablanca/90 lg:block">
-          CoCreate Caribbean · Client Portal
-        </p>
-        <div className="flex items-center gap-4">
-          <a
-            href={MARKETING_PRIVACY_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sanmarino transition hover:text-chambray dark:text-casablanca dark:hover:text-white"
-          >
-            Privacy
-          </a>
-          <SignOutButton className="text-sanmarino transition hover:text-chambray dark:text-casablanca dark:hover:text-white">
-            Sign out
-          </SignOutButton>
+    <footer
+      className={`mt-auto bg-chambray text-white ${bricolage_grot400.className}`}
+    >
+      <div className="mx-auto flex w-full max-w-[88rem] flex-col gap-6 px-4 py-8 sm:px-6 sm:py-10 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+        <div className="flex flex-col items-center gap-4 sm:items-start">
+          {marketingOrigin ? (
+            <a
+              href={marketingOrigin}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block"
+            >
+              <Image
+                src="/co_create_logo_hor_wht.svg"
+                alt="CoCreate Caribbean"
+                width={160}
+                height={36}
+                className="h-8 w-auto sm:h-9"
+              />
+            </a>
+          ) : (
+            <Image
+              src="/co_create_logo_hor_wht.svg"
+              alt="CoCreate Caribbean"
+              width={160}
+              height={36}
+              className="h-8 w-auto sm:h-9"
+            />
+          )}
+          <p className="text-xs text-white/70">
+            &copy; {year != null ? `${year} ` : ''}CoCreate Caribbean Limited.
+          </p>
+        </div>
+
+        <div
+          className={`flex flex-wrap items-center justify-center gap-x-6 gap-y-3 ${bricolage_grot500.className}`}
+        >
+          {privacyUrl ? (
+            <a
+              href={privacyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={linkClass}
+            >
+              Privacy
+            </a>
+          ) : null}
+          {cookiesUrl ? (
+            <a
+              href={cookiesUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={linkClass}
+            >
+              Cookies
+            </a>
+          ) : null}
+          <SignOutButton className={linkClass}>Sign out</SignOutButton>
         </div>
       </div>
     </footer>

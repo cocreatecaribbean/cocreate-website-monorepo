@@ -21,6 +21,9 @@ describe('Client Portal assistant prompts', () => {
     )
     expect(facts).toContain('two messaging places')
     expect(facts).toContain('never assume')
+    expect(facts).toContain('New project')
+    expect(facts).toContain('Onboarding / start a project')
+    expect(facts).toContain('ask one clarifying question')
     expect(facts).toContain('users must NEVER see')
     expect(facts).toMatch(/Wrong:.*ccView/)
     expect(facts).toContain('/?ccView=social-listening')
@@ -43,6 +46,9 @@ describe('Client Portal assistant prompts', () => {
     expect(prompt).toContain('Never show paths, query strings')
     expect(prompt).toContain('[Team](/?ccView=team)')
     expect(prompt).toContain('**Get Help** vs **Project updates**')
+    expect(prompt).toContain('Incomplete intent (critical)')
+    expect(prompt).toContain('get curious before assuming')
+    expect(prompt).toContain('New project')
     expect(prompt).toContain(
       'Never say Social Listening is an item in the Control Center left menu',
     )

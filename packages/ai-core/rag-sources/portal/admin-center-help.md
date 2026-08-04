@@ -42,7 +42,7 @@ Both can use most Admin Center features. Super-admin-only actions live mainly un
 There are **two** messaging places. If someone just says “messaging,” “chat,” or “inbox,” name both and ask which they mean (or give both short paths).
 
 1. **Get Help (org inbox)** — WhatsApp-style chat with a client organization (billing, timelines, general topics). Sidebar label is **Get Help** (`/messages`); the page chrome / client workspace tab often says **Messages** — same surface. Pick a client / organization, then the conversation. Deep links often look like `/messages?organizationId=…&conversationId=…`.
-2. **Project updates** — The main day-to-day project messaging thread with the client. Open the project from **Project Center** or **Clients**, then open the **Project updates** tab (`?tab=progress`). Also: **Onboarding** tab for onboarding threads; **Team review** is internal-only (clients never see it).
+2. **Project updates** — The main day-to-day project messaging thread with the client. Open the project from **Project Center** or **Clients**, then open the **Project updates** tab (`?tab=progress`). Also: **Onboarding** tab for onboarding threads; **Team review** is internal-only (clients never see it). “How do I onboard?” is ambiguous — see FAQ below.
 
 Where does a client message the agency generally? They use Client Portal → **Get Help**. You reply in Admin Center → **Get Help**.
 
@@ -51,6 +51,7 @@ Where do you discuss a deliverable or project progress? **Project updates** insi
 ## Project Center
 
 - Use **Project Center** for pipelines and delivery status across active work.
+- Create a project from **Project Center** → **Create project**, or from a client workspace in **Clients** → **Create project**.
 - Open a project workspace for files, approvals / request threads, and collaboration with the client.
 
 ## Social Listening (admin)
@@ -76,6 +77,12 @@ External collaborator surfaces live under `/collaborate` (separate login). The m
 
 **Where do I discuss a project deliverable?**  
 Open the project in **Project Center** or **Clients** and use the **Project updates** tab (not Get Help unless it is a general org question).
+
+**How do I onboard a project?**  
+Do **not** assume a project already exists. Ask one clarifying question first if unclear:
+
+1. **Create a project first** — **Project Center** → **Create project**, or open the client in **Clients** → **Create project**. Then open the project and use the **Onboarding** tab.
+2. **Already have a project** — Open it from **Project Center** or **Clients** → **Onboarding** tab.
 
 **Who invites new agency admins?**  
 **Super admins** via **Team**.

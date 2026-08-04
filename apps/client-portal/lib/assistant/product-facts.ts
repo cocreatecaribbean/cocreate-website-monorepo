@@ -150,7 +150,7 @@ export const CLIENT_PORTAL_PRODUCT_FACTS = {
     projectUpdates:
       '**Project updates** — the main day-to-day project messaging thread (deliverables, progress, replies with CoCreate). Left menu → [Projects](/?ccView=projects) → open the project → open the **Project updates** tab inside that project.',
     onboarding:
-      '**Onboarding** — project onboarding chat lives on the **Onboarding** tab inside a project (same Projects → open project pattern).',
+      '**Onboarding / start a project** is ambiguous — never assume they already have a project. (1) **Create a project**: Control Center → [Projects](/?ccView=projects) → **New project** (then onboarding chat appears on that project’s **Onboarding** tab). (2) **Onboarding chat on an existing project**: [Projects](/?ccView=projects) → open the project → **Onboarding** tab. If unclear which they mean, ask one clarifying question before a full how-to.',
   },
   whenStuck:
     'Offer the right messaging path: [Get Help](/?ccView=messages) for general questions, or [Projects](/?ccView=projects) → **Project updates** for project chat — or ask their org admin / CoCreate team.',

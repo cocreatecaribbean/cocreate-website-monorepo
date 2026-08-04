@@ -149,7 +149,7 @@ export default function PortalProjectTopPicksPanel({ projectId }: { projectId: s
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-3">
-        <div className="rounded-xl bg-sanmarino/10 p-2.5 text-sanmarino">
+        <div className="cc-kpi-icon rounded-xl bg-sanmarino/10 p-2.5 text-sanmarino">
           <Star className="h-5 w-5" aria-hidden />
         </div>
         <div>

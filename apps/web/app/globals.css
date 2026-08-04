@@ -172,10 +172,35 @@ body.client-portal-open #smooth-wrapper {
   background-color: var(--site-nav-pill-bg) !important;
 }
 
+/* Philosophy carousel — pulsing ring cue around the active card’s + button */
+.philosophy-plus-pulse {
+  position: absolute;
+  inset: -12%;
+  border-radius: 9999px;
+  border: 2px solid rgb(255 255 255 / 0.9);
+  pointer-events: none;
+  animation: philosophy-plus-pulse 1.4s ease-out infinite;
+}
+
+@keyframes philosophy-plus-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-float,
   .animate-float-soft {
     animation: none !important;
+  }
+
+  .philosophy-plus-pulse {
+    display: none !important;
   }
 
   .cookie-consent-banner {

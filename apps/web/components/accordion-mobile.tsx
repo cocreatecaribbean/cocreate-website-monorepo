@@ -86,7 +86,7 @@ const AccordionItem = ({ value, service, isFirst }: { value: string; service: Se
           className="h-0 opacity-0 overflow-hidden pointer-events-none data-open:pointer-events-auto"
         >
           <div
-            className={`w-[90%] space-y-4 text-casablanca text-xl md:space-y-5 md:text-3xl pl-2 pr-6 pt-8 pb-16 mx-auto ${fonts.bricolage_grot400.className}`}
+            className={`mx-auto w-[min(36rem,90%)] max-w-prose space-y-3 px-2 pt-6 pb-12 text-[clamp(0.95rem,0.9rem+0.45vw,1.0625rem)] leading-relaxed text-casablanca ${fonts.bricolage_grot400.className}`}
           >
             {service.description.map((paragraph, i) => (
               <p key={i}>{paragraph}</p>

@@ -118,7 +118,7 @@ export default function ProjectCenterList() {
                               className="flex flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-5"
                             >
                               <div className="flex min-w-0 items-start gap-3 lg:gap-4">
-                                <div className="shrink-0 rounded-xl bg-linear-to-br from-sanmarino/15 to-chambray/5 p-2.5 text-sanmarino ring-1 ring-sanmarino/10 sm:p-3">
+                                <div className="cc-kpi-icon shrink-0 rounded-xl bg-linear-to-br from-sanmarino/15 to-chambray/5 p-2.5 text-sanmarino ring-1 ring-sanmarino/10 dark:ring-0 sm:p-3">
                                   <FolderKanban className="h-5 w-5" strokeWidth={1.75} />
                                 </div>
                                 <div className="min-w-0">

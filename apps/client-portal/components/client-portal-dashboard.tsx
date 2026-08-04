@@ -355,7 +355,7 @@ function SocialListeningSubscribePanel({
     <div className="space-y-8">
       <section className="portal-surface-solid overflow-hidden bg-linear-to-br from-white via-white to-sanmarino/[0.06] p-6 sm:p-8">
         <div className="flex flex-wrap items-start gap-4">
-          <div className="inline-flex rounded-2xl bg-linear-to-br from-sanmarino/15 to-chambray/5 p-3 text-sanmarino ring-1 ring-sanmarino/15">
+          <div className="cc-kpi-icon inline-flex rounded-2xl bg-linear-to-br from-sanmarino/15 to-chambray/5 p-3 text-sanmarino ring-1 ring-sanmarino/15 dark:ring-0">
             <Radio className="h-6 w-6" aria-hidden />
           </div>
           <div className="min-w-0 flex-1">

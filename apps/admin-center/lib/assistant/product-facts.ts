@@ -89,7 +89,7 @@ export const ADMIN_CENTER_PRODUCT_FACTS = {
     projectUpdates:
       '**Project updates** — the main day-to-day project messaging thread with the client. Open the project from [Project Center](/project-center) or [Clients](/clients), then open the **Project updates** tab.',
     onboarding:
-      '**Onboarding** — onboarding request threads live on the **Onboarding** tab inside a project.',
+      '**Onboarding / start a project** is ambiguous — never assume a project already exists. (1) **Create a project**: [Project Center](/project-center) → **Create project**, or open a client in [Clients](/clients) → **Create project** (then onboarding lives on that project’s **Onboarding** tab). (2) **Onboarding thread on an existing project**: open the project → **Onboarding** tab. If unclear which they mean, ask one clarifying question before a full how-to.',
     teamReview:
       '**Team review** — internal agency-only project thread (clients never see this). Same project workspace, **Team review** tab.',
   },

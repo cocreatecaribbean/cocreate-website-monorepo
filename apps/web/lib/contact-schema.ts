@@ -1,9 +1,16 @@
 import { z } from 'zod'
 
+/** All C0 controls + DEL — for single-line fields (name). */
 const CONTROL_CHARS = /[\u0000-\u001F\u007F]/
+/** Same, but allow tab / LF / CR in multiline message bodies. */
+const MESSAGE_CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/
 
-function rejectControlChars(value: string, label: string): string {
-  if (CONTROL_CHARS.test(value)) {
+function rejectControlChars(
+  value: string,
+  label: string,
+  pattern: RegExp = CONTROL_CHARS,
+): string {
+  if (pattern.test(value)) {
     throw new Error(`${label} contains invalid characters`)
   }
   return value
@@ -41,11 +48,11 @@ export const contactRequestSchema = z
     message: z
       .string()
       .trim()
-      .min(10, 'Message must be at least 10 characters')
+      .min(1, 'Message is required')
       .max(5000, 'Message must be 5000 characters or fewer')
       .transform((value, ctx) => {
         try {
-          return rejectControlChars(value, 'Message')
+          return rejectControlChars(value, 'Message', MESSAGE_CONTROL_CHARS)
         } catch (error) {
           ctx.addIssue({
             code: 'custom',
@@ -69,7 +76,7 @@ export const CONTACT_FIELD_LIMITS = {
   name: 120,
   email: 320,
   message: 5000,
-  messageMin: 10,
+  messageMin: 1,
   companyFax: 200,
   turnstileToken: 2048,
   /** Reject submissions completed faster than this (ms). */

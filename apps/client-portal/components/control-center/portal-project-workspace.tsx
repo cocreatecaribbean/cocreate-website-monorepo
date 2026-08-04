@@ -208,6 +208,13 @@ export default function PortalProjectWorkspace({
     : false
   const canCancel =
     !isViewer && (project.status === 'ACTIVE' || project.status === 'ON_HOLD')
+  const cancellationDenied =
+    cancellation?.cancellationOutcome === 'DENIED' &&
+    ['RESOLVED', 'REJECTED'].includes(cancellation.status)
+  const cancellationInFlight =
+    !!cancellation &&
+    (cancellation.status === 'OPEN' || cancellation.status === 'IN_PROGRESS')
+  const showCancelForm = canCancel && (!cancellation || cancellationDenied) && !cancellationInFlight
 
   const requestCancellation = async () => {
     if (!window.confirm('Request to cancel this project? CoCreate will review and respond.')) {
@@ -275,7 +282,7 @@ export default function PortalProjectWorkspace({
           ← All projects
         </button>
         <div className="mt-3 flex flex-wrap items-start gap-3">
-          <div className="rounded-xl bg-linear-to-br from-sanmarino/15 to-chambray/5 p-2.5 text-sanmarino ring-1 ring-sanmarino/10">
+          <div className="cc-kpi-icon rounded-xl bg-linear-to-br from-sanmarino/15 to-chambray/5 p-2.5 text-sanmarino ring-1 ring-sanmarino/10 dark:ring-0">
             <FolderKanban className="h-6 w-6" strokeWidth={1.75} aria-hidden />
           </div>
           <div className="min-w-0 flex-1">
@@ -368,7 +375,12 @@ export default function PortalProjectWorkspace({
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <p className={`text-chambray ${bricolage_grot600.className}`}>Cancellation</p>
-                        {cancellation.cancellationOutcome ? (
+                        {cancellationDenied ? (
+                          <p className="mt-1 text-sm text-app-muted">
+                            Your cancellation request was declined. You can submit a new request
+                            below if you still want to cancel this project.
+                          </p>
+                        ) : cancellation.cancellationOutcome ? (
                           <p className="mt-1 text-sm text-app-muted">
                             Outcome:{' '}
                             {cancellation.cancellationOutcome.replace(/_/g, ' ').toLowerCase()}
@@ -406,10 +418,12 @@ export default function PortalProjectWorkspace({
                 </section>
               ) : null}
 
-              {canCancel && !cancellation ? (
+              {showCancelForm ? (
                 <section className="portal-glass-card border border-red-200/40 p-5 sm:p-6">
                   <p className={`text-chambray ${bricolage_grot600.className}`}>
-                    Request cancellation
+                    {cancellationDenied
+                      ? 'Request cancellation again'
+                      : 'Request cancellation'}
                   </p>
                   <p className="mt-1 text-sm text-app-muted">
                     Tell CoCreate you wish to end this project. We will confirm any fees before

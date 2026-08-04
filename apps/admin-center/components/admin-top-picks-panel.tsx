@@ -148,7 +148,7 @@ export default function AdminTopPicksPanel({ projectId }: { projectId: string })
     <div className="space-y-6">
       <section className="admin-glass-card p-6">
         <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-sanmarino/10 p-2.5 text-sanmarino">
+          <div className="cc-kpi-icon rounded-xl bg-sanmarino/10 p-2.5 text-sanmarino">
             <Star className="h-5 w-5" aria-hidden />
           </div>
           <div>

@@ -16,7 +16,7 @@ interface Props{
     isActive: boolean
 }
 
-const EmblaSlide = ({ bgImage, name, info, icon, position, isActive }: Props) => {
+const PhilosophyCarouselSlide = ({ bgImage, name, info, icon, position, isActive }: Props) => {
 
     const [expanded, setExpanded] = useState<boolean>(false);
 
@@ -76,19 +76,29 @@ const EmblaSlide = ({ bgImage, name, info, icon, position, isActive }: Props) =>
 
             {/* button */}
             <div className={cn(` absolute z-10 right-0 px-[2em] py-[2em] flex flex-col transition-opacity duration-200 bottom-0 `,isActive===true?`opacity-100 `:` opacity-0 `)}>
-                <Image 
-                    onClick={(e)=>{
-                        e.stopPropagation()
-                        setExpanded(prev => !prev)
-                    }
-                        
-                    } 
-                    
-                    className={cn('opacity-90 transition-all duration-300 w-[4em] h-[4em]', isActive===true?'hover:cursor-pointer':'hover:cursor-default pointer-events-none', expanded?'rotate-45':'rotate-0')} src={modalBtn} alt='modal-button'
-                />
+                <div className="relative inline-flex items-center justify-center">
+                    {isActive && !expanded ? (
+                        <span className="philosophy-plus-pulse" aria-hidden />
+                    ) : null}
+                    <Image
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            setExpanded((prev) => !prev)
+                        }}
+                        className={cn(
+                            'relative z-10 opacity-90 transition-all duration-300 w-[4em] h-[4em]',
+                            isActive === true
+                                ? 'hover:cursor-pointer'
+                                : 'hover:cursor-default pointer-events-none',
+                            expanded ? 'rotate-45' : 'rotate-0',
+                        )}
+                        src={modalBtn}
+                        alt="modal-button"
+                    />
+                </div>
             </div>
         </div>
     )
 }
 
-export default EmblaSlide
+export default PhilosophyCarouselSlide

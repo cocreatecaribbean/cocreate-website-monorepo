@@ -18,7 +18,7 @@ export default function PortalSectionPlaceholder({
 }: PortalSectionPlaceholderProps) {
   return (
     <section className="portal-glass-card portal-animate-in flex min-h-[280px] flex-col items-center justify-center p-10 text-center sm:min-h-[360px]">
-      <div className="inline-flex rounded-2xl bg-linear-to-br from-sanmarino/15 to-chambray/5 p-4 text-sanmarino ring-1 ring-sanmarino/15">
+      <div className="cc-kpi-icon inline-flex rounded-2xl bg-linear-to-br from-sanmarino/15 to-chambray/5 p-4 text-sanmarino ring-1 ring-sanmarino/15 dark:ring-0">
         <Icon className="h-8 w-8" aria-hidden />
       </div>
       <h3 className={`mt-6 text-lg text-chambray ${bricolage_grot600.className}`}>{title}</h3>

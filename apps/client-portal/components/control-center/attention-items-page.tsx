@@ -83,7 +83,7 @@ export default function AttentionItemsPage({ organizationName }: AttentionItemsP
               <li key={item.id}>
                 <article className="portal-glass-card portal-shine-hover flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex gap-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-casablanca/20 text-chambray">
+                    <div className="cc-kpi-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-casablanca/20 text-chambray">
                       <Bell className="h-5 w-5" aria-hidden />
                     </div>
                     <div>

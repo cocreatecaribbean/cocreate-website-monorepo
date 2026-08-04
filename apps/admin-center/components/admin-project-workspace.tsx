@@ -343,7 +343,7 @@ export default function AdminProjectWorkspace({
         ) : project ? (
           <>
             <div className="mt-3 flex flex-wrap items-start gap-3">
-              <div className="rounded-xl bg-linear-to-br from-sanmarino/15 to-chambray/5 p-2.5 text-sanmarino ring-1 ring-sanmarino/10">
+              <div className="cc-kpi-icon rounded-xl bg-linear-to-br from-sanmarino/15 to-chambray/5 p-2.5 text-sanmarino ring-1 ring-sanmarino/10 dark:ring-0">
                 <FolderKanban className="h-6 w-6" strokeWidth={1.75} aria-hidden />
               </div>
               <div className="min-w-0 flex-1">

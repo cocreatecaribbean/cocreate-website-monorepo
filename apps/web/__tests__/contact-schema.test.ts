@@ -32,10 +32,40 @@ describe('contactRequestSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('rejects short messages', () => {
+  it('accepts short non-empty messages', () => {
     const result = contactRequestSchema.safeParse({
       ...validBase,
       message: 'Hi',
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.message).toBe('Hi')
+    }
+  })
+
+  it('accepts messages with newlines and tabs', () => {
+    const result = contactRequestSchema.safeParse({
+      ...validBase,
+      message: 'Line one\nLine two\r\n\tindented',
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.message).toContain('\n')
+    }
+  })
+
+  it('rejects null bytes in message', () => {
+    const result = contactRequestSchema.safeParse({
+      ...validBase,
+      message: 'Hello\u0000world',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects empty messages', () => {
+    const result = contactRequestSchema.safeParse({
+      ...validBase,
+      message: '   ',
     })
     expect(result.success).toBe(false)
   })

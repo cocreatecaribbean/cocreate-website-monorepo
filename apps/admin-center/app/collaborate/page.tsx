@@ -45,7 +45,7 @@ export default async function CollaborateHomePage() {
                 href={`/collaborate/projects/${project.id}`}
                 className="admin-glass-card flex h-full flex-col gap-3 px-5 py-5 transition hover:ring-2 hover:ring-sanmarino/30"
               >
-                <div className="rounded-xl bg-linear-to-br from-sanmarino/15 to-chambray/5 p-2.5 text-sanmarino ring-1 ring-sanmarino/10 w-fit">
+                <div className="cc-kpi-icon w-fit rounded-xl bg-linear-to-br from-sanmarino/15 to-chambray/5 p-2.5 text-sanmarino ring-1 ring-sanmarino/10 dark:ring-0">
                   <FolderKanban className="h-5 w-5" strokeWidth={1.75} aria-hidden />
                 </div>
                 <div>

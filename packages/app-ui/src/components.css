@@ -17,6 +17,22 @@
   .dark .portal-eyebrow,
   .dark .admin-eyebrow,
   .dark .cc-eyebrow { @apply text-casablanca; }
+
+  /*
+   * Dashboard / section icon chips.
+   * Light mode: keep the accent utilities on the element.
+   * Dark mode: standardized casablanca icon on a muted sanmarino tile
+   * (overrides portal remaps like .dark .bg-casablanca/15.text-chambray).
+   */
+  .cc-kpi-icon {
+    @apply inline-flex shrink-0 items-center justify-center;
+  }
+  .dark .cc-kpi-icon {
+    /* Muted blue tile + casablanca glyph (matches portal dark KPI reference). */
+    background-color: #2d3d63 !important;
+    background-image: none !important;
+    color: var(--color-casablanca) !important;
+  }
   .portal-display,
   .cc-display { @apply font-[family-name:var(--font-alkatra-600)] text-3xl leading-tight sm:text-4xl; color: var(--text-heading); }
   .admin-display,

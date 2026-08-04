@@ -97,7 +97,7 @@ function ProjectCountListCard({
         className="absolute inset-x-0 top-0 h-0.5 bg-linear-to-r from-sanmarino/60 to-chambray/40"
         aria-hidden
       />
-      <div className={`mt-1 inline-flex w-fit rounded-2xl p-2.5 ${accent}`}>
+      <div className={`cc-kpi-icon mt-1 w-fit rounded-2xl p-2.5 ${accent}`}>
         <Icon className="h-5 w-5" aria-hidden />
       </div>
       <p className={`mt-4 text-sm text-app-primary ${bricolage_grot600.className}`}>{label}</p>
@@ -155,7 +155,7 @@ function DashboardKpiGrid({
           className="absolute inset-x-0 top-0 h-0.5 bg-linear-to-r from-sanmarino/60 to-chambray/40"
           aria-hidden
         />
-        <div className="mt-1 inline-flex rounded-2xl bg-sanmarino/10 p-2.5 text-sanmarino">
+        <div className="cc-kpi-icon mt-1 rounded-2xl bg-sanmarino/10 p-2.5 text-sanmarino">
           <FolderKanban className="h-5 w-5" aria-hidden />
         </div>
         <p className={`mt-4 text-2xl text-chambray ${bricolage_grot700.className}`}>

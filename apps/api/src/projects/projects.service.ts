@@ -965,45 +965,88 @@ export class ProjectsService {
         projectId_type: { projectId: project.id, type: ProjectRequestType.CANCELLATION },
       },
     })
-    if (
-      existing &&
-      (existing.status === ProjectRequestStatus.RESOLVED ||
-        existing.status === ProjectRequestStatus.REJECTED)
-    ) {
-      throw new BadRequestException('A cancellation request was already resolved for this project')
+    const closedStatuses: ProjectRequestStatus[] = [
+      ProjectRequestStatus.RESOLVED,
+      ProjectRequestStatus.REJECTED,
+    ]
+    if (existing && closedStatuses.includes(existing.status)) {
+      // Deny is not final — client may request cancellation again.
+      if (existing.cancellationOutcome !== CancellationOutcome.DENIED) {
+        throw new BadRequestException(
+          'A cancellation request was already resolved for this project',
+        )
+      }
     }
 
-    const request = await this.prisma.projectRequest.upsert({
-      where: {
-        projectId_type: { projectId: project.id, type: ProjectRequestType.CANCELLATION },
+    const requestInclude = {
+      ...this.requestInclude(),
+      project: {
+        include: { organization: { select: { id: true, name: true } } },
       },
-      create: {
-        projectId: project.id,
-        type: ProjectRequestType.CANCELLATION,
-        title: `Cancellation: ${project.title}`,
-        description: reason,
-        createdByUserId: client.id,
-        status: ProjectRequestStatus.OPEN,
-        messages: {
-          create: {
-            authorUserId: client.id,
-            authorRole: ProjectMessageAuthorRole.CLIENT,
-            body: reason,
-            messageKind: ProjectMessageKind.CHAT,
+    } as const
+
+    const reopenDenied =
+      existing &&
+      closedStatuses.includes(existing.status) &&
+      existing.cancellationOutcome === CancellationOutcome.DENIED
+
+    const request = reopenDenied
+      ? await this.prisma.$transaction(async (tx) => {
+          await tx.projectRequest.update({
+            where: { id: existing.id },
+            data: {
+              status: ProjectRequestStatus.OPEN,
+              description: reason,
+              resolvedAt: null,
+              resolvedByUserId: null,
+              cancellationOutcome: null,
+              cancellationFeeAmount: null,
+              cancellationFeeNotes: null,
+            },
+          })
+          await tx.projectRequestMessage.create({
+            data: {
+              requestId: existing.id,
+              authorUserId: client.id,
+              authorRole: ProjectMessageAuthorRole.CLIENT,
+              body: reason,
+              messageKind: ProjectMessageKind.CHAT,
+            },
+          })
+          return tx.projectRequest.findUniqueOrThrow({
+            where: { id: existing.id },
+            include: requestInclude,
+          })
+        })
+      : await this.prisma.projectRequest.upsert({
+          where: {
+            projectId_type: {
+              projectId: project.id,
+              type: ProjectRequestType.CANCELLATION,
+            },
           },
-        },
-      },
-      update: {
-        status: ProjectRequestStatus.OPEN,
-        description: reason,
-      },
-      include: {
-        ...this.requestInclude(),
-        project: {
-          include: { organization: { select: { id: true, name: true } } },
-        },
-      },
-    })
+          create: {
+            projectId: project.id,
+            type: ProjectRequestType.CANCELLATION,
+            title: `Cancellation: ${project.title}`,
+            description: reason,
+            createdByUserId: client.id,
+            status: ProjectRequestStatus.OPEN,
+            messages: {
+              create: {
+                authorUserId: client.id,
+                authorRole: ProjectMessageAuthorRole.CLIENT,
+                body: reason,
+                messageKind: ProjectMessageKind.CHAT,
+              },
+            },
+          },
+          update: {
+            status: ProjectRequestStatus.OPEN,
+            description: reason,
+          },
+          include: requestInclude,
+        })
 
     await this.logActivity(project.id, client.id, 'request.cancellation_requested', {
       requestId: request.id,
@@ -1740,7 +1783,10 @@ export class ProjectsService {
       await tx.projectRequest.update({
         where: { id: requestId },
         data: {
-          status: ProjectRequestStatus.RESOLVED,
+          // Accept = RESOLVED (project cancelled). Deny = REJECTED (client may re-request).
+          status: cancelProject
+            ? ProjectRequestStatus.RESOLVED
+            : ProjectRequestStatus.REJECTED,
           resolvedAt: now,
           resolvedByUserId: admin.id,
           cancellationOutcome: dto.outcome,
